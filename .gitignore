@@ -1,0 +1,27 @@
+node_modules/
+desktop/dist/
+desktop/renderer/
+desktop/vendor/siwc-local/dist/
+desktop/test/shots/
+test/shots/
+hype.html
+agents/
+*.log
+.DS_Store
+
+# Builds, archives, installateurs : jamais dans l’historique (les GitHub Releases les portent)
+dist/
+*.zip
+*.exe
+*.blockmap
+*.7z
+# Propre à chaque ordinateur (Æ Games Launcher) et données de joueur : jamais dans le dépôt
+.ae-install.json
+parties/
+# Outils et brouillons de travail
+lab/
+__pycache__/
+test/shots*/
+desktop/test/shots*/
+.env
+.env.*

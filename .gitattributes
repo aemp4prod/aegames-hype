@@ -1,0 +1,8 @@
+# Les mêmes fins de ligne partout (le build Windows de GitHub Actions comme les autres) : LF
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff2 binary

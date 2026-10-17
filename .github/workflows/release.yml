@@ -1,0 +1,87 @@
+# Publie Hype pour Æ Games Launcher (docs/DISTRIBUTION.md) quand un tag « hype-vX.Y.Z » est poussé :
+# build Windows x64 portable, manifest.json local à sa racine, ZIP sans dossier englobant, manifest.json distant
+# (avec « archive »), vérification complète du contrat du launcher, puis Release GitHub non brouillon avec les deux
+# fichiers. La Release va dans ce dépôt, ou dans le dépôt public de distribution si la variable HYPE_BUILDS_REPO est
+# définie (Settings → Secrets and variables → Actions → Variables), avec le secret HYPE_BUILDS_TOKEN (un jeton à
+# accès fin, droit « Contents: Read and write » sur ce dépôt-là seulement).
+name: Publier Hype
+
+on:
+  push:
+    tags:
+      - "hype-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hype-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows x64 → Release ${{ github.ref_name }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    env:
+      BUILDS_REPO: ${{ vars.HYPE_BUILDS_REPO || github.repository }}
+    steps:
+      - name: Sources
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Le tag, package.json et le jeu portent la même version
+        run: |
+          V="${GITHUB_REF_NAME#hype-v}"
+          P="$(node -p "require('./package.json').version")"
+          C="$(grep -oE "APP_VERSION = '[0-9]+\.[0-9]+\.[0-9]+'" ../src/core.js | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+          echo "tag $V · desktop/package.json $P · src/core.js $C"
+          if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ "$V" != "$P" ] || [ "$V" != "$C" ]; then
+            echo "::error::Le tag hype-vX.Y.Z, desktop/package.json et src/core.js doivent porter la même version"
+            exit 1
+          fi
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Build portable, manifestes, archive, vérification
+        run: npm run release:launcher
+        env:
+          HYPE_BUILDS_REPO: ${{ env.BUILDS_REPO }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Notes de version (CHANGELOG.md)
+        run: |
+          awk -v v="$VERSION" 'index($0, "## " v " ") == 1 { on = 1; next } on && /^## / { exit } on { print }' ../CHANGELOG.md > dist/release/notes.md
+          [ -s dist/release/notes.md ] || echo "Hype $VERSION." > dist/release/notes.md
+          cat dist/release/notes.md
+
+      - name: Release GitHub (non brouillon, marquée « latest »)
+        env:
+          GH_TOKEN: ${{ secrets.HYPE_BUILDS_TOKEN || github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/release/Hype-$VERSION-windows-x64.zip" \
+            "dist/release/manifest.json" \
+            --repo "$BUILDS_REPO" --title "Hype $VERSION" --notes-file dist/release/notes.md --latest
+
+      - name: Le manifeste « latest » est en ligne et conforme
+        run: |
+          URL="https://github.com/$BUILDS_REPO/releases/latest/download/manifest.json"
+          for i in 1 2 3 4 5 6; do
+            if node scripts/verify-release.mjs --manifest "$URL"; then exit 0; fi
+            echo "pas encore en ligne, nouvel essai dans 20 s"; sleep 20
+          done
+          echo "::error::$URL ne renvoie pas un manifeste conforme"
+          exit 1

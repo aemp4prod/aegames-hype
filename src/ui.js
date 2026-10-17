@@ -1,0 +1,2985 @@
+/* =========================================================
+   UI (Preact + htm)
+   ========================================================= */
+const { html, render, useState, useEffect, useLayoutEffect, useRef } = window.htmPreact;
+
+const ICONS = {
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  wifi: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
+  wifioff: '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
+  receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  train: '<path d="M8 3.1V7a4 4 0 0 0 8 0V3.1"/><path d="m9 15-1-1"/><path d="m15 15 1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Z"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/>',
+  msg: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  coffee: '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
+  gem: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
+  sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  level: '<path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/>',
+  megaphone: '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  userplus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>',
+  userminus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/>',
+  trend: '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  at: '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  hash: '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  mask: '<path d="M2 12a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V7h-5a8 8 0 0 0-5 2 8 8 0 0 0-5-2H2Z"/><path d="M6 11c1.5 0 3 .5 3 2-2 0-3 0-3-2Z"/><path d="M18 11c-1.5 0-3 .5-3 2 2 0 3 0 3-2Z"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  ffwd: '<polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/>',
+  clapper: '<path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+  play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  upload: '<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
+  calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  studio: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="m10 7 5 3-5 3Z"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  cash: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  chevup: '<path d="m18 15-6-6-6 6"/>',
+  chevdown: '<path d="m6 9 6 6 6-6"/>',
+  stack: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>',
+  bulb: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>',
+  trust: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>'
+};
+function Icon({ n, s = 22, fill = false }) {
+  return html`<svg class="ic" width=${s} height=${s} viewBox="0 0 24 24" fill=${fill ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: ICONS[n] || '' }}></svg>`;
+}
+const onKeys = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); fn(e); } };
+function Avatar({ who, size = 44, onClick }) {
+  const st = `--h:${who.hue || 0};width:${size}px;height:${size}px;font-size:${Math.round(size * (who.emoji ? 0.54 : 0.36))}px`;
+  const cls = 'av' + (who.photo ? ' av-photo' : who.emoji ? '' : ' av-txt') + (who.kind === 'media' ? ' av-media' : '') + (onClick ? ' av-btn' : '');
+  return html`<span class=${cls} style=${st} onClick=${onClick} onKeyDown=${onClick ? onKeys(onClick) : undefined} role=${onClick ? 'button' : undefined} tabindex=${onClick ? 0 : undefined} aria-label=${onClick ? 'Voir le profil de ' + who.name : undefined}>${who.photo ? html`<img src=${who.photo} alt="" loading="lazy" decoding="async" />` : who.emoji || initials(who.name)}</span>`;
+}
+const Verified = () => html`<svg class="vf" width="15" height="15" viewBox="0 0 24 24" role="img" aria-label="Personnage principal"><path fill="currentColor" d="M12 1.6l2.6 2.1 3.3-.4 1 3.2 3 1.6-1 3.2 1 3.2-3 1.6-1 3.2-3.3-.4L12 22.4l-2.6-2.1-3.3.4-1-3.2-3-1.6 1-3.2-1-3.2 3-1.6 1-3.2 3.3.4z"/><path d="M8.2 12.3l2.5 2.4 5-5" fill="none" stroke="var(--hot-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const Typing = () => html`<span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>`;
+function Meter({ frac, tone }) {
+  return html`<div class=${'meter' + (tone ? ' ' + tone : '')}><i style=${'--p:' + Math.round(clamp(num(frac), 0, 1) * 100) + '%'}></i></div>`;
+}
+function RelMeter({ rel }) {
+  return html`<div class="relmeter" role="img" aria-label=${'Relation ' + rel}>${rel ? html`<i class=${rel > 0 ? 'pos' : 'neg'} style=${'--p:' + Math.round(Math.abs(rel) / 2) + '%'}></i>` : null}</div>`;
+}
+const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
+function autosize(el) { if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+const vibeTag = (c) => (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' · ' + VIBES[c.vibe].emoji + ' ' + VIBES[c.vibe].label : '');
+const relShown = (c) => (partnerWord(c) ? VIBES[c.vibe].emoji + ' ' + partnerWord(c) : relLabel(c.rel, c.g, c.vibe));
+
+/* ---------- voice mode: the device's own dictation fills the field, the game sends it after a pause ---------- */
+const AUTO_MS = 3000;
+function loadVoicePref() { try { return localStorage.getItem('hype:voice') === '1'; } catch (e) { return false; } }
+function toggleVoice() {
+  S.voice = !S.voice;
+  try { localStorage.setItem('hype:voice', S.voice ? '1' : '0'); } catch (e) { /* a per-viewer convenience only */ }
+  toast(S.voice ? 'Mode vocal activé : dicte ton message, il part tout seul.' : 'Mode vocal désactivé.');
+  update(false);
+}
+function dictationHint() {
+  const ua = navigator.userAgent || '';
+  const touch = navigator.maxTouchPoints > 1;
+  if (/iPhone|iPad|iPod|Android/.test(ua) || (/Macintosh/.test(ua) && touch)) return 'Touche le micro du clavier et parle.';
+  if (/Mac/.test(ua)) return 'Appuie deux fois sur Fn (🌐) et parle.';
+  if (/Windows/.test(ua)) return 'Appuie sur Windows + H et parle.';
+  return 'Lance la dictée de ton clavier et parle.';
+}
+// Counts down only after the player typed or dictated in this field (not for an old draft, a picked idea or the mode switch).
+function useAutoSend(key, val, can, send) {
+  const [left, setLeft] = useState(0);
+  const timer = useRef(null);
+  const armed = useRef(false);
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    clearInterval(timer.current);
+    timer.current = null;
+    setLeft(0);
+    const text = val.trim();
+    if (!S.voice || !can || !text || !armed.current || S.autoSkip[key] === text) return undefined;
+    const deadline = Date.now() + AUTO_MS;
+    setLeft(AUTO_MS);
+    timer.current = setInterval(() => {
+      const l = deadline - Date.now();
+      if (l > 0) { setLeft(l); return; }
+      clearInterval(timer.current);
+      timer.current = null;
+      setLeft(0);
+      armed.current = false;
+      S.autoSkip[key] = text;
+      sendRef.current();
+    }, 100);
+    return () => { clearInterval(timer.current); timer.current = null; };
+  }, [val, can, S.voice]);
+  const cancel = () => { clearInterval(timer.current); timer.current = null; S.autoSkip[key] = val.trim(); armed.current = false; setLeft(0); };
+  const arm = () => { armed.current = true; delete S.autoSkip[key]; };
+  return [left, cancel, arm];
+}
+function VoiceChip() {
+  return html`<button type="button" class=${'voice-chip' + (S.voice ? ' on' : '')} onClick=${toggleVoice} aria-pressed=${S.voice ? 'true' : 'false'} title="Envoi automatique après une dictée"><${Icon} n="mic" s=${14} /> Mode vocal</button>`;
+}
+function AutoSendBar({ left, cancel }) {
+  if (left > 0) {
+    return html`<div class="autosend" role="status">
+      <div class="autosend-row"><span>Envoi dans ${Math.ceil(left / 1000)} s…</span><button type="button" class="linkbtn" onClick=${cancel}>Annuler</button></div>
+      <${Meter} frac=${1 - left / AUTO_MS} />
+    </div>`;
+  }
+  if (!S.voice) return null;
+  return html`<div class="voice-hint"><${Icon} n="mic" s=${14} /><span>${dictationHint()} Ton message part tout seul 3 secondes après.</span></div>`;
+}
+function RichText({ text, g }) {
+  const parts = [];
+  const re = /(@[A-Za-z0-9._]{2,30}|#[\p{L}\p{N}_]{2,40})/gu;
+  let last = 0, m, k = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parts.push(...emoParts(text.slice(last, m.index), 't' + k++ + '-')); // 0.17: our stickers
+    const tok = m[0];
+    if (tok[0] === '@' && g) {
+      const h = normHandle(tok);
+      const c = charByHandle(g, h);
+      const go = c && c.unlocked ? () => openChar(c.id) : h === g.player.handle ? () => goTab('profile') : null;
+      parts.push(html`<span key=${k++} class="mention" role=${go ? 'button' : undefined} tabindex=${go ? 0 : undefined} onClick=${go ? stop(go) : undefined} onKeyDown=${go ? onKeys(go) : undefined}>${tok}</span>`);
+    } else if (tok[0] === '#' && g) {
+      const go = () => openTag(tok);
+      parts.push(html`<span key=${k++} class="tag" role="button" tabindex="0" onClick=${stop(go)} onKeyDown=${onKeys(go)}>${tok}</span>`);
+    } else parts.push(html`<span key=${k++} class=${tok[0] === '@' ? 'mention' : 'tag'}>${tok}</span>`);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) parts.push(...emoParts(text.slice(last), 't' + k++ + '-'));
+  return parts;
+}
+
+/* ---------- navigation ---------- */
+const SCROLL = {};
+const VIEW_EL = { current: null };
+const TABS = [
+  { id: 'feed', icon: 'home', label: 'Fil' },
+  { id: 'notifs', icon: 'bell', label: 'Notifs' },
+  { id: 'dms', icon: 'msg', label: 'Messages' },
+  { id: 'studio', icon: 'studio', label: 'Studio' },
+  { id: 'quests', icon: 'trophy', label: 'Quêtes' },
+  { id: 'profile', icon: 'user', label: 'Profil' },
+];
+const TITLES = { feed: 'Fil d’actu', notifs: 'Notifications', dms: 'Messages', studio: 'Studio', quests: 'Quêtes et boutique', profile: 'Profil' };
+function goTab(t) {
+  const g = S.game;
+  if (!g) return;
+  if (S.tab === 'notifs' && t !== 'notifs') g.notifReadAt = Date.now();
+  if (t === 'notifs' && S.tab !== 'notifs') { S.notifSeenBefore = g.notifReadAt; g.notifReadAt = Date.now(); }
+  if (t === S.tab && !S.stack.length && VIEW_EL.current) VIEW_EL.current.scrollTo({ top: 0, behavior: 'smooth' });
+  if (t !== S.tab && VIEW_EL.current) SCROLL[S.tab] = VIEW_EL.current.scrollTop;
+  closeAllLayers();
+  S.tab = t;
+  S.fabAway = false; // (the pen is back on another tab)
+  update();
+}
+function openLayer(l) {
+  const top = S.stack[S.stack.length - 1];
+  if (top && top.t === l.t && top.id === l.id) return;
+  l.key = uid('l');
+  S.stack.push(l);
+  if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
+  update(false);
+}
+const resetComposeExtras = () => Object.assign(S.drafts, { photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [] });
+function closeLayer() {
+  const l = S.stack.pop();
+  if (l && l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
+  if (l && l.t === 'compose') resetComposeExtras();
+  if (S.ideas && (!l || l.t === 'compose' || S.ideas.key === l.id)) S.ideas = null;
+  update();
+}
+function closeAllLayers() {
+  while (S.stack.length) {
+    const l = S.stack.pop();
+    if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
+    if (l.t === 'compose') resetComposeExtras();
+  }
+  S.ideas = null;
+}
+const openPost = (id, focus) => openLayer({ t: 'thread', id, focus: !!focus });
+const openChar = (id) => { if (id === 'p') goTab('profile'); else openLayer({ t: 'char', id }); };
+const openDM = (id) => openLayer({ t: 'dm', id });
+const openShop = () => openLayer({ t: 'shop' });
+const openTag = (tg) => openLayer({ t: 'tag', id: tg });
+// opts: { text } prefills (e.g. a mention), { quote: postId }, { apology: true }, { accuse: charId }
+function openCompose(opts = {}) {
+  const d = S.drafts;
+  if (opts.accuse && S.game && S.game.chars[opts.accuse]) {
+    const c = S.game.chars[opts.accuse];
+    if (d.accuse !== c.id) { d.fake = null; d.caps = []; } // a proof made up against someone else does not follow
+    Object.assign(d, { accuse: c.id, quote: null, apology: false, photo: null, debunk: null, confess: null, secAns: null, pfp: null });
+    d.cite = (S.game.clues || []).filter((k) => k.c === c.id && k.at <= Date.now()).map((k) => k.id);
+    if (!d.post.includes('@' + c.handle)) d.post = ('@' + c.handle + ' ' + d.post).slice(0, 280);
+  }
+  if (opts.debunk && S.game) { // answering a false rumor
+    const r = (S.game.rumors || []).find((x) => x.id === opts.debunk);
+    if (r) Object.assign(d, { debunk: r.id, accuse: null, quote: null, apology: false, photo: null, fake: null, caps: [], confess: null, secAns: null, pfp: null });
+  }
+  if (opts.confess && S.game) { // 0.18: confessing one of the player's secrets first
+    const sc = secretOf(S.game, opts.confess);
+    if (sc && !sc.out) Object.assign(d, { confess: sc.id, secAns: null, accuse: null, debunk: null, quote: null, apology: false, fake: null, caps: [], pfp: null });
+  }
+  if (opts.secAns && S.game) { // 0.18: answering a secret that came out
+    const sc = secretOf(S.game, opts.secAns.id);
+    if (sc && sc.out && !sc.out.answer && STANCES[opts.secAns.stance]) Object.assign(d, { secAns: { id: sc.id, stance: opts.secAns.stance }, confess: null, accuse: null, debunk: null, quote: null, apology: false, fake: null, caps: [], pfp: null });
+  }
+  if (opts.merch && S.game) { // 0.22: the post that launches the merch
+    const md = openDrop(S.game);
+    if (md && md.id === opts.merch && md.state === 'ready') { Object.assign(d, { merch: md.id, accuse: null, debunk: null, confess: null, secAns: null, apology: false, quote: null, pfp: null }); if (!d.post.trim()) d.post = '🛍️ Mon merch est enfin là ! '; }
+  }
+  if (opts.pfp && S.game) { // 0.25.1: the post that shows the new profile photo (it takes the draft's photo spot)
+    const old = (d.pics || []).filter((x) => x !== opts.pfp.pic);
+    for (const x of old) mediaDel(x);
+    if (old.length) markDrafts(null, old);
+    Object.assign(d, { pfp: opts.pfp.pic, photo: opts.pfp.desc || '', pics: [opts.pfp.pic], diapo: false, see: false, merch: null, accuse: null, debunk: null, confess: null, secAns: null, apology: false, quote: null, fake: null, caps: [] });
+    if (!d.post.trim()) d.post = '📸 Nouvelle photo de profil ! ';
+  }
+  if (opts.text && !d.post.toLowerCase().includes(opts.text.trim().toLowerCase())) d.post = (opts.text + d.post).slice(0, 280);
+  if (opts.quote) d.quote = opts.quote;
+  if (opts.apology) d.apology = true;
+  if (S.stack.some((l) => l.t === 'compose')) { update(false); return; }
+  openLayer({ t: 'compose' });
+}
+function openAuthor(au) { if (au.kind === 'player') goTab('profile'); else if (au.id) openChar(au.id); else if (au.handle) openLayer({ t: 'npc', id: au.handle }); }
+function topDMId() { const l = S.stack[S.stack.length - 1]; return l && l.t === 'dm' ? l.id : null; }
+function goFeedTop() {
+  if (S.tab !== 'feed') { if (VIEW_EL.current) SCROLL[S.tab] = VIEW_EL.current.scrollTop; S.tab = 'feed'; }
+  SCROLL.feed = 0;
+  S.feedAtTop = true;
+  S.feedSeenAt = Date.now();
+  if (VIEW_EL.current) VIEW_EL.current.scrollTop = 0;
+}
+function scrollFeedTop() {
+  S.feedSeenAt = Date.now();
+  S.feedAtTop = true;
+  if (VIEW_EL.current) VIEW_EL.current.scrollTo({ top: 0, behavior: 'smooth' });
+  update(false);
+}
+function tabBadge(g, id, now) {
+  if (id === 'notifs' && S.tab !== 'notifs') return unreadNotifs(g, now);
+  if (id === 'dms') return unreadDMs(g, now, topDMId());
+  if (id === 'profile') return g.stats.skillPoints;
+  if (id === 'studio') return g.deals.filter((d) => d.state === 'offer').length + (programOf(g) && programOf(g).ok && g.career.prog.state === 'none' ? 1 : 0);
+  return 0;
+}
+// Among the modals that are due, the most important first: a cancel before a level-up.
+const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
+function dueModal(now) {
+  if (now < S.modalGapUntil) return null;
+  let best = null;
+  const playing = S.stack.some((l) => l.t === 'minigame'); // 0.18: nobody knocks during a shoot or a date being played
+  for (const m of S.modals) if (m.at <= now && !(m.t === 'visit' && playing) && (!best || (MODAL_RANK[m.t] ?? 9) < (MODAL_RANK[best.t] ?? 9))) best = m;
+  return best;
+}
+function closeModal(m) { S.modals = S.modals.filter((x) => x !== m); S.modalGapUntil = Date.now() + 700; update(false); }
+
+/* ---------- app lifecycle ---------- */
+let leaving = Promise.resolve();
+// The café budget chosen last time (a new game starts with it).
+function savedBudget() { try { const v = Number(localStorage.getItem('hype:budget')); return BUDGETS.some((b) => b.n === v) && localStorage.getItem('hype:budget') !== null ? v : BUDGET_DEFAULT; } catch (e) { return BUDGET_DEFAULT; } }
+function startOnboarding() {
+  if (!hostReady()) { toast('Connecte-toi à ChatGPT d’abord : c’est lui qui fait parler les personnages.', 'bad', { label: 'Se connecter', run: hostSignIn }); return; }
+  S.ob = {
+    step: 'world', world: null, custom: '', errors: {}, game: null, live: [], posts: [], error: null, follower: null,
+    persona: { name: '', handle: '', handleEdited: false, emoji: pick(PERSONA_EMOJIS), hue: pick(PERSONA_HUES), identity: '', bio: '', start: 'anon', pron: '', chaos: 1, platform: '', budget: savedBudget(), adult: false, careDates: lsGet('hype:careDates') === '1', intensity: INTENSITY[lsGet('hype:intensity')] ? lsGet('hype:intensity') : 'normal', secrets: [] },
+  };
+  S.phase = 'onboard';
+  update(false);
+}
+async function openGame(id) {
+  if (S.busy.load) return;
+  S.busy.load = true;
+  S.phase = 'loading';
+  update(false);
+  let g = null, failed = false;
+  try { await leaving; g = await loadGameData(id); } catch (e) { console.warn(e); failed = true; }
+  S.busy.load = false;
+  if (!g) { S.phase = 'home'; toast(failed ? 'Impossible de charger cette partie pour l’instant. Réessaie.' : 'Cette partie est introuvable.', 'bad'); update(false); return; }
+  if (g.pendingCast) { // the world was created but the first follower was never picked
+    g.ready = true;
+    S.ob = { step: 'cast', resumed: true, world: g.world.preset || 'custom', custom: '', errors: {}, game: g, live: [], posts: g.pendingCast.posts || [], error: null, follower: null, persona: Object.assign({}, g.player) };
+    S.phase = 'onboard';
+    update(false);
+    return;
+  }
+  enterGame(g);
+}
+function enterGame(g, restore = {}) {
+  const t = Date.now();
+  g.ready = true;
+  syncEnergy(g);
+  Object.assign(S, {
+    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
+    feedSeenAt: t, feedAtTop: true, lastToastAt: t, notifSeenBefore: g.notifReadAt,
+    drafts: { post: '', photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], reply: {}, dm: {}, confess: null, secAns: null, conf: {} }, replyTo: {}, autoSkip: {}, catchup: null,
+  });
+  refreshTrends(g, t);
+  for (const k in SCROLL) delete SCROLL[k];
+  const away = t - (g.lastSeenAt || g.lastPlayedAt || t);
+  if (away > ABSENCE_MS && !restore.hot) {
+    const gain = applyAbsence(g, away);
+    S.catchup = { ms: away, gain };
+    scheduleSave();
+  }
+  g.lastSeenAt = t;
+  if (g.low) syncLow(g, t);
+  if (!g.planScan && scanPlans(g)) scheduleSave(); // « je réponds ce soir en live », said before events existed
+  bumpLive(t + 2000);
+  update(false);
+}
+function leaveGame() {
+  const g = S.game;
+  if (g) g.lastSeenAt = Date.now();
+  Object.assign(S, { game: null, phase: 'home', stack: [], modals: [], toasts: [], ideas: null, catchup: null });
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  update(false);
+  leaving = abortFlows().then(() => saveGame(g)); // each flow finishes or undoes itself on g, then g is saved once
+}
+async function removeGame(g) {
+  const id = g.id;
+  Object.assign(S, { game: null, phase: 'home', stack: [], modals: [], toasts: [], ideas: null, catchup: null });
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  deletedIds.add(id); // nothing may write it back while its flows end
+  update(false);
+  await abortFlows();
+  deleteDone(id, await deleteGame(id), null);
+}
+
+// From the home screen: a game deleted without opening it (the open one goes through removeGame).
+async function removeGameById(id) {
+  if (S.game && S.game.id === id) return removeGame(S.game);
+  const sm = S.games.find((x) => x.id === id) || null;
+  deletedIds.add(id);
+  S.games = S.games.filter((x) => x.id !== id); // out of the list at once
+  update(false);
+  await leaving; // a game just left finishes saving first (nothing more is written once it is marked deleted)
+  deleteDone(id, await deleteGame(id), sm);
+}
+// Not everything could be erased (connection lost…): the game stays in the list, to delete again.
+function deleteDone(id, ok, sm) {
+  if (ok) toast('Partie supprimée.');
+  else {
+    deletedIds.delete(id);
+    if (sm && !S.games.some((x) => x.id === id)) S.games = S.games.concat(sm).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    toast('La suppression n’a pas pu aller jusqu’au bout (connexion ?) : réessaie.', 'bad');
+  }
+  update(false);
+}
+
+/* ---------- root ---------- */
+function App() {
+  const [, setTick] = useState(0);
+  renderApp = () => setTick((x) => x + 1);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      const m = S.phase === 'game' ? dueModal(Date.now()) : null;
+      if (m) { if (!STICKY_MODALS.includes(m.t)) closeModal(m); } // 0.18: a visit is not closed that way
+      else if (S.stack.length) closeLayer();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const now = S.now;
+  let main = null;
+  if (S.phase === 'home') main = html`<${Home} now=${now} />`;
+  else if (S.phase === 'onboard') main = html`<${Onboarding} now=${now} />`;
+  else if (S.phase === 'game' && S.game) main = html`<${Game} g=${S.game} now=${now} />`;
+  else if (S.phase === 'atelier') main = html`<${Atelier} now=${now} />`;
+  else main = html`<${Splash} />`;
+  return html`${main}<${HostModal} /><${Toasts} now=${now} />`;
+}
+function Splash() {
+  return html`<div class="splash"><span class="wm wm-xl">hype<i></i></span><${Typing} /></div>`;
+}
+// 0.15: the toasts sit at the bottom, just above what is there: the tab bar, or the box where the player writes (a
+// conversation, a thread), so they never cover the clock or a conversation's header, nor what is being typed.
+function toastBottom() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return null;
+  const layers = document.querySelectorAll('.layer');
+  const top = layers.length ? layers[layers.length - 1] : null;
+  const fab = top ? null : document.querySelector('.shell .fab:not(.away)'); // (the pen: just above it)
+  const bar = top ? top.querySelector('.layer-foot') : fab && fab.offsetParent ? fab : document.querySelector('.shell .tabbar');
+  if (!bar || !bar.offsetParent) return 24;
+  return Math.max(12, Math.round(window.innerHeight - bar.getBoundingClientRect().top + 10));
+}
+function Toasts({ now }) {
+  const dmOpen = S.phase === 'game' ? topDMId() : null;
+  const list = S.toasts.filter((t) => t.from <= now && t.until > now && !(dmOpen && t.action && t.action.dm === dmOpen)).slice(-2); // no « X t’a écrit » over X’s conversation
+  if (!list.length) return null;
+  const b = toastBottom();
+  return html`<div class="toasts" role="status" aria-live="polite" style=${b == null ? undefined : 'bottom:' + b + 'px'}>${list.map((t) => html`<div key=${t.id} class=${'toast ' + t.kind} onClick=${() => { t.until = 0; update(false); }}>
+    <span>${emoParts(t.text)}</span>
+    ${t.action ? html`<button onClick=${stop(() => { t.until = 0; t.action.run(); update(false); })}>${t.action.label}</button>` : null}
+  </div>`)}</div>`;
+}
+
+/* ---------- home ---------- */
+const PREVIEW = [
+  { name: 'La Gazette de Lumen', handle: 'gazette_lumen', emoji: '📰', hue: 265, kind: 'media', text: 'EXCLU : un nouvel étudiant aurait fait léviter tout le réfectoire ce midi. On enquête 👀 #Lumen', likes: 1240, rps: 210, replies: 86, time: '6 min' },
+  { name: 'Zara Vey', handle: 'zara.vey', emoji: '🦊', hue: 20, verified: true, text: 'le jour où quelqu’un me battra en duel n’est pas encore arrivé. bonne chance au nouveau, il va en avoir besoin', likes: 312, rps: 18, replies: 41, time: '3 min' },
+  { name: 'Mila Flux', handle: 'mila.flux', emoji: '🌙', hue: 225, me: true, text: '@zara.vey demain 8h, cour des Glycines. ramène tes lunettes de soleil', likes: 158, rps: 27, replies: 23, time: 'à l’instant', res: { fol: 48, xp: 34, verdict: 'Ça buzz fort' } },
+];
+function PreviewPost({ p }) {
+  return html`<article class="post">
+    <${Avatar} who=${p} />
+    <div class="post-body">
+      <div class="post-head"><span class="post-name">${p.name}</span>${p.verified ? html`<${Verified} />` : null}<span class="post-handle">@${p.handle}</span><span class="post-time">· ${p.time}</span></div>
+      <p class="post-text"><${RichText} text=${p.text} g=${null} /></p>
+      ${p.res ? html`<div class="res"><span class="chip good">+${p.res.fol} abonnés</span><span class="chip hot">+${p.res.xp} XP</span><span class="chip">${p.res.verdict}</span></div>` : null}
+      <div class="post-actions">
+        <span class="act"><${Icon} n="msg" s=${18} /><span>${p.replies}</span></span>
+        <span class="act"><${Icon} n="repeat" s=${18} /><span>${fmtN(p.rps)}</span></span>
+        <span class="act"><${Icon} n="heart" s=${18} /><span>${fmtN(p.likes)}</span></span>
+      </div>
+    </div>
+  </article>`;
+}
+/* ---------- moving a game between AIs: one file ---------- */
+const canFiles = () => !!(HOST && HOST.saveFile && HOST.openFile);
+async function exportGame(id) {
+  try {
+    const text = await exportGameText(id);
+    const sm = S.games.find((x) => x.id === id) || (S.game && S.game.id === id ? summarize(S.game) : null);
+    if (await HOST.saveFile(exportName(sm), text)) toast('Partie exportée : tu peux l’importer dans Hype pour Claude ou pour ChatGPT.');
+  } catch (e) { toast('L’export n’a pas marché. Réessaie.', 'bad'); }
+}
+async function importGame() {
+  let f = null;
+  try { f = await HOST.openFile(); } catch (e) { f = null; }
+  if (!f || !f.text) return;
+  try { const g = await importGameText(f.text); toast(`Partie importée : ${g.world.emoji} ${g.world.name}.`, 'good'); }
+  catch (e) { toast(e && e.code === 'full' ? `Tu as déjà ${MAX_GAMES} parties : supprime-en une d’abord.` : e && e.code === 'invalid' ? 'Ce fichier n’est pas une partie Hype.' : 'L’import n’a pas marché. Réessaie.', 'bad'); }
+  update(false);
+}
+
+/* ---------- ChatGPT (desktop app): the way in, the account, the plan in use ---------- */
+const SESSION_ERR = {
+  cancelled: 'Connexion annulée.', sign_in_failed: 'La connexion n’a pas abouti. Réessaie.', connection_busy: 'Une connexion est déjà en cours.',
+  network_error: 'Impossible de joindre ChatGPT. Vérifie ta connexion.', access_denied: 'Connexion refusée dans le navigateur. Tu peux réessayer quand tu veux.',
+  browser_unavailable: 'Impossible d’ouvrir ton navigateur pour te connecter.', callback_port_unavailable: 'Une autre copie de Hype est peut-être ouverte : ferme-la et réessaie.',
+  storage_encryption_unavailable: 'Ton ordinateur ne permet pas de protéger la connexion à ChatGPT (trousseau du système indisponible).',
+  storage_invalid: 'Le fichier de connexion à ChatGPT est abîmé : reconnecte-toi.',
+};
+function GptMark({ s = 20 }) {
+  const a = HOST && HOST.assets ? HOST.assets : {};
+  return html`<span class="gpt-mark" aria-hidden="true"><img class="m-dark" src=${a.markBlack} alt="" width=${s} height=${s} /><img class="m-light" src=${a.markWhite} alt="" width=${s} height=${s} /></span>`;
+}
+// The plan indicator: next to the composer and the model choice, always with « Gérer l'usage ».
+function GptPlanLine() {
+  return html`<span class="gpt-plan"><${GptMark} s=${16} /><span>Utilise ton abonnement ChatGPT</span><span aria-hidden="true">·</span><button type="button" class="linkbtn" onClick=${() => HOST.openUsage()}>Gérer l’usage</button></span>`;
+}
+function GptConnect() {
+  return html`<button type="button" class="btn gpt-btn" onClick=${hostSignIn} disabled=${S.host.busy}><${GptMark} />${S.host.busy ? 'Termine la connexion dans ton navigateur…' : 'Continuer avec ChatGPT'}</button>`;
+}
+function GptPanel() {
+  const ss = S.host.session;
+  if (!ss) return html`<div class="gpt-panel"><${Typing} /></div>`;
+  if (ss.status === 'connected' && ss.sharing) {
+    return html`<div class="gpt-panel ok">
+      <${GptMark} s=${22} />
+      <div class="gpt-mid"><b>Connecté à ChatGPT</b><small>${(ss.identity && ss.identity.email) || ss.profileLabel || ''}</small></div>
+      <button type="button" class="linkbtn" onClick=${() => HOST.openUsage()}>Gérer l’usage</button>
+    </div>`;
+  }
+  const keyring = ss.error && /^storage_/.test(ss.error.code || '');
+  const why = ss.status === 'connected' ? 'Ton compte est connecté, mais Hype n’a pas le droit d’utiliser ton abonnement. Reconnecte-toi en l’acceptant.'
+    : ss.status === 'reauth_required' && !keyring ? 'Ta connexion à ChatGPT a expiré : reconnecte-toi.'
+    : 'Ici, les personnages parlent grâce à ton abonnement ChatGPT (Go, Plus ou Pro) : rien à payer en plus, aucune clé à créer.';
+  const err = ss.error && ss.error.code !== 'cancelled' ? SESSION_ERR[ss.error.code] || aiErrorText({ code: ss.error.code }) : '';
+  return html`<div class="gpt-panel">
+    <p>${why}</p>
+    <${GptConnect} />
+    ${err ? html`<small class="err">${err}</small>` : null}
+    ${S.host.busy ? html`<button type="button" class="linkbtn" onClick=${() => HOST.cancelSignIn()}>Annuler</button>` : null}
+  </div>`;
+}
+function GptSettings() {
+  const ss = S.host.session || {};
+  const models = S.host.models;
+  return html`<div class="field gpt-settings">
+    <span class="lbl">ChatGPT</span>
+    <${GptPlanLine} />
+    ${models.length ? html`<label class="gpt-model"><span>Modèle</span><select class="input" value=${S.host.prefs.model || models[0].slug} onChange=${(ev) => setHostModel(ev.target.value)}>${models.map((m) => html`<option key=${m.slug} value=${m.slug}>${m.displayName || m.slug}</option>`)}</select></label>` : null}
+    <small>${ss.status === 'connected' ? html`Connecté : ${(ss.identity && ss.identity.email) || ss.profileLabel || 'ton compte'} · <button type="button" class="linkbtn" onClick=${hostSignOut} disabled=${S.host.busy}>Se déconnecter</button>` : html`Pas connecté · <button type="button" class="linkbtn" onClick=${hostSignIn} disabled=${S.host.busy}>Continuer avec ChatGPT</button>`}</small>
+  </div>`;
+}
+function HostModal() {
+  const m = S.hostModal;
+  if (!m || !HOST) return null;
+  const close = () => { S.hostModal = null; update(false); };
+  let card = null;
+  if (m.t === 'gpt-welcome') {
+    card = html`<div class="modal-card">
+      <div class="modal-big" aria-hidden="true"><${GptMark} s=${44} /></div>
+      <div class="modal-title">Hype utilise ton abonnement ChatGPT</div>
+      <p>Les personnages répondent grâce à ton abonnement : chaque réponse compte dans l’usage inclus dans ton abonnement ChatGPT, sans rien payer en plus. Tu peux voir et limiter cet usage dans les réglages de ChatGPT.</p>
+      <button class="btn btn-hot" onClick=${close}>Compris</button>
+      <button class="btn btn-ghost" onClick=${() => HOST.openUsage()}>Gérer l’usage</button>
+    </div>`;
+  } else if (m.t === 'gpt-limit') {
+    card = html`<div class="modal-card">
+      <div class="modal-big" aria-hidden="true"><${GptMark} s=${44} /></div>
+      <div class="modal-title">Limite d’usage atteinte</div>
+      <p>Les personnages ne peuvent plus répondre pour l’instant. La limite vient de ton abonnement ChatGPT, ou de celle que tu as fixée pour Hype dans les réglages de ChatGPT.</p>
+      <button class="btn btn-hot" onClick=${() => { HOST.openUsage(); close(); }}>Gérer l’usage</button>
+      <button class="btn btn-ghost" onClick=${close}>Fermer</button>
+    </div>`;
+  }
+  if (!card) return null;
+  return html`<div class="modal host-modal" role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>${card}</div>`;
+}
+function Home({ now }) {
+  const games = S.games;
+  const full = games.length >= MAX_GAMES;
+  const blocked = full || S.store === 'pending' || S.indexError;
+  const [del, setDel] = useState(null); // { s: the game's summary, at: when the question showed }
+  useEffect(() => {
+    if (!del) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setDel(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [del]);
+  const confirmDel = () => { if (!del || Date.now() - del.at < 450) return; const id = del.s.id; setDel(null); removeGameById(id); };
+  return html`<div class="screen"><div class="screen-in">
+    ${games.length ? html`<div class="screen-top">
+      <span class="wm">hype<i></i></span>
+      <button class="btn btn-hot btn-sm" onClick=${startOnboarding} disabled=${blocked || !hostReady()}><${Icon} n="plus" s=${16} /> Nouvelle partie</button>
+    </div>` : null}
+    ${HOST && games.length ? html`<${GptPanel} />` : null}
+    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>${HOST ? 'Connecte-toi à ChatGPT pour que les personnages prennent vie.' : 'Ouvre ce jeu dans Claude (sur le web, l’app de bureau ou l’app mobile) pour que les personnages prennent vie.'}</p></div>` : null}
+    ${S.indexError ? html`<div class="notice bad"><${Icon} n="alert" /><div class="stack" style="gap:8px"><p>Impossible de lire tes parties pour l’instant. Elles ne sont pas perdues.</p><div class="row"><button class="btn btn-hot btn-sm" onClick=${retryIndex}>Réessayer</button></div></div></div>` : null}
+    ${games.length ? html`<section class="stack">
+        <h1 class="h-lg">Tes parties</h1>
+        <div class="saves">${games.map((s) => html`<div key=${s.id} class="save-wrap">
+          <button class="save" onClick=${() => openGame(s.id)} disabled=${S.busy.load}>
+            <span class="save-tile" style=${'--h:' + (s.hue == null ? 300 : s.hue)}>${s.emoji}</span>
+            <span class="save-main"><b>${s.world}</b><span>${s.avatar} ${s.name} · @${s.handle}</span></span>
+            <span class="save-meta">${s.setup ? html`<span class="chip hot">À finir</span>` : html`<b>${fmtN(s.followers)}</b><span>${plural(s.followers, 'abonné', 'abonnés')} · niv. ${s.level}</span>`}<span>${fmtAgo(s.updatedAt, now)}</span></span>
+          </button>
+          <button class="save-del" onClick=${() => setDel({ s, at: Date.now() })} disabled=${S.busy.load} aria-label=${`Supprimer la partie ${s.world} · ${s.name}`} title="Supprimer cette partie"><${Icon} n="trash" s=${18} /></button>
+        </div>`)}</div>
+        ${full ? html`<p class="muted">Tu as atteint ${MAX_GAMES} parties. Pour en créer une autre, supprime-en une avec la corbeille.</p>` : null}
+        ${canFiles() || (creatorOn() && atelierHere()) ? html`<div class="row">${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${importGame} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>` : null}
+      </section>`
+      : html`<section class="hero">
+        <span class="wm wm-xl">hype<i></i></span>
+        <h1 class="h-xl">Ta vie en ligne, version jeu.</h1>
+        <p class="lede">Crée ton perso, choisis un monde et poste. Tout le monde est une IA sauf toi : on te répond, on s’abonne, on s’attache… ou on te cancel.</p>
+        ${HOST ? html`<${GptPanel} />` : null}
+        <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button>${canFiles() ? html`<button class="btn btn-ghost" onClick=${importGame} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
+      </section>
+      <section class="preview" aria-label="Aperçu d’une partie">
+        <div class="preview-tag"><span>Aperçu · exemple de partie</span><span>Académie Lumen</span></div>
+        ${PREVIEW.map((p) => html`<${PreviewPost} key=${p.handle} p=${p} />`)}
+      </section>`}
+    ${S.store === 'local' ? html`<p class="muted" style="font-size:13px">Tes parties sont gardées dans ce navigateur.</p>` : null}
+    ${S.store === 'memory' ? html`<div class="notice bad"><${Icon} n="alert" /><p>La sauvegarde n’est pas disponible ici : ta partie sera perdue en quittant.</p></div>` : null}
+    ${del ? html`<div class="modal" role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget) setDel(null); }}>
+      <div class="modal-card">
+        <div class="modal-big" aria-hidden="true">${del.s.emoji}</div>
+        <div class="modal-title">Supprimer cette partie ?</div>
+        <p>${del.s.world} · ${del.s.avatar} ${del.s.name} (@${del.s.handle}). Tout sera effacé, sauvegardes comprises, sans retour possible.</p>
+        <button class="btn btn-danger-solid" onClick=${confirmDel}>Supprimer définitivement</button>
+        <button class="btn btn-ghost" onClick=${() => setDel(null)}>Annuler</button>
+      </div>
+    </div>` : null}
+  </div><button type="button" class="app-version" onClick=${tapVersion} title="Le jeu est encore en développement : des choses peuvent changer ou casser.">Hype ${APP_VERSION} · ${APP_STAGE}${creatorOn() && atelierHere() ? ' · créateur' : ''}</button></div>`;
+}
+
+/* ---------- onboarding ---------- */
+function sanitizeHandleInput(v) {
+  return String(v || '').replace(/^@+/, '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '.').replace(/[^a-z0-9._]/g, '').slice(0, 18);
+}
+function validatePersona(P) {
+  const e = {};
+  if (str(P.name, 30).length < 1) e.name = 'Donne un nom à ton perso.';
+  if (normHandle(P.handle).length < 3) e.handle = 'Ton pseudo doit faire au moins 3 caractères.';
+  if (str(P.identity, 200).length < 4) e.identity = 'Dis en quelques mots qui tu es dans ce monde.';
+  if (!P.adult) e.adult = 'Hype est réservé aux 18 ans et plus : coche la case pour continuer.';
+  return e;
+}
+function obBack() {
+  const ob = S.ob;
+  if (!ob) return;
+  if (ob.step === 'world') { S.ob = null; S.phase = 'home'; }
+  else if (ob.step === 'persona') ob.step = 'world';
+  else if (ob.step === 'creating' && ob.error) { ob.step = 'persona'; ob.error = null; }
+  else if (ob.step === 'cast' && ob.resumed) { S.ob = null; S.phase = 'home'; }
+  update(false);
+}
+function Onboarding({ now }) {
+  const ob = S.ob;
+  if (!ob) return null;
+  const idx = { world: 0, persona: 1, creating: 2, cast: 2 }[ob.step] || 0;
+  const canBack = ob.step === 'world' || ob.step === 'persona' || (ob.step === 'creating' && ob.error) || (ob.step === 'cast' && ob.resumed);
+  let body;
+  if (ob.step === 'world') body = html`<${WorldStep} />`;
+  else if (ob.step === 'persona') body = html`<${PersonaStep} />`;
+  else if (ob.step === 'creating') body = html`<${CreatingStep} now=${now} />`;
+  else body = html`<${CastStep} />`;
+  return html`<div class="screen"><div class="screen-in">
+    <div class="screen-top">
+      ${canBack ? html`<button class="iconbtn" onClick=${obBack} aria-label="Retour"><${Icon} n="back" /></button>` : null}
+      <span class="wm">hype<i></i></span>
+      <div class="steps" aria-hidden="true">${[0, 1, 2].map((i) => html`<i key=${i} class=${i <= idx ? 'on' : ''}></i>`)}</div>
+    </div>
+    ${body}
+  </div></div>`;
+}
+function WorldStep() {
+  const ob = S.ob;
+  const [custom, setCustom] = useState(ob.world === 'custom');
+  const choose = (id) => { ob.world = id; ob.step = 'persona'; update(false); };
+  return html`
+    <div class="stack">
+      <p class="eyebrow">Étape 1 sur 3</p>
+      <h1 class="h-xl">Choisis ton monde</h1>
+      <p class="lede">Chaque monde a ses personnages, ses rivalités et ses secrets. Tu pourras lancer d’autres parties ensuite.</p>
+    </div>
+    <div class="worlds">
+      ${WORLDS.map((w) => html`<button key=${w.id} class=${'world' + (ob.world === w.id ? ' on' : '')} style=${'--h:' + w.hue} onClick=${() => choose(w.id)}>
+        <span class="world-emoji">${w.emoji}</span><b>${w.name}</b><span class="world-desc">${w.desc}</span>
+        ${w.real ? html`<span class="world-news">${newsFresh() ? 'Actu du ' + new Date(S.news.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'Actu pas encore mise à jour'}</span>` : null}</button>`)}
+      <button class=${'world world-custom' + (custom ? ' on' : '')} onClick=${() => setCustom(true)}>
+        <span class="world-emoji">✨</span><b>Ton univers</b><span class="world-desc">Une série, un manga, un jeu que tu aimes, ou un monde inventé.</span></button>
+    </div>
+    ${custom ? html`<${CustomWorld} />` : null}`;
+}
+function CustomWorld() {
+  const ob = S.ob;
+  const [v, setV] = useState(ob.custom || '');
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) { ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); ref.current.querySelector('textarea').focus({ preventScroll: true }); } }, []);
+  const ok = v.trim().length >= 12;
+  return html`<div class="stack" ref=${ref}>
+    <div class="field">
+      <label for="cw">Décris ton univers</label>
+      <textarea id="cw" class="input" rows="4" maxlength="900" placeholder="ex : l’univers d’une série que j’adore, une ville sous-marine en 2200, ma fac version super-héros…" value=${v} onInput=${(e) => { setV(e.target.value); ob.custom = e.target.value; }}></textarea>
+      <small>Pas de vraies personnes : les personnages seront fictifs.</small>
+    </div>
+    <div class="row"><button class="btn btn-hot" disabled=${!ok} onClick=${() => { ob.world = 'custom'; ob.custom = v.trim(); ob.step = 'persona'; update(false); }}>Continuer</button>${ok ? null : html`<span class="muted" style="font-size:13px">Quelques mots de plus.</span>`}</div>
+  </div>`;
+}
+function Seg({ items, value, onPick, label }) { // items: [value, label, disabled?]
+  return html`<div class="seg" role="group" aria-label=${label}>${items.map(([k, lb, off]) => html`<button type="button" key=${k} class=${value === k ? 'on' : ''} aria-pressed=${value === k ? 'true' : 'false'} disabled=${!!off} onClick=${() => onPick(k)}>${lb}</button>`)}</div>`;
+}
+// « Rendez-vous soignés »: the AI reads its date mini-game again against the story, and writes it ahead (0.9.3).
+function CareDatesBox({ on, set }) {
+  return html`<label class=${'check-card' + (on ? ' on' : '')}>
+    <input type="checkbox" checked=${on} onChange=${(e) => set(e.target.checked)} />
+    <span><b>Rendez-vous soignés 💘</b><small>Le mini-jeu de chaque rendez-vous se prépare dès que tu y vas, et l’IA le relit pour qu’il colle à votre histoire (disputes, bad buzz, ce que vous vous êtes dit). ≈ +1 café par rendez-vous.</small></span>
+  </label>`;
+}
+function PersonaStep() {
+  const ob = S.ob, P = ob.persona;
+  const [, force] = useState(0);
+  const set = (k, v) => {
+    P[k] = v;
+    if (k === 'name' && (!P.handleEdited || !P.handle)) { P.handleEdited = false; P.handle = sanitizeHandleInput(v).replace(/^[._]+|[._]+$/g, ''); }
+    if (Object.keys(ob.errors).length) {
+      const fresh = validatePersona(P);
+      for (const key of Object.keys(ob.errors)) if (!fresh[key]) delete ob.errors[key];
+    }
+    force((x) => x + 1);
+  };
+  const w = ob.world === 'custom' ? { name: 'Ton univers', role: 'ex : la personne la plus mystérieuse de ce monde' } : WORLDS.find((x) => x.id === ob.world);
+  const errs = ob.errors || {};
+  const submit = (e) => {
+    e.preventDefault();
+    ob.errors = validatePersona(P);
+    if (Object.keys(ob.errors).length) {
+      force((x) => x + 1);
+      const id = ob.errors.name ? 'pn' : ob.errors.handle ? 'ph' : ob.errors.identity ? 'pi' : 'p18';
+      setTimeout(() => { const el = document.getElementById(id); if (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 40);
+      return;
+    }
+    try { localStorage.setItem('hype:budget', String(P.budget)); } catch (err) { /* the next game starts at the default */ }
+    lsSet('hype:careDates', P.careDates ? '1' : '0'); // the next game offers the same choice
+    lsSet('hype:intensity', P.intensity || 'normal');
+    createWorld();
+  };
+  const who = { name: P.name || '?', emoji: P.emoji, hue: P.hue };
+  return html`<form class="stack" style="gap:22px" onSubmit=${submit} novalidate>
+    <div class="stack"><p class="eyebrow">Étape 2 sur 3 · ${w.name}</p><h1 class="h-xl">Qui es-tu ?</h1></div>
+    <div class="persona-head"><${Avatar} who=${who} size=${64} /><div class="stack" style="gap:2px;min-width:0"><b>${P.name || 'Ton nom'}</b><span>@${normHandle(P.handle) || 'pseudo'}</span></div></div>
+    <div class="field">
+      <span class="lbl">Avatar</span>
+      <div class="emoji-grid">${PERSONA_EMOJIS.map((em) => html`<button type="button" key=${em} class=${'emoji-opt' + (P.emoji === em ? ' on' : '')} onClick=${() => set('emoji', em)} aria-label=${'Avatar ' + em} aria-pressed=${P.emoji === em ? 'true' : 'false'}>${em}</button>`)}</div>
+      <div class="swatches" style="margin-top:8px">${PERSONA_HUES.map((h) => html`<button type="button" key=${h} class=${'swatch' + (P.hue === h ? ' on' : '')} style=${'--h:' + h} onClick=${() => set('hue', h)} aria-label=${'Couleur ' + h}></button>`)}</div>
+    </div>
+    <div class="field">
+      <label for="pn">Nom affiché</label>
+      <input id="pn" class="input" maxlength="30" value=${P.name} onInput=${(e) => set('name', e.target.value)} placeholder="ex : Mila Flux" autocomplete="off" aria-invalid=${errs.name ? 'true' : undefined} />
+      ${errs.name ? html`<span class="err">${errs.name}</span>` : null}
+    </div>
+    <div class="field">
+      <label for="ph">Pseudo</label>
+      <div class="input-at"><input id="ph" class="input" maxlength="18" value=${P.handle} onInput=${(e) => { P.handleEdited = true; set('handle', sanitizeHandleInput(e.target.value)); }} placeholder="mila.flux" autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid=${errs.handle ? 'true' : undefined} /></div>
+      <small>Lettres, chiffres, point et tiret bas.</small>
+      ${errs.handle ? html`<span class="err">${errs.handle}</span>` : null}
+    </div>
+    <div class="field">
+      <span class="lbl">On parle de toi au…</span>
+      <${Seg} items=${PRONOUNS} value=${P.pron} onPick=${(k) => set('pron', k)} label="Pronom" />
+      <small>Pour accorder les textes du jeu (abonné, abonnée…).</small>
+    </div>
+    <div class="field">
+      <label for="pi">Ton rôle dans ce monde</label>
+      <textarea id="pi" class="input" rows="3" maxlength="200" value=${P.identity} onInput=${(e) => set('identity', e.target.value)} placeholder=${w.role} aria-invalid=${errs.identity ? 'true' : undefined}></textarea>
+      <small>Les personnages réagiront à qui tu es.</small>
+      ${errs.identity ? html`<span class="err">${errs.identity}</span>` : null}
+    </div>
+    <div class="field">
+      <label for="pb">Bio <span class="muted">(facultatif)</span></label>
+      <input id="pb" class="input" maxlength="140" value=${P.bio} onInput=${(e) => set('bio', e.target.value)} placeholder="Ce qu’on lit sur ton profil" autocomplete="off" />
+    </div>
+    <${SecretsField} list=${P.secrets || []} onChange=${(v) => set('secrets', v)} />
+    <div class="field">
+      <span class="lbl">Point de départ</span>
+      <div class="starts">${Object.entries(START).map(([k, v]) => html`<button type="button" key=${k} class=${'start' + (P.start === k ? ' on' : '')} onClick=${() => set('start', k)} aria-pressed=${P.start === k ? 'true' : 'false'}><b>${v.label}</b><span>${v.desc}</span><em>${nAbonnes(v.followers)}</em></button>`)}</div>
+    </div>
+    <div class="field">
+      <span class="lbl">Ta plateforme</span>
+      <div class="pf-pick">${[['', '✨', 'Auto'], ...Object.keys(PLATFORMS).map((k) => [k, PLATFORMS[k].emoji, PLATFORMS[k].name])].map(([k, em, lb]) => html`<button type="button" key=${k || 'auto'} class=${'pf-opt' + ((P.platform || '') === k ? ' on' : '')} aria-pressed=${(P.platform || '') === k ? 'true' : 'false'} onClick=${() => set('platform', k)}><span aria-hidden="true">${em}</span>${lb}</button>`)}</div>
+      <small>${P.platform ? PLATFORMS[P.platform].tips[0] : `Devinée d’après ton rôle : ${PLATFORMS[guessPlatform(P.identity)].name}.`} Elle décide de tes formats et de la façon dont tu gagnes de l’argent.</small>
+    </div>
+    <div class="field">
+      <span class="lbl">Intensité du jeu</span>
+      <${IntensityTiers} value=${P.intensity || 'normal'} set=${(k) => { delete P.chatty; delete P.autoLive; delete P.comments; delete P.live; set('intensity', k); }} comments=${P.comments} live=${P.live} />
+      <${IntensitySettings} lv=${INTENSITY[P.intensity] ? P.intensity : 'normal'} comments=${P.comments} live=${P.live} set=${(k, v) => set(k, v)} />
+    </div>
+    <div class="field">
+      <span class="lbl">Ton budget IA par jour</span>
+      <${BudgetTiers} value=${P.budget} lv=${INTENSITY[P.intensity] ? P.intensity : 'normal'} vol=${COMMENTS[commentsOf(null, Object.assign({}, P, { intensity: INTENSITY[P.intensity] ? P.intensity : 'normal' }))].vol} set=${(k) => set('budget', k)} />
+      <small>Chaque réaction des personnages utilise ton abonnement ${AI_NAME}. Les cafés comptent ce que le jeu en prend aujourd’hui et le mettent en pause avant ta limite. ${(BUDGETS.find((x) => x.n === P.budget) || BUDGETS[2]).desc}</small>
+      <small class="plan-advice">${PLAN_ADVICE}</small>
+    </div>
+    <div class="field">
+      <span class="lbl">Ambiance</span>
+      <${Seg} items=${CHAOS.map((c, i) => [i, c.label])} value=${P.chaos} onPick=${(k) => set('chaos', k)} label="Ambiance" />
+      <small>${(CHAOS[P.chaos] || CHAOS[1]).desc} Tu pourras la changer plus tard.</small>
+    </div>
+    <div class="field">
+      <span class="lbl">Option IA</span>
+      <${CareDatesBox} on=${!!P.careDates} set=${(v) => set('careDates', v)} />
+    </div>
+    <label class=${'check-card age-ok' + (P.adult ? ' on' : '') + (errs.adult ? ' bad' : '')}>
+      <input id="p18" type="checkbox" checked=${!!P.adult} onChange=${(e) => set('adult', e.target.checked)} aria-invalid=${errs.adult ? 'true' : undefined} />
+      <span><b>J’ai 18 ans ou plus</b><small>Hype est fait pour les adultes : drague, rendez-vous, clashs.</small></span>
+    </label>
+    ${errs.adult ? html`<span class="err">${errs.adult}</span>` : null}
+    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>${HOST ? 'Connecte-toi à ChatGPT pour que les personnages prennent vie.' : 'Ouvre ce jeu dans Claude pour que les personnages prennent vie.'}</p></div>` : null}
+    <div class="row">
+      <button class="btn btn-hot" type="submit" disabled=${S.busy.create}>Créer mon monde</button>
+      <span class="muted" style="font-size:13px">${AI_NAME} invente tes personnages : compte de 20 secondes à une minute.</span>
+    </div>
+  </form>`;
+}
+const CREATING_LINES = ['On dessine la carte du monde…', 'Les personnages se réveillent…', 'Quelqu’un lance déjà une rumeur sur toi…', 'Les rivalités se mettent en place…', 'Le fil d’actu chauffe…'];
+function CreatingStep({ now }) {
+  const ob = S.ob, g = ob.game;
+  if (ob.error) {
+    const e = ob.error;
+    return html`<div class="creating">
+      <div class="orb" style="--h:15">😵</div>
+      <h1 class="h-lg">${e.code === 'thin' ? 'Le monde est resté trop vide' : 'La création a échoué'}</h1>
+      <p class="lede">${e.code === 'thin' ? `${AI_NAME} n’a pas créé assez de personnages. Relance la création.` : aiErrorText(e, 'create')}</p>
+      <div class="row" style="justify-content:center">
+        ${e.code === 'not_granted' ? html`<button class="btn btn-ghost" onClick=${openPermissions}>Autoriser Claude</button>` : null}
+        <button class="btn btn-hot" onClick=${createWorld}>Réessayer</button>
+        <button class="btn btn-ghost" onClick=${obBack}>Modifier mon perso</button>
+        <button class="btn btn-ghost" onClick=${() => { ob.error = null; ob.step = 'world'; update(false); }}>Changer de monde</button>
+      </div>
+    </div>`;
+  }
+  const w = g ? g.world : { emoji: '✨', hue: 300, name: '' };
+  const n = ob.live.length;
+  return html`<div class="creating">
+    <div class="orb" style=${'--h:' + w.hue}>${w.emoji}</div>
+    <h1 class="h-lg">${n ? w.name : 'Ton monde prend vie'}</h1>
+    <p class="muted" aria-live="polite">${n ? `${n} compte${n > 1 ? 's' : ''} sur le réseau…` : CREATING_LINES[Math.floor(now / 3200) % CREATING_LINES.length]}</p>
+    <div class="cast-live">${ob.live.map((id) => { const c = g.chars[id]; return c ? html`<div class="cast-row" key=${id}><${Avatar} who=${author(g, 'c:' + id)} size=${40} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></div>` : null; })}</div>
+    <button class="btn btn-ghost btn-sm" onClick=${cancelCreate}>Annuler</button>
+  </div>`;
+}
+function CastStep() {
+  const ob = S.ob, g = ob.game;
+  const ms = mains(g), md = medias(g);
+  const story = g.quests.filter((q) => q.kind === 'story');
+  const hint = (r) => (r <= -10 ? ['bad', 'Ça part mal'] : r >= 10 ? ['good', 'Plutôt pour toi'] : ['', 'Neutre']);
+  const pickId = ob.follower;
+  const picked = pickId ? g.chars[pickId] : null;
+  const choose = (id) => { ob.follower = ob.follower === id ? null : id; update(false); };
+  return html`
+    <div class="stack" style="gap:16px">
+      <p class="eyebrow">Étape 3 sur 3</p>
+      <div class="world-banner" style=${'--h:' + g.world.hue}>
+        <span class="big">${g.world.emoji}</span>
+        <h1 class="h-xl">${g.world.name}</h1>
+        ${g.world.tagline ? html`<p><b>${g.world.tagline}</b></p>` : null}
+        ${g.world.description ? html`<p>${g.world.description}</p>` : null}
+      </div>
+    </div>
+    <section class="stack">
+      <div class="section-h"><h2 class="h-md">Qui sera ton premier abonné ?</h2><span class="muted">les autres le sauront</span></div>
+      <div class="cast-grid">${ms.map((c) => {
+        const [tone, label] = hint(c.rel);
+        const on = pickId === c.id;
+        return html`<button type="button" class=${'cast-card pick' + (on ? ' on' : '')} key=${c.id} onClick=${() => choose(c.id)} aria-pressed=${on ? 'true' : 'false'}>
+          <header><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div>${on ? html`<span class="pick-check"><${Icon} n="check" s=${16} /></span>` : null}</header>
+          ${c.hook ? html`<p class="hook">« ${c.hook} »</p>` : c.bio ? html`<p>${c.bio}</p>` : null}
+          <div class="row" style="gap:6px"><span class=${'chip ' + tone}>${label}</span><span class="chip">${nAbonnes(c.followers)}</span>${c.age ? html`<span class="chip">${c.age} ans</span>` : null}</div>
+        </button>`;
+      })}</div>
+    </section>
+    ${md.length ? html`<section class="stack"><h2 class="h-md">Les médias du coin</h2><div class="cast-grid">${md.map((c) => html`<article class="cast-card" key=${c.id}>
+      <header><${Avatar} who=${author(g, 'c:' + c.id)} size=${40} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></header>
+    </article>`)}</div></section>` : null}
+    ${story.length ? html`<section class="stack"><h2 class="h-md">Tes premières quêtes</h2>${story.map((q) => html`<div class="notice" key=${q.id}><${Icon} n="trophy" /><div class="stack" style="gap:2px"><b style="color:var(--ink)">${q.title}</b><p>${q.desc}</p></div></div>`)}</section>` : null}
+    <div class="cast-cta"><button class="btn btn-hot btn-block" disabled=${!picked} onClick=${() => enterNewGame(pickId)}>${picked ? `Entrer avec ${picked.name.split(' ')[0]} comme premier abonné` : 'Choisis ton premier abonné'}</button></div>`;
+}
+
+/* ---------- game shell ---------- */
+function Game({ g, now }) {
+  const modal = dueModal(now);
+  return html`<div class="shell">
+    <${Rail} g=${g} now=${now} />
+    <main class="col">
+      <${TopBar} g=${g} />
+      <${StatusStrip} g=${g} now=${now} />
+      <div class="train-slot"><${TrainBar} g=${g} now=${now} /></div>
+      <${TabView} g=${g} now=${now} />
+      <nav class="tabbar" aria-label="Navigation">${TABS.map((t) => { const b = tabBadge(g, t.id, now); return html`<button key=${t.id} class=${'tab' + (S.tab === t.id ? ' on' : '')} onClick=${() => goTab(t.id)} aria-current=${S.tab === t.id ? 'page' : undefined}><${Icon} n=${t.icon} s=${23} /><span>${t.label}</span>${b ? html`<span class="badge">${b > 99 ? '99+' : b}</span>` : null}</button>`; })}</nav>
+      ${S.tab === 'feed' || S.tab === 'profile' ? html`<button class=${'fab' + (S.fabAway ? ' away' : '')} onClick=${() => openCompose()} aria-label="Publier un post" tabindex=${S.fabAway ? -1 : undefined}><${Icon} n="pen" s=${24} /></button>` : null}
+    </main>
+    <${Side} g=${g} now=${now} />
+    ${S.stack.map((l, i) => html`<${Layer} key=${l.key} l=${l} i=${i} g=${g} now=${now} />`)}
+    ${modal ? html`<${Modal} key=${modal.id} m=${modal} g=${g} />` : null}
+  </div>`;
+}
+function Rail({ g, now }) {
+  return html`<nav class="rail" aria-label="Navigation principale">
+    <span class="wm">hype<i></i></span>
+    ${TABS.map((t) => { const b = tabBadge(g, t.id, now); return html`<button key=${t.id} class=${'rail-item' + (S.tab === t.id ? ' on' : '')} onClick=${() => goTab(t.id)} aria-label=${t.label}><${Icon} n=${t.icon} s=${24} /><span>${t.label}</span>${b ? html`<span class="badge">${b > 99 ? '99+' : b}</span>` : null}</button>`; })}
+    <button class="btn btn-hot rail-post" onClick=${() => openCompose()} aria-label="Publier"><${Icon} n="pen" s=${20} /><span>Publier</span></button>
+    <button class="rail-me" onClick=${() => goTab('profile')} aria-label="Mon profil"><${Avatar} who=${author(g, 'p')} size=${40} /><div><b>${g.player.name}</b><span>@${g.player.handle}</span></div></button>
+  </nav>`;
+}
+// Only this chip ticks every second while cafés regenerate (not the whole page).
+// The cafés: the AI budget left today (the ring empties as the day's budget goes).
+function EnergyChip({ g, label }) {
+  const e = energyNow(g, Date.now());
+  const frac = e.unlimited ? 1 : e.max ? clamp(e.left / e.max, 0, 1) : 0;
+  const low = !e.unlimited && e.left <= e.max * 0.2;
+  return html`<button class=${'res-chip' + (low ? ' low' : '')} onClick=${() => queueModal({ t: 'budget', at: Date.now() })} title=${e.unlimited ? 'Budget IA sans limite' : `Budget IA du jour : ${fmtCafes(e.left)} cafés sur ${e.max} · recharge à minuit`} aria-label=${e.unlimited ? 'Budget IA sans limite' : `${fmtCafes(e.left)} cafés sur ${e.max} aujourd’hui`}>
+    <span class="ring" style=${'--p:' + frac.toFixed(3)}><${Icon} n="coffee" s=${14} /></span><b>${fmtCafes(e.left)}</b>${e.unlimited ? null : html`<small>/${e.max}${label ? ' cafés' : ''}</small>`}
+  </button>`;
+}
+function TopBar({ g }) {
+  const s = g.stats;
+  return html`<header class="topbar">
+    <button class="iconbtn me-btn" onClick=${() => goTab('profile')} aria-label=${`Mon profil · niveau ${s.level}, ${s.xp} XP sur ${xpNeed(s.level)}`}><${Avatar} who=${author(g, 'p')} size=${34} /><span class="lvl-dot" aria-hidden="true">Niv. ${s.level}</span></button>
+    <span class="wm">hype<i></i></span>
+    <h1 class="topbar-title">${TITLES[S.tab]}</h1>
+    <span class="lvl" title=${s.xp + ' / ' + xpNeed(s.level) + ' XP'}>Niv. ${s.level}</span>
+    <${EnergyChip} g=${g} />
+    <button class="res-chip" onClick=${openShop} aria-label=${s.gems + ' gemmes'}><span class="gem-dot"><${Icon} n="gem" s=${14} /></span><b>${s.gems}</b></button>
+    <button class="iconbtn save-btn" onClick=${openSaves} aria-label="Sauvegardes" title="Sauvegarder ou revenir en arrière"><${Icon} n="save" s=${20} /></button>
+    <button class="iconbtn save-btn gear-btn" onClick=${() => openLayer({ t: 'settings' })} aria-label="Réglages de la partie" title="Réglages"><${Icon} n="gear" s=${20} /></button>
+    <div class="xpline" title=${`Niveau ${s.level} : ${s.xp} / ${xpNeed(s.level)} XP`} aria-hidden="true"><i style=${'--p:' + Math.round((s.xp / xpNeed(s.level)) * 100) + '%'}></i></div>
+  </header>`;
+}
+function TabView({ g, now }) {
+  const ref = useRef(null);
+  VIEW_EL.current = ref.current;
+  useLayoutEffect(() => { VIEW_EL.current = ref.current; if (ref.current) { ref.current.scrollTop = SCROLL[S.tab] || 0; S.scrollY = ref.current.scrollTop; } }, [S.tab, g.id]);
+  const onScroll = (e) => {
+    const el = e.currentTarget;
+    SCROLL[S.tab] = el.scrollTop;
+    // 0.15: the pen steps aside while the player scrolls down (it hid likes and texts), and comes back on the way up
+    const y = el.scrollTop, dy = y - (S.scrollY || 0);
+    if (Math.abs(dy) > 6 || y < 60) {
+      S.scrollY = y;
+      const away = y >= 60 && dy > 0;
+      if (away !== !!S.fabAway) { S.fabAway = away; update(false); }
+    }
+    if (S.tab === 'feed') {
+      const atTop = el.scrollTop < 60;
+      if (atTop !== S.feedAtTop) { S.feedAtTop = atTop; S.feedSeenAt = Date.now(); update(false); }
+    }
+  };
+  let body;
+  if (S.tab === 'feed') body = html`<${FeedTab} g=${g} now=${now} />`;
+  else if (S.tab === 'notifs') body = html`<${NotifsTab} g=${g} now=${now} />`;
+  else if (S.tab === 'dms') body = html`<${DMsTab} g=${g} now=${now} />`;
+  else if (S.tab === 'quests') body = html`<${QuestsTab} g=${g} now=${now} />`;
+  else if (S.tab === 'studio') body = html`<${StudioTab} g=${g} now=${now} />`;
+  else body = html`<${ProfileTab} g=${g} now=${now} />`;
+  return html`<div class="view" ref=${ref} onScroll=${onScroll}>${body}</div>`;
+}
+function Side({ g, now }) {
+  const s = g.stats;
+  const tr = trends(g, now);
+  const top = mains(g).slice().sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 5);
+  return html`<aside class="side" aria-label="Ton statut">
+    <section class="panel">
+      <h3>Ton statut</h3>
+      <div><div class="bignum">${fmtN(s.followers)}</div><span class="muted">${plural(s.followers, 'abonné', 'abonnés')}</span></div>
+      <div class="kv"><span>Réputation</span><b>${repLabel(s.reputation)} · ${rep1000(s.reputation)}</b></div>
+      <${Meter} frac=${s.reputation / 100} tone=${s.reputation < 35 ? 'bad' : s.reputation >= 60 ? 'good' : ''} />
+      <div class="kv"><span>Niveau ${s.level}</span><b class="mono">${s.xp}/${xpNeed(s.level)} XP</b></div>
+      <${Meter} frac=${s.xp / xpNeed(s.level)} />
+      ${s.cancelled ? html`<span class="chip bad">Tu es cancel</span>` : null}
+      ${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(g.pbb.until - now)}</span>` : null}
+    </section>
+    ${tr.length ? html`<section class="panel"><h3>Tendances</h3>${tr.map(([tg, n]) => html`<button class="trend" key=${tg} onClick=${() => openTag(tg)}><small>Tendance · ${g.world.name}</small><b>${tg}</b><small>${n} ${plural(n, 'post', 'posts')}</small></button>`)}</section>` : null}
+    <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}</span></div></button>`)}</section>
+  </aside>`;
+}
+
+/* ---------- posts ---------- */
+// A post's picture: a real photo of the pack when there is one, a slideshow announced, or the illustrated card.
+function PostMedia({ g, p, au }) {
+  if (p.slides) return html`<${SlidesCard} g=${g} p=${p} />`;
+  if (!p.photo) return null;
+  if (ownIds(p).length) return html`<${OwnMedia} g=${g} p=${p} />`; // the player's own photos (gone from this device: the description)
+  return p.photo.img && PACK.photos[p.photo.img] && g.portraits !== false ? html`<${RealPhoto} g=${g} p=${p} ph=${p.photo} />` : html`<${PhotoCard} ph=${p.photo} hue=${au.hue} />`;
+}
+function PhotoCard({ ph, hue }) {
+  return html`<div class="photo" style=${'--h:' + (hue || 0)} role="img" aria-label=${'Photo : ' + (ph.desc || 'sans description')}>
+    <span class="photo-emo" aria-hidden="true">${ph.emoji || '📷'}</span>
+    <span class="photo-desc"><${Icon} n="camera" s=${13} /><span>${ph.desc || 'Photo'}</span></span>
+  </div>`;
+}
+function QuoteCard({ g, q }) {
+  const au = author(g, q.a);
+  const live = g.posts.some((p) => p.id === q.id);
+  const open = live ? () => openPost(q.id) : null;
+  return html`<div class=${'quote-card' + (live ? ' live' : '')} onClick=${open ? stop(open) : stop(() => {})} role=${open ? 'button' : undefined} tabindex=${open ? 0 : undefined} onKeyDown=${open ? onKeys(open) : undefined}>
+    <div class="post-head"><${Avatar} who=${au} size=${20} /><span class="post-name">${au.name}</span>${au.verified ? html`<${Verified} />` : null}<span class="post-handle">@${au.handle}</span></div>
+    ${q.text ? html`<p class="quote-text">${q.text}</p>` : null}
+    ${q.photo ? html`<span class="quote-photo"><${Icon} n="camera" s=${13} /> ${q.photo.desc || 'Photo'}</span>` : null}
+  </div>`;
+}
+const revealed = (p, now) => !p.pending && p.res && now >= (p.res.revealAt || 0);
+// 0.18: the answer to a secret that came out, as the network took it
+const SEC_RES = { dement: ['Démenti cru', 'Démenti qui divise', 'Démenti qui ne passe pas'], assume: ['Tu assumes : respect', 'Tu assumes : ça passe à moitié', 'Tu assumes : ça passe mal'], excuse: ['Excuses convaincantes', 'Excuses moyennes', 'Excuses de façade'] };
+function ResChips({ r, now, apology, ev }) {
+  const k = ease((now - (r.revealAt || 0)) / 2500); // followers count up as the result appears
+  const fol = Math.round(r.fol * k);
+  const late = !!(r.fake && !r.fake.busted && ev && ev.busted); // swallowed at first, taken apart later
+  return html`<div class="res">
+    ${apology ? html`<span class=${'chip ' + (r.sincerity >= 7 ? 'good' : r.sincerity >= 4 ? '' : 'bad')}>Excuses ${r.sincerity >= 7 ? 'convaincantes' : r.sincerity >= 4 ? 'moyennes' : 'ratées'}</span>` : null}
+    ${r.fake ? html`<span class=${'chip ' + (r.fake.busted || late ? 'bad' : 'good')}>${r.fake.busted ? `Fake démasqué · ${r.fake.q}/10` : late ? 'Fake démasqué par une contre-enquête' : `Fake crédible à ${r.fake.q}/10 · bad buzz lancé`}</span>`
+      : r.cred != null && r.video ? html`<span class=${'chip ' + (r.cred >= 7 ? 'good' : r.cred >= 4 ? '' : 'bad')}>${r.cred >= 7 ? 'Preuve convaincante · bad buzz lancé' : r.cred >= 4 ? 'Preuve fragile · ça divise' : 'Preuve ratée · retour de bâton'}</span>`
+      : r.cred != null && r.sec ? html`<span class=${'chip ' + (r.cred >= 7 ? 'good' : r.cred >= 4 ? '' : 'bad')}>${(SEC_RES[r.sec] || SEC_RES.dement)[r.cred >= 7 ? 0 : r.cred >= 4 ? 1 : 2]} · ${r.cred}/10</span>`
+      : r.cred != null && r.deny ? html`<span class=${'chip ' + (r.cred >= 7 ? 'good' : r.cred >= 4 ? '' : 'bad')}>Démenti ${r.cred}/10 · ${r.cred >= 7 ? 'rumeur démontée' : r.cred >= 4 ? 'le doute s’installe' : 'effet inverse'}</span>`
+      : r.cred != null ? html`<span class=${'chip ' + (r.cred >= 7 ? 'good' : r.cred >= 4 ? '' : 'bad')}>Crédibilité ${r.cred}/10 · ${r.cred >= 7 ? 'bad buzz lancé' : r.cred >= 4 ? 'ça divise' : 'retour de bâton'}</span>` : null}
+    ${r.conf ? html`<span class=${'chip ' + (r.sincerity >= 7 ? 'good' : r.sincerity >= 4 ? '' : 'bad')}>Aveu ${r.sincerity >= 7 ? 'sincère' : r.sincerity >= 4 ? 'à moitié convaincant' : 'pas cru'}</span>` : null}
+    <span class=${'chip ' + (r.fol > 0 ? 'good' : r.fol < 0 ? 'bad' : '')}>${nAbonnes(fol, true)}</span>
+    <span class="chip hot">+${r.xp} XP</span>
+    ${r.repD && repPts(r.repD) ? html`<span class=${'chip ' + (r.repD > 0 ? 'good' : 'bad')}>Réputation ${repPts(r.repD) > 0 ? '+' : '−'}${Math.abs(repPts(r.repD))}</span>` : null}
+    ${r.verdict ? html`<span class=${'chip' + (r.viral ? ' flash' : '')}>${r.verdict}</span>` : null}
+  </div>`;
+}
+function PostResult({ p, g, now }) {
+  if (!revealed(p, now)) return p.pending || p.res ? html`<div class="res"><span class="chip pending"><${Typing} /> La commu réagit…</span></div>` : null;
+  const liked = (p.likedBy || []).filter((x) => x.at <= now).map((x) => g.chars[x.id]).filter(Boolean);
+  const others = Math.max(0, shownLikes(p, now) - liked.length); // the rest are people from the public
+  return html`<${ResChips} r=${p.res} now=${now} apology=${!!p.apology} ev=${p.ev} />
+    ${liked.length ? html`<div class="liked-by"><span class="avs">${liked.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${20} />`)}</span><span>Aimé par ${liked[0].name}${liked.length + others > 1 ? ` et ${fmtN(liked.length - 1 + others)} ${plural(liked.length - 1 + others, 'autre', 'autres')}` : ''}</span></div>` : null}`;
+}
+function PostActions({ p, now, onReply }) {
+  const me = p.a === 'p';
+  const likes = shownLikes(p, now), rps = shownReposts(p, now);
+  const nrep = Math.max(p.replies.reduce((n, r) => n + (r.at <= now ? 1 : 0), 0), shownReplies(p, now));
+  return html`<div class="post-actions">
+    <button class="act" onClick=${stop(onReply)} aria-label="Répondre"><${Icon} n="msg" s=${18} /><span>${nrep ? fmtN(nrep) : ''}</span></button>
+    <button class=${'act act-rp' + (p.reposted ? ' on' : '')} disabled=${me} onClick=${stop(() => toggleRepost(p))} aria-label="Reposter" aria-pressed=${p.reposted ? 'true' : 'false'}><${Icon} n="repeat" s=${18} /><span>${rps ? fmtN(rps) : ''}</span></button>
+    <button class="act act-q" disabled=${me} onClick=${stop(() => openCompose({ quote: p.id }))} aria-label="Citer ce post"><${Icon} n="quote" s=${16} /></button>
+    <button class=${'act act-like' + (p.liked ? ' on' : '')} disabled=${me} onClick=${stop(() => toggleLike(p))} aria-label="J’aime" aria-pressed=${p.liked ? 'true' : 'false'}><${Icon} n="heart" s=${18} fill=${p.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
+  </div>`;
+}
+const bbWord = (c) => (c.buried ? gx(c.g, 'enterré', 'enterrée', 'enterré·e') : 'bad buzz');
+function BuzzTag({ g, a, now }) {
+  if (a === 'p') return playerBadBuzz(g, now) ? html`<span class="bb-tag">bad buzz</span>` : null;
+  const c = a && a.startsWith('c:') ? g.chars[a.slice(2)] : null;
+  return inBadBuzz(c, now) ? html`<span class="bb-tag">${bbWord(c)}</span>` : null;
+}
+function AccuseFlag({ g, p }) {
+  const c = p.acc ? g.chars[p.acc] : null;
+  if (!c) return null;
+  if (p.video) return html`<div class="post-flag bad"><${Icon} n="clapper" s=${13} /> Vidéo-preuve sur @${c.handle}</div>`;
+  return p.ev && p.ev.busted
+    ? html`<div class="post-flag bad"><${Icon} n="mask" s=${13} /> Fausse preuve démasquée contre @${c.handle}</div>`
+    : html`<div class="post-flag bad"><${Icon} n="megaphone" s=${13} /> Bad buzz lancé contre @${c.handle}</div>`;
+}
+// A proof attached to a call-out: the clues the player cited, and the piece they may have made up.
+function EvidenceCard({ ev, mine }) {
+  const K = EV_KINDS[ev.kind] || EV_KINDS.dm;
+  return html`<div class=${'evidence' + (ev.busted ? ' busted' : '') + (ev.real ? ' real' : '')}>
+    <span class="ev-kind"><span aria-hidden="true">${K.emoji}</span> ${ev.real ? 'Capture authentique' : K.label}</span>
+    <span class="ev-desc">${ev.desc}</span>
+    ${ev.busted ? html`<span class="ev-stamp" aria-label="Preuve truquée">FAKE</span>` : mine && ev.fake ? html`<span class="ev-secret"><${Icon} n="lock" s=${12} /> Fabriquée par toi · chut</span>` : null}
+  </div>`;
+}
+function Evidence({ p, g }) {
+  const cites = p.cites || [], caps = p.caps || [];
+  if (!cites.length && !p.ev && !caps.length) return null;
+  return html`<div class="ev-wrap">
+    ${cites.length ? html`<ul class="ev-cites" aria-label="Preuves citées">${cites.map((t, k) => html`<li key=${k}><${Icon} n="search" s=${13} /><span>${t}</span></li>`)}</ul>` : null}
+    ${p.ev ? html`<${EvidenceCard} ev=${p.ev} mine=${p.a === 'p'} />` : null}
+    ${caps.map((x, k) => html`<${EvidenceCard} key=${k} ev=${{ kind: 'dm', real: true, desc: `« ${x.text} » — @${g && g.chars[x.c] ? g.chars[x.c].handle : '…'}` }} />`)}
+  </div>`;
+}
+function PostRow({ g, p, now, repost }) {
+  const au = author(g, p.a);
+  const viral = p.res && p.res.viral && revealed(p, now);
+  const open = () => openPost(p.id);
+  return html`<article class=${'post' + (viral ? ' is-viral' : '')} data-p=${p.id} onClick=${open} tabindex="0" onKeyDown=${(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); open(); } }}>
+    ${repost ? html`<div class="repost-tag"><${Icon} n="repeat" s=${13} /> Tu as reposté</div>` : null}
+    ${viral ? html`<span class="stamp">VIRAL</span>` : null}
+    <${Avatar} who=${au} onClick=${stop(() => openAuthor(au))} />
+    <div class="post-body">
+      <div class="post-head"><span class="post-name">${au.name}</span>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><span class="post-handle">@${au.handle}</span><span class="post-time">· ${fmtAgo(p.ts, now)}</span></div>
+      ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
+      ${p.deny ? html`<div class="post-flag"><${Icon} n="megaphone" s=${13} /> Démenti</div>` : null}
+      ${p.rumor ? html`<div class="post-flag bad"><span aria-hidden="true">🗣️</span> Rumeur</div>` : null}
+      <${AccuseFlag} g=${g} p=${p} />
+      ${p.text ? html`<p class="post-text"><${RichText} text=${p.text} g=${g} /></p>` : null}
+      <${Evidence} p=${p} g=${g} />
+      ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
+      <${PostMedia} g=${g} p=${p} au=${au} />
+      ${p.q ? html`<${QuoteCard} g=${g} q=${p.q} />` : null}
+      ${p.evt ? html`<${EventCard} evt=${p.evt} />` : null}
+      ${p.a === 'p' ? html`<${PostResult} p=${p} g=${g} now=${now} />` : null}
+      ${eventsAt(g, (x) => x.p === p.id && !x.r).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} />`)}
+      <${PostActions} p=${p} now=${now} onReply=${() => openPost(p.id, true)} />
+    </div>
+  </article>`;
+}
+function replyToReply(p, r) {
+  S.replyTo[p.id] = r.id;
+  update(false);
+  setTimeout(() => { const el = document.getElementById('reply-' + p.id); if (el) el.focus(); }, 40);
+}
+function ReplyRow({ g, p, r, now, depth, parent }) {
+  const au = author(g, r.a);
+  const likes = Math.round((r.likeT || 0) * ease((now - (r.ls || r.at)) / (r.animMs || 30000))) + (r.liked ? 1 : 0);
+  const me = r.a === 'p';
+  const picked = S.replyTo[p.id] === r.id;
+  return html`<article id=${'r-' + r.id} class=${'post reply-row' + (depth ? ' nested' : '') + (picked ? ' picked' : '')} style="cursor:default">
+    <${Avatar} who=${au} size=${depth ? 36 : 44} onClick=${() => openAuthor(au)} />
+    <div class="post-body">
+      <div class="post-head"><span class="post-name">${au.name}</span>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${r.a} now=${now} /><span class="post-handle">@${au.handle}</span><span class="post-time">· ${fmtAgo(r.ts, now)}</span></div>
+      ${parent ? html`<div class="reply-to">En réponse à <span class="mention">@${author(g, parent.a).handle}</span></div>` : null}
+      <p class="post-text"><${RichText} text=${r.text} g=${g} /></p>
+      ${eventsAt(g, (x) => x.r === r.id).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} compact=${true} />`)}
+      ${me && !revealed(r, now) ? html`<div class="res"><span class="chip pending"><${Typing} /> On te lit…</span></div>` : null}
+      ${me && revealed(r, now) ? html`<${ResChips} r=${r.res} now=${now} />` : null}
+      <div class="post-actions" style="max-width:240px">
+        <button class=${'act' + (picked ? ' on-reply' : '')} onClick=${() => replyToReply(p, r)} aria-label=${'Répondre à @' + au.handle}><${Icon} n="msg" s=${17} /><span>Répondre</span></button>
+        <button class=${'act act-like' + (r.liked ? ' on' : '')} disabled=${me} onClick=${() => { r.liked = !r.liked; update(); }} aria-label="J’aime" aria-pressed=${r.liked ? 'true' : 'false'}><${Icon} n="heart" s=${17} fill=${!!r.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
+      </div>
+    </div>
+  </article>`;
+}
+// Replies grouped by conversation: each reply is followed by the answers to it (one level of indent).
+function threadOrder(replies) {
+  const byId = new Map(replies.map((r) => [r.id, r]));
+  const kids = new Map();
+  const roots = [];
+  for (const r of replies) {
+    if (r.to && r.to !== r.id && byId.has(r.to)) { if (!kids.has(r.to)) kids.set(r.to, []); kids.get(r.to).push(r); }
+    else roots.push(r);
+  }
+  const out = [];
+  const seen = new Set();
+  const walk = (r, depth) => {
+    if (seen.has(r.id)) return;
+    seen.add(r.id);
+    out.push({ r, depth, parent: r.to ? byId.get(r.to) || null : null });
+    for (const k of (kids.get(r.id) || []).sort((a, b) => a.ts - b.ts)) walk(k, 1);
+  };
+  for (const r of roots.sort((a, b) => a.ts - b.ts)) walk(r, 0);
+  for (const r of replies) walk(r, 0);
+  return out;
+}
+
+/* ---------- tabs ---------- */
+function CancelBanner({ g, now }) {
+  const pr = shopPrice('pr');
+  const wait = APOLOGY_COOLDOWN - (now - (g.apologyAt || 0));
+  const bb = playerBadBuzz(g, now) ? g.chars[g.pbb.c] : null;
+  return html`<div class="cancel-banner">
+    <p><b>Tu es cancel${bb ? ` : ta fausse preuve contre ${bb.name} a été démasquée` : ''}.</b> Chaque post te coûte des abonnés tant que ta réputation (${rep1000(g.stats.reputation)}) n’est pas remontée à 350.</p>
+    <div class="row">
+      <button class="btn btn-hot btn-sm" onClick=${() => openCompose({ apology: true })} disabled=${wait > 0}>${wait > 0 ? 'Excuses dans ' + fmtClock(wait) : 'M’excuser'}</button>
+      <button class="btn btn-ghost btn-sm" onClick=${startLowProfile}><${Icon} n="moon" s=${15} /> Profil bas</button>
+      <button class="btn btn-ghost btn-sm" onClick=${() => buy('pr')} disabled=${g.stats.gems < pr}>Agence de com’ · ${pr} <${Icon} n="gem" s=${13} /></button>
+    </div>
+  </div>`;
+}
+function LowBanner({ g, now, compose }) {
+  const L = g.low;
+  if (!L) return null;
+  return html`<div class=${'low-banner' + (compose ? ' in-compose' : '')}>
+    <span class="nic"><${Icon} n="moon" s=${18} /></span>
+    <div><b>Profil bas · encore ${fmtClock(L.until - now)}</b><span>${compose ? 'Pas de post pour l’instant. ' : ''}+${L.gain * 10} de réputation jusqu’ici. Tu peux répondre et écrire en privé.</span></div>
+    <button class="btn btn-ghost btn-sm" onClick=${stopLowProfile}>Arrêter</button>
+  </div>`;
+}
+function FeedTab({ g, now }) {
+  const all = revealedPosts(g, now);
+  const seen = S.feedAtTop ? now : S.feedSeenAt;
+  const visible = all.filter((p) => p.at <= seen || p.a === 'p');
+  const fresh = all.length - visible.length;
+  const s = g.stats;
+  const tr = trends(g, now);
+  const low = lowActive(g, now);
+  return html`
+    <div class="feed-tools">
+      <span class="world-chip"><span class="wdot" style=${'--h:' + g.world.hue}>${g.world.emoji}</span><span>${g.world.name}</span></span>
+      <div class="row" style="gap:6px;flex-wrap:nowrap">
+        <button class="btn btn-ghost btn-sm ffwd-btn" onClick=${openWatch} aria-label="Avancer le temps"><${Icon} n="ffwd" s=${15} /><span class="lbl-wide">Avancer</span></button>
+        <button class="btn btn-ghost btn-sm" onClick=${() => refreshFeed(0)} disabled=${S.busy.refresh}>${S.busy.refresh ? html`<${Typing} /> Ça bouge…` : html`<${Icon} n="refresh" s=${15} /> Actualiser`}</button>
+      </div>
+    </div>
+    ${stayOn(g, now) ? html`<${StayLine} g=${g} />` : null}
+    ${HOST && autoLiveOn(g) ? html`<${LiveLine} g=${g} now=${now} />` : null}
+    ${tr.length ? html`<div class="trend-strip" aria-label="Tendances">${tr.map(([tg]) => html`<button key=${tg} class="trend-chip" onClick=${() => openTag(tg)}><${Icon} n="trend" s=${13} /><span>${tg}</span></button>`)}</div>` : null}
+    ${S.catchup ? html`<div class="catchup">
+      <p><b>Tu étais ${px(g, 'absent', 'absente', 'absent·e')} ${fmtDur(S.catchup.ms)}.</b> ${S.catchup.gain ? nAbonnes(S.catchup.gain, true) + ' pendant ce temps. ' : ''}Le réseau ne t’a pas attendu.</p>
+      <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => refreshFeed(S.catchup.ms)} disabled=${S.busy.refresh}>Voir ce qui s’est passé</button><button class="btn btn-ghost btn-sm" onClick=${() => { S.catchup = null; update(false); }}>Ignorer</button></div>
+    </div>` : null}
+    ${low ? html`<${LowBanner} g=${g} now=${now} />`
+      : s.cancelled ? html`<${CancelBanner} g=${g} now=${now} />`
+        : s.reputation < 25 ? html`<div class="warn-banner"><${Icon} n="alert" s=${16} /><span>Ta réputation chute (${rep1000(s.reputation)}/1000). Encore un faux pas et c’est le cancel.</span></div>` : null}
+    <${RumorBanner} g=${g} now=${now} />
+    <${SecretBanner} g=${g} now=${now} />
+    <${ReleaseCard} g=${g} now=${now} />
+    <${EventsStrip} g=${g} now=${now} />
+    ${s.posts === 0 && !S.busy.act ? html`<div class="nudge">
+      <p><b>À toi de jouer.</b> Publie ton premier post. Mentionne un personnage avec son @ pour qu’il réagisse, ou va lui parler en privé dans Messages.</p>
+      <button class="btn btn-hot btn-sm" onClick=${() => openCompose()}><${Icon} n="pen" s=${15} /> Publier mon premier post</button>
+    </div>` : null}
+    ${fresh > 0 ? html`<button class="pill-new" onClick=${scrollFeedTop}><${Icon} n="up" s=${15} /> ${fresh} ${plural(fresh, 'nouveau post', 'nouveaux posts')}</button>` : null}
+    ${visible.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`)}
+    <div class="feed-end">
+      <span>${visible.length ? 'Tu es à jour.' : 'Ton fil est vide.'} Publie ou actualise pour faire bouger ton monde.</span>
+      <div class="row" style="justify-content:center"><button class="btn btn-hot btn-sm" onClick=${() => openCompose()}>Publier</button><button class="btn btn-ghost btn-sm" onClick=${() => refreshFeed(0)} disabled=${S.busy.refresh}>Actualiser</button></div>
+    </div>`;
+}
+// 0.23.1: the network living on its own says where it is: the next news in about N minutes, or paused (and why).
+// 0.25.3: the morning after a night together: where the player is, until they go home.
+function StayLine({ g }) {
+  const s = g.stay, c = g.chars[s.c], first = c.name.split(' ')[0];
+  return html`<div class="live-line stay-line"><span aria-hidden="true">🌅</span><span>${s.where === 'c' ? `Tu es chez ${first} depuis cette nuit` : `${first} a dormi chez toi`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
+}
+function LiveLine({ g, now }) {
+  const why = livePause(now);
+  if (why) return html`<div class="live-line paused"><span aria-hidden="true">⏸</span><span>Le réseau est en pause : ${why === 'away' ? 'tu n’es pas sur Hype' : 'tu ne touches plus à rien'}. Il repart dès que tu reviens.</span></div>`;
+  const left = Math.max(0, intensityOf(g).liveMs - (now - (g.lastRefreshAt || 0)));
+  return html`<div class="live-line"><span aria-hidden="true">🌍</span><span>Le réseau vit tout seul · ${S.busy.refresh ? 'ça bouge…' : left < 60000 ? 'des nouvelles d’une minute à l’autre' : `des nouvelles dans ${Math.ceil(left / 60000)} min environ`}</span></div>`;
+}
+const NOTIF_ICON = {
+  like: ['heart', 'hot'], reply: ['msg', ''], mention: ['at', 'hot'], follow: ['userplus', 'good'], unfollow: ['userminus', 'bad'],
+  relup: ['users', 'good'], reldown: ['users', 'bad'], quest: ['trophy', 'flash'], questnew: ['trophy', ''], questprog: ['trophy', ''], level: ['level', 'hot'], skill: ['level', 'good'],
+  new: ['sparkles', 'hot'], dm: ['msg', 'hot'], viral: ['flame', 'flash'], cancel: ['alert', 'bad'], uncancel: ['shield', 'good'],
+  milestone: ['trend', 'good'], drama: ['megaphone', 'bad'], collab: ['megaphone', 'good'], info: ['sparkles', ''],
+  vibe: ['heart', 'hot'], seen: ['msg', 'bad'], screen: ['alert', 'bad'], apology: ['shield', ''], low: ['moon', 'good'],
+  trend: ['trend', 'flash'], clue: ['search', 'hot'], badbuzz: ['flame', 'bad'], crowd: ['users', ''], busted: ['mask', 'bad'], release: ['clapper', 'hot'], releasedue: ['clapper', 'hot'], delay: ['clock', 'bad'], event: ['calendar', 'hot'],
+  money: ['cash', 'good'], gear: ['wrench', 'flash'], // 0.20
+  advice: ['bulb', 'flash'], trust: ['trust', 'good'], trustup: ['trust', 'good'], trustdown: ['trust', 'bad'], secret: ['lock', 'hot'],
+  standdown: ['trend', 'bad'], standup: ['trend', 'good'], echo: ['sparkles', 'flash'],
+  train: ['train', 'flash'], trainstart: ['train', 'flash'], // 0.17
+};
+function openNotif(n) {
+  const g = S.game;
+  if ((n.k === 'dm' || n.k === 'seen') && n.c && g.chars[n.c]) return openDM(n.c);
+  if ((n.k === 'advice' || n.k === 'secret') && !n.p && n.c && g.chars[n.c]) return openDM(n.c);
+  if (n.p && g.posts.some((p) => p.id === n.p)) return openPost(n.p);
+  if (n.k === 'trend' && n.tg) return openTag(n.tg);
+  if (n.k === 'quest' || n.k === 'questnew' || n.k === 'questprog') return goTab('quests');
+  if (n.k === 'cancel' && g.stats.cancelled) return queueModal({ t: 'cancel', at: Date.now() }); // 0.15: the ways out, again
+  if (['level', 'milestone', 'cancel', 'uncancel', 'low'].includes(n.k)) return goTab('profile');
+  if (n.c && g.chars[n.c]) return openChar(n.c);
+}
+function NotifsTab({ g, now }) {
+  const list = g.notifs.filter((n) => n.at <= now).sort((a, b) => b.at - a.at);
+  if (!list.length) return html`<div class="empty"><b>Rien pour l’instant</b><span>Publie un post : les réactions arriveront ici.</span></div>`;
+  return list.map((n) => {
+    const [ic, tone] = NOTIF_ICON[n.k] || ['bell', ''];
+    return html`<button key=${n.id} class=${'notif' + (n.at > S.notifSeenBefore ? ' unread' : '')} onClick=${() => openNotif(n)}>
+      <span class=${'nic ' + tone}><${Icon} n=${ic} s=${18} /></span><p>${emoParts(n.text)}</p><time>${fmtAgo(n.at, now)}</time></button>`;
+  });
+}
+function DMsTab({ g, now }) {
+  const convos = Object.keys(g.dms).map((id) => {
+    const c = g.chars[id];
+    const msgs = g.dms[id].msgs.filter((m) => m.at <= now);
+    return { c, last: msgs[msgs.length - 1], n: unreadDM(g, id, now) };
+  }).filter((x) => x.c && x.last).sort((a, b) => b.last.at - a.last.at);
+  const starters = mains(g).filter((c) => !convos.some((x) => x.c.id === c.id));
+  return html`
+    ${convos.length ? convos.map(({ c, last, n }) => html`<button key=${c.id} class=${'convo' + (n ? ' unread' : '')} onClick=${() => openDM(c.id)}>
+        <${Avatar} who=${author(g, 'c:' + c.id)} size=${48} />
+        <div class="mid"><div><b>${c.name}</b><span>${isMain(c) ? relShown(c) + (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' ' + VIBES[c.vibe].emoji : '') : c.role}</span></div><p>${last.me ? 'Toi : ' : ''}${last.sys === 'deal' ? '📄 Proposition de partenariat' : last.sys === 'invite' ? '📅 Invitation : ' + last.title : emoParts(last.text)}</p></div>
+        <div class="side-meta"><span>${fmtAgo(last.at, now)}</span>${n ? html`<span class="dot-count">${n}</span>` : null}</div>
+      </button>`)
+      : html`<div class="empty"><b>Aucun message</b><span>Écris à un personnage : c’est en privé que les alliances se font.</span></div>`}
+    ${starters.length ? html`<div class="list-h">Écrire à quelqu’un<span>≈ ${costLabel(g, 'dm')} café par message</span></div>
+      <div class="starters">${starters.map((c) => html`<button key=${c.id} class="starter" onClick=${() => openDM(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><span>${c.name.split(' ')[0]}</span></button>`)}</div>` : null}`;
+}
+function ShopItem({ it, g }) {
+  const active = (it.id === 'reach' && g.boosts.reach) || (it.id === 'viral' && g.boosts.viral);
+  const miss = it.price - g.stats.gems;
+  return html`<div class="shop-item">
+    <span class=${'nic ' + it.tone}><${Icon} n=${it.icon} s=${18} /></span>
+    <div><b>${it.label}</b><span>${active ? 'Actif sur ton prochain post.' : it.desc}</span>${!active && miss > 0 ? html`<small class="miss">Il te manque ${miss} ${plural(miss, 'gemme', 'gemmes')}</small>` : null}</div>
+    <button class="btn btn-sm btn-ink price" onClick=${() => buy(it.id)} disabled=${active || miss > 0} aria-label=${'Acheter ' + it.label + ' pour ' + it.price + ' gemmes'}><${Icon} n="gem" s=${14} /> ${it.price}</button>
+  </div>`;
+}
+function questActions(g, q) {
+  const c = q.charId ? g.chars[q.charId] : null;
+  const ok = c && c.unlocked;
+  const first = c ? c.name.split(' ')[0] : '';
+  const A = [];
+  const dm = () => A.push({ label: `Écrire à ${first}`, icon: 'msg', run: () => openDM(c.id) });
+  const mention = () => A.push({ label: `Mentionner ${first}`, icon: 'at', run: () => openCompose({ text: '@' + c.handle + ' ' }) });
+  const post = () => A.push({ label: 'Publier', icon: 'pen', run: () => openCompose() });
+  switch (q.kind) {
+    case 'followers': case 'likes': case 'viral': post(); break;
+    case 'rep': if (g.stats.cancelled) A.push({ label: 'M’excuser', icon: 'shield', run: () => openCompose({ apology: true }) }); else post(); break;
+    case 'rel': case 'vibe': if (ok) { dm(); mention(); } break;
+    case 'dm': if (ok) dm(); break;
+    case 'mention': if (ok) mention(); break;
+    case 'replies': A.push({ label: 'Voir le fil', icon: 'home', run: () => goTab('feed') }); break;
+    case 'replyc': {
+      const p = revealedPosts(g).find((x) => x.replies.some((r) => r.a !== 'p' && r.at <= Date.now()));
+      if (p) A.push({ label: 'Ouvrir une conversation', icon: 'msg', run: () => openPost(p.id) });
+      break;
+    }
+    case 'story':
+      if (ok) { dm(); mention(); }
+      A.push({ label: 'Des idées', icon: 'sparkles', run: () => { openCompose(); loadIdeas(null, null, q); } });
+      break;
+    default: break;
+  }
+  return A;
+}
+function QuestCard({ q, g, now }) {
+  const pr = q.kind === 'story' ? null : questProgress(g, q, now);
+  const c = q.charId ? g.chars[q.charId] : null;
+  const done = q.status === 'done';
+  const acts = done ? [] : questActions(g, q);
+  const kindLabel = q.kind === 'story' ? 'Histoire' : q.kind === 'vibe' ? 'Relation' : 'Défi';
+  return html`<article class=${'quest' + (done ? ' done' : '')}>
+    <header><span class=${'quest-kind' + (q.kind === 'story' || q.kind === 'vibe' ? ' story' : '')}>${kindLabel}</span>${c && c.unlocked ? html`<button class="linkbtn" style="font-size:13px" onClick=${() => openChar(c.id)}>@${c.handle}</button>` : null}</header>
+    <h4>${q.title}</h4>
+    ${q.desc ? html`<p>${q.desc}</p>` : null}
+    ${q.kind === 'story' && !done ? html`<div class="prog"><${Meter} frac=${(q.pct || 0) / 100} /><span>${q.pendingDone ? 'Presque…' : (q.pct || 0) + ' %'}</span></div>
+      <p class="quest-step">${q.step ? 'Dernière avancée : ' + q.step : 'C’est l’histoire qui décide quand c’est fait.'}</p>` : null}
+    <footer>
+      ${done ? html`<span class="chip good"><${Icon} n="check" s=${14} /> Réussie</span>`
+        : pr ? html`<div class="prog"><${Meter} frac=${pr.frac} /><span>${pr.text}</span></div>` : html`<span></span>`}
+      <div class="row" style="gap:6px"><span class="chip hot">+${q.reward.xp} XP</span><span class="chip flash"><${Icon} n="gem" s=${12} /> ${q.reward.gems}</span></div>
+    </footer>
+    ${acts.length ? html`<div class="quest-acts">${acts.map((a) => html`<button key=${a.label} class="btn btn-ghost btn-sm" onClick=${a.run}><${Icon} n=${a.icon} s=${15} /> ${a.label}</button>`)}</div>` : null}
+    ${(q.kind === 'story' || q.kind === 'vibe') && !done ? html`<div><button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Abandonner cette quête ?', text: `« ${q.title} » disparaîtra de ta liste.`, ok: 'Abandonner', danger: true, run: () => abandonQuest(g, q) })}>Abandonner cette quête</button></div>` : null}
+  </article>`;
+}
+function QuestsTab({ g, now }) {
+  const rank = (q) => (q.kind === 'story' ? 0 : q.kind === 'vibe' ? 1 : 2);
+  const act = activeQuests(g).slice().sort((a, b) => rank(a) - rank(b));
+  const done = g.quests.filter((q) => q.status === 'done').sort((a, b) => b.doneAt - a.doneAt).slice(0, 6);
+  return html`
+    <div class="list-h">En cours<span>${act.length} ${plural(act.length, 'quête', 'quêtes')}</span></div>
+    ${act.length ? act.map((q) => html`<${QuestCard} key=${q.id} q=${q} g=${g} now=${now} />`) : html`<div class="empty"><span>Aucune quête pour l’instant. Publie : de nouvelles intrigues vont apparaître.</span></div>`}
+    <div class="list-h">Boutique<span>${g.stats.gems} ${plural(g.stats.gems, 'gemme', 'gemmes')}</span></div>
+    ${SHOP.map((it) => html`<${ShopItem} key=${it.id} it=${it} g=${g} />`)}
+    ${done.length ? html`<div class="list-h">Terminées<span>${done.length}</span></div>${done.map((q) => html`<${QuestCard} key=${q.id} q=${q} g=${g} now=${now} />`)}` : null}`;
+}
+function ProfileTab({ g, now }) {
+  const P = g.player, s = g.stats;
+  const stamp = (p) => (p.a === 'p' ? p.ts : p.rpAt || p.ts);
+  const mine = revealedPosts(g, now).filter((p) => p.a === 'p' || p.reposted).sort((a, b) => stamp(b) - stamp(a));
+  const rels = mains(g).slice().sort((a, b) => b.rel - a.rel);
+  const fans = rels.filter((c) => c.followsYou).length;
+  const journal = g.chronicle.slice(-8).reverse();
+  return html`
+    <div class="banner" style=${'--h:' + P.hue}></div>
+    <div class="prof">
+      <div class="prof-top"><${PfpButton} g=${g} /><button class="btn btn-ghost btn-sm" onClick=${leaveGame}><${Icon} n="grid" s=${15} /> Mes parties</button></div>
+      <div><h2>${P.name}</h2><span class="handle">@${P.handle}</span></div>
+      ${P.bio ? html`<p class="bio">${P.bio}</p>` : null}
+      <p class="muted" style="font-size:14px">${g.world.emoji} ${g.world.name} · ${P.identity}</p>
+      <${PlayerSocialLinks} g=${g} now=${now} />
+      <div class="prof-stats"><span><b>${fmtN(s.followers)}</b> ${plural(s.followers, 'abonné', 'abonnés')}</span><span><b>${s.following}</b> ${plural(s.following, 'abonnement', 'abonnements')}</span><span><b>${s.posts}</b> ${plural(s.posts, 'post', 'posts')}</span>${s.cancelled ? html`<span class="chip bad">Cancel</span>` : null}${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz</span>` : null}${isShady(g, now) ? html`<span class="chip bad" title="On se méfie de tes conseils">${px(g, 'Manipulateur', 'Manipulatrice', 'Manipulateur·rice')} · encore ${fmtDur(g.shady.until - now)}</span>` : null}</div>
+    </div>
+    <section class="section">
+      <div class="section-h"><h3>Niveau ${s.level}</h3><span class="mono">${s.xp} / ${xpNeed(s.level)} XP</span></div>
+      <${Meter} frac=${s.xp / xpNeed(s.level)} />
+      ${lowActive(g, now) ? html`<${LowBanner} g=${g} now=${now} />` : s.cancelled ? html`<${CancelBanner} g=${g} now=${now} />` : null}
+    </section>
+    <${RepSection} g=${g} now=${now} />
+    <${SecretsSection} g=${g} now=${now} />
+    <${SkillsSection} g=${g} />
+    <section class="section">
+      <div class="section-h"><h3>Relations</h3><span>${fans === 0 ? 'Personne ne te suit encore' : fans === 1 ? '1 te suit' : fans + ' te suivent'}</span></div>
+      ${rels.map((c) => html`<button class="rel-row" key=${c.id} onClick=${() => openChar(c.id)}>
+        <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} />
+        <div class="mid"><div><b>${c.name}</b><span>${relShown(c)}${vibeTag(c)}${c.followsYou ? ' · te suit' : ''} · confiance ${trustOf(c)}</span></div><${RelMeter} rel=${c.rel} /></div>
+        <span class="num">${fmtRel(c.rel)}</span>
+      </button>`)}
+      ${mains(g, false).some((c) => !c.unlocked) ? html`<p class="muted" style="font-size:13px">D’autres personnages arriveront quand tu monteras de niveau.</p>` : null}
+    </section>
+    ${(g.dateLog || []).length ? html`<section class="section dlog-sec">
+      <div class="section-h"><h3>Tes rendez-vous</h3><span>${g.dateLog.length} ${plural(g.dateLog.length, 'soirée', 'soirées')}</span></div>
+      <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'datelog' })}><${Icon} n="book" s=${15} /> Les relire</button>
+    </section>` : null}
+    ${(() => {
+      const files = mains(g).map((c) => [c, (g.clues || []).filter((k) => k.c === c.id && k.at <= now).length]).filter(([, n]) => n > 0);
+      return files.length ? html`<section class="section">
+        <div class="section-h"><h3>Tes dossiers</h3><span>indices remarqués</span></div>
+        ${files.map(([c, n]) => html`<button class="rel-row" key=${c.id} onClick=${() => openChar(c.id)}>
+          <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} />
+          <div class="mid"><div><b>${c.name}</b><span>${n} ${plural(n, 'indice', 'indices')}${inBadBuzz(c, now) ? ' · en plein bad buzz' : ''}</span></div></div>
+          <span class="num"><${Icon} n="search" s=${16} /></span>
+        </button>`)}
+      </section>` : null;
+    })()}
+    ${journal.length ? html`<section class="section">
+      <div class="section-h"><h3>Journal</h3><span>Ce que le monde retient</span></div>
+      ${journal.map((e, i) => html`<div class="journal-row" key=${i}><time>${fmtAgo(e.ts, now)}</time><p>${e.text}</p></div>`)}
+    </section>` : null}
+    <div class="list-h">Tes posts<span>${mine.length}</span></div>
+    ${mine.length ? mine.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} repost=${p.a !== 'p'} />`)
+      : html`<div class="empty"><span>Tu n’as encore rien publié.</span><button class="btn btn-hot btn-sm" onClick=${() => openCompose()}>Publier mon premier post</button></div>`}
+    <${PhotoTools} g=${g} k="p" />
+    <section class="section" style="border-bottom:0">
+      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'settings' })}><${Icon} n="gear" s=${15} /> Réglages de la partie</button><button class="btn btn-ghost btn-sm" onClick=${() => goTab('studio')}><${Icon} n="studio" s=${15} /> Mon studio</button></div>
+    </section>`;
+}
+
+/* ---------- announced releases: countdown, shoot (mini-game), publish or postpone ---------- */
+function askPostpone(g, r) {
+  const n = r.delays + 1;
+  askConfirm({
+    title: `Repousser ${ta(r)} de 30 min ?`,
+    text: `${n === 1 ? 'Premier' : n === 2 ? 'Deuxième' : 'Dernier'} report : ${repWord(repTry(g, postponePlan(n)))}${n >= 2 ? ' et des abonnés qui partent' : ''}. ${['On trouvera ça moyen pro.', 'Ça commence à faire amateur.', 'Beaucoup diront que tu te défiles.'][r.delays]}`,
+    ok: 'Repousser', danger: true,
+    run: () => { if (postponeRelease(g, r)) { S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id)); toast(`${cap1(ta(r))} sort dans 30 min. Ton public s’impatiente.`, 'bad'); update(); } },
+  });
+}
+function askDrop(g, r) {
+  askConfirm({
+    title: `Abandonner ${ta(r)} ?`, text: `Tout le monde l’attendait : ${repWord(repTry(g, DROP_PLAN))} et des abonnés qui partent.`, ok: 'Abandonner', danger: true,
+    run: () => { dropRelease(g, r); S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id)); update(); },
+  });
+}
+// Where « jusqu’à la sortie » goes, read when the jump really happens (it may wait for the characters to finish).
+const relDue = (r) => () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; };
+function ReleaseCard({ g, now }) {
+  const r = activeRelease(g);
+  if (!r || S.publishing === r.id) return null;
+  const W = WHATS[r.what] || WHATS.vidéo;
+  const left = r.due - now;
+  return html`<div class=${'release-card' + (left <= 0 ? ' due' : '')}>
+    <span class="rl-emo" aria-hidden="true">${W.emoji}</span>
+    <div class="rl-mid">
+      <b>${left > 0 ? `${cap1(ta(r))} sort dans ${fmtLeft(left)}` : `C’est l’heure : ${ta(r)} doit sortir !`}</b>
+      <span>« ${r.topic} »${r.series && g.series ? ` · défi : épisode ${r.ep}/${g.series.days} · série ×${fmtDec(seriesMult(g))}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span>
+      <div class="row">
+        ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> Avancer jusqu’à la sortie`}</button>`
+          : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
+        ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+/* ---------- events: a ⏩ under what announced them, a strip of what is coming, the recap card ---------- */
+const evBusy = () => !!(S.busy.act || S.busy.dm || S.busy.refresh || S.busy.ev || S.busy.mg);
+function askCancelDate(g, ev) {
+  const c = g.chars[ev.c];
+  const hurt = cancelHurt(ev.due - Date.now());
+  askConfirm({
+    title: `Annuler ton rendez-vous avec ${c ? c.name.split(' ')[0] : 'cette personne'} ?`,
+    text: hurt === 0 ? 'Tu préviens bien à l’avance : ça devrait bien passer.' : hurt >= -3 ? 'Tu préviens un peu tard : ça risque de piquer un peu.' : hurt >= -6 ? 'À quelques heures près : ça va mal passer.' : 'À la dernière minute : ça va très mal passer.',
+    ok: 'Annuler le rendez-vous', danger: true,
+    run: () => { cancelDate(g, ev); update(); },
+  });
+}
+function EventChip({ g, ev, now, compact }) {
+  const c = g.chars[ev.c];
+  if (!c) return null;
+  const K = EVENT_KINDS[ev.kind] || EVENT_KINDS.autre;
+  const emo = ev.kind === 'rdv' ? MEET[meetKind(c, ev)].emoji : K.emoji;
+  const due = now >= ev.due;
+  const busy = evBusy();
+  const rl = activeRelease(g);
+  const held = !!(rl && rl.due <= now); // a release to shoot first: time cannot move on
+  return html`<div class=${'evt-chip' + (due ? ' due' : '') + (compact ? ' compact' : '')} onClick=${stop(() => {})}>
+    <span class="evt-emo" aria-hidden="true">${emo}</span>
+    <span class="evt-mid"><b>${eventLabel(g, ev)}</b><small>${due ? 'C’est maintenant' : fmtWhen(ev.due, now)} · « ${str(ev.what, 70)} »</small></span>
+    <span class="evt-acts">
+      ${due ? html`<button class="btn btn-hot btn-sm" onClick=${stop(() => goEvent(ev))} disabled=${busy && S.busy.ev !== ev.id}>${S.busy.ev === ev.id ? html`<${Typing} />` : K.go}</button>`
+        : html`<button class="btn btn-ghost btn-sm" onClick=${stop(() => skipTime(ev.due - Date.now() + 1000, () => ev.due))} disabled=${held} title=${held ? `${cap1(ta(rl))} doit sortir d’abord` : ''}><${Icon} n="ffwd" s=${14} /> Avancer</button>`}
+      ${ev.player ? html`<button class="linkbtn quiet" onClick=${stop(() => askCancelDate(g, ev))}>Annuler</button>` : null}
+    </span>
+  </div>`;
+}
+const eventsAt = (g, pred) => activeEvents(g).filter((e) => e.src && pred(e.src));
+function EventsStrip({ g, now }) {
+  const list = activeEvents(g);
+  if (!list.length) return null;
+  return html`<section class="events-strip" aria-label="À venir">
+    <div class="evs-h"><${Icon} n="calendar" s=${15} /> À venir</div>
+    ${list.slice(0, 4).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} />`)}
+  </section>`;
+}
+function EventCard({ evt }) {
+  const K = EVENT_KINDS[evt.kind] || EVENT_KINDS.autre;
+  const o = evt.outcome || null;
+  return html`<div class=${'evt-card' + (o ? (o.success ? ' ok' : ' ko') : '')}>
+    <span class="evt-kind">${K.emoji} ${evt.kind === 'live' ? 'Live terminé' : 'C’est arrivé'}</span>
+    <b>${evt.what}</b>
+    ${evt.recap ? html`<p>${evt.recap}</p>` : null}
+    ${o ? html`<div class="res">
+      ${o.line ? html`<span class=${'chip ' + (/sort/.test(o.line) && !/reste|enfonce/.test(o.line) ? 'good' : 'bad')}>${o.line}</span>` : html`<span class=${'chip ' + (o.success ? 'good' : 'bad')}>${o.success ? 'Ça a marché' : 'C’est raté'}</span>`}
+      ${o.pct ? html`<span class=${'chip ' + (o.pct > 0 ? 'good' : 'bad')}>${o.pct > 0 ? '+' : '−'}${Math.abs(o.pct)} % d’abonnés</span>` : null}
+      ${o.pr ? html`<span class=${'chip ' + (o.pr > 0 ? 'good' : 'bad')}>Ta réputation ${o.pr > 0 ? '+' : '−'}${Math.abs(o.pr)}</span>` : null}
+    </div>` : null}
+  </div>`;
+}
+const MG_LABEL = { tri: 'Trier les éléments', ordre: 'Remets dans l’ordre', quiz: 'Le quiz', vf: 'Vrai ou faux', intrus: 'Trouve l’intrus', montage: 'Coupe au rythme', memoire: 'Mémoire', chat: 'Modère le chat', mixage: 'Le mixage', cadrage: 'Le recadrage', etalonnage: 'L’étalonnage' };
+const MG_PER = { tri: 5000, ordre: 9000, quiz: 15000, vf: 4000, intrus: 12000 }; // per item at « Difficile » (per round for the quiz and the odd one out)
+const PER_ROUND = { quiz: true, intrus: true };
+const mgTime = (kind, n, D) => Math.round((PER_ROUND[kind] ? MG_PER[kind] : (MG_PER[kind] || 0) * n) * D.time);
+const MG_RULE = {
+  tri: (sec) => `Garde ce qui sert ton contenu, jette les pièges. ${sec} secondes pour tout trier.`,
+  ordre: (sec) => `Touche les étapes dans le bon ordre. ${sec} secondes.`,
+  quiz: (sec) => `Une question à la fois, ${sec} secondes chacune.`,
+  vf: (sec) => `Vrai ou faux ? Tranche vite : ${sec} secondes pour tout.`,
+  intrus: (sec) => `Dans chaque série, une seule proposition n’a rien à faire là : trouve-la. ${sec} secondes par série.`,
+  montage: (sec, game) => `Le curseur file sur la timeline : touche « ${game.verb || 'Couper'} » pile quand il passe dans la zone verte. ${game.items.length} fois, chacune compte.`,
+  memoire: (sec, game) => `Une suite défile, une image à la fois : retiens-la, puis retrouve-la dans l’ordre. ${game.items.length} manches, de plus en plus longues.`,
+  chat: (sec, game) => game.rule, mixage: (sec, game) => game.rule, cadrage: (sec, game) => game.rule, etalonnage: (sec, game) => game.rule, // 0.25
+};
+const shuffle = (a) => { const b = a.slice(); for (let k = b.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [b[k], b[j]] = [b[j], b[k]]; } return b; };
+// 1 = perfect order, from how many pairs are swapped (one swap still scores high, a random order low).
+function orderScore(seq) {
+  const n = seq.length;
+  let inv = 0;
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) if (seq[a] > seq[b]) inv++;
+  const max = (n * (n - 1)) / 2;
+  return max ? Math.pow(1 - inv / max, 1.5) : 1;
+}
+function TimeBar({ left, total }) {
+  return html`<span class="mg-bar" aria-hidden="true"><span style=${'width:' + Math.max(0, Math.min(100, Math.round((100 * left) / total))) + '%'}></span></span>`;
+}
+function MgTop({ k, n, left, total }) {
+  return html`<div class="mg-top"><span class="mono">${k}/${n}</span><${TimeBar} left=${left} total=${total} /><span class="mono" aria-live="off">${Math.ceil(Math.max(0, left) / 1000)} s</span></div>`;
+}
+// Keep or throw (tri), or true or false (vf): the same two buttons.
+// The scriptwriter's hints during a shoot (a button with what is left).
+const HintBtn = ({ left, onUse }) => (left > 0 ? html`<button type="button" class="btn btn-ghost btn-sm hint-btn" onClick=${onUse}>💡 Indice du scénariste (${left})</button>` : null);
+// 0.10.2: a mini-game's progress lives with it (game.run), a shoot's as a date's, kept at every step. Leaving and coming
+// back goes on where it stood: the answers given stay given, and the clock does not wait for the player. Before, the
+// progress lived in the screen only: leaving and opening it again started over, with the answers already known.
+// soon: written to the storage at once, so that a closed window never loses an answer.
+function mgKeep(game, part, soon = true) {
+  if (!game) return;
+  game.run = Object.assign({}, game.run, part);
+  update();
+  if (soon && S.game && S.game.ready && !FLOWS.size) saveNow();
+}
+// A mini-game left with its last answer given, or whose clock ran out while the player was away: its score.
+function runOver(game, t = Date.now()) {
+  const run = game && game.run;
+  if (!run || !run.on) return null;
+  if (typeof run.score === 'number') return run.score;
+  const n = (game.items || []).length;
+  if (!run.end || t < run.end + 3000) return null; // only the games with one clock for everything run out on their own
+  if ((game.kind === 'tri' || game.kind === 'vf') && Array.isArray(run.order)) return (run.right || 0) / Math.max(1, n);
+  if (game.kind === 'ordre' && Array.isArray(run.pool) && Array.isArray(run.picked)) return orderScore(run.picked.concat(run.pool));
+  return null;
+}
+// Called by the clock: such a game is over even if the player never opens it again (a date would count as missed).
+function settleRuns(g, t = Date.now()) {
+  let changed = false;
+  for (const r of [...(g.releases || []), ...(g.events || [])]) {
+    if (!r || r.state !== 'scheduled' || r.played || !r.game || !r.game.run) continue;
+    if (S.stack.some((l) => l.t === 'minigame' && l.id === r.id)) continue; // on screen: the game itself finishes it
+    const sc = runOver(r.game, t);
+    if (sc !== null) { finishShoot(r, sc); changed = true; }
+  }
+  return changed;
+}
+function TriGame({ items, onDone, now, total, vf, hints = 0, run, keep }) {
+  const [s, setS] = useState(() => {
+    if (run && Array.isArray(run.order)) return { list: run.order.map((j) => items[j]).filter(Boolean), order: run.order, k: run.k || 0, right: run.right || 0, fb: null, end: run.end || Date.now() + total, hints: run.hints != null ? run.hints : hints, hint: run.hint != null ? run.hint : -1 };
+    const order = shuffle(items.map((x, j) => j));
+    return { list: order.map((j) => items[j]), order, k: 0, right: 0, fb: null, end: Date.now() + total, hints, hint: -1 };
+  });
+  const done = useRef(false), alive = useRef(true);
+  const n = s.list.length;
+  const finish = (right) => { if (!done.current) { done.current = true; onDone(right / n); } };
+  useEffect(() => {
+    if (!run || !Array.isArray(run.order)) keep({ order: s.order, k: 0, right: 0, end: s.end, hints: s.hints, hint: -1 });
+    else if (s.k >= n) finish(s.right); // everything was answered before the player left
+    return () => { alive.current = false; };
+  }, []);
+  useEffect(() => { if (!s.fb && s.k < n && now >= s.end) finish(s.right); }, [now]);
+  const answer = (yes) => {
+    if (s.fb || done.current) return;
+    const it = s.list[s.k];
+    const ok = yes === !!it.good;
+    const right = s.right + (ok ? 1 : 0), end = s.end + 1200; // the clock stops while the answer shows
+    keep(Object.assign({ k: s.k + 1, right, end, hint: -1 }, s.k + 1 >= n ? { score: right / n } : {})); // kept at once: leaving now goes on with the next one
+    setS(Object.assign({}, s, { right, fb: { ok, keep: yes, why: it.why, good: !!it.good }, end }));
+    setTimeout(() => { if (s.k + 1 >= n) finish(right); else if (alive.current) setS((x) => Object.assign({}, x, { k: x.k + 1, fb: null })); }, 1200);
+  };
+  if (s.k >= n) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
+  const it = s.list[s.k];
+  const verdict = (fb) => (vf ? `${fb.ok ? 'Bien vu' : 'Raté'} : c’est ${fb.good ? 'vrai' : 'faux'}` : fb.ok ? 'Bien vu' : 'Raté');
+  return html`<div class="mg-play">
+    <${MgTop} k=${s.k + 1} n=${s.list.length} left=${s.end - now} total=${total} />
+    <div class=${'mg-card' + (s.fb ? (s.fb.ok ? ' ok' : ' ko') : '')}>
+      ${vf ? html`<span class="mg-tag">Vrai ou faux ?</span>` : null}
+      <p>${it.text}</p>
+      ${s.fb ? html`<small>${verdict(s.fb)}${s.fb.why ? ' · ' + s.fb.why : ''}</small>` : null}
+    </div>
+    ${s.hint === s.k && !s.fb ? html`<p class="mg-hint">💡 ${vf ? (it.good ? 'C’est vrai.' : 'C’est faux.') : it.good ? 'À garder.' : 'À jeter.'}</p>` : !s.fb ? html`<${HintBtn} left=${s.hints} onUse=${() => { keep({ hints: s.hints - 1, hint: s.k }); setS(Object.assign({}, s, { hints: s.hints - 1, hint: s.k })); }} />` : null}
+    <div class="mg-actions">
+      <button class="btn btn-ghost" onClick=${() => answer(false)} disabled=${!!s.fb}><${Icon} n="x" s=${16} /> ${vf ? 'Faux' : 'Jeter'}</button>
+      <button class="btn btn-hot" onClick=${() => answer(true)} disabled=${!!s.fb}><${Icon} n="check" s=${16} /> ${vf ? 'Vrai' : 'Garder'}</button>
+    </div>
+  </div>`;
+}
+function OrderGame({ items, onDone, now, total, hints = 0, run, keep }) {
+  const n = items.length;
+  const [s, setS] = useState(() => {
+    if (run && Array.isArray(run.pool) && Array.isArray(run.picked)) return { pool: run.pool, picked: run.picked, end: run.end || Date.now() + total, hints: run.hints != null ? run.hints : hints, hint: run.hint != null ? run.hint : -1 };
+    let pool = shuffle(items.map((x, k) => k));
+    if (pool.every((x, k) => x === k)) pool = pool.reverse(); // never already solved
+    return { pool, picked: [], end: Date.now() + total, hints, hint: -1 };
+  });
+  const nextGood = s.picked.length; // the step that comes next, if what is placed is right
+  const prefixOK = s.picked.every((k, j) => k === j);
+  const done = useRef(false);
+  const finish = (seq) => { if (!done.current) { done.current = true; onDone(orderScore(seq)); } };
+  useEffect(() => {
+    if (!run || !Array.isArray(run.pool)) keep({ pool: s.pool, picked: [], end: s.end, hints: s.hints, hint: -1 });
+    else if (!s.pool.length) finish(s.picked); // all placed before the player left
+  }, []);
+  useEffect(() => { if (now >= s.end) finish(s.picked.concat(s.pool)); }, [now]);
+  // every move is kept: leaving and coming back finds the same steps placed, the clock still running
+  const set = (x) => { keep(Object.assign({ pool: x.pool, picked: x.picked, hints: x.hints, hint: x.hint }, x.pool.length ? {} : { score: orderScore(x.picked) })); setS(x); };
+  const pick = (k) => {
+    if (done.current) return;
+    const picked = s.picked.concat(k), pool = s.pool.filter((x) => x !== k);
+    set(Object.assign({}, s, { picked, pool }));
+    if (!pool.length) setTimeout(() => finish(picked), 450);
+  };
+  const undo = () => { if (s.picked.length && !done.current) set(Object.assign({}, s, { picked: s.picked.slice(0, -1), pool: s.pool.concat(s.picked[s.picked.length - 1]) })); };
+  return html`<div class="mg-play">
+    <${MgTop} k=${s.picked.length} n=${n} left=${s.end - now} total=${total} />
+    <ol class="mg-seq">
+      ${s.picked.map((k, j) => html`<li key=${'p' + k}><span class="num">${j + 1}</span><span>${items[k].text}</span></li>`)}
+      ${s.pool.map((k, j) => html`<li class="todo" key=${'t' + j}><span class="num">${s.picked.length + j + 1}</span><span>…</span></li>`)}
+    </ol>
+    <div class="mg-pool">${s.pool.map((k) => html`<button class=${'mg-chip' + (s.hint === k ? ' hinted' : '')} key=${k} onClick=${() => pick(k)}>${items[k].text}</button>`)}</div>
+    ${prefixOK && s.pool.includes(nextGood) && s.hint !== nextGood ? html`<${HintBtn} left=${s.hints} onUse=${() => set(Object.assign({}, s, { hints: s.hints - 1, hint: nextGood }))} />` : null}
+    <button class="btn btn-ghost btn-sm" onClick=${undo} disabled=${!s.picked.length || !s.pool.length}>Annuler la dernière</button>
+  </div>`;
+}
+// A question and its answers (quiz), or a theme and the one that does not belong (intrus).
+function QuizGame({ items, onDone, now, total, odd, hints = 0, run, keep }) {
+  const opts = (q) => shuffle(q.a.map((t, k) => ({ t, k })));
+  const optsOf = (q, ks) => ks.filter((k) => q.a[k] != null).map((k) => ({ t: q.a[k], k }));
+  const n = items.length;
+  // a question already on screen when the player left keeps its clock (end); the next one starts its own when it shows
+  const [s, setS] = useState(() => (run && typeof run.k === 'number' && Array.isArray(run.o)
+    ? { k: run.k, right: run.right || 0, fb: null, end: run.end || Date.now() + total, o: items[run.k] ? optsOf(items[run.k], run.o) : [], hints: run.hints != null ? run.hints : hints }
+    : { k: 0, right: 0, fb: null, end: Date.now() + total, o: opts(items[0]), hints }));
+  // a hint takes one wrong answer away (never the last one)
+  const useHint = () => { const q = items[s.k]; const wrong = s.o.filter((x) => x.k !== q.ok); if (wrong.length < 2 || s.hints <= 0) return; const drop = pick(wrong); const o = s.o.filter((x) => x !== drop); keep({ hints: s.hints - 1, o: o.map((x) => x.k) }); setS(Object.assign({}, s, { hints: s.hints - 1, o })); };
+  const done = useRef(false), alive = useRef(true);
+  const finish = (right) => { if (!done.current) { done.current = true; onDone(right / n); } };
+  useEffect(() => {
+    if (s.k >= n) finish(s.right); // everything was answered before the player left
+    else keep({ k: s.k, right: s.right, end: s.end, o: s.o.map((x) => x.k), hints: s.hints });
+    return () => { alive.current = false; };
+  }, []);
+  const answer = (k) => {
+    if (s.fb || done.current) return;
+    const q = items[s.k];
+    const ok = k === q.ok;
+    const right = s.right + (ok ? 1 : 0), nk = s.k + 1;
+    const no = nk < n ? opts(items[nk]) : [];
+    keep(nk < n ? { k: nk, right, end: 0, o: no.map((x) => x.k) } : { k: nk, right, end: 0, o: [], score: right / n }); // kept at once
+    setS(Object.assign({}, s, { right, fb: { ok, k, why: q.why } }));
+    setTimeout(() => {
+      if (nk >= n) finish(right);
+      else if (alive.current) { const end = Date.now() + total; keep({ end }); setS((x) => Object.assign({}, x, { k: nk, fb: null, end, o: no })); }
+    }, 1400);
+  };
+  useEffect(() => { if (!s.fb && s.k < n && now >= s.end) answer(-1); }, [now]);
+  if (s.k >= n) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
+  const q = items[s.k];
+  return html`<div class="mg-play">
+    <${MgTop} k=${s.k + 1} n=${items.length} left=${s.end - now} total=${total} />
+    <div class="mg-card">${odd ? html`<span class="mg-tag">Trouve l’intrus</span>` : null}<p>${q.text}</p>${s.fb ? html`<small>${s.fb.ok ? (odd ? 'Bien vu, c’était l’intrus' : 'Bonne réponse') : s.fb.k < 0 ? 'Trop tard' : 'Raté'}${s.fb.why ? ' · ' + s.fb.why : ''}</small>` : null}</div>
+    <div class="mg-opts">${s.o.map((x) => html`<button key=${x.k} class=${'mg-opt' + (s.fb && x.k === q.ok ? ' ok' : s.fb && x.k === s.fb.k ? ' ko' : '')} onClick=${() => answer(x.k)} disabled=${!!s.fb}>${x.t}</button>`)}</div>
+    ${!s.fb && s.o.length > 2 ? html`<${HintBtn} left=${s.hints} onUse=${useHint} />` : null}
+  </div>`;
+}
+// The time of a tap, on the clock that draws the cursor (the event's own time when it can be trusted).
+const tapTime = (e) => { const n = performance.now(), t = e && e.timeStamp; return t > 0 && t <= n + 5 && n - t < 1000 ? t : n; };
+const HIT_TXT = { 1: 'Pile dans le temps fort !', 0.5: 'Presque…', 0: 'Raté' };
+// Cut on the beat: a cursor sweeps the timeline, the cut lands where it is at the moment of the tap.
+// Exact: the position comes from the time of the tap with the formula that draws the cursor.
+function MontageGame({ game, onDone, run, keep }) {
+  const items = game.items, n = items.length, sp = game.speed || 1500;
+  const st = useRef(null);
+  if (!st.current) {
+    let k = run && typeof run.k === 'number' ? run.k : 0, got = run && Array.isArray(run.got) ? run.got.slice() : [];
+    if (run && run.live === k && k < n) { got = got.concat(0); k += 1; } // the take that was rolling when the player left: missed
+    st.current = { k, got, fb: null, t0: 0, key: 0 };
+  }
+  const [view, setView] = useState(() => ({ k: st.current.k, got: st.current.got.slice(), fb: null, t0: 0 }));
+  const cur = useRef(null), done = useRef(false), alive = useRef(true);
+  const pos = (t) => { const x = (Math.max(0, t - st.current.t0) / sp) % 2; return x < 1 ? x : 2 - x; };
+  const sync = () => { const x = st.current; setView({ k: x.k, got: x.got.slice(), fb: x.fb, t0: x.t0 }); };
+  const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / n); } };
+  const cut = (t) => {
+    const x = st.current;
+    if (x.fb || done.current || !x.t0) return;
+    const z = items[x.k], w = z.z1 - z.z0;
+    const p = t == null ? -1 : pos(t);
+    const v = p < 0 ? 0 : p >= z.z0 && p <= z.z1 ? 1 : p >= z.z0 - w / 2 && p <= z.z1 + w / 2 ? 0.5 : 0;
+    if (p >= 0 && cur.current) cur.current.style.left = (p * 100).toFixed(2) + '%';
+    x.fb = { p, v, late: p < 0 };
+    x.got = x.got.concat(v);
+    keep(Object.assign({ k: x.k + 1, got: x.got, live: -1 }, x.k + 1 >= n ? { score: x.got.reduce((a, b) => a + b, 0) / n } : {}));
+    sync();
+    setTimeout(() => {
+      if (x.k + 1 >= n) { finish(x.got); return; }
+      if (!alive.current) return;
+      x.k += 1; x.fb = null; x.t0 = performance.now();
+      keep({ live: x.k });
+      sync();
+    }, 800);
+  };
+  useEffect(() => {
+    const x0 = st.current;
+    if (x0.k >= n) { finish(x0.got); return () => { alive.current = false; }; } // every take was done before the player left
+    x0.t0 = performance.now();
+    keep({ k: x0.k, got: x0.got, live: x0.k });
+    sync();
+    let raf = 0;
+    const draw = () => {
+      const x = st.current, t = performance.now();
+      if (!x.fb && !done.current) {
+        if (cur.current) cur.current.style.left = (pos(t) * 100).toFixed(2) + '%';
+        if (t - x.t0 > sp * 4) cut(null); // two round trips without a cut: missed
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    const onKey = (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); st.current.key = performance.now(); cut(tapTime(e)); } };
+    window.addEventListener('keydown', onKey);
+    return () => { alive.current = false; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); };
+  }, []);
+  if (view.k >= n) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
+  const z = items[view.k];
+  const fb = view.fb, fbc = fb ? (fb.v === 1 ? ' ok' : fb.v ? ' mid' : ' ko') : '';
+  const W = WHATS[game.what] || WHATS.vidéo, live = game.what === 'live';
+  return html`<div class="mg-play mt-play">
+    <div class="mg-top"><span class="mono">${view.k + 1}/${n}</span><span class="mt-fb" aria-live="polite">${fb ? (fb.late ? 'Trop tard' : HIT_TXT[fb.v]) : 'Attends le bon moment…'}</span></div>
+    <div class=${'mt-screen' + fbc} aria-hidden="true"><span class="mt-rec">● ${live ? 'LIVE' : 'REC'}</span><span class="mt-emo">${W.emoji}</span><span class="mt-plan">${live ? 'Relance' : 'Plan'} ${view.k + 1}</span></div>
+    <div class="mt-track" data-z0=${z.z0} data-z1=${z.z1} data-t0=${view.t0} data-speed=${sp}>
+      <span class=${'mt-zone' + fbc} style=${`left:${z.z0 * 100}%;width:${(z.z1 - z.z0) * 100}%`}></span>
+      <span class="mt-cursor" ref=${cur}></span>
+    </div>
+    <button class="btn btn-hot mt-cut" onPointerDown=${(e) => cut(tapTime(e))} onClick=${(e) => { if (e.detail === 0 && performance.now() - st.current.key > 1000) cut(tapTime(e)); }} disabled=${!!fb}><${Icon} n=${live ? 'zap' : 'scissors'} s=${20} /> ${game.verb || 'Couper'}</button>
+    <div class="mt-hits" aria-label="Tes coupes">${items.map((x, j) => html`<span key=${j} class=${'mt-hit' + (j < view.got.length ? ' v' + String(view.got[j]).replace('.', '') : '')}>${j < view.got.length ? (view.got[j] === 1 ? '✓' : view.got[j] ? '~' : '✗') : j + 1}</span>`)}</div>
+  </div>`;
+}
+// Remember the script: the symbols go by one at a time, then the player taps them back in order.
+// The round lives in a ref: taps as fast as the player likes never read a stale state.
+function MemoryGame({ game, onDone, now, run, keep }) {
+  const rounds = game.items, pool = game.pool || [], per = game.per || 800, nR = rounds.length;
+  const roundScore = (k, input) => { const sq = rounds[k].seq; let ok = 0; while (ok < input.length && input[ok] === sq[ok]) ok++; return ok / sq.length; };
+  const st = useRef(null);
+  if (!st.current) { // a round under way when the player left: back to choosing if its time is not up, otherwise it counts as it stood
+    const r0 = run && Array.isArray(run.scores) ? run : null;
+    let k = r0 ? r0.k : 0, scores = r0 ? r0.scores.slice() : [];
+    if (r0 && r0.live === k && k < nR) {
+      if (r0.phase === 'pick' && r0.end > Date.now()) st.current = { k, phase: 'pick', shown: -1, input: (r0.input || []).slice(), scores, fb: null, end: r0.end };
+      else { scores = scores.concat(roundScore(k, r0.input || [])); k += 1; }
+    }
+    if (!st.current) st.current = { k, phase: 'show', shown: -1, input: [], scores, fb: null, end: 0 };
+  }
+  const [, setV] = useState(0);
+  const render = () => setV((v) => v + 1);
+  const done = useRef(false), alive = useRef(true);
+  const s = st.current;
+  const seq = s.k < nR ? rounds[s.k].seq : [];
+  const pickTime = (len) => 3000 + 1100 * len;
+  const finish = (scores) => { if (!done.current) { done.current = true; onDone(scores.reduce((a, v) => a + v, 0) / nR); } };
+  useEffect(() => {
+    const x = st.current;
+    if (x.k >= nR) finish(x.scores); // every round was played before the player left
+    else keep({ k: x.k, scores: x.scores, live: x.phase === 'pick' ? x.k : -1, phase: x.phase, input: x.input, end: x.end });
+    return () => { alive.current = false; };
+  }, []);
+  useEffect(() => {
+    if (s.phase !== 'show' || s.k >= nR) return undefined;
+    const t = setTimeout(() => {
+      const x = st.current, len = rounds[x.k].seq.length;
+      if (x.shown >= len - 1) { Object.assign(x, { phase: 'pick', shown: -1, end: Date.now() + pickTime(len) }); keep({ phase: 'pick', end: x.end }); }
+      else { if (x.shown < 0) keep({ live: x.k, phase: 'show', input: [] }); x.shown += 1; } // the first image shows: this round is under way
+      render();
+    }, s.shown < 0 ? 700 : per);
+    return () => clearTimeout(t);
+  }, [s.phase, s.shown, s.k]);
+  const endRound = () => {
+    const x = st.current, v = roundScore(x.k, x.input);
+    Object.assign(x, { scores: x.scores.concat(v), phase: 'fb', fb: { v } });
+    keep(Object.assign({ k: x.k + 1, scores: x.scores, live: -1, phase: 'show', input: [], end: 0 }, x.k + 1 >= nR ? { score: x.scores.reduce((a, b) => a + b, 0) / nR } : {}));
+    render();
+    setTimeout(() => {
+      if (x.k + 1 >= nR) finish(x.scores);
+      else if (alive.current) { Object.assign(x, { k: x.k + 1, phase: 'show', shown: -1, input: [], fb: null }); render(); }
+    }, v === 1 ? 900 : 1900);
+  };
+  useEffect(() => { if (st.current.phase === 'pick' && now >= st.current.end) endRound(); }, [now]);
+  const tap = (sym) => {
+    const x = st.current;
+    if (x.phase !== 'pick' || done.current) return;
+    x.input = x.input.concat(sym);
+    keep({ input: x.input }, false);
+    const sq = rounds[x.k].seq;
+    if (sym !== sq[x.input.length - 1] || x.input.length >= sq.length) endRound();
+    else render();
+  };
+  if (s.k >= nR) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
+  const head = s.phase === 'pick' ? html`<${MgTop} k=${s.k + 1} n=${rounds.length} left=${s.end - now} total=${pickTime(seq.length)} />`
+    : html`<div class="mg-top mm-top"><span class="mono">${s.k + 1}/${rounds.length}</span><span class="mt-fb">${s.phase === 'show' ? `Retiens ces ${seq.length} images` : s.fb.v === 1 ? 'Parfait !' : 'Raté : voilà la bonne suite'}</span></div>`;
+  return html`<div class="mg-play mm-play" data-k=${s.k} data-phase=${s.phase}>
+    ${head}
+    ${s.phase === 'show' ? html`<div class="mm-stage" aria-live="off">${s.shown >= 0 ? html`<span class="mm-big" key=${s.k + ':' + s.shown}>${seq[s.shown]}</span>` : html`<span class="mm-ready">Prêt ?</span>`}</div>
+      <div class="mm-dots" aria-hidden="true">${seq.map((x, j) => html`<i key=${j} class=${j <= s.shown ? 'on' : ''}></i>`)}</div>`
+    : html`<div class="mm-slots">${seq.map((x, j) => html`<span key=${j} class=${'mm-slot' + (j < s.input.length ? (s.input[j] === x ? ' on' : ' ko') : '')}>${j < s.input.length ? s.input[j] : ''}</span>`)}</div>
+      ${s.phase === 'fb' && s.fb.v < 1 ? html`<div class="mm-slots answer">${seq.map((x, j) => html`<span key=${j} class="mm-slot">${x}</span>`)}</div>` : null}
+      <div class="mm-pool">${pool.map((x) => html`<button key=${x} onClick=${() => tap(x)} disabled=${s.phase !== 'pick'} aria-label=${x}>${x}</button>`)}</div>`}
+  </div>`;
+}
+function ShootPlay({ r, now, outcomes, icon }) {
+  const game = r.game;
+  const resumed = !!(game.run && game.run.on); // started earlier: straight back into it, where it stood (the counter says where)
+  const [phase, setPhase] = useState(resumed ? 'play' : 'intro');
+  const keep = (part, soon) => mgKeep(game, part, soon);
+  const run = game.run || null;
+  const onDone = (score) => finishShoot(r, score);
+  const kind = MG_LABEL[game.kind] ? game.kind : 'ordre';
+  const D = diffOf(game.diff || r.diff);
+  const g = S.game, crew = !r.player && r.crew ? r.crew : []; // a release's team (an editor, a scriptwriter) helps the shoot
+  const total = Math.round(mgTime(kind, game.items.length, D) * (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)); // 0.20: the prompter
+  const hints = g && crew.includes('scenariste') ? staffPower(g, 'scenariste') : 0;
+  if (phase === 'intro') {
+    return html`<div class="mg-intro">
+      <span class="eyebrow">${D.real && kind === 'quiz' ? 'Questions d’expert' : MG_LABEL[kind]}</span>
+      <h3>${game.title}</h3>
+      <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · gains ${fmtMult(D.mult)}</span>
+      <p>${game.intro}</p>
+      ${D.real ? html`<p class="mg-warn">De vraies questions de connaisseur sur ton sujet : rien d’inventé, aucune pitié.</p>` : null}
+      <p class="muted">${MG_RULE[kind](Math.round(total / 1000), game)} ${outcomes || `Réussi : ${laW(r)} cartonne. Moyen : ${whatF(r) ? 'elle' : 'il'} marche moyen. Raté : flop.`}</p>
+      ${crew.length ? html`<p class="mg-crew">${crew.map((k) => STAFF_ROLES[k].emoji).join(' ')} Ton équipe est là${crew.includes('monteur') || crew.includes('scenariste') ? ` : +${Math.round((staffMult(g, 'time', r.what, crew) - 1) * 100)} % de temps` : ''}${hints ? `, ${hints} ${plural(hints, 'indice', 'indices')}` : ''}.</p>` : null}
+      <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n=${icon || 'clapper'} s=${16} /> C’est parti</button>
+    </div>`;
+  }
+  if (kind === 'tri' || kind === 'vf') return html`<${TriGame} items=${game.items} onDone=${onDone} now=${now} total=${total} vf=${kind === 'vf'} hints=${hints} run=${run} keep=${keep} />`;
+  if (kind === 'quiz' || kind === 'intrus') return html`<${QuizGame} items=${game.items} onDone=${onDone} now=${now} total=${total} odd=${kind === 'intrus'} hints=${hints} run=${run} keep=${keep} />`;
+  if (kind === 'montage') return html`<${MontageGame} game=${game} onDone=${onDone} run=${run} keep=${keep} />`;
+  if (kind === 'memoire') return html`<${MemoryGame} game=${game} onDone=${onDone} now=${now} run=${run} keep=${keep} />`;
+  if (ARCADE_KINDS.includes(kind)) return html`<${ArcadeGame} game=${game} onDone=${onDone} now=${now} run=${run} keep=${keep} />`; // 0.25
+  return html`<${OrderGame} items=${game.items} onDone=${onDone} now=${now} total=${total} hints=${hints} run=${run} keep=${keep} />`;
+}
+// What the right answers were, after the game (always after a real-knowledge one: you want to know).
+function MgAnswers({ game }) {
+  if (!game || !game.items || !game.items.length) return null;
+  const k = game.kind;
+  if (k === 'ordre') return html`<details class="mg-fix"><summary>Le bon ordre</summary><ol>${game.items.map((x, j) => html`<li key=${j}>${x.text}</li>`)}</ol></details>`;
+  if (k === 'quiz' || k === 'intrus') return html`<details class="mg-fix"><summary>Les bonnes réponses</summary><ol>${game.items.map((q, j) => html`<li key=${j}><span>${q.text}</span><b>${k === 'intrus' ? 'L’intrus : ' : ''}${q.a[q.ok]}</b></li>`)}</ol></details>`;
+  if (k === 'tri' || k === 'vf') return html`<details class="mg-fix"><summary>Les bonnes réponses</summary><ol>${game.items.map((x, j) => html`<li key=${j}><span>${x.text}</span><b>${k === 'vf' ? (x.good ? 'Vrai' : 'Faux') : x.good ? 'À garder' : 'À jeter'}</b></li>`)}</ol></details>`;
+  if (k === 'chat') return html`<details class="mg-fix"><summary>Les messages à supprimer</summary><ol>${game.items.filter((x) => x.bad).map((x, j) => html`<li key=${j}><span>${x.who} : ${x.text}</span></li>`)}</ol></details>`; // 0.25
+  return null;
+}
+// Before the shoot: the topic (the player's, editable) and the difficulty, which sets the time and the rewards.
+function ShootSetup({ r }) {
+  const [topic, setTopic] = useState(r.topic);
+  const [plot, setPlot] = useState(r.plot || '');
+  const [diff, setDiff] = useState(r.diff || 'moyen');
+  const W = WHATS[r.what] || WHATS.vidéo;
+  const ok = topic.trim().length >= 3;
+  const g = S.game, can = g ? canMakeR(g, r) : { ok: true }; // 0.20: a computer down, no connection for the live
+  const launch = () => { if (!ok || !can.ok) return; r.topic = str(topic, 120); r.plot = str(plot, PLOT_MAX); r.diff = diffOf(diff).id; genShoot(r); };
+  return html`<div class="mg-setup">
+    <div class="mg-setup-head"><span class="mg-emo" aria-hidden="true">${W.emoji}</span><h3>Prépare ${laW(r)}</h3></div>
+    ${g ? html`<${GearBlocker} g=${g} r=${r} now=${Date.now()} />` : null}
+    <div class="field">
+      <label class="lbl" for="rl-topic">Le sujet</label>
+      <textarea id="rl-topic" class="input" rows="2" maxlength="120" value=${topic} readOnly=${!!(r.devis && g && !easyGear())} onInput=${(ev) => setTopic(ev.target.value)}></textarea>
+      <small class="muted">${r.devis && g && !easyGear() ? 'Le sujet de ton devis : c’est celui-là que tu tournes.' : 'Corrige-le si ce n’est pas ce que tu voulais dire : le mini-jeu portera sur ce sujet.'}</small>
+    </div>
+    <div class="field">
+      <label class="lbl" for="rl-plot">Ce qui se passe dans ${laW(r)} <span class="muted">(facultatif)</span></label>
+      <textarea id="rl-plot" class="input" rows="3" maxlength=${PLOT_MAX} value=${plot} onInput=${(ev) => setPlot(ev.target.value)} placeholder=${PLOT_HINT[r.what] || PLOT_HINT.vidéo}></textarea>
+      <small class="muted">Ce qu’on y voit, comment ça se déroule, la chute : le mini-jeu, les réactions et la suite de la partie s’en serviront.</small>
+    </div>
+    <div class="field">
+      <span class="lbl" id="diff-lbl">Difficulté</span>
+      <div class="diff-list" role="radiogroup" aria-labelledby="diff-lbl">
+        ${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}>
+          <span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b><small>${d.desc}</small></span><span class="d-mult">gains ${fmtMult(d.mult)}</span>
+        </button>`)}
+      </div>
+      ${diffOf(diff).real ? html`<p class="date-late nm-hint"><${Icon} n="flame" s=${15} /> Les questions porteront sur le vrai sujet : écris-le précisément (le nom exact du jeu, du film, du sport, de l’artiste…). Si c’est une histoire du jeu, ce sera sur ce qui s’est vraiment passé ici.</p>` : null}
+    </div>
+    ${g && can.ok && devisNeeded(g, r) ? html`<${DevisStep} g=${g} r=${r} topic=${topic} />` // 0.20: the quote, before the shoot (once nothing blocks it)
+      : html`<button class="btn btn-hot" onClick=${launch} disabled=${!ok || !can.ok}><${Icon} n="clapper" s=${16} /> Lancer le tournage</button>`}
+  </div>`;
+}
+function ShootResult({ r, g, now }) {
+  const tier = r.played.tier, T = RELEASE_TIERS[tier];
+  const D = diffOf(r.played.diff || r.diff);
+  return html`<div class=${'mg-result ' + tier}>
+    <span class="eyebrow">${T.label}</span>
+    <div class="mg-score">${Math.round(r.played.score * 100)} %</div>
+    <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un flop' : 'gains ' + fmtMult(D.mult) + (tier === 'top' && D.viral ? ' · viral assuré' : '')}</span>
+    <p>${tier === 'top' ? `${cap1(laW(r))} va cartonner.` : tier === 'mid' ? `${cap1(laW(r))} marchera moyennement.` : 'Si tu publies maintenant, c’est le flop assuré.'}${tier === 'top' && D.real ? ' Tu connais vraiment ton sujet : ça se sent.' : ''}${r.series ? (tier === 'flop' ? ' Ta série retombera à zéro.' : ` Ta série passera à ${(g.series ? g.series.streak : 0) + 1}.`) : ''}</p>
+    ${r.series && tier !== 'top' ? html`<p class="date-late series-note"><${Icon} n="calendar" s=${15} /><span><b>Défi Daily Upload : pas de report possible.</b> ${tier === 'flop' ? (g.series && g.series.hard ? 'Mode hardcore : un épisode raté met fin au défi, publié ou non.' : 'Publie quand même : raté, ta série repart de zéro ; pas publié, tu perds en plus ${Math.abs(repPts(repTry(g, { cred: -10, pro: -5 })))} de réputation.') : 'Publie pour valider l’épisode : ta série continue.'}</span></p>` : null}
+    ${tier !== 'top' || D.real ? html`<${MgAnswers} game=${r.game} />` : null}
+    <${StudioSteps} g=${g} r=${r} now=${now} />
+    ${tier !== 'top' && !r.series && r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost" onClick=${() => askPostpone(g, r)}>Repousser pour retenter · ${repWord(repTry(g, postponePlan(r.delays + 1)))}</button>` : null}
+    ${tier !== 'top' && !r.series && r.delays >= MAX_DELAYS ? html`<small class="muted">Tu as déjà repoussé ${MAX_DELAYS} fois : publie ou abandonne.</small>` : null}
+    ${r.delays >= MAX_DELAYS && !r.series ? html`<button class="btn btn-ghost" onClick=${() => askDrop(g, r)}>Abandonner</button>` : null}
+    ${r.series ? html`<small class="muted">Défi en cours : pas de report possible (le bouton « Repousser » n’existe pas pendant un défi).</small>` : null}
+  </div>`;
+}
+// A date: the difficulty comes from how famous the person is; the result decides how the evening ends.
+const partnerOf = (g, c) => mains(g).find((o) => o !== c && o.unlocked && PARTNER.includes(o.vibe)) || null;
+function DateSetup({ ev, g, now }) {
+  const c = g.chars[ev.c];
+  const X = isTalk(g, ev) ? dateExigence(g, ev, now) : null; // 0.16: from the second date, what you live sets the exigence
+  const D = X ? DIFFS[X.ix] : diffOf(ev.diff || fameDiff(c));
+  const early = ev.due - now, late = now - ev.due;
+  const care = !!(g.opts && g.opts.careDates), due = early <= 0;
+  useEffect(() => { if (due && care) prepDate(ev); }, [due, care, ev.id]); // « Rendez-vous soignés »: written while you read this
+  const other = datesClash(g, ev);
+  const oc = other && g.chars[other.c];
+  return html`<div class="mg-setup">
+    <div class="date-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${56} /><div><h3>${eventLabel(g, ev)}</h3><span>« ${ev.what} » · ${early > 0 ? fmtWhen(ev.due, now) : late > 15 * 60000 ? `tu as ${Math.round(late / 60000)} min de retard` : 'c’est maintenant'}</span></div></div>
+    ${X ? html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Exigence ${D.label}</b><small>Ce soir, ça dépend de ce que vous vivez, pas des abonnés.</small></span><span class="d-mult">gains ${fmtMult(D.mult)}</span></div>
+      ${X.why.length ? html`<div class="ex-why">${X.why.map((w) => html`<span key=${w} class="chip">${w}</span>`)}</div>` : null}`
+      : html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Difficulté ${D.label}</b><small>${c.name} a ${fmtN(c.followers)} ${plural(c.followers, 'abonné', 'abonnés')} : plus on est connu, plus on est exigeant.</small></span><span class="d-mult">gains ${fmtMult(D.mult)}</span></div>`}
+    ${isTalk(g, ev) ? html`<p class="date-late talk-note"><${Icon} n="msg" s=${15} /> Cette fois, pas de mini-jeu : vous vous parlez pour de vrai, et tu réponds avec tes mots (${TALK_TURNS} échanges, ≈ ${Math.round(costGuess(g, 'talk') * (TALK_TURNS + 2))} cafés).</p>` : null}
+    ${late > 15 * 60000 ? html`<p class="date-late"><${Icon} n="clock" s=${15} /> Tu arrives en retard : la soirée démarre mal (un cran plus dur).</p>` : null}
+    ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${partnerOf(g, c).name.split(' ')[0]}, n’est pas au courant… pour l’instant.</p>` : null}
+    ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${oc.name.split(' ')[0]} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
+    ${early > 0 ? html`<button class="btn btn-hot" onClick=${() => skipTime(early + 1000, () => ev.due)} disabled=${!!(activeRelease(g) && activeRelease(g).due <= now)}><${Icon} n="ffwd" s=${16} /> Avancer jusqu’au rendez-vous</button>`
+      : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
+    ${due && care ? html`<small class="muted prep-note">${S.busy.prep === ev.id ? html`<${Typing} /> La soirée se prépare et se relit (rendez-vous soignés)…` : ev.prep ? '💘 Soirée prête, relue pour coller à votre histoire.' : ''}</small>` : null}
+    <button class="btn btn-ghost" onClick=${() => askCancelDate(g, ev)}>Annuler le rendez-vous</button>
+  </div>`;
+}
+function DateResult({ ev, g }) {
+  const tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff), M = MEET[meetKind(g.chars[ev.c], ev)], ix = tierIx(tier);
+  return html`<div class=${'mg-result ' + tier}>
+    <span class="eyebrow">${M.tiers[ix]}</span>
+    <div class="mg-score">${Math.round(ev.played.score * 100)} %</div>
+    <span class="chip">${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un fiasco' : 'gains ' + fmtMult(D.mult)}</span>
+    <p>${M.lines[ix]}</p>
+    <button class="btn btn-hot" onClick=${() => endDate(ev)} disabled=${!!S.busy.ev}>${M.end}</button>
+  </div>`;
+}
+function DateLayer({ ev, g, now, i }) {
+  const c = g.chars[ev.c];
+  const M = MEET[meetKind(c, ev)];
+  let body;
+  if (!c || ev.state !== 'scheduled') body = html`<div class="empty"><b>Ce rendez-vous est passé</b></div>`;
+  else if (S.busy.ev === ev.id) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>${M.ending}</b><${Typing} /></div>`;
+  else if (ev.played && !(ev.talk && !ev.talk.closed)) body = html`<${DateResult} ev=${ev} g=${g} />`;
+  else if (ev.talk) body = html`<${DateTalk} ev=${ev} g=${g} now=${now} />`; // 0.11: played for real (0.16: until the player ends the evening)
+  else if (ev.game) body = html`<${ShootPlay} key=${ev.id + ':' + (ev.tries || 0)} r=${ev} now=${now} icon=${M.icon} outcomes=${M.outcomes} />`;
+  else if (S.busy.mg === ev.id || (S.busy.prep === ev.id && ev.go)) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>Tu te prépares…</b><span>${S.busy.review === ev.id ? 'L’IA relit la soirée pour qu’elle colle à votre histoire' : `« ${ev.what} »`}</span><${Typing} /></div>`;
+  else body = html`<${DateSetup} ev=${ev} g=${g} now=${now} />`;
+  return html`<${LayerShell} i=${i} title=${'Rendez-vous · ' + (c ? c.name.split(' ')[0] : '')}>${body}<//>`;
+}
+function MiniGameLayer({ l, g, now, i }) {
+  const evd = eventOf(g, l.id);
+  if (evd) return html`<${DateLayer} ev=${evd} g=${g} now=${now} i=${i} />`;
+  const r = (g.releases || []).find((x) => x.id === l.id);
+  const W = r ? WHATS[r.what] || WHATS.vidéo : WHATS.vidéo;
+  let body;
+  if (!r || r.state !== 'scheduled') body = html`<div class="empty"><b>Plus rien à tourner</b><span>${r && r.state === 'released' ? 'C’est déjà en ligne.' : 'Ce projet est abandonné.'}</span></div>`;
+  else if (r.played) body = html`<${ShootResult} r=${r} g=${g} now=${now} />`;
+  else if (r.game) body = html`<${ShootPlay} key=${r.id + ':' + (r.tries || 0) + ':' + r.delays} r=${r} now=${now} />`;
+  else if (S.busy.mg === r.id) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${W.emoji}</span><b>Préparation du tournage…</b><span>« ${r.topic} »</span><${Typing} /></div>`;
+  else body = html`<${ShootSetup} key=${r.id + ':' + r.delays} r=${r} />`;
+  return html`<${LayerShell} i=${i} title=${'Tournage · ' + (r ? r.what : 'vidéo')}>${body}<//>`;
+}
+
+/* ---------- layers ---------- */
+function LayerShell({ i, title, head, foot, children, onBack, dark }) {
+  return html`<div class="layer" style=${'z-index:' + (20 + (i || 0))} onClick=${(e) => { if (e.target === e.currentTarget) closeLayer(); }}>
+    <section class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal="true" aria-label=${title}>
+      <header class="layer-head"><button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>${head || html`<h2>${title}</h2>`}</header>
+      <div class="layer-body">${children}</div>
+      ${foot ? html`<footer class="layer-foot">${foot}</footer>` : null}
+    </section>
+  </div>`;
+}
+function Layer(props) {
+  const t = props.l.t;
+  if (t === 'thread') return html`<${ThreadLayer} ...${props} />`;
+  if (t === 'char') return html`<${CharLayer} ...${props} />`;
+  if (t === 'dm') return html`<${DMLayer} ...${props} />`;
+  if (t === 'compose') return html`<${ComposeLayer} ...${props} />`;
+  if (t === 'shop') return html`<${ShopLayer} ...${props} />`;
+  if (t === 'tag') return html`<${TagLayer} ...${props} />`;
+  if (t === 'npc') return html`<${NpcLayer} ...${props} />`;
+  if (t === 'minigame') return html`<${MiniGameLayer} ...${props} />`;
+  if (t === 'settings') return html`<${SettingsLayer} ...${props} />`;
+  if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
+  if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
+  if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
+  if (t === 'insta') return html`<${InstaLayer} ...${props} />`;
+  if (t === 'tiktok') return html`<${TikTokLayer} ...${props} />`;
+  if (t === 'datelog') return html`<${DateLogLayer} ...${props} />`; // 0.22.4
+  if (t === 'job') return html`<${JobLayer} ...${props} />`; // 0.23
+  if (t === 'skill') return html`<${SkillLayer} ...${props} />`; // 0.24: a skill's tree
+  if (t === 'inv') return html`<${InvLayer} ...${props} />`; // 0.26: the inventory
+  if (t === 'sell') return html`<${SellLayer} ...${props} />`; // 0.26: putting something on sale
+  if (t === 'resale') return html`<${ResaleLayer} ...${props} />`; // 0.26: the second-hand app
+  return null;
+}
+function IdeaList({ k, onPick }) {
+  if (!S.ideas || S.ideas.key !== k) return null;
+  const list = S.ideas.list.length ? S.ideas.list : S.ideas.loading ? S.ideas.prev || [] : [];
+  return html`${list.map((it, n) => html`<button class=${'idea' + (S.ideas.list.length ? '' : ' stale')} key=${n + it.text.slice(0, 12)} onClick=${() => onPick(it.text)}><small>${it.angle || 'idée'}</small>${it.text}</button>`)}
+    ${S.ideas.loading ? html`<div class="muted row" style="font-size:13px;padding:4px 2px"><${Typing} /> ${AI_NAME} cherche des idées…</div>` : null}`;
+}
+/* ---------- 0.15: « @ » suggests the people of the world (mentioning them counts) ---------- */
+const foldAcc = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+// The « @… » being typed just before the caret: { q, from } (from: where the @ is), or null.
+function mentionAt(text, caret) {
+  const m = /(^|[^\p{L}\p{N}_@.])@([\p{L}\p{N}._]{0,20})$/u.exec(String(text || '').slice(0, caret));
+  return m ? { q: m[2], from: caret - m[2].length - 1 } : null;
+}
+// Who fits: the main characters first (the closest first), then the media and the rest of the people they know.
+function mentionPicks(g, q, n = 5) {
+  const k = foldAcc(q).replace(/[^a-z0-9._]/g, '');
+  const rank = (c) => (isMain(c) ? 0 : c.kind === 'media' ? 1 : 2);
+  return g.order.map((id) => g.chars[id]).filter((c) => c && c.unlocked && ['main', 'media', 'staff', 'ex'].includes(c.kind)
+    && (!k || c.handle.startsWith(k) || foldAcc(c.name).split(/\s+/).some((w) => w.startsWith(k)) || (k.length >= 2 && c.handle.includes(k))))
+    .sort((a, b) => rank(a) - rank(b) || Math.abs(b.rel || 0) - Math.abs(a.rel || 0)).slice(0, n);
+}
+// For a textarea: what to show, the keys it takes (↑ ↓ Entrée Tab Échap), and the pick (« @handle » + a space).
+function useMentions(g, ref, val, setVal, max = 280) {
+  const [st, setSt] = useState({ sel: 0, off: -1 });
+  const el = ref.current;
+  const at = el && typeof document !== 'undefined' && document.activeElement === el ? mentionAt(val, el.selectionStart) : null;
+  const list = at && st.off !== at.from ? mentionPicks(g, at.q) : [];
+  const sel = Math.min(st.sel, Math.max(0, list.length - 1));
+  const pick = (c) => {
+    const t = ref.current;
+    if (!t || !c) return;
+    const pos = t.selectionStart, a = mentionAt(t.value, pos);
+    if (!a) return;
+    const next = (t.value.slice(0, a.from) + '@' + c.handle + ' ' + t.value.slice(pos)).slice(0, max);
+    const caret = Math.min(next.length, a.from + c.handle.length + 2);
+    setVal(next);
+    setSt({ sel: 0, off: -1 });
+    t.value = next;
+    t.focus();
+    t.setSelectionRange(caret, caret);
+  };
+  const onKey = (ev) => {
+    if (!list.length) return false;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); setSt({ sel: (sel + (ev.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length, off: st.off }); return true; }
+    if ((ev.key === 'Enter' && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey) || ev.key === 'Tab') { ev.preventDefault(); pick(list[sel]); return true; }
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSt({ sel: 0, off: at.from }); return true; }
+    return false;
+  };
+  const view = list.length ? html`<div class="mention-list" role="listbox" aria-label="Mentionner quelqu’un">${list.map((c, i) => html`<button key=${c.id} type="button" role="option" aria-selected=${i === sel ? 'true' : 'false'} class=${'mention-opt' + (i === sel ? ' on' : '')}
+      onMouseDown=${(e) => e.preventDefault()} onClick=${() => pick(c)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${26} /><b>${c.name}</b><span class="mo-h">@${c.handle}</span></button>`)}</div>` : null;
+  return { onKey, view, refresh: () => setSt((x) => ({ sel: x.sel, off: x.off })) };
+}
+function ReplyBox({ p, g, now, focus }) {
+  const [, force] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => { if (focus && ref.current) ref.current.focus(); }, []);
+  const val = S.drafts.reply[p.id] || '';
+  const e = energyNow(g, now);
+  const busy = !!S.busy.act;
+  const tid = S.replyTo[p.id];
+  const tr = tid ? p.replies.find((r) => r.id === tid && r.at <= now) || null : null;
+  const trAu = tr ? author(g, tr.a) : null;
+  const can = !!val.trim() && !busy && canAfford(g, 'reply');
+  const mn = useMentions(g, ref, val, (v) => { S.drafts.reply[p.id] = v; force((x) => x + 1); if (ref.current) autosize(ref.current); });
+  const em = useEmoji('reply:' + p.id, ref, () => S.drafts.reply[p.id] || '', (v) => { S.drafts.reply[p.id] = v; force((x) => x + 1); if (ref.current) autosize(ref.current); }); // 0.17
+  const send = async () => {
+    const text = (S.drafts.reply[p.id] || '').trim(); // live state: a second tap or the voice timer cannot send twice
+    if (!text || S.busy.act) return;
+    const id2 = S.replyTo[p.id];
+    const target = id2 ? p.replies.find((r) => r.id === id2 && r.at <= Date.now()) || null : null;
+    S.drafts.reply[p.id] = '';
+    delete S.replyTo[p.id];
+    if (S.ideas && S.ideas.key === p.id) S.ideas = null;
+    if (ref.current) ref.current.style.height = '';
+    force((x) => x + 1);
+    const ok = await runAct('reply', text, p, target);
+    if (ok === false) { S.drafts.reply[p.id] = text; if (target) S.replyTo[p.id] = target.id; force((x) => x + 1); }
+  };
+  const [left, cancel, arm] = useAutoSend('reply:' + p.id, val, can, send);
+  const showIdeas = S.ideas && S.ideas.key === p.id;
+  return html`<div>
+    ${showIdeas ? html`<div class="foot-ideas"><${IdeaList} k=${p.id} onPick=${(t) => { S.drafts.reply[p.id] = t; S.ideas = null; update(false); if (ref.current) ref.current.focus(); }} /></div>` : null}
+    <${AutoSendBar} left=${left} cancel=${cancel} />
+    ${tr ? html`<div class="reply-target">
+      <span>En réponse à <b>@${trAu.handle}</b> · ${tr.text}</span>
+      <button type="button" class="iconbtn" style="width:30px;height:30px" onClick=${() => { delete S.replyTo[p.id]; update(false); }} aria-label="Répondre au post plutôt qu’à ce commentaire"><${Icon} n="x" s=${15} /></button>
+    </div>` : null}
+    <div class="foot-tools">
+      <button class="linkbtn row" style="gap:4px" onClick=${() => loadIdeas(p, tr)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${14} /> Des idées ?</button>
+      <${WriteBtn} w=${{ kind: 'reply', key: 'reply:' + p.id, p, r: tr, draft: val.trim() }} onText=${(t) => { S.drafts.reply[p.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} />
+      <${VoiceChip} />
+      ${em.btn}
+      <span>${busy ? 'Ta réaction précédente est encore en cours…' : canAfford(g, 'reply') ? `≈ ${costLabel(g, 'reply')} café par réponse · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span>
+    </div>
+    ${mn.view}
+    ${em.panel}
+    <div class="reply-box">
+      <textarea ref=${ref} id=${'reply-' + p.id} rows="1" maxlength="280" placeholder="Ta réponse…" aria-label=${tr ? 'Répondre à @' + trAu.handle : 'Répondre au post'} value=${val}
+        onInput=${(ev) => { arm(); S.drafts.reply[p.id] = ev.target.value; autosize(ev.target); force((x) => x + 1); }}
+        onClick=${mn.refresh} onKeyUp=${(ev) => { if (/^(Arrow(Left|Right)|Home|End)$/.test(ev.key)) mn.refresh(); }}
+        onKeyDown=${(ev) => { if (mn.onKey(ev)) return; if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send(); } }}></textarea>
+      <button class="send" onClick=${send} disabled=${!can} aria-label="Répondre"><${Icon} n="send" s=${16} /> Répondre</button>
+    </div>
+  </div>`;
+}
+function ThreadLayer({ l, g, now, i }) {
+  const p = g.posts.find((x) => x.id === l.id);
+  if (!p) return html`<${LayerShell} i=${i} title="Post"><div class="empty"><b>Post introuvable</b><span>Il n’est plus dans ton fil.</span></div><//>`;
+  const au = author(g, p.a);
+  const replies = p.replies.filter((r) => r.at <= now);
+  const writing = p.replies.some((r) => r.at > now && r.at - now < 60000) || S.busy.act === p.id || S.busy.more === p.id; // (a later wave is not « writing » yet)
+  return html`<${ThreadBody} key=${p.id} l=${l} g=${g} now=${now} i=${i} p=${p} au=${au} replies=${replies} writing=${writing} />`;
+}
+function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
+  const endRef = useRef(null);
+  const count = replies.length;
+  const rows = threadOrder(replies);
+  // Ultime: the comments the counter promises are written as soon as the thread opens (once per post; opening it is the player's action)
+  useEffect(() => { if (intensityOf(g).autoMore && !p.more && !p.pending && moreDue(p, Date.now()) && canAfford(g, 'more')) moreReplies(p.id); }, []); // Ultime, « Beaucoup de commentaires »
+  useEffect(() => {
+    const el = endRef.current && endRef.current.closest('.layer-body');
+    if (!el || !count) return;
+    let newest = replies[0];
+    for (const r of replies) if (r.at > newest.at) newest = r;
+    if (Date.now() - newest.at > 8000) return;
+    let lastMine = null;
+    for (const r of replies) if (r.a === 'p' && (!lastMine || r.at > lastMine.at)) lastMine = r;
+    const follow = lastMine && Date.now() - lastMine.at < 90000 && (newest === lastMine || newest.to === lastMine.id);
+    if (follow) {
+      const node = document.getElementById('r-' + newest.id);
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (el.scrollTop > 0 && el.scrollHeight - el.scrollTop - el.clientHeight < 240) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
+  }, [count, writing]);
+  const viral = p.res && p.res.viral && revealed(p, now);
+  const canDelete = p.a === 'p' && !p.pending && S.busy.act !== p.id;
+  return html`<${LayerShell} i=${i} title="Post" foot=${html`<${ReplyBox} p=${p} g=${g} now=${now} focus=${l.focus} />`}>
+    <article class=${'post post-big' + (viral ? ' is-viral' : '')}>
+      ${viral ? html`<span class="stamp">VIRAL</span>` : null}
+      <div class="post-head"><${Avatar} who=${au} size=${48} onClick=${() => openAuthor(au)} /><div class="who"><span class="post-name">${au.name}${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /></span><span class="post-handle">@${au.handle}</span></div></div>
+      ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
+      <${AccuseFlag} g=${g} p=${p} />
+      ${p.text ? html`<p class="post-text"><${RichText} text=${p.text} g=${g} /></p>` : null}
+      <${Evidence} p=${p} g=${g} />
+      ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
+      <${PostMedia} g=${g} p=${p} au=${au} />
+      ${p.q ? html`<${QuoteCard} g=${g} q=${p.q} />` : null}
+      ${p.evt ? html`<${EventCard} evt=${p.evt} />` : null}
+      ${p.a === 'p' ? html`<${PostResult} p=${p} g=${g} now=${now} />` : null}
+      ${eventsAt(g, (x) => x.p === p.id && !x.r).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} />`)}
+      <div class="post-time-full">${fmtDate(p.ts)}${canDelete ? html` · <button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Supprimer ce post ?', text: 'Il disparaîtra de ton profil… mais quelqu’un a peut-être déjà fait une capture.', ok: 'Supprimer', danger: true, run: () => { closeLayer(); deletePost(g, p); } })}>Supprimer</button>` : null}</div>
+      <${PostActions} p=${p} now=${now} onReply=${() => { const el = document.getElementById('reply-' + p.id); if (el) el.focus(); }} />
+    </article>
+    ${rows.map(({ r, depth, parent }) => html`<${ReplyRow} key=${r.id} g=${g} p=${p} r=${r} now=${now} depth=${depth} parent=${parent} />`)}
+    ${writing ? html`<div class="writing"><${Typing} /> Ça écrit…</div>` : null}
+    ${S.busy.more === p.id ? html`<div class="more-replies"><${Typing} /> D’autres commentaires arrivent…</div>`
+      : !writing && moreDue(p, now) && (p.more || 0) < MORE_MAX ? html`<button class="more-replies more-btn" onClick=${() => moreReplies(p.id)} disabled=${!!S.busy.more}><${Icon} n="msg" s=${15} /> Voir plus de commentaires <span>+ ${fmtN(shownReplies(p, now) - replies.length)} · ≈ ${costLabel(g, 'more')} ☕</span></button>`
+        : !writing && shownReplies(p, now) > replies.length ? html`<div class="more-replies"><${Icon} n="msg" s=${15} /> + ${fmtN(shownReplies(p, now) - replies.length)} ${plural(shownReplies(p, now) - replies.length, 'autre réponse', 'autres réponses')} dans le fil</div>` : null}
+    ${!replies.length && !writing ? html`<div class="empty"><span>Aucune réponse pour l’instant. Lance la conversation.</span></div>` : null}
+    <div ref=${endRef}></div>
+  <//>`;
+}
+function CharLayer({ l, g, now, i }) {
+  const c = g.chars[l.id];
+  if (!c) return html`<${LayerShell} i=${i} title="Profil"><div class="empty"><b>Profil introuvable</b></div><//>`;
+  const posts = revealedPosts(g, now).filter((p) => p.a === 'c:' + c.id);
+  const main = isMain(c), cast = c.kind === 'main'; // 0.16: someone who joined the cast has it all, but the badge stays the original cast's
+  const au = author(g, 'c:' + c.id);
+  const first = c.name.split(' ')[0];
+  const V = c.vibe ? VIBES[c.vibe] : null;
+  const mem = (c.mem || []).slice().reverse();
+  return html`<${LayerShell} i=${i} title=${c.name}>
+    <div class="banner" style=${'--h:' + c.hue}></div>
+    <div class="prof">
+      <div class="prof-top"><${Avatar} who=${au} size=${84} />
+        <div class="row" style="gap:8px">
+          ${DM_KINDS.includes(c.kind) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${15} /> Message</button>` : null}
+          <button class=${'btn btn-sm ' + (c.youFollow ? 'btn-ghost' : 'btn-ink')} onClick=${() => toggleFollow(c)}>${c.youFollow ? 'Abonné·e' : 'Suivre'}</button>
+        </div>
+      </div>
+      <div><h2>${c.name}${cast ? html`<${Verified} />` : null}</h2><span class="handle">@${c.handle}</span></div>
+      <div class="row" style="gap:6px">${c.role ? html`<span class="chip">${c.role}</span>` : null}${c.age && c.kind !== 'media' ? html`<span class="chip">${c.age} ans</span>` : null}${c.followsYou ? html`<span class="chip good">Te suit</span>` : null}${V ? html`<span class="chip hot">${V.emoji} ${V.label}</span>` : null}${inBadBuzz(c, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(c.badBuzz.until - now)}</span>` : null}${c.cut ? html`<span class="chip bad">🚫 A coupé les ponts</span>` : null}</div>
+      ${c.bio ? html`<p class="bio">${emoParts(c.bio)}</p>` : null}
+      <div class="prof-stats"><span><b>${fmtN(c.followers)}</b> ${plural(c.followers, 'abonné', 'abonnés')}</span>${main ? html`<span>Relation : <b>${relShown(c)}</b> (${fmtRel(c.rel)})</span>` : null}</div>
+      ${main ? html`<${RelMeter} rel=${c.rel} />` : null}
+      ${main ? html`<${SocialLinks} g=${g} c=${c} now=${now} />` : null}
+    </div>
+    ${main ? html`<${TrustSection} g=${g} c=${c} now=${now} />` : null}
+    ${main ? html`<${TemperSection} c=${c} />` : null}
+    ${main ? html`<${SecretToldSection} c=${c} />` : null}
+    ${main ? html`<${SecretsKnownSection} g=${g} c=${c} />` : null}
+    ${main && c.secretOut ? html`<section class="section secret-out">
+      <div class="section-h"><h3>Secret révélé</h3><span>c’est sorti au grand jour</span></div>
+      <p>${c.secretOut}</p>
+    </section>` : null}
+    ${main ? html`<section class="section">
+      <div class="section-h"><h3>Votre dynamique</h3><span>${V ? V.emoji + ' ' + V.label : 'Rien de défini'}</span></div>
+      ${c.vibeGoal && VIBES[c.vibeGoal] ? html`<${VibePath} c=${c} />` : null}
+      <p class="muted" style="font-size:13.5px">Ce que tu aimerais que ça devienne :</p>
+      ${VIBE_GROUPS.map(([grp, name]) => grp === 'amour' && noRomance(c) ? html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span><p class="muted vibe-none">${first} a un rôle à part dans ta vie : pas de romance.</p></div>` : html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span>
+        <div class="vibe-goals">${VIBE_GOALS.filter((v) => VIBES[v].grp === grp).map((v) => html`<button key=${v} class=${'vibe-opt' + (c.vibeGoal === v ? ' on' : '')} disabled=${c.vibe === v} aria-pressed=${c.vibeGoal === v ? 'true' : 'false'} onClick=${() => setVibeGoal(c, c.vibeGoal === v ? null : v)}>${VIBES[v].emoji} ${VIBES[v].label}</button>`)}</div></div>`)}
+      ${c.vibe === 'couple' && (c.officiel === 'secret' || c.officiel === 'pending') ? html`<button class="btn btn-ghost btn-sm couple-out" onClick=${() => { announceCouple(g, c); update(); }}>📣 Annoncer votre couple</button>` : null}
+      ${ENDABLE.includes(c.vibe) ? html`<button class="linkbtn quiet vibe-end" onClick=${() => askConfirm({ title: c.vibe === 'mariage' ? `Divorcer de ${first} ?` : `Rompre avec ${first} ?`, text: `${first} va mal le prendre, et ça se saura.`, ok: c.vibe === 'mariage' ? 'Demander le divorce' : 'Rompre', danger: true, run: () => breakUp(g, c) })}>${c.vibe === 'mariage' ? 'Demander le divorce' : c.vibe === 'fiancailles' ? 'Rompre les fiançailles' : 'Rompre'}</button>`
+        : V && !ROMANCE.includes(c.vibe) && V.grp !== 'conflit' ? html`<button class="linkbtn quiet vibe-end" onClick=${() => askConfirm({ title: `Prendre tes distances avec ${first} ?`, text: `Fini, ${V.label.toLowerCase()} : ${first} le remarquera.`, ok: 'Prendre mes distances', danger: true, run: () => dropVibe(g, c) })}>Prendre tes distances</button>` : null}
+    </section>
+    <section class="section">
+      <div class="section-h"><h3>Ce que ${first} retient de toi</h3></div>
+      ${mem.length ? html`<ul class="mem-list">${mem.map((m, k) => html`<li key=${k}>${m.s || m.t}</li>`)}</ul>` : html`<p class="muted" style="font-size:14px">Rien de marquant pour l’instant.</p>`}
+    </section>
+    ${dateLogOf(g, c.id).length ? html`<section class="section dlog-sec">
+      <div class="section-h"><h3>Vos rendez-vous</h3><span>${dateLogOf(g, c.id).length} ${plural(dateLogOf(g, c.id).length, 'soirée', 'soirées')}</span></div>
+      <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'datelog', c: c.id })}><${Icon} n="book" s=${15} /> Les relire</button>
+    </section>` : null}
+    <${CharFile} c=${c} g=${g} now=${now} />` : null}
+    ${c.kind === 'staff' ? (() => { const m = g.staff.find((x) => x.c === c.id); return m ? html`<section class="section">
+      <div class="section-h"><h3>Son contrat</h3><span>depuis ${fmtDur(now - m.since)}</span></div>
+      <p>${STAFF_ROLES[m.role].emoji} ${roleName(m.role, c.g)} · ${tierName(m.tier, c.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ' · attend son salaire !' : ''}</p>
+      <small class="muted">${STAFF_ROLES[m.role].fx(m.tier + 1)}</small>
+    </section>` : null; })() : null}
+    ${c.kind === 'brand' ? g.deals.filter((x) => x.contact === c.id).slice(-2).reverse().map((x) => html`<div class="section" key=${x.id}><${DealCard} g=${g} d=${x} now=${now} /></div>`) : null}
+    ${c.kind !== 'media' ? html`<${PhotoTools} g=${g} k=${c.id} />` : null}
+    ${posts.length ? posts.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`) : html`<div class="empty"><span>Pas encore de posts.</span></div>`}
+  <//>`;
+}
+// The stages still to go toward the goal: « 😏 Flirt → 💞 En couple → 💍 Fiançailles → 💒 Mariage ».
+function VibePath({ c }) {
+  const path = vibePath(c, c.vibeGoal);
+  const first = c.name.split(' ')[0];
+  return html`<div class="vibe-path">
+    <span class="vp-h">Objectif ${VIBES[c.vibeGoal].emoji} ${VIBES[c.vibeGoal].label}${path.length > 1 ? ` · ${path.length} étapes` : ''}</span>
+    ${path.length > 1 || c.vibe ? html`<div class="vp-steps">${c.vibe && VIBES[c.vibe] ? html`<span class="vp-step now">${VIBES[c.vibe].emoji} ${VIBES[c.vibe].label}</span><span class="vp-arrow" aria-hidden="true">→</span>` : null}${path.map((v, k) => html`${k ? html`<span class="vp-arrow" aria-hidden="true">→</span>` : null}<span class=${'vp-step' + (k === 0 ? ' next' : '')}>${VIBES[v].emoji} ${VIBES[v].label}</span>`)}</div>` : null}
+    <small>Une étape à la fois${PARTNER.includes(c.vibeGoal) ? `, et ${first} doit le vouloir aussi` : ''}. Ça ne se fera pas en un jour.</small>
+  </div>`;
+}
+// The player's file on a character: clues noticed so far, and the call-out button.
+function CharFile({ c, g, now }) {
+  const first = c.name.split(' ')[0];
+  const clues = (g.clues || []).filter((k) => k.c === c.id && k.at <= now);
+  const wait = ACCUSE_COOLDOWN - (now - (c.accusedAt || 0));
+  const bb = inBadBuzz(c, now);
+  const fk = (g.fakes || []).filter((f) => f.c === c.id).slice(-1)[0] || null; // the last proof made up against them
+  const fkText = !fk ? '' : fk.state === 'busted' ? `Ta fausse preuve contre ${first} a été démasquée.`
+    : now - fk.at < 25 * 60000 ? `Ta fausse preuve contre ${first} tient… pour l’instant. ${first} sait que c’est faux.` : `Ta fausse preuve est passée : personne n’a rien remarqué. Sauf ${first}.`;
+  return html`<section class="section">
+    <div class="section-h"><h3>Ton dossier sur ${first}</h3><span>${clues.length ? `${clues.length} ${plural(clues.length, 'indice', 'indices')}` : 'vide'}</span></div>
+    ${clues.length ? html`<ul class="clue-list">${clues.map((k) => html`<li key=${k.id}><${Icon} n="search" s=${14} /><span>${k.text}</span></li>`)}</ul>`
+      : html`<p class="muted" style="font-size:14px">Rien de suspect pour l’instant. Ouvre l’œil : les indices se glissent dans les posts, les réponses et les messages privés.</p>`}
+    ${fk ? html`<p class=${'fake-status' + (fk.state === 'busted' ? ' bad' : '')}><${Icon} n="mask" s=${14} /><span>${fkText}</span></p>` : null}
+    <div class="accuse-row">
+      <button class="btn btn-sm btn-danger-solid" disabled=${bb || wait > 0} onClick=${() => openCompose({ accuse: c.id })}><${Icon} n="megaphone" s=${15} /> Lancer un bad buzz</button>
+      <small class="muted">${bb ? `${first} est déjà en plein bad buzz.` : wait > 0 ? `Encore ${fmtClock(wait)} avant de pouvoir recommencer.` : `≈ ${costLabel(g, 'accuse')} cafés. Si tes arguments tiennent (des captures de DM aident), ${first} prend cher. Sinon, c’est toi. Tu peux aussi fabriquer une fausse preuve… à tes risques.`}</small>
+    </div>
+  </section>`;
+}
+// Someone from the public: a light profile with what they posted and answered in this game.
+function NpcLayer({ l, g, now, i }) {
+  const h = l.id, a = 'n:' + h;
+  const n = g.npcs[h] || null;
+  const au = author(g, a);
+  const posts = revealedPosts(g, now).filter((p) => p.a === a);
+  const reps = [];
+  for (const p of g.posts) for (const r of p.replies) if (r.a === a && r.at <= now) reps.push({ p, r });
+  reps.sort((x, y) => y.r.ts - x.r.ts);
+  const fol = n ? npcFollowers(n) : 20 + (hashStr(h) % 400);
+  return html`<${LayerShell} i=${i} title=${au.name}>
+    <div class="banner" style=${'--h:' + au.hue}></div>
+    <div class="prof">
+      <div class="prof-top"><${Avatar} who=${au} size=${84} />${n ? html`<button class=${'btn btn-sm ' + (n.youFollow ? 'btn-ghost' : 'btn-ink')} onClick=${() => toggleFollowNpc(n)}>${n.youFollow ? 'Abonné·e' : 'Suivre'}</button>` : null}</div>
+      <div><h2>${au.name}</h2><span class="handle">@${au.handle}</span></div>
+      <div class="row" style="gap:6px"><span class="chip">${n && n.regular ? 'Habitué·e du réseau' : 'Compte du public'}</span></div>
+      ${n && n.bio ? html`<p class="bio">${emoParts(n.bio)}</p>` : null}
+      <div class="prof-stats"><span><b>${fmtN(fol)}</b> ${plural(fol, 'abonné', 'abonnés')}</span></div>
+    </div>
+    ${posts.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`)}
+    ${reps.length ? html`<div class="list-h">Ses réponses<span>${reps.length}</span></div>${reps.slice(0, 20).map(({ p, r }) => html`<button class="npc-reply" key=${r.id} onClick=${() => openPost(p.id)}><small>En réponse à @${author(g, p.a).handle}</small><span>${emoParts(r.text)}</span></button>`)}` : null}
+    ${!posts.length && !reps.length ? html`<div class="empty"><span>Rien de visible pour l’instant.</span></div>` : null}
+  <//>`;
+}
+function DMBox({ c, g, now }) {
+  const [, force] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current && window.matchMedia && window.matchMedia('(pointer: fine)').matches) ref.current.focus(); }, []);
+  const val = S.drafts.dm[c.id] || '';
+  const e = energyNow(g, now);
+  const busy = !!S.busy.dm;
+  const can = !!val.trim() && !busy && canAfford(g, 'dm');
+  const first = c.name.split(' ')[0];
+  const adv = isMain(c) && !!(S.drafts.adv && S.drafts.adv[c.id]); // « 💡 Conseil »: the message is advice
+  const setAdv = (on) => { S.drafts.adv = S.drafts.adv || {}; S.drafts.adv[c.id] = on; force((x) => x + 1); if (ref.current) ref.current.focus(); };
+  // 0.18: confiding one of the player's secrets (the message is prefilled; the player may rewrite it)
+  const confId = S.drafts.conf && S.drafts.conf[c.id];
+  const conf = confId ? secretOf(g, confId) : null;
+  const setConf = (sc) => {
+    S.drafts.conf = S.drafts.conf || {};
+    S.drafts.conf[c.id] = sc ? sc.id : null;
+    if (sc) { const pre = `Je te confie un truc, ça reste entre nous : ${sc.t}`; S.drafts.dm[c.id] = pre; if (ref.current) { ref.current.value = pre; ref.current.focus(); autosize(ref.current); } }
+    force((x) => x + 1);
+  };
+  const send = async () => {
+    const text = (S.drafts.dm[c.id] || '').trim();
+    if (!text || S.busy.dm) return;
+    const advice = adv, confide = conf && !conf.out ? conf.id : null;
+    S.drafts.dm[c.id] = '';
+    if (ref.current) ref.current.style.height = '';
+    force((x) => x + 1);
+    const ok = await sendDM(c.id, text, { advice, confide });
+    if (ok === false) { S.drafts.dm[c.id] = text; force((x) => x + 1); }
+    else {
+      if (advice && S.drafts.adv) S.drafts.adv[c.id] = false;
+      if (confide && S.drafts.conf) S.drafts.conf[c.id] = null;
+      force((x) => x + 1);
+    }
+  };
+  const [left, cancel, arm] = useAutoSend('dm:' + c.id, val, can, send);
+  const em = useEmoji('dm:' + c.id, ref, () => S.drafts.dm[c.id] || '', (v) => { S.drafts.dm[c.id] = v; force((x) => x + 1); if (ref.current) autosize(ref.current); }, DM_MAX); // 0.17
+  return html`<div>
+    <${AutoSendBar} left=${left} cancel=${cancel} />
+    <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} café par message · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
+    ${adv ? html`<div class="voice-hint adv-hint"><${Icon} n="bulb" s=${15} /><span>Ton message est un conseil : ${first} décide de le suivre ou non. ${adviceHint(c)}</span></div>` : null}
+    ${c.cut ? html`<div class="voice-hint cut-hint"><span aria-hidden="true">🚫</span><span>${first} a coupé les ponts : tes messages ne lui parviennent plus.</span></div>` : null}
+    ${conf && !conf.out ? html`<div class="voice-hint conf-hint"><span aria-hidden="true">🤫</span><span>Tu confies à ${first} : « ${str(conf.t, 80)} ». ${first} saura. Ce qu’${gx(c.g, 'il', 'elle', 'iel')} en fera, c’est son choix.</span><button type="button" class="iconbtn" onClick=${() => setConf(null)} aria-label="Ne plus confier ce secret"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${em.panel}
+    <div class=${'reply-box' + (adv ? ' adv' : '')}>
+      <textarea ref=${ref} id=${'dm-' + c.id} rows="1" maxlength=${DM_MAX} placeholder=${adv ? `Ton conseil à ${first}…` : 'Message à ' + first + '…'} value=${val}
+        onInput=${(ev) => { arm(); S.drafts.dm[c.id] = ev.target.value; autosize(ev.target); force((x) => x + 1); }}
+        onKeyDown=${(ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); send(); } }}></textarea>
+      <button class="send" onClick=${send} disabled=${!can} aria-label="Envoyer"><${Icon} n="send" s=${16} /> Envoyer</button>
+    </div>
+  </div>`;
+}
+function DMLayer({ l, g, now, i }) {
+  const c = g.chars[l.id];
+  const convo = g.dms[l.id];
+  const msgs = convo ? convo.msgs.filter((m) => m.at <= now) : [];
+  const typing = S.busy.dm === l.id || !!(convo && convo.msgs.some((m) => m.at > now && m.at - now < 60000)); // (an answer hours away is not « typing » yet)
+  const ref = useRef(null);
+  useEffect(() => {
+    if (convo) convo.readAt = Math.max(convo.readAt || 0, Date.now());
+    const el = ref.current && ref.current.closest('.layer-body');
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [msgs.length, typing]);
+  if (!c) return null;
+  const au = author(g, 'c:' + c.id);
+  const last = msgs[msgs.length - 1];
+  const seenShown = !!(last && last.me && convo.seenAt && convo.seenAt >= last.at && now >= convo.seenAt);
+  const lost = !!(c.cut && last && last.me && last.at >= c.cut.at); // 0.15: they cut ties
+  // 0.15: once per game, in the first conversation where someone answers: proposing to meet exists (no button for it)
+  if (!g.tipDate && isMain(c) && !c.cut && msgs.some((m) => !m.me && m.text) && !(g.events || []).some((e) => e.player)) { g.tipDate = { c: c.id, at: now }; S.tipLayer = l.key; }
+  const tip = !!(g.tipDate && !g.tipDate.done && S.tipLayer === l.key);
+  return html`<${LayerShell} i=${i} title=${c.name}
+    head=${html`<button class="who" onClick=${() => openChar(c.id)}><${Avatar} who=${au} size=${36} /><div><b>${c.name}</b><span>${isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)} · confiance ${trustOf(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}` : c.role}</span></div></button>`}
+    foot=${html`<${DMBox} c=${c} g=${g} now=${now} />`}>
+    <div class="bubbles" ref=${ref}>
+      <div class="dm-intro"><${Avatar} who=${au} size=${64} /><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span><span>${c.kind === 'brand' ? 'Un contact pro : parle chiffres, négocie, demande un devis.' : c.kind === 'cand' ? 'Une candidature : pose tes questions, négocie son tarif.' : 'Ce qui se dit ici reste entre vous… en principe. Une capture est vite faite.'}</span></div>
+      ${msgs.map((m, k) => m.sys === 'deal' ? (msgs.slice(k + 1).some((x) => x.sys === 'deal' && x.deal === m.deal) ? html`<div key=${m.id} class="dm-card dl-old"><span class="evt-kind">📄 Proposition remplacée par la suivante</span></div>` : html`<${DealCard} key=${m.id} g=${g} d=${dealOf(g, m.deal)} now=${now} inDM=${true} />`) : m.sys === 'advice' ? html`<${AdviceCard} key=${m.id} m=${m} />` : m.sys === 'invite' ? html`<${InviteCard} key=${m.id} g=${g} m=${m} now=${now} />`
+        : m.sys === 'visit' ? html`<div key=${m.id} class=${'dm-card visit ' + (MOODS[m.mood] && MOODS[m.mood].good ? 'top' : MOODS[m.mood] && MOODS[m.mood].bad ? 'flop' : 'mid')}><span class="evt-kind">🚪 Visite surprise</span>${m.title ? html`<b>${m.title}</b>` : null}<p>${m.text}</p></div>`
+        : m.sys === 'file' ? html`<${FileCard} key=${m.id} m=${m} />` // 0.23: a file sent for an order (role-play)
+        : m.sys === 'job' ? html`<${JobCard} key=${m.id} g=${g} c=${c} m=${m} />`
+        : m.sys === 'buy' ? html`<${BuyCard} key=${m.id} g=${g} m=${m} />` // 0.24: something paid in the conversation
+        : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
+        : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + c.name.split(' ')[0]}</span><p>${m.text}</p></div>` // 0.25.3
+        : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
+          <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
+          <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
+        : html`<div key=${m.id} class=${'bubble ' + (m.me ? 'me' : 'them') + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`)}
+      ${seenShown && !typing && !lost ? html`<div class="seen-tag">Vu</div>` : null}
+      ${lost ? html`<div class="seen-tag lost">Non distribué</div>` : null}
+      ${typing ? html`<div class="bubble them typing-b" aria-label=${c.name + ' écrit'}><${Typing} /></div>` : null}
+      ${stayOn(g, now) && g.stay.c === c.id ? html`<${StayLine} g=${g} />` : null}
+      ${tip && !typing ? html`<div class="date-tip"><span aria-hidden="true">💡</span><p>Quand le courant passe, tu peux proposer de vous voir (un café, une sortie, un tournage ensemble) : écris-le simplement, comme à quelqu’un de vrai.</p><button type="button" class="iconbtn" onClick=${() => { g.tipDate.done = true; update(false); }} aria-label="Fermer l’astuce"><${Icon} n="x" s=${15} /></button></div>` : null}
+      ${activeEvents(g).filter((e) => e.c === c.id && (e.player || (e.src && e.src.dm === c.id))).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} />`)}
+      ${isMain(c) && plannedAdvice(g, c) && !typing ? html`<${AdviceChip} g=${g} a=${plannedAdvice(g, c)} now=${now} />` : null}
+    </div>
+  <//>`;
+}
+// A character asks the player out (0.9.4): accept puts it on the agenda, decline answers politely; no answer, no blame.
+const INVITE_DONE = { accepted: ['✅ Invitation acceptée', 'top'], declined: ['Invitation déclinée', 'past'], expired: ['Invitation restée sans réponse', 'past'], replaced: ['Remplacée par un autre rendez-vous', 'past'], off: ['Invitation sans suite', 'past'] };
+function InviteCard({ g, m, now }) {
+  const iv = inviteOf(g, m.inv);
+  const c = iv && g.chars[iv.c];
+  if (!iv || !c) return null;
+  const late = iv.state === 'open' && now > iv.due - 5 * 60000;
+  const open = iv.state === 'open' && !late;
+  const [label, cls] = open ? [iv.collab ? `🎬 ${c.name.split(' ')[0]} te propose de tourner ensemble` : `${MEET[meetKind(c, iv)].emoji} ${c.name.split(' ')[0]} te propose de vous voir`, 'invite'] : iv.state === 'accepted' && iv.rl ? ['✅ Collab acceptée : elle t’attend dans le Studio', 'top'] : INVITE_DONE[late ? 'expired' : iv.state] || INVITE_DONE.off;
+  const clash = open ? activeEvents(g).find((e) => e.player && Math.abs(e.due - iv.due) < 90 * 60000) : null;
+  const cc = clash && g.chars[clash.c];
+  const foe = open && iv.collab ? collabFoe(g, c) : null; // 0.18: a collab someone close to the player will not like
+  const accept = () => { const x = acceptInvite(g, iv); if (!x) toast('Impossible de l’ajouter à ton agenda : il est peut-être plein, ou ce rendez-vous y est déjà.', 'bad'); else if (iv.rl) toast(`🎬 Votre vidéo à deux est programmée ${fmtWhen(iv.due)} : elle t’attend dans le Studio.`, 'good'); update(); };
+  return html`<div class=${'dm-card ' + cls}>
+    <span class="evt-kind">${label}</span>
+    <b>${iv.what}</b>
+    <p>${cap1(fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${cc.name.split(' ')[0]} à ce moment-là` : ''}</p>
+    ${foe ? html`<p class="collab-foe">💔 ${foe.name.split(' ')[0]} ne supporte pas ${c.name.split(' ')[0]} : ça risque de mal passer.</p>` : null}
+    ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineInvite(g, iv); update(); }}>Décliner</button></div>` : null}
+  </div>`;
+}
+// Placeholders of the fake proof form, per kind.
+const FAKE_HINTS = {
+  dm: (c) => `ex : @${c.handle} qui écrit « personne doit savoir, efface ce message »`,
+  photo: (c, f) => `ex : ${f} qui sort en douce d’un endroit interdit, à 2 h du matin`,
+  vocal: (c, f) => `ex : la voix de ${f} qui dit « j’ai triché, et alors ? »`,
+  temoin: (c, f) => `ex : quelqu’un affirme avoir vu ${f} mentir à tout le monde`,
+};
+function ComposeLayer({ g, now, i }) {
+  const [, force] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.focus(); }, []);
+  const d = S.drafts;
+  const val = d.post;
+  const e = energyNow(g, now);
+  const remaining = 280 - val.length;
+  const low = lowActive(g, now);
+  const apology = d.apology && g.stats.cancelled;
+  const hasPhoto = d.photo != null;
+  const seeOn = !!(d.see && S.vision > 0 && (d.pics || []).length); // the characters see the images: no description needed
+  const photoOK = hasPhoto && (d.photo.trim().length >= 3 || seeOn);
+  const quote = d.quote ? g.posts.find((p) => p.id === d.quote) || null : null;
+  const target = d.accuse ? g.chars[d.accuse] || null : null;
+  const accuse = !!target && !inBadBuzz(target, now);
+  const rumor = !accuse && d.debunk ? (g.rumors || []).find((x) => x.id === d.debunk && x.state === 'live') || null : null; // a denial
+  const liar = rumor ? g.chars[rumor.by] || null : null;
+  // 0.18: a confession, or the answer to a secret that came out
+  const confS = !accuse && !rumor && d.confess ? secretOf(g, d.confess) : null;
+  const conf = confS && !confS.out ? confS : null;
+  const saS = !accuse && !rumor && d.secAns ? secretOf(g, d.secAns.id) : null;
+  const secAns = saS && saS.out && !saS.out.answer && STANCES[d.secAns.stance] ? { s: saS, stance: d.secAns.stance } : null;
+  const md0 = !accuse && !rumor && !secAns && !conf && d.merch ? openDrop(g) : null;
+  const drop = md0 && md0.id === d.merch && md0.state === 'ready' ? md0 : null; // 0.22: the post launches the merch
+  const pfp = !accuse && !rumor && !secAns && !conf && !drop && hasPhoto && !!d.pfp && (d.pics || []).includes(d.pfp); // 0.25.1: the new profile photo
+  const costKind = accuse ? 'accuse' : rumor || secAns ? 'debunk' : 'post';
+  const cost = Math.max(1, Math.round(costGuess(g, costKind) + (seeOn ? seeCafes(Math.min(S.vision, d.pics.length)) : 0))); // the images seen cost a little more
+  const clues = accuse ? (g.clues || []).filter((k) => k.c === target.id && k.at <= now) : [];
+  const first = target ? target.name.split(' ')[0] : '';
+  const fk = accuse ? d.fake : null; // a proof the player makes up
+  const fakeOK = !fk || fk.desc.trim().length >= 6;
+  const can = (!!val.trim() || photoOK) && (!hasPhoto || photoOK) && !S.busy.act && !low && canAfford(g, costKind) && (!accuse || !!val.replace('@' + target.handle, '').trim()) && fakeOK;
+  const publish = async () => {
+    const D = S.drafts;
+    const text = (D.post || '').trim(); // live state, not this render's
+    const see = !!(D.see && S.vision > 0 && D.pics && D.pics.length);
+    const ph = D.photo != null && (D.photo.trim().length >= 3 || see) ? { desc: D.photo.trim() } : null;
+    if (ph && D.pics && D.pics.length) { ph.own = D.pics.slice(); ph.diapo = !!D.diapo && D.pics.length >= 2; if (see) ph.see = true; }
+    const fake = D.accuse && D.fake ? { kind: D.fake.kind, desc: D.fake.desc.trim() } : null;
+    if ((!text && !ph) || (D.photo != null && !ph) || (fake && fake.desc.length < 6) || S.busy.act || lowActive(S.game)) return;
+    const extra = { photo: ph, quote: D.quote, apology: D.apology, debunk: D.accuse ? null : D.debunk, caps: (D.caps || []).slice(), accuse: D.accuse ? { c: D.accuse, clues: D.cite.slice(), fake } : null,
+      confess: D.accuse || D.debunk ? null : D.confess || null, secret: D.accuse || D.debunk || !D.secAns ? null : Object.assign({}, D.secAns), // 0.18
+      merch: D.accuse || D.debunk || D.confess || D.secAns ? null : D.merch || null, // 0.22
+      pfp: D.accuse || D.debunk || D.confess || D.secAns || D.merch || !ph || !ph.own || !ph.own.includes(D.pfp) ? null : D.pfp }; // 0.25.1
+    Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null });
+    S.ideas = null;
+    S.stack = S.stack.filter((l) => l.t !== 'compose'); // close this layer, not whatever is on top
+    goFeedTop();
+    update(false);
+    const ok = await runAct('post', text, null, null, extra);
+    if (ok === false) { Object.assign(S.drafts, { post: text, photo: ph ? ph.desc : null, pics: ph && ph.own ? ph.own : [], diapo: !!(ph && ph.diapo), see: !!(ph && ph.see), quote: extra.quote, apology: extra.apology, debunk: extra.debunk, caps: extra.caps, accuse: extra.accuse ? extra.accuse.c : null, cite: extra.accuse ? extra.accuse.clues : [], fake: extra.accuse ? extra.accuse.fake : null, confess: extra.confess, secAns: extra.secret, merch: extra.merch, pfp: extra.pfp }); openCompose(); }
+  };
+  const toggleCite = (id) => { const c = S.drafts.cite; S.drafts.cite = c.includes(id) ? c.filter((x) => x !== id) : [...c, id]; force((x) => x + 1); };
+  const toggleCap = (x) => { const c = S.drafts.caps || []; S.drafts.caps = c.some((y) => y.m === x.m) ? c.filter((y) => y.m !== x.m) : [...c, { c: x.c, m: x.m }].slice(-3); force((n) => n + 1); };
+  const setFake = (patch) => {
+    S.drafts.fake = patch === null ? null : Object.assign({ kind: 'dm', desc: '' }, S.drafts.fake, patch);
+    force((x) => x + 1);
+    if (patch && !('desc' in patch)) setTimeout(() => { const el = document.getElementById('fake-desc'); if (el) el.focus(); }, 40);
+  };
+  const pickIdea = (t) => { S.drafts.post = t; force((x) => x + 1); if (ref.current) ref.current.focus(); };
+  const mn = useMentions(g, ref, val, (v) => { S.drafts.post = v; force((x) => x + 1); });
+  const em = useEmoji('post', ref, () => S.drafts.post || '', (v) => { S.drafts.post = v; force((x) => x + 1); }); // 0.17
+  const sorryWait = APOLOGY_COOLDOWN - (now - (g.apologyAt || 0));
+  const [left, cancel, arm] = useAutoSend('post', val, can, publish);
+  const title = accuse ? `Bad buzz contre ${target.name}` : rumor ? 'Démentir la rumeur' : secAns ? STANCES[secAns.stance].title : conf ? 'Avouer un secret' : apology ? 'Excuses publiques' : drop ? 'Lancer ton merch' : pfp ? 'Nouvelle photo de profil' : quote ? 'Citer un post' : 'Nouveau post';
+  const unMode = (k) => { S.drafts[k] = null; force((x) => x + 1); };
+  const addPhoto = () => { S.drafts.photo = ''; force((x) => x + 1); setTimeout(() => { const el = document.getElementById('photo-desc'); if (el) el.focus(); }, 40); };
+  return html`<${LayerShell} i=${i} title=${title}
+    head=${html`<h2>${title}</h2><button class=${'btn btn-sm ' + (accuse ? 'btn-danger-solid' : 'btn-hot')} onClick=${publish} disabled=${!can}>${accuse ? 'Accuser' : rumor ? 'Démentir' : secAns ? STANCES[secAns.stance].btn : conf ? 'Avouer' : drop ? 'Lancer' : 'Publier'} · ≈ ${cost} <${Icon} n="coffee" s=${15} /></button>`}>
+    ${low ? html`<${LowBanner} g=${g} now=${now} compose=${true} />` : null}
+    ${accuse ? html`<div class="accuse-hint"><${Icon} n=${fk ? 'mask' : 'megaphone'} s=${16} />${fk
+      ? html`<span><b>Tu bluffes.</b> Un faux précis et qui colle à ${first} a plus de chances de passer, surtout glissé parmi de vrais indices.</span>`
+      : html`<span><b>Accuse avec des arguments.</b> Si c’est crédible, @${target.handle} prend un bad buzz. Sinon, c’est toi qui passes pour ${px(g, 'un menteur', 'une menteuse', 'un·e menteur·se')}.</span>`}</div>` : null}
+    ${apology ? html`<div class="apology-hint"><${Icon} n="shield" s=${16} /><span><b>La sincérité compte.</b> Des excuses sincères font remonter ta réputation, des excuses de façade l’enfoncent.</span></div>` : null}
+    ${g.stats.cancelled && !apology && !accuse && !rumor && !low ? html`<div class="apology-hint cancel-nudge"><${Icon} n="shield" s=${16} /><span><b>Tu es cancel :</b> ce post te coûtera des abonnés. Des excuses sincères peuvent t’en sortir.</span>
+      <button type="button" class="btn btn-hot btn-sm" disabled=${sorryWait > 0} onClick=${() => { S.drafts.apology = true; force((x) => x + 1); if (ref.current) ref.current.focus(); }}>${sorryWait > 0 ? 'Excuses dans ' + fmtClock(sorryWait) : 'M’excuser'}</button></div>` : null}
+    ${secAns ? html`<div class="accuse-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>« ${secAns.s.t} »</b> ${STANCES[secAns.stance].hint}</span><button type="button" class="iconbtn" onClick=${() => unMode('secAns')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${conf ? html`<div class="apology-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>Tu avoues : « ${conf.t} »</b> (${sevOf(conf).label.toLowerCase()}). Sincère et assumé, ça coûte bien moins cher que de te faire griller. Pour le buzz, ça passe mal.</span><button type="button" class="iconbtn" onClick=${() => unMode('confess')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${drop ? html`<div class="apology-hint merch-hint"><span aria-hidden="true">🛍️</span><span><b>Ton post lance ton merch</b> : ${dropList(g, drop)}. Design : « ${drop.design} ». Ce que le public en pense décide des ventes.</span><button type="button" class="iconbtn" onClick=${() => unMode('merch')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${pfp ? html`<div class="apology-hint pfp-hint"><span aria-hidden="true">📸</span><span><b>Ton post montre ta nouvelle photo de profil.</b> Chacun va réagir à sa façon.</span><button type="button" class="iconbtn" onClick=${() => unMode('pfp')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${rumor ? html`<div class="accuse-hint"><span aria-hidden="true">🗣️</span><span><b>${liar ? liar.name : 'Quelqu’un'} raconte : « ${rumor.text} »</b> Calme, précis, avec des preuves ou des témoins : ça convainc. Agressif ou vague : la rumeur enfle.</span></div>` : null}
+    <div class="composer">
+      <${Avatar} who=${author(g, 'p')} />
+      <div class="composer-main">
+        <textarea ref=${ref} id="compose" maxlength="280" placeholder=${accuse ? 'Ce que tu reproches, et pourquoi c’est grave…' : secAns ? STANCES[secAns.stance].ph : conf ? 'Dis-le avec tes mots…' : apology ? 'Explique-toi, sincèrement…' : hasPhoto && d.diapo && (d.pics || []).length >= 2 ? 'Le titre de ton diapo' : hasPhoto ? 'Une légende ? (facultatif)' : quote ? 'Ajoute ton avis…' : 'Quoi de neuf dans ton monde ?'} value=${val}
+          onInput=${(ev) => { arm(); S.drafts.post = ev.target.value; force((x) => x + 1); }}
+          onClick=${mn.refresh} onKeyUp=${(ev) => { if (/^(Arrow(Left|Right)|Home|End)$/.test(ev.key)) mn.refresh(); }}
+          onKeyDown=${(ev) => { if (mn.onKey(ev)) return; if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); publish(); } }}></textarea>
+        ${mn.view}
+        ${em.panel}
+        ${hasPhoto ? html`<div class="photo-input">
+          <label for="photo-desc"><${Icon} n="camera" s=${15} /> ${seeOn ? 'Ce qu’on voit (facultatif : les persos voient tes images)' : (d.pics || []).length ? 'Ce qu’on voit (c’est ce que lisent les persos)' : 'Décris ta photo'}</label>
+          <div class="row" style="gap:6px;flex-wrap:nowrap">
+            <input id="photo-desc" class="input" maxlength="140" placeholder=${seeOn ? 'ex : c’est mon perso, à Tokyo pour la fashion week' : (d.pics || []).length ? 'ex : moi en terrasse avec mes potes, lunettes de soleil' : 'ex : mon café renversé sur ma veste préférée'} value=${d.photo} onInput=${(ev) => { S.drafts.photo = ev.target.value; force((x) => x + 1); }} />
+            <button type="button" class="iconbtn" onClick=${() => { S.drafts.photo = null; for (const id of S.drafts.pics || []) mediaDel(id); markDrafts(null, S.drafts.pics || []); S.drafts.pics = []; S.drafts.diapo = false; S.drafts.see = false; S.drafts.pfp = null; force((x) => x + 1); }} aria-label="Retirer la photo"><${Icon} n="x" s=${16} /></button>
+          </div>
+          <${PicsBox} />
+        </div>` : null}
+        ${photoOK && !(d.pics || []).length ? html`<${PhotoCard} ph=${{ desc: d.photo.trim(), emoji: photoEmoji(d.photo) }} hue=${g.player.hue} />` : null}
+        ${quote ? html`<div class="quote-wrap"><${QuoteCard} g=${g} q=${{ id: quote.id, a: quote.a, text: quote.text, photo: quote.photo || null }} /><button type="button" class="iconbtn quote-x" onClick=${() => { S.drafts.quote = null; force((x) => x + 1); }} aria-label="Ne plus citer ce post"><${Icon} n="x" s=${15} /></button></div>` : null}
+        ${accuse ? (clues.length ? html`<div class="cite-list"><span class="lbl">Preuves à citer</span>${clues.map((k) => html`<label key=${k.id} class="cite"><input type="checkbox" checked=${d.cite.includes(k.id)} onChange=${() => toggleCite(k.id)} /><span>${k.text}</span></label>`)}</div>`
+          : html`<p class="muted cite-none">Aucun indice dans ton dossier sur ${target.name} : ton accusation ne reposera que sur tes arguments.</p>`) : null}
+        ${accuse ? html`<${CapturePicker} g=${g} target=${target} sel=${d.caps || []} onToggle=${toggleCap} />` : null}
+        ${rumor && liar ? html`<${CapturePicker} g=${g} target=${liar} sel=${d.caps || []} onToggle=${toggleCap} />` : null}
+        ${accuse ? html`<div class=${'fake-box' + (fk ? ' on' : '')}>
+          ${fk ? html`<div class="fake-h"><span><${Icon} n="mask" s=${15} /> <b>Fausse preuve</b></span><button type="button" class="iconbtn" onClick=${() => setFake(null)} aria-label="Retirer la fausse preuve"><${Icon} n="x" s=${15} /></button></div>
+            <div class="fake-kinds" role="radiogroup" aria-label="Type de fausse preuve">${Object.keys(EV_KINDS).map((k) => html`<button type="button" key=${k} role="radio" aria-checked=${fk.kind === k ? 'true' : 'false'} class=${'vibe-opt' + (fk.kind === k ? ' on' : '')} onClick=${() => setFake({ kind: k })} aria-label=${EV_KINDS[k].label}>${EV_KINDS[k].emoji} ${EV_KINDS[k].chip}</button>`)}</div>
+            <input id="fake-desc" class="input" maxlength="160" aria-label="Ce que montre ta fausse preuve" placeholder=${(FAKE_HINTS[fk.kind] || FAKE_HINTS.dm)(target, first)} value=${fk.desc} onInput=${(ev) => setFake({ desc: ev.target.value })} />
+            ${fk.desc.trim().length >= 6 ? html`<${EvidenceCard} ev=${{ kind: fk.kind, desc: fk.desc.trim(), fake: true }} mine=${true} />` : null}
+            <small class="fake-warn"><${Icon} n="alert" s=${13} /><span>Si ça passe, ${first} prend le bad buzz. Si quelqu’un repère le fake, tout de suite ou plus tard, c’est toi qui prends un énorme bad buzz.</span></small>`
+          : html`<button type="button" class="btn btn-ghost btn-sm fake-add" onClick=${() => setFake({ kind: 'dm' })}><${Icon} n="mask" s=${15} /> Fabriquer une fausse preuve</button>`}
+        </div>` : null}
+      </div>
+    </div>
+    <div class="composer-meta">
+      <span>${S.busy.act ? 'Ton post précédent est encore en train de buzzer…'
+        : !canAfford(g, costKind) ? html`<span class="err">Budget IA du jour épuisé. </span><button class="linkbtn" onClick=${budgetBlocked}>Options</button>`
+          : `≈ ${cost} ${plural(cost, 'café', 'cafés')} · il t’en reste ${fmtCafes(e.left)} aujourd’hui.`}</span>
+      <span class=${'count' + (remaining < 20 ? ' warn' : '')}>${remaining}</span>
+    </div>
+    ${HOST ? html`<div class="composer-plan"><${GptPlanLine} /></div>` : null}
+    <div class="composer-voice"><${AutoSendBar} left=${left} cancel=${cancel} /></div>
+    ${g.boosts.viral ? html`<div class="boost-on"><${Icon} n="flame" s=${16} /> Moment viral activé sur ce post</div>` : null}
+    ${g.boosts.reach ? html`<div class="boost-on"><${Icon} n="zap" s=${16} /> Boost de portée activé sur ce post</div>` : null}
+    <div class="ideas">
+      <div class="row">
+        ${!hasPhoto && !accuse ? html`<button class="btn btn-ghost btn-sm" onClick=${addPhoto}><${Icon} n="camera" s=${15} /> Photo</button>` : null}
+        <button class="btn btn-ghost btn-sm" onClick=${() => loadIdeas(null)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${15} /> ${S.ideas && S.ideas.key === 'post' && S.ideas.list.length ? 'D’autres idées' : 'Des idées ?'}</button>
+        <${WriteBtn} w=${{ kind: 'post', key: 'post', draft: val.trim() }} onText=${pickIdea} />
+        <${VoiceChip} />
+        ${em.btn}
+      </div>
+      <${IdeaList} k="post" onPick=${pickIdea} />
+    </div>
+  <//>`;
+}
+function ShopLayer({ g, now, i }) {
+  const s = g.stats;
+  const e = energyNow(g, now);
+  return html`<${LayerShell} i=${i} title="Boutique">
+    <div class="wallet">
+      <span class="res-chip"><span class="gem-dot"><${Icon} n="gem" s=${14} /></span><b>${s.gems}</b><small> ${plural(s.gems, 'gemme', 'gemmes')}</small></span>
+      <${EnergyChip} g=${g} label=${true} />
+    </div>
+    <p class="muted" style="padding:0 16px 14px;font-size:13.5px">Les cafés, c’est ton budget IA du jour : ils reviennent à minuit et ne s’achètent pas. Les gemmes se gagnent avec les quêtes, les niveaux et les défis.</p>
+    ${SHOP.map((it) => html`<${ShopItem} key=${it.id} it=${it} g=${g} />`)}
+  <//>`;
+}
+function TagLayer({ l, g, now, i }) {
+  const posts = postsWithTag(g, l.id, now);
+  return html`<${LayerShell} i=${i} title=${l.id}>
+    <div class="tag-head"><span class="tag-ic"><${Icon} n="hash" s=${22} /></span><div><b>${l.id}</b><span>${posts.length} ${plural(posts.length, 'post', 'posts')} · ${g.world.name}</span></div></div>
+    ${posts.length ? posts.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`) : html`<div class="empty"><span>Plus aucun post avec ce hashtag.</span></div>`}
+  <//>`;
+}
+
+/* ---------- modals ---------- */
+function openSaves() { if (S.game) queueModal({ t: 'saves', at: Date.now() }); }
+async function saveToSlot() {
+  const g = S.game;
+  if (!g || S.busy.save) return;
+  if (evBusy()) { toast('Attends que ça finisse de bouger pour sauvegarder.'); return; }
+  const used = g.saves || [];
+  const slot = SAVE_SLOTS.find((k) => !used.some((x) => x.slot === k)) || SAVE_SLOTS.slice().sort((a, b) => ((used.find((x) => x.slot === a) || {}).at || 0) - ((used.find((x) => x.slot === b) || {}).at || 0))[0];
+  S.busy.save = true;
+  update(false);
+  try { await writeSave(g, slot); saveNow(); toast('Partie sauvegardée.', 'good'); }
+  catch (e) { toast('Sauvegarde impossible pour l’instant. Réessaie.', 'bad'); }
+  S.busy.save = false;
+  update();
+}
+// « il y a 5 min », in game time (a skip makes a save older).
+const agoLabel = (ts, now = Date.now()) => { const a = fmtAgo(ts, now); return /^\d/.test(a) ? 'il y a ' + a : a; };
+async function loadSave(slot) {
+  const g = S.game;
+  if (!g || S.busy.save) return;
+  S.busy.save = true;
+  let body = null;
+  try { body = await Store.read(`g_${g.id}_save_${slot}`); } catch (e) { body = null; }
+  S.busy.save = false;
+  if (!body || !body.game) { toast('Cette sauvegarde est introuvable.', 'bad'); return; }
+  await abortFlows();
+  if (S.game !== g) return;
+  const snap = body.game;
+  if (body.meta && body.meta.at) { // its timers pick up where they were (a countdown at 30 min is at 30 min again), and so does its clock
+    const away = Date.now() - body.meta.at;
+    shiftTime(snap, -away, true);
+    snap.clockOff = (typeof snap.clockOff === 'number' ? snap.clockOff : num(snap.stats && snap.stats.skipped, 0)) - away;
+  }
+  const ng = migrate(Object.assign(snap, { id: g.id, saves: g.saves, ready: true }));
+  enterGame(ng, { tab: 'feed', hot: true });
+  saveNow();
+  toast(`Retour en arrière : ${body.meta && body.meta.label ? body.meta.label : 'sauvegarde chargée'}.`, 'good');
+}
+// The ways out of a cancel (also offered when a fake proof gets exposed).
+function CancelPaths({ g, close }) {
+  const pr = shopPrice('pr');
+  const wait = APOLOGY_COOLDOWN - (Date.now() - (g.apologyAt || 0));
+  return html`<div class="paths">
+    <button class="path" onClick=${() => { close(); openCompose({ apology: true }); }} disabled=${wait > 0}><b>Poster des excuses</b><span>${wait > 0 ? 'Possible dans ' + fmtClock(wait) + '.' : 'Sincères, elles font remonter ta réputation. De façade, elles l’enfoncent.'}</span></button>
+    <button class="path" onClick=${() => { close(); startLowProfile(); }}><b>Faire profil bas</b><span>15 min sans poster : ta réputation remonte doucement (jusqu’à +${LOW_MAX * 10}).</span></button>
+    <button class="path" onClick=${() => { close(); buy('pr'); }} disabled=${g.stats.gems < pr}><b>Agence de com’ · ${pr} gemmes</b><span>${g.stats.gems < pr ? `Il te manque ${pr - g.stats.gems} ${plural(pr - g.stats.gems, 'gemme', 'gemmes')}.` : 'Fin du cancel garantie.'}</span></button>
+  </div>`;
+}
+function Modal({ m, g }) {
+  if (!m.shownAt) m.shownAt = Date.now();
+  const close = () => closeModal(m);
+  const armed = () => Date.now() - m.shownAt > 450; // a double tap on the button that opened it cannot confirm
+  let card = null;
+  if (m.t === 'level') {
+    const c = m.charId ? g.chars[m.charId] : null;
+    card = html`<div class="modal-card">
+      <span class="eyebrow">Niveau supérieur</span>
+      <div class="modal-big">Niv. ${m.level}</div>
+      <div class="rewards"><span class="chip flash"><${Icon} n="gem" s=${12} /> +${LEVEL_GEMS} gemmes</span></div>
+      ${c ? html`<p>Quelqu’un de nouveau arrive sur le réseau :</p>
+        <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></div>
+        <button class="btn btn-hot" onClick=${() => { close(); openChar(c.id); }}>Voir son profil</button>`
+      : html`<p>Tous les personnages prévus sont déjà là. Tu peux en faire venir un nouveau.</p>
+        <button class="btn btn-hot" onClick=${() => genNewChar(m)} disabled=${S.busy.newchar}>${S.busy.newchar ? html`<${Typing} /> ${AI_NAME} crée quelqu’un…` : 'Faire venir quelqu’un'}</button>`}
+      <button class="btn btn-ghost" onClick=${close}>Continuer</button>
+    </div>`;
+  } else if (m.t === 'train' || m.t === 'trainend') {
+    card = html`<${TrainCard} g=${g} m=${m} close=${close} />`;
+  } else if (m.t === 'viral') {
+    const p = g.posts.find((x) => x.id === m.postId);
+    card = html`<div class="modal-card viral">
+      <span class="eyebrow">Ton post explose</span>
+      <div class="burst">VIRAL</div>
+      ${p && p.text ? html`<p>« ${p.text.slice(0, 140)}${p.text.length > 140 ? '…' : ''} »</p>` : null}
+      <div class="rewards"><span class="chip">${fmtN(m.likes)} likes en route</span><span class="chip">${nAbonnes(m.fol, true)}</span></div>
+      <button class="btn btn-ink" onClick=${close}>Profiter du moment</button>
+    </div>`;
+  } else if (m.t === 'cancel') {
+    card = html`<div class="modal-card">
+      <span class="eyebrow" style="color:var(--bad)">Retour de bâton</span>
+      <div class="modal-big" style="color:var(--bad)">Cancel</div>
+      <p>Ta réputation est tombée sous 150. Tant qu’elle ne remonte pas à 350, chaque post te coûte des abonnés. Comment tu gères ?</p>
+      <${CancelPaths} g=${g} close=${close} />
+      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
+    </div>`;
+  } else if (m.t === 'busted') {
+    const c = g.chars[m.charId];
+    const K = EV_KINDS[m.kind] || EV_KINDS.dm;
+    card = html`<div class="modal-card busted">
+      <span class="eyebrow">${m.late ? 'Contre-enquête' : px(g, 'Grillé', 'Grillée', 'Grillé·e') + ' en direct'}</span>
+      <div class="burst">FAKE</div>
+      <p>${m.late ? 'Quelqu’un a creusé. ' : 'Le réseau a tout de suite vu le montage. '}${K.f ? 'Ta' : 'Ton'} ${evLabel(m.kind)} contre ${c ? c.name : 'ta cible'} était ${K.f ? 'fausse' : 'faux'}, et maintenant tout le monde le sait.</p>
+      <div class="rewards">${m.loss > 0 ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Réputation au plus bas</span><span class="chip bad">Cancel</span>${c ? html`<span class="chip bad">${c.name.split(' ')[0]} ne te le pardonnera pas</span>` : null}</div>
+      <${CancelPaths} g=${g} close=${close} />
+      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
+    </div>`;
+  } else if (m.t === 'uncancel') {
+    card = html`<div class="modal-card">
+      <span class="eyebrow" style="color:var(--good)">Retour en grâce</span>
+      <div class="modal-big">${px(g, 'Pardonné', 'Pardonnée', 'Pardonné·e')}</div>
+      <p>La communauté passe à autre chose. Ta réputation est remontée : fin du cancel.</p>
+      <button class="btn btn-hot" onClick=${close}>Continuer</button>
+    </div>`;
+  } else if (m.t === 'vibe') {
+    const c = g.chars[m.charId], V = VIBES[m.vibe];
+    if (c && V) {
+      const choose = m.vibe === 'couple' && c.vibe === 'couple' && c.officiel === 'pending'; // 0.12: announce it, or keep it for the two of you
+      const eyebrow = { couple: 'Vous êtes ensemble', fiancailles: `${gx(c.g, 'Il', 'Elle', 'Iel')} a dit oui`, mariage: 'Vive les mariés', ex: 'Rupture', complique: 'C’est compliqué' }[m.vibe] || 'Nouvelle dynamique';
+      card = html`<div class="modal-card">
+        <span class="eyebrow">${eyebrow}</span>
+        <div class="vibe-big" aria-hidden="true">${V.emoji}</div>
+        <div class="modal-big" style="font-size:34px">${V.label}</div>
+        <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${c.name}</b><span>@${c.handle}${m.why ? ' · ' + m.why : ''}</span></div></div>
+        ${choose ? html`<p class="couple-ask">Tu l’annonces sur le réseau, ou vous gardez ça pour vous deux ?</p>
+          <button class="btn btn-hot" onClick=${() => { close(); announceCouple(g, c); update(); }}>📣 L’annoncer sur le réseau</button>
+          <button class="btn btn-ghost" onClick=${() => { close(); keepCoupleSecret(g, c); update(); }}>🤫 Garder ça pour nous deux</button>`
+        : html`<button class="btn btn-hot" onClick=${() => { close(); openChar(c.id); }}>Voir son profil</button>
+          <button class="btn btn-ghost" onClick=${close}>Continuer</button>`}
+      </div>`;
+    }
+  } else if (m.t === 'badbuzz') {
+    const c = g.chars[m.charId];
+    if (c) {
+      card = html`<div class="modal-card badbuzz">
+        <span class="eyebrow">Ça tourne mal pour ${c.name.split(' ')[0]}</span>
+        <div class="burst">BAD BUZZ</div>
+        <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${c.name}</b><span>@${c.handle}${c.badBuzz ? ' · −' + nAbonnes(c.badBuzz.loss) : ''}</span></div></div>
+        <p>${m.exposed && c.secretOut ? html`<b>Son secret éclate :</b> ${c.secretOut}` : m.fake ? 'Le réseau a mordu à ta fausse preuve. Pourvu que personne ne creuse…' : 'Le réseau te croit. Attends-toi à une contre-attaque…'}</p>
+        <button class="btn btn-ink" onClick=${close}>${m.fake ? 'Croiser les doigts' : 'Savourer'}</button>
+      </div>`;
+    }
+  } else if (m.t === 'saves') {
+    const list = (g.saves || []).slice().sort((a, b) => b.at - a.at);
+    card = html`<div class="modal-card saves-card">
+      <span class="eyebrow">Sauvegardes</span>
+      <p>Sauvegarde maintenant, ou reviens à un moment d’avant : tout ce qui s’est passé depuis sera effacé.</p>
+      <button class="btn btn-hot" onClick=${saveToSlot} disabled=${S.busy.save}><${Icon} n="save" s=${16} /> ${S.busy.save ? 'Sauvegarde…' : 'Sauvegarder maintenant'}</button>
+      ${SAVE_SLOTS.every((k) => list.some((x) => x.slot === k)) ? html`<small class="muted">Tes 3 emplacements sont pris : la plus ancienne sera remplacée.</small>` : null}
+      ${list.length ? html`<div class="save-list">${list.map((x) => html`<div class=${'save-row' + (x.auto ? ' auto' : '')} key=${x.slot}>
+          <div><b>${x.auto ? x.label : 'Sauvegarde ' + x.slot}</b><small>${x.auto ? 'Auto · ' : ''}${agoLabel(x.at)} · Niv. ${x.lvl} · ${fmtN(x.fol)} ${plural(x.fol, 'abonné', 'abonnés')}</small></div>
+          <button class="btn btn-ghost btn-sm" onClick=${() => { close(); askConfirm({ title: 'Revenir à cette sauvegarde ?', text: `${x.auto ? x.label : 'Sauvegarde ' + x.slot} (${agoLabel(x.at)}). Tout ce qui s’est passé depuis sera perdu.`, ok: 'Revenir en arrière', danger: true, run: () => loadSave(x.slot) }); }}>Charger</button>
+        </div>`)}</div>` : html`<p class="muted" style="font-size:13.5px">Aucune sauvegarde pour l’instant. Le jeu en fait aussi une tout seul juste avant tes actions risquées.</p>`}
+      <button class="btn btn-ghost" onClick=${close}>Fermer</button>
+    </div>`;
+  } else if (m.t === 'clash') {
+    const a = eventOf(g, m.a), b = eventOf(g, m.b);
+    const ca = a && g.chars[a.c], cb = b && g.chars[b.c];
+    if (a && b && ca && cb && a.state === 'scheduled' && b.state === 'scheduled') {
+      const keep = (k, drop) => () => { close(); cancelDate(g, drop, `pour voir ${g.chars[k.c].name.split(' ')[0]}`); update(); };
+      const hurt = (ev) => { const h = cancelHurt(ev.due - Date.now()); return h === 0 ? 'prévenu·e tôt, ça passera' : h >= -3 ? 'ça va un peu piquer' : h >= -6 ? 'ça va mal passer' : 'ça va très mal passer'; };
+      card = html`<div class="modal-card">
+        <span class="eyebrow" style="color:var(--bad)">Deux rendez-vous en même temps</span>
+        <div class="modal-big" style="font-size:38px" aria-hidden="true">📅</div>
+        <p>${ca.name} (${fmtWhen(a.due)}) et ${cb.name} (${fmtWhen(b.due)}) : tu ne peux pas être aux deux. Qui tu préviens ?</p>
+        <div class="paths">
+          <button class="path" onClick=${keep(a, b)}><b>Garder ${ca.name.split(' ')[0]}</b><span>Annuler avec ${cb.name.split(' ')[0]} : ${hurt(b)}.</span></button>
+          <button class="path" onClick=${keep(b, a)}><b>Garder ${cb.name.split(' ')[0]}</b><span>Annuler avec ${ca.name.split(' ')[0]} : ${hurt(a)}.</span></button>
+        </div>
+        <button class="btn btn-ghost" onClick=${close}>Je verrai plus tard</button>
+      </div>`;
+    }
+  } else if (m.t === 'skip') {
+    card = html`<${WatchCard} g=${g} close=${close} />`;
+  } else if (m.t === 'budget') {
+    card = html`<${BudgetCard} g=${g} m=${m} close=${close} />`;
+  } else if (m.t === 'standing') {
+    card = html`<${StandingCard} g=${g} close=${close} />`;
+  } else if (m.t === 'pfp') {
+    card = html`<${PfpCard} g=${g} m=${m} close=${close} />`; // 0.25.1
+  } else if (m.t === 'rumor' || m.t === 'leak' || m.t === 'series' || m.t === 'money') {
+    card = CareerModal({ m, g, close });
+  } else if (m.t === 'gear') {
+    card = GearModal({ m, g, close }); // 0.20: the start, a launch, a theft
+  } else if (m.t === 'secret' || m.t === 'secretlie') {
+    card = SecretModal({ m, g, close }); // 0.18
+  } else if (m.t === 'visit') {
+    const v = visitOf(g, m.vid);
+    if (isLiveVisit(v)) card = html`<${VisitCard} key=${v.id} g=${g} v=${v} close=${close} />`; // 0.18
+  } else if (m.t === 'confirm') {
+    card = html`<div class="modal-card">
+      <div class="modal-title">${m.title}</div>
+      ${m.text ? html`<p>${m.text}</p>` : null}
+      <button class=${'btn ' + (m.danger ? 'btn-danger-solid' : 'btn-hot')} onClick=${() => { if (!armed()) return; close(); m.run(); }}>${m.ok || 'Confirmer'}</button>
+      <button class="btn btn-ghost" onClick=${close}>Annuler</button>
+    </div>`;
+  }
+  if (!card) { Promise.resolve().then(close); return null; }
+  return html`<div class=${'modal' + (STICKY_MODALS.includes(m.t) ? ' sticky' : '')} role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget && !STICKY_MODALS.includes(m.t)) close(); }}>${card}</div>`;
+}
+const STICKY_MODALS = ['visit', 'pfp']; // 0.18: someone at the door: talk, or « pas maintenant » ; 0.25.1: a new profile photo, shown off or not
+
+/* =========================================================
+   Clock, toasts for arrivals, boot
+   ========================================================= */
+const TOAST_KINDS = { skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
+let lastSlow = 0, lastQuestTick = 0, lastNeglect = 0;
+// 0.10: in the ChatGPT app (no such thing in Claude, where the AI only answers the player's actions), « Le réseau vit tout
+// seul » (Ultime's default; 0.19: a switch): a refresh every few minutes, only while the player is there and playing.
+// 0.23.1: at its pace (every 15, 8 or 5 minutes), and paused as soon as Hype is not in front of the player (another app,
+// the window minimized) or nothing was touched for 3 minutes (a click, a key, the wheel): it comes back with them.
+const AUTO_IDLE_MS = 3 * 60000;
+function livePause(t = Date.now()) {
+  const focus = window.__hypeFocus != null ? !!window.__hypeFocus : typeof document.hasFocus !== 'function' || document.hasFocus(); // (__hypeFocus: the tests)
+  if (document.visibilityState !== 'visible' || !focus) return 'away';
+  return t - (S.lastInputAt || 0) >= AUTO_IDLE_MS ? 'idle' : null;
+}
+const autoLiveDue = (g, t) => !!(HOST && g && g.ready && g.opts && autoLiveOn(g) && !livePause(t)
+  && t - (g.lastRefreshAt || 0) >= intensityOf(g).liveMs && !skipBusy() && !S.busy.more && !S.busy.refresh
+  && !S.stack.some((l) => l.t === 'minigame') && canAfford(g, 'refresh'));
+function tick() {
+  const t = Date.now();
+  S.now = t;
+  if (S.toasts.length) S.toasts = S.toasts.filter((x) => x.until > t);
+  let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
+  const g = S.game;
+  if (S.phase === 'game' && g) {
+    const dmOpen = topDMId();
+    // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
+    const playing = S.stack.length > 0 && S.stack[S.stack.length - 1].t === 'minigame';
+    for (const n of playing ? [] : g.notifs) {
+      if (n.at > S.lastToastAt && n.at <= t && n.k in TOAST_KINDS && !((n.k === 'dm' || n.k === 'seen') && n.c === dmOpen)) {
+        const cId = n.c;
+        const tg = n.k === 'trend' ? n.tg : null;
+        const sk = n.k === 'skill' ? n.sk : null;
+        toast(n.text, TOAST_KINDS[n.k], (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null);
+      }
+    }
+    // answers that arrive in a conversation the player has left
+    for (const id in playing ? {} : g.dms) {
+      if (id === dmOpen) continue;
+      const msgs = g.dms[id].msgs;
+      for (let k = msgs.length - 1; k >= Math.max(0, msgs.length - 4); k--) {
+        const m = msgs[k];
+        if (m.r && m.at > S.lastToastAt && m.at <= t) { const c = g.chars[id]; if (c) toast(`${c.name} t’a répondu`, '', { label: 'Lire', dm: id, run: () => openDM(id) }); break; }
+      }
+    }
+    S.lastToastAt = t;
+    if (g.low) { const before = g.low.gain; syncLow(g, t); if (!g.low || g.low.gain !== before) update(); fast = true; }
+    if (g.fakes && g.fakes.length && checkFakes(g, t)) update(); // a counter-investigation that was due
+    if (g.releases && g.releases.length && checkReleases(g, t)) update(); // a release forgotten long after its time
+    if (settleRuns(g, t)) update(); // 0.10.2: a mini-game left finished, or whose clock ran out while the player was away
+    if (((g.events && g.events.length) || (g.invites && g.invites.length)) && checkEvents(g, t)) update(); // a stood-up date, an event nobody watched, an invitation left unanswered
+    for (const ev of activeEvents(g)) { // wherever the player is, the time is called out
+      if (ev.dueSaid || t < ev.due) continue;
+      ev.dueSaid = true;
+      const K = EVENT_KINDS[ev.kind] || EVENT_KINDS.autre;
+      const ec = g.chars[ev.c];
+      if (ec && !S.stack.some((l) => l.t === 'minigame' && l.id === ev.id)) toast(`${evEmoji(g, ev)} ${K.now(ec)}`, 'flash', { label: K.go, run: () => goEvent(ev), ev: ev.id });
+      update();
+    }
+    if (t - lastNeglect > 60000) { lastNeglect = t; if (checkNeglect(g, t)) update(); }
+    const rl = activeRelease(g);
+    if ((rl && rl.due - t < 120000) || S.stack.some((l) => l.t === 'minigame')) fast = true; // live countdown, mini-game timers
+    if (rl && !rl.dueSaid && t >= rl.due) { // wherever the player is, the release time is called out
+      rl.dueSaid = true;
+      addNotif(g, { k: 'releasedue', p: rl.post, text: `C’est l’heure : ${ta(rl)} « ${str(rl.topic, 60)} » doit sortir !` });
+      if (!S.stack.some((l) => l.t === 'minigame')) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
+      update();
+    }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
+    if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
+    if (S.tab === 'notifs' && !S.stack.length) g.notifReadAt = t;
+    if (g.stats.cancelled && t - (g.apologyAt || 0) < APOLOGY_COOLDOWN) fast = true;
+    const n = unreadNotifs(g, t) + unreadDMs(g, t, dmOpen);
+    const title = n ? `(${n}) Hype` : 'Hype';
+    if (document.title !== title) document.title = title;
+  } else if (document.title !== 'Hype') document.title = 'Hype';
+  if (fast || t - lastSlow > 15000) { lastSlow = t; update(false); }
+}
+
+let booted = false;
+async function loadIndex() {
+  try {
+    const idx = await Store.read('index');
+    S.games = idx && Array.isArray(idx.games) ? idx.games.filter((x) => x && x.id) : [];
+    if (idx) lastWritten.index = JSON.stringify(idx);
+    indexOK = true;
+    S.indexError = false;
+  } catch (e) {
+    console.warn('index', e);
+    S.games = [];
+    S.indexError = true; // never write over a list we could not read
+  }
+}
+async function retryIndex() {
+  S.phase = 'loading';
+  update(false);
+  await loadIndex();
+  S.phase = 'home';
+  update(false);
+}
+async function boot(data) {
+  if (booted) return;
+  booted = true;
+  S.voice = loadVoicePref();
+  applyTheme();
+  rebuildPack(); // the pack shipped with the game; the creator's own atelier is read once the storage is ready
+  render(html`<${App} />`, document.getElementById('app'));
+  update(false);
+  setInterval(tick, 1000);
+  getSample().then((s) => { if (S.ai === 'unknown') S.ai = s ? 'ready' : 'unavailable'; update(false); });
+  if (HOST) { // the ChatGPT connection: preferences first (the welcome is shown once), then the session and its changes
+    (async () => {
+      try { S.host.prefs = (await HOST.getPrefs()) || {}; } catch (e) { S.host.prefs = {}; }
+      if (typeof HOST.getZoom === 'function') { // the size of everything (Ctrl + wheel changes it from the app)
+        HOST.onZoom((z) => { S.host.zoom = z; update(false); });
+        HOST.getZoom().then((z) => { S.host.zoom = z; update(false); }).catch(() => {});
+      }
+      HOST.onSession((ss) => setHostSession(ss));
+      try { setHostSession(await HOST.getSession()); } catch (e) { setHostSession({ status: 'disconnected', sharing: false }); }
+    })();
+  }
+  const init = Store.init();
+  await Promise.race([init, sleep(2500)]);
+  if (Store.mode === 'pending') { S.phase = 'home'; update(false); await init; } // outside Claude: show the home page without waiting
+  await loadAtelier();
+  await loadIndex();
+  sweepDrafts(); // photos of a composer closed without publishing, at an earlier visit
+  loadNews().then(() => update(false)); // the real news, for the « Monde réel » world
+  if (data && data.game && data.game.id && data.game.ready) { enterGame(migrate(data.game), { tab: data.tab, hot: true }); return; }
+  if (S.phase !== 'game' && S.phase !== 'onboard') S.phase = 'home';
+  update(false);
+}
+if (window.__HYPE_TEST__) {
+  window.__hype = {
+    S, makeScanner, computeOutcome, cleanEval, normHandle, niceRound, xpNeed, update, energyNow, questProgress, promptWorld, promptAct, promptDM,
+    promptRefresh, promptIdeas, promptNewChar, WORLDS, START, mains, charByHandle, cloneJSON, addMem, applyVibe, setVibeGoal, addTrigger,
+    activeTriggers, checkCancel, startLowProfile, syncLow, applyAbsence, trends, VIBES, SHOP, FLOWS, Store, lastWritten, addClue, regulars, inBadBuzz, ticsOf, linesOf,
+    playerBadBuzz, rollVigilance, fakeNeed, checkFakes, activeRelease, parseAnnounce, activeEvents, eventOf, escapeChance, openDM, aiTier,
+    cancelHurt, fameDiff, shiftTime, checkEvents, addEvent, checkNeglect, writeSave, parsePlan, scanPlans, dueText, dayLabel, winText, mixPick, MIX_P,
+    vibePrivate, learnLove, allLearn, knowsOf, seesChron, privNote, dateSeen, KNOW_RULE, lastWord, lastWordsFor, STAY_RE, logDate, backfillDates, dateLogText, dateLogOf, dateLogFor, DATE_LOG_MAX,
+    JOB_KINDS, addJob, addJobFile, jobOf, openJob, jobsOf, jobWorked, sendJob, jobOutcome, tickJobs, jobsCtx, jobDMCtx, jobTalk, JOB_LINE, jobFilesWanted, thumbQual, jobGame, payCap,
+    vibePath, vibeOK, normVibe, breakUp, dateOutcome, partnerWord, meetKind, sameWhat,
+    pickArc, addArc, liveArcs, isTroll, crowdFor, pickShootKind, makeMontage, makeMemoire, DIFFS,
+    // 0.7
+    budgetOf, cafesLeft, chargeBudget, canAfford, energyNow, calMoment, audienceAt, adSeason, gameDate, fmtGameClock, programOf, applyProgram, checkPayout, releaseViews, estimateViews, rpmOf,
+    makeOffer, signDeal, dealFee, deliverDeal, sanction, addCandidate, hireStaff, quitStaff, staffMult, payroll, startSeries, seriesMult, endSeries, scheduleRelease,
+    addRumor, liveRumor, rumorSource, turnAgainst, addIntel, leakIntel, allies, enemies, allyBoost, makeTrend, activeTrends, trendHeat, tickCareer, platformOf, PLATFORMS, nextAt, STAFF_ROLES,
+    refreshFeed, skipTime,
+    // 0.8: the photo pack
+    PACK, PACK_IMG, rebuildPack, portraitSrc, faceOf, assignFace, assignFaces, pickPhoto, matchAiPhoto, tickPhotos, occasionsAt, seasonOf, momentOf, facesAsk, capBatch, publishQueued, emojiCaption,
+    igList, ttList, makeSlides, pickSlides, genNewChar, loadAtelier, packExportText, packImportText, creatorOn, openAtelier, guessTags, hintTags, addAmbientPost, charPortrait, cleanPhoto,
+    // 0.9: trust and advice
+    trustOf, gardeOf, trustMult, trustLabel, applyTrust, initTrust, migrateTrust, migrate, addAdvice, tickAdvice, resolveAdvice, plannedAdvice, confideSecret, secretBetrayed, isShady,
+    sendDM, standUp, fakeBusted, startBadBuzz, ADVICE_NEED, TRUST_STEPS, openAdvice, openChar, promptWrite,
+    // 0.9.1: series, the week of their pages, the player's own photos
+    visibleShots, carouselOf, shotOf, IG_WINDOW, MEDIA, mediaGet, mediaSrc, ownPosts, exportGameText, importGameText, deleteGame, loadGameData,
+    mediaPut, mediaDel, picDrafts, markDrafts, sweepDrafts, MEDIA_MAX,
+    // 0.9.2: the characters see the player's images
+    visionCheck, seeBlobs, SEE_MAX, SEE_CHARS, IMG_MISS, costGuess, budgetOf,
+    // 0.9.3: dates that fit the story
+    prepDate, genDate, prepFresh, charCancelsDate, dateSituation, publicBetween, promptDateGame, promptDateCheck,
+    // 0.9.4: invitations, dates days away, standing and temperaments, echoes
+    addInvite, acceptInvite, declineInvite, dropInvite, inviteOf, openInvite, inviteIn, saysYes, planDue, parseWhen, dayOffset, dmDateFallback, dmInviteFallback,
+    TEMPERS, temperOf, initTemper, setTemper, migrateTemper, standingOf, tickStanding, standLv, standMult, ripple, addEcho, surfaceEcho, runEcho, standCtx, temperText,
+    candPrice, maybeOffer, genCandidates, promptCandidates, ctxText, sysLine,
+    // 0.10: the reputation on 1000 and its pillars, the intensity, more comments, the budget tiers
+    repMove, repTry, repShift, repFloor, repSet, repAtLeast, rep1000, repLabel, repCtx, ensureRep, REP_PILLARS, REP_TIERS, actRepPlan, INTENSITY, intensityOf,
+    BUDGETS, budgetHint, PLAN_ADVICE, promptWave, postWaves, promptMore, moreReplies, moreDue, linkReply, autoLiveDue, setIntensity, postponePlan, DROP_PLAN, computeOutcome, openPost,
+    // 0.10.2: a mini-game's progress kept with it; saves and exports never carry one half played
+    mgKeep, runOver, settleRuns, dropUnplayed, snapshotOf, addRelease, finishShoot, openLayer, closeLayer, loadSave,
+    // 0.11: hearts, pace, cools, dares, dates played for real
+    COEURS, heartOf, isDefi, normCoeur, guessCoeur, ensureHearts, amiOf, heartScale, noticed, paceCheck, tooFast, paceNeed, paceFrom, nextLove, startCool, endCool,
+    bumpInsist, escalate, confide, startInquiry, resolveInquiry, dirtOn, tickHearts, loveMove, moveGap, startDare, heartBeforeDM, heartAfterDM, winDare,
+    loseDare, forceLove, normReact, capReact, heartLines, quietDM, isTalk, gestesFor, promptTalk, openTalk, talkTurn, talkScore, finishTalk, afterDate, coolNow,
+    TALK_TURNS, endDate, applyRel, roll,
+    // 0.13: ties among them, word of mouth
+    tieOf, setTie, bumpTie, initTies, tiesOf, applyTieLine, addWhisper, hear, tickWhispers, tieCtx, whisperFromIntel, whisperFromDate, addIntel,
+    compactCore, coreSize, saveGame, saveNow, // 0.14
+    applyEdit, makeEdit, afterShoot, lookCtr, lookChoc, presetLook, drawnCtr, coupleBoost, acceptCollab, COLLAB_RE, fadeTalk, FADE_RE, initiativeLine, publishRelease, staffPower, canAiThumb, keepThumbImage,
+    // 0.12: trials before the big steps, couples
+    TRIALS, openTrial, rivalFor, trialCheck, startTrial, startVeille, winTrial, loseTrial, heartsAfterAct, trialsOnRumor, tickCouples, announceCouple, keepCoupleSecret,
+    runAct, officialize, rumorResult,
+    // 0.15: enemies who notice, bad buzz of their own, ties cut, the way out of a cancel, @ suggestions, toasts at the bottom
+    foesOf, closeToFoe, foesNotice, BOND_VIBES, selfBuzzOK, startSelfBuzz, sideSelfBuzz, selfBuzzOver, bbByPlayer, cutTies, reconnect,
+    mentionAt, mentionPicks, toastBottom, openNotif, openCompose, goTab, SELF_BUZZ_LINE, toast, queueModal,
+    isMain, canJoin, joinCast, jobLine, JOIN_REL, candidates, // 0.16: anyone can join the cast
+    dateExigence, FAMOUS, // 0.16: the exigence of a date played for real
+    // 0.17: ages and maturity, the people who see, the train of the hyyype
+    MATU, drawCastAges, drawMatu, initAge, noRomance, ageText, newcomerAge,
+    noteSeen, seenCheck, seenCtx, seenNeed, seenNow, witnessAct, ignoredFriends,
+    trainAfterAct, startTrain, fuelTrain, tickTrain, endTrain, trainOn, trainMult, hyWord, TRAIN_PTS, estLikes,
+    addNotif, addIncomingDM, emoParts, emoSearch, emoOnly, EMO_LIST, EMO_BY, emoRecents,
+    // 0.18: the player's secrets, dilemmas, surprise visits
+    SEVS, STANCES, mySecrets, secretOf, hiddenSecrets, knowsSecret, secretsKnownBy, cleanSecrets, addSecret, learnSecret, howKnown, hostileTo, digFoes, digOK, digChance, digInto, slipSecret,
+    secretOut, exposeSecret, confessResult, answerResult, keepQuiet, proveLie, tickSecrets, liveSecret, secretFromDeal, dealSecretOut, secretKnowCtx, secretsOutCtx, secretLines, proofLines, secretActLines, secretDMLines, confidedIn,
+    DIL_P, liveDilemma, dilemmaFree, dilemmaOnDeal, dilemmaAskLines, noteDilemmaAsks, dilemmaDM, dilemmaChoice, passedOverChance, settlePlace, dealDelivered, dossierLine, addDossier, dossierUsed, applyShady, collabFoe, tickDilemmas, dilemmaLines,
+    URGES, MOODS, normUrge, normMood, visitOf, liveVisit, canVisit, visitOK, visitCands, visitLine, addVisit, promptVisit, visitTurn, endVisit, refuseVisit, missVisit, visitBadChance, tickVisits, visitCtx, closeModal, dueModal,
+    // 0.19: fewer tokens, the levels measured, the two switches
+    RULES, RULES_PRIVATE, rulesFor, CTX_KINDS, ficheText, linkBrief, storyQuests, LATE_LINE, LATE_MAX, timeLate, lateNotices, addChronicle, addStoryQuest, promptDateEnd, focusCast,
+    VOL, volId, volFor, levelOf, chattyOn, autoLiveOn, lifeK, COST_IN, COST_OUT, costAt, hourCafes, hourCafesOf, setOpt, COMMENTS, COMMENT_IDS, LIVE, LIVE_IDS, commentsOf, liveOf, volIdOf, usesOf, USE_LABELS, livePause, AUTO_IDLE_MS,
+    SKILL_MAX, SKILL_TREE, SKILL_IDS, SKILL_CUM, skillNeed, skillLevelOf, skillLevel, skillFx, skillFxAt, ensureSkills, trainSkill, practiseAct, practiseDM, practiseTalk, skillsCtx, skillNow, nextTier,
+    BUY_KINDS, BUY_RE, buyTalk, BUY_LINE, applyBuy, buyText, buyLabel, buyTotals, buyPrice, PAY_DEFAULT, sround, talkTranscript,
+    makeChat, makeMix, makeFrame, makeGrade, gradeScore, ROUND_MAKERS, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
+    importPhoto, removePhoto, ownPhoto, setPhotoDesc, pfpQuiet, pfpAnnounce, pfpPosted, // 0.25.1
+    JOB_TIERS, JOB_K, JOB_DIFFS, JOB_FLOP, jobTier, jobQual, jobQ, qOf, jobBest, legendFrom, jobExpect, tierRank, // 0.25.2
+    nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
+    COND, resaleName, invOf, invItem, invLive, invSold, invAdd, gearToInv, equipInv, receiveGear, fairOf, suggestOf, fanBoost, resaleDemand, priceK, saleSpeed, listItem, unlist, tickResale, sellItem, noticeSale, resoldLine, resaleCtx, giftTalk, GIFT_LINE, receiveGift, roundPrice, SALE_RATE, NOTICE_MS, // 0.26
+    dealOf, dealBounds, dealSummary, applyDealLine, declineDeal, // 0.19.1: contracts
+    // 0.20: the gear, the connection, the subscriptions, the start
+    GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
+    gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,
+    theft, nextLaunchAt, gearIssues, outagePostpone, easyGear, usable, subOn, hasBonus, firstBill,
+    promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey,
+    SCAM_KINDS, CRITIC, scamChance, scamOffer, brandSheet, sheetLine, payTerms, AGENT_CEIL, dealSize, agentReview, dealHard, agentGamble, scamBeforeSign, scamAfterSign,
+    penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MAKERS, MERCH_MIN, merchOK, merchOf, openDrop, lastDrop, prepDrop, cancelDrop, launchDrop, sellDay, tickMerch, restock, stopDrop, merchCtx, merchLine, priceRatio, unitCost, stockCost,
+  };
+}
+const markSeen = () => { if (S.game) S.game.lastSeenAt = Date.now(); saveNow(); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') markSeen(); });
+for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, () => { S.lastInputAt = Date.now(); }, { passive: true, capture: true }); // the player is here (0.10)
+window.addEventListener('focus', () => { S.lastInputAt = Date.now(); if (S.phase === 'game') update(false); }); // 0.23.1: back on Hype, the network living on its own comes back too
+window.addEventListener('pagehide', markSeen);
+
+(function start() {
+  const hot = window.claude && window.claude.hot;
+  try {
+    if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => (S.game && S.game.ready ? { game: cloneJSON(S.game), tab: S.tab } : {}));
+  } catch (e) { /* optional */ }
+  let started = false;
+  const go = (d) => { if (started) return; started = true; boot(d || {}); };
+  if (hot && typeof hot.ready === 'function') {
+    try { hot.ready(go); } catch (e) { go({}); }
+    setTimeout(() => go((hot && hot.data) || {}), 2500);
+  } else go((hot && hot.data) || {});
+})();

@@ -1,0 +1,128 @@
+/* =========================================================
+   0.20: the quote (« le devis ») of a content, when it is programmed. What it takes to make THIS content: what to buy,
+   rent or pay (a game, a costume, a trip, ingredients…), never the gear the player already has, never what was bought
+   for an earlier video. It is paid to program: no quote paid, no release (a content filmed at home can cost nothing).
+   That is also where a sponsor comes in: a brand already signed rides on it, or the player pitches one.
+   One small call to the AI (light, quick), on the player's own action. Without the AI: nothing special to buy.
+   ========================================================= */
+const DEVIS_KINDS = { achat: '🛒', location: '🔑', transport: '🚗', service: '🧾', conso: '🧺' };
+const DEVIS_MAX = 6;
+const normItem = (s) => foldAcc(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(le|la|les|un|une|des|du|de|d|l)\b/g, ' ').replace(/\s+/g, ' ').trim();
+// Whether the player already owns something like this item (bought for an earlier video).
+function ownsItem(g, item) {
+  const n = normItem(item);
+  if (n.length < 3) return false;
+  return ((g.gear && g.gear.owned) || []).some((o) => { const m = normItem(o.name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); });
+}
+const devisKey = (o) => [o.what, str(o.topic, 120).toLowerCase(), o.days || 0].join('|');
+function promptDevis(g, o) {
+  const money = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros';
+  const owned = ((g.gear && g.gear.owned) || []).slice(-25).map((x) => x.name);
+  const one = o.what === 'live' ? 'un live' : o.what === 'vidéo' ? 'une vidéo longue' : o.what === 'short' ? `un format court vertical (${PF(g).shortName})` : `un ${o.what}`;
+  return [`Tu es le régisseur d’un créateur de contenu ${g.world.inName || 'dans le monde de ' + g.world.name}${g.world.tagline ? ` (${g.world.tagline})` : ''}.`,
+    `Il prépare ${one} sur ${pfName(g, platformOf(g))} : « ${str(o.topic, 120)} »${o.plot ? ` (ce qu’on y verra : ${str(o.plot, 200)})` : ''}.`,
+    o.days ? `C’est un défi de ${o.days} jours : un épisode par jour sur ce thème. Sépare ce qui s’achète une seule fois ("per":"once") de ce qui se rachète à chaque épisode ("per":"episode", le prix d’UN épisode).` : null,
+    `Son matériel de tournage, déjà à lui (ne le compte jamais) : ${gearBrief(g)}.`,
+    `Ce qu’il a déjà acheté pour d’anciennes vidéos (ne le rachète jamais) : ${owned.length ? owned.join(' ; ') : 'rien'}.`,
+    '', '## TÂCHE : LE DEVIS',
+    `Ce qu’il faut acheter, louer ou payer pour faire CE contenu, avec des prix réalistes (en ${money}, comme en vrai). Rien d’inutile : un contenu tourné chez soi, sans accessoire, peut ne rien coûter du tout. Jamais de matériel de tournage (le sien suffit), jamais de salaire (son équipe est déjà payée). Des noms génériques, sans marque.`,
+    '', FORMAT,
+    `Au plus ${DEVIS_MAX} lignes : {"t":"cost","item":"≤ 60 caractères","price":40,"kind":"achat","keep":true,"per":"once"} (kind : achat, location, transport, service ou conso ; keep : true seulement pour un objet qu’il gardera et pourra réutiliser).`,
+    'Si rien n’est à payer, une seule ligne : {"t":"free"}.',
+    '- Facultatif, si un type de marque pourrait financer ce contenu : {"t":"sponsor","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","why":"≤ 80 caractères"}.'].filter((x) => x !== null).join('\n');
+}
+// The lines of the AI, cleaned: owned things dropped, prices bounded, at most DEVIS_MAX.
+function readDevis(g, o, objs) {
+  const items = [];
+  let sponsor = null;
+  for (const x of objs) {
+    if (x.t === 'cost' && items.length < DEVIS_MAX) {
+      const item = str(x.item, 60), price = Math.round(clamp(num(x.price, 0), 0, 50000));
+      if (!item || !(price > 0) || ownsItem(g, item) || items.some((y) => normItem(y.item) === normItem(item))) continue;
+      items.push({ item, price, kind: DEVIS_KINDS[x.kind] ? x.kind : 'achat', keep: x.keep === true || x.keep === 'true', per: o.days && x.per === 'episode' ? 'episode' : 'once' });
+    } else if (x.t === 'sponsor' && !sponsor && SECTORS.some((s) => s.id === x.sector)) sponsor = { sector: x.sector, why: str(x.why, 80) };
+  }
+  return makeDevis(o, items, sponsor);
+}
+function makeDevis(o, items, sponsor, ai = true) {
+  const once = items.filter((x) => x.per !== 'episode').reduce((n, x) => n + x.price, 0);
+  const each = items.filter((x) => x.per === 'episode').reduce((n, x) => n + x.price, 0);
+  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), days: o.days || 0, items, once, each, sponsor, ai, at: Date.now() };
+}
+const devisTotal = (dv) => (dv ? dv.once + dv.each * (dv.days || 1) : 0);
+// Asks the AI for the quote (the player's own action). key: where the screen waits for it (S.devis).
+async function genDevis(o) {
+  const g = S.game;
+  if (!g || S.busy.devis) return null;
+  S.busy.devis = devisKey(o);
+  update(false);
+  const f = startFlow(g);
+  const objs = [];
+  let dv = null;
+  try {
+    await aiStream(promptDevis(g, o), (x) => { if (x && (x.t === 'cost' || x.t === 'sponsor' || x.t === 'free')) objs.push(x); }, { signal: f.ctl.signal, src: f.id, kind: 'devis', tier: 'quick' });
+    dv = readDevis(g, o, objs);
+  } catch (e) {
+    if (e && e.code === 'budget') reportAiError(e);
+    else if (!e || e.code !== 'cancelled') console.warn('devis', e && (e.code || e.message));
+    if (!e || e.code !== 'cancelled') dv = makeDevis(o, [], null, false); // without the AI: nothing special to buy
+  }
+  S.busy.devis = null;
+  endFlow(f);
+  if (dv && S.game === g) S.devis = dv;
+  update(false);
+  return dv;
+}
+// Paying the quote: the money goes, what is kept joins what the player owns (never bought again).
+function payDevis(g, dv, label) {
+  const total = devisTotal(dv);
+  if (total > 0 && !pay(g, total, `Devis : ${label || str(dv.topic, 40)}`, 'devis')) return false;
+  const G = g.gear;
+  for (const x of dv.items) if (x.keep && G && !ownsItem(g, x.item)) G.owned.push({ name: x.item, price: x.price, at: Date.now() });
+  if (G && G.owned.length > 60) G.owned.splice(0, G.owned.length - 60);
+  dv.paid = Date.now();
+  return true;
+}
+const devisNeeded = (g, r) => !!(g && r && !easyGear() && !r.legacy && !r.series && !r.devis);
+// The player pitches a brand for this content (from the quote): an offer may come back… or not, or not an honest one.
+function pitchBrand(g, dv) {
+  if (!dv || dv.pitched) return false;
+  if (g.stats.followers < 800) { toast('Les marques ne répondent pas encore : il te faut au moins 800 abonnés.', 'bad'); return false; }
+  dv.pitched = Date.now();
+  const sector = dv.sponsor ? dv.sponsor.sector : pick(SECTORS).id;
+  const S0 = SECTORS.find((x) => x.id === sector) || SECTORS[0];
+  if (Math.random() < 0.45) { toast(`Tu as écrit à des marques (${S0.emoji} ${S0.id}). Pas de réponse pour l’instant… ça arrive.`); return true; }
+  const d = makeOffer(g, { sector, what: dv.what, pitched: true });
+  toast(d ? `Une marque te répond en message privé : ${d.brand}.` : 'Les marques contactées n’ont rien à te proposer pour le moment.', d ? 'good' : '');
+  return true;
+}
+/* ---------- the screens ---------- */
+function DevisCard({ g, dv, attach, onAttach }) {
+  if (!dv) return null;
+  const total = devisTotal(dv), cash = g.career.cash;
+  const deals = signedDeals(g).filter((d) => d.what === dv.what);
+  return html`<div class="devis-card">
+    <div class="dv-head"><${Icon} n="receipt" s=${18} /><b>Le devis</b><span>${dv.ai ? '' : 'estimé sans l’IA'}</span></div>
+    ${dv.items.length ? html`<ul class="dv-lines">${dv.items.map((x, k) => html`<li key=${k}><span aria-hidden="true">${DEVIS_KINDS[x.kind]}</span><span>${x.item}${x.keep ? html` <em>à garder</em>` : null}${x.per === 'episode' ? html` <em>par épisode</em>` : null}</span><b>${fmtMoney(g, x.price)}</b></li>`)}</ul>`
+      : html`<p class="muted">Rien à acheter : ton matos et ce que tu as déjà suffisent.</p>`}
+    ${dv.days && dv.each ? html`<p class="muted dv-sum">${fmtMoney(g, dv.once)} une fois + ${fmtMoney(g, dv.each)} × ${dv.days} épisodes</p>` : null}
+    <div class="dv-total"><span>Total</span><b class=${total > 0 && total > cash ? 'neg' : ''}>${fmtMoney(g, total)}</b></div>
+    ${total > 0 && total > cash ? html`<p class="dv-miss">Il te manque ${fmtMoney(g, total - Math.max(0, cash))} : choisis un sujet moins cher, ou trouve un sponsor.</p>` : null}
+    ${deals.length && onAttach ? html`<div class="field"><span class="lbl">Un sponsor déjà signé pour ce contenu ?</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!attach ? ' on' : '')} onClick=${() => onAttach('')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (attach === d.id ? ' on' : '')} onClick=${() => onAttach(d.id)}>${d.emoji} ${d.brand}${d.fee ? ` · ${fmtMoney(g, d.fee)}` : ''}</button>`)}</div></div>` : null}
+    ${dv.sponsor || g.stats.followers >= 800 ? html`<div class="dv-pitch">${dv.sponsor ? html`<small>💡 ${dv.sponsor.why || 'Une marque pourrait financer ça.'}</small>` : null}
+      <button type="button" class="btn btn-ghost btn-sm" disabled=${!!dv.pitched} onClick=${() => { if (pitchBrand(g, dv)) update(); }}>${dv.pitched ? 'Marques démarchées' : `Démarcher une marque${dv.sponsor ? ` (${(SECTORS.find((s) => s.id === dv.sponsor.sector) || {}).emoji || ''} ${dv.sponsor.sector})` : ''}`}</button></div>` : null}
+  </div>`;
+}
+// The quote step of a content announced on the network (its shoot screen): ask, then pay.
+function DevisStep({ g, r, topic }) {
+  const o = { what: r.what, topic, plot: r.plot || '' };
+  const dv = S.devis && S.devis.key === devisKey(o) ? S.devis : null;
+  const busy = S.busy.devis === devisKey(o);
+  const paid = () => { if (!dv) return; if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; } r.devis = { total: devisTotal(dv), items: dv.items, topic: dv.topic, at: Date.now() }; S.devis = null; if (S.devisAttach) { r.deal = S.devisAttach; S.devisAttach = ''; } update(); };
+  return html`<div class="devis-step">
+    ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${S.devisAttach || ''} onAttach=${(id) => { S.devisAttach = id; update(false); }} />
+      <button class="btn btn-hot" onClick=${paid} disabled=${devisTotal(dv) > 0 && devisTotal(dv) > g.career.cash}><${Icon} n="cash" s=${16} /> ${devisTotal(dv) ? `Payer ${fmtMoney(g, devisTotal(dv))}` : 'Valider le devis (rien à payer)'}</button>`
+      : html`<p class="muted">Avant de tourner : ce qu’il faut acheter, louer ou payer pour ${laW(r)}. Rien n’est racheté si tu l’as déjà.</p>
+      <button class="btn btn-hot" disabled=${busy || topic.trim().length < 3} onClick=${() => genDevis(o)}>${busy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`}</button>`}
+  </div>`;
+}
