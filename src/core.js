@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.5';
+const APP_VERSION = '0.27.6';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -1051,8 +1051,9 @@ function addMem(g, by, text, shown) {
 const TRIGGER_TTL = 30 * 60 * 1000;
 function addTrigger(g, text, charId) {
   if (!g.triggers) g.triggers = [];
-  if (g.triggers.some((x) => x.text === text)) return;
-  g.triggers.push({ id: uid('tr'), text: str(text, 240), c: charId || null, at: Date.now() });
+  const tx = str(text, 240);
+  if (g.triggers.some((x) => x.text === tx)) return; // (0.27.6: compared as kept: a long one was never found again)
+  g.triggers.push({ id: uid('tr'), text: tx, c: charId || null, at: Date.now() });
   if (g.triggers.length > 4) g.triggers.splice(0, g.triggers.length - 4);
 }
 function activeTriggers(g, charId) {
@@ -1414,7 +1415,7 @@ function trimReleases(g, max = 10 + MAX_PLANNED) {
 // 0.27.4: brought forward, at no cost (the public simply gets it sooner); a shoot not played yet stays as it is.
 function advanceRelease(g, r, due) {
   const t = Date.now();
-  if (!r || r.state !== 'scheduled' || !(due < r.due - 30000)) return false;
+  if (!r || r.state !== 'scheduled' || r.series || !(due < r.due - 30000)) return false; // (0.27.6: a daily upload keeps its hour, like when postponing)
   r.due = Math.max(t, Math.round(due));
   r.dueSaid = false;
   const when = r.due - t < 60000 ? 'maintenant' : fmtWhen(r.due, t);
@@ -1436,7 +1437,11 @@ function advanceChoices(g, r, now = Date.now()) {
   }
   return out.sort((a, b) => a.at - b.at).slice(0, 18);
 }
-// said: the player's own message that announced it (the topic stays theirs).
+// The words of a topic that say what it is about (not « ma nouvelle vidéo ce soir »).
+const REL_GENERIC = new Set(['video', 'videos', 'tiktok', 'tiktoks', 'short', 'shorts', 'reel', 'reels', 'live', 'lives', 'stream', 'podcast', 'episode', 'episodes', 'clip', 'clips', 'nouveau', 'nouvelle', 'nouvel', 'prochain', 'prochaine', 'demain', 'soir', 'heure', 'heures', 'minute', 'minutes', 'bientot', 'arrive', 'sortie', 'sort', 'annonce', 'chaine', 'abonnes', 'rendez', 'vous', 'ensemble', 'surprise']);
+const relWords = (s) => bigWords(s).filter((w) => !REL_GENERIC.has(w));
+// said: the player's own message that announced it (the topic stays theirs). o.loose: read in the player's own words
+// (the model missed it), so its « topic » is the whole message.
 function addRelease(g, o, post, said) {
   if (!planRoom(g)) return null;
   const topic = str(o.topic, 100);
@@ -1448,10 +1453,12 @@ function addRelease(g, o, post, said) {
   if (!PF(g).fmts.includes(what)) what = PF(g).main; // a « vidéo » on TikTok is a tiktok
   const asked = what;
   what = makeableWhat(g, what); // 0.20: no computer, no long video: the announcement becomes what the player can make
-  // 0.27.4: another post about a release already planned is not a second one (the planned one gets the announcement)
-  const due = t + mins * 60000, day = (x) => gameDate(x).toDateString();
-  const same = plannedReleases(g).find((x) => Math.abs(x.due - due) < 90 * 60000 || (x.what === what && day(x.due) === day(due)));
-  if (same) { if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); } return null; }
+  // 0.27.4: another post about a release already planned is not a second one (the planned one gets the announcement).
+  // 0.27.6: the same format, around the same time; later that day, only about the same thing (or in words that name
+  // nothing new): two shorts on two topics the same day are two releases, a video announced next to a live is a video.
+  const due = t + mins * 60000, day = (x) => gameDate(x).toDateString(), words = relWords(topic);
+  const same = plannedReleases(g).find((x) => x.what === what && (Math.abs(x.due - due) < 90 * 60000 || (day(x.due) === day(due) && (o.loose || !words.length || sameThing(x.topic, topic)))));
+  if (same) { if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); } if (!same.c && target && isMain(target) && target.unlocked) same.c = target.id; return null; }
   const r = {
     id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: post ? post.id : null, at: t, due: t + mins * 60000, state: 'scheduled', delays: 0, tries: 0,
     c: target && isMain(target) && target.unlocked ? target.id : null, game: null, played: null,
@@ -1507,10 +1514,22 @@ function dropRelease(g, r, forgot) {
   addTrigger(g, `Le joueur a abandonné ${sa(r)} « ${str(r.topic, 60)} » promise à tout le monde : moqueries, déception, certains parlent de lâcheté.`, r.c || null);
   checkCancel(g);
 }
-// Called by the clock: a release forgotten long after its time is given up.
-function checkReleases(g, t = Date.now()) {
+// The moment a release past its time is given up (0.27.6: shown on its card).
+const relLimit = (r) => Math.max(r.due, r.waited || 0) + RELEASE_GRACE * (r.played ? 2 : 1);
+// Called by the clock: a release forgotten long after its time is given up. 0.27.6: one that waited behind another has
+// its grace from when that one was done (it could not be shot before); one being shot or published right now (onScreen)
+// is never pulled from under the player.
+function checkReleases(g, t = Date.now(), onScreen = () => false) {
   const r = activeRelease(g);
-  if (r && t > r.due + RELEASE_GRACE * (r.played ? 2 : 1)) { dropRelease(g, r, true); return true; }
+  if (!r) return false;
+  if (g.relFirst !== r.id) { // a new one on the clock: did it wait behind the one that just left?
+    const was = g.relFirst && (g.releases || []).find((x) => x.id === g.relFirst);
+    if (g.relFirst && (!was || was.state !== 'scheduled') && r.at <= (g.relFirstAt || 0) && r.due < t) r.waited = t; // (already late: its grace starts now)
+    g.relFirst = r.id;
+  }
+  g.relFirstAt = t;
+  if (onScreen(r.id)) return false;
+  if (t > relLimit(r)) { dropRelease(g, r, true); return true; }
   return false;
 }
 
@@ -1894,11 +1913,11 @@ function standUp(g, ev, t = Date.now(), why) {
   repMove(g, { kind: -4 }, `ton lapin à ${c.name}`); // 0.10: they tell people
 }
 // Called by the clock: a date the player never showed up to, a character's event nobody watched.
-function checkEvents(g, t = Date.now()) {
+function checkEvents(g, t = Date.now(), onScreen = () => false) {
   let changed = false;
   for (const iv of g.invites || []) if (iv.state === 'open' && t > iv.due - 5 * 60000) { iv.state = 'expired'; changed = true; } // never answered: no blame
   for (const ev of g.events || []) {
-    if (ev.state !== 'scheduled' || t < ev.due + EVENT_GRACE * (ev.played ? 2 : 1)) continue;
+    if (ev.state !== 'scheduled' || t < ev.due + EVENT_GRACE * (ev.played ? 2 : 1) || onScreen(ev.id)) continue; // (0.27.6: a date being played is no stood-up date)
     changed = true;
     if (ev.player) { if (!endUnfinished(g, ev)) standUp(g, ev, t); continue; } // 0.11: an evening that happened is not a stood-up date
     ev.state = 'missed';

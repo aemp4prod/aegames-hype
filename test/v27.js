@@ -95,7 +95,7 @@ async function newGame(page, identity) {
       { t: 'cost', item: 'nappe à carreaux rouges', price: 15, kind: 'achat', keep: true, per: 'once' },
       { t: 'have', id: 'i2', use: 'conso' }, { t: 'have', brand: 'Croc’Midi', item: 'nappe et couverts' }, { t: 'have', brand: 'Croc’Midi', item: 'repas du jour Croc’Midi' }, { t: 'have', id: 'i9', use: 'conso' }, // (0.27.5: a brand provides its own product only: no tablecloth)
     ];
-    H.S.devis = null;
+    H.S.devis = null; H.S.devisBy = {};
     H.openLayer({ t: 'series', id: 'single' });
     return { box: box.id, plaid: plaid.id };
   });
@@ -117,7 +117,7 @@ async function newGame(page, identity) {
       && /Déjà là, rien à payer/.test(dv1.card) && /utilisé pour le tournage/.test(dv1.card) && /15 €/.test(dv1.card), dv1);
   await page.locator('.layer .btn-hot', { hasText: 'Payer' }).click();
   await sleep(500);
-  const dv2 = await G(page, (ids) => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const out = { box: !!H.invItem(g, ids.box), plaid: !!H.invItem(g, ids.plaid), notif: (g.notifs.filter((n) => /tu utilises ce que tu avais/.test(n.text)).pop() || {}).text || '', have: r && r.devis && r.devis.have.length, cash: g.career.cash }; if (r) r.state = 'dropped'; window.__mockDevis = null; H.S.devis = null; H.closeLayer(); return out; }, setup);
+  const dv2 = await G(page, (ids) => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const out = { box: !!H.invItem(g, ids.box), plaid: !!H.invItem(g, ids.plaid), notif: (g.notifs.filter((n) => /tu utilises ce que tu avais/.test(n.text)).pop() || {}).text || '', have: r && r.devis && r.devis.have.length, cash: g.career.cash }; if (r) r.state = 'dropped'; window.__mockDevis = null; H.S.devis = null; H.S.devisBy = {}; H.closeLayer(); return out; }, setup);
   check('…settled: what the shoot uses up leaves the inventory (the box repas), the rest stays (the plaid); the release keeps its « already there » lines',
     !dv2.box && dv2.plaid && /Box repas/.test(dv2.notif) && dv2.have === 2 && dv2.cash === 4985, dv2);
 

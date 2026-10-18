@@ -294,8 +294,8 @@ const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1,
 function dueModal(now) {
   if (now < S.modalGapUntil) return null;
   let best = null;
-  const playing = S.stack.some((l) => l.t === 'minigame'); // 0.18: nobody knocks during a shoot or a date being played
-  for (const m of S.modals) if (m.at <= now && !(m.t === 'visit' && playing) && (!best || (MODAL_RANK[m.t] ?? 9) < (MODAL_RANK[best.t] ?? 9))) best = m;
+  const playing = inMiniGame(); // 0.18: nobody knocks during a shoot or a date being played (0.27.6: and nothing else pops up over it but what the player asked: a confirmation, the saves)
+  for (const m of S.modals) if (m.at <= now && !(playing && (MODAL_RANK[m.t] ?? 9) > 0) && (!best || (MODAL_RANK[m.t] ?? 9) < (MODAL_RANK[best.t] ?? 9))) best = m;
   return best;
 }
 function closeModal(m) { S.modals = S.modals.filter((x) => x !== m); S.modalGapUntil = Date.now() + 700; update(false); }
@@ -1417,11 +1417,11 @@ function ReleaseCard({ g, now }) {
     <span class="rl-emo" aria-hidden="true">${W.emoji}</span>
     <div class="rl-mid">
       <b>${left > 0 ? `${cap1(ta(r))} sort dans ${fmtLeft(left)}` : `C’est l’heure : ${ta(r)} doit sortir !`}</b>
-      <span>« ${r.topic} »${r.series && g.series ? ` · défi : épisode ${r.ep}/${g.series.days} · série ×${fmtDec(seriesMult(g))}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span>
+      <span>« ${r.topic} »${r.series && g.series ? ` · défi : épisode ${r.ep}/${g.series.days} · série ×${fmtDec(seriesMult(g))}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}${left <= 0 && relLimit(r) > now ? ` · encore ${fmtLeft(relLimit(r) - now)} pour ${r.played ? 'publier' : 'tourner'}` : ''}</span>
       <div class="row">
         ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> Avancer jusqu’à la sortie`}</button>`
           : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
-        ${left > 0 ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}>Plus tôt</button>` : null}
+        ${left > 0 && !r.series ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}>Plus tôt</button>` : null}
         ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
       </div>
       ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${str(x.topic, 28)} » ${fmtWhen(x.due, now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
@@ -1515,7 +1515,7 @@ function mgClock(kind, items, D, k = 1) {
 const clockSec = (c) => Math.round((Array.isArray(c) ? c.reduce((a, b) => a + b, 0) / Math.max(1, c.length) : c) / 1000);
 const MG_RULE = {
   tri: (sec) => `Garde ce qui sert ton contenu, jette les pièges. ${sec} secondes pour tout trier.`,
-  ordre: (sec) => `Touche les étapes dans le bon ordre. ${sec} secondes.`,
+  ordre: (sec) => `Touche les étapes dans le bon ordre. ${sec} secondes : celles que tu n’as pas placées à temps comptent comme fausses.`,
   quiz: (sec, game) => `Une question à la fois, ${game && game.items.some((q) => mgChars(q) > 160) ? `environ ${sec} secondes chacune (plus pour les longues)` : `${sec} secondes chacune`}.`,
   vf: (sec) => `Vrai ou faux ? Tranche vite : ${sec} secondes pour tout.`,
   intrus: (sec, game) => `Dans chaque série, une seule proposition n’a rien à faire là : trouve-la. ${game && game.items.some((q) => mgChars(q) > 120) ? `Environ ${sec} secondes par série (plus pour les longues).` : `${sec} secondes par série.`}`,
@@ -1524,6 +1524,20 @@ const MG_RULE = {
   chat: (sec, game) => game.rule, mixage: (sec, game) => game.rule, cadrage: (sec, game) => game.rule, // 0.25
 };
 const shuffle = (a) => { const b = a.slice(); for (let k = b.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [b[k], b[j]] = [b[j], b[k]]; } return b; };
+// 0.27.6: the layers where a mini-game is played (nothing pops up over them, and their keys are theirs).
+const MG_LAYERS = ['minigame', 'practice', 'job'];
+const inMiniGame = () => S.stack.some((l) => MG_LAYERS.includes(l.t));
+const topIsGame = () => { const l = S.stack[S.stack.length - 1]; return !!(l && MG_LAYERS.includes(l.t)); };
+const typingIn = (e) => { const el = e && e.target; return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)); };
+// A skill round that listens to the keyboard: only the last one opened, on top, and never while the player types.
+const KEY_OWNERS = [];
+function ownKeys() {
+  const tok = {};
+  KEY_OWNERS.push(tok);
+  return { mine: (e) => KEY_OWNERS[KEY_OWNERS.length - 1] === tok && !typingIn(e) && topIsGame(), drop: () => { const k = KEY_OWNERS.indexOf(tok); if (k >= 0) KEY_OWNERS.splice(k, 1); } };
+}
+// Steps never placed count as wrong among themselves (0.27.6: in the order they were dealt, a game left alone could win).
+const leftWorst = (pool) => pool.slice().sort((a, b) => b - a);
 // 1 = perfect order, from how many pairs are swapped (one swap still scores high, a random order low).
 function orderScore(seq) {
   const n = seq.length;
@@ -1559,7 +1573,7 @@ function runOver(game, t = Date.now()) {
   const n = (game.items || []).length;
   if (!run.end || t < run.end + 3000) return null; // only the games with one clock for everything run out on their own
   if ((game.kind === 'tri' || game.kind === 'vf') && Array.isArray(run.order)) return (run.right || 0) / Math.max(1, n);
-  if (game.kind === 'ordre' && Array.isArray(run.pool) && Array.isArray(run.picked)) return orderScore(run.picked.concat(run.pool));
+  if (game.kind === 'ordre' && Array.isArray(run.pool) && Array.isArray(run.picked)) return orderScore(run.picked.concat(leftWorst(run.pool)));
   return null;
 }
 // Called by the clock: such a game is over even if the player never opens it again (a date would count as missed).
@@ -1630,7 +1644,7 @@ function OrderGame({ items, onDone, now, total, hints = 0, run, keep }) {
     if (!run || !Array.isArray(run.pool)) keep({ pool: s.pool, picked: [], end: s.end, hints: s.hints, hint: -1 });
     else if (!s.pool.length) finish(s.picked); // all placed before the player left
   }, []);
-  useEffect(() => { if (now >= s.end) finish(s.picked.concat(s.pool)); }, [now]);
+  useEffect(() => { if (now >= s.end) finish(s.picked.concat(leftWorst(s.pool))); }, [now]);
   // every move is kept: leaving and coming back finds the same steps placed, the clock still running
   const set = (x) => { keep(Object.assign({ pool: x.pool, picked: x.picked, hints: x.hints, hint: x.hint }, x.pool.length ? {} : { score: orderScore(x.picked) })); setS(x); };
   const pick = (k) => {
@@ -1708,6 +1722,8 @@ function MontageGame({ game, onDone, run, keep }) {
   }
   const [view, setView] = useState(() => ({ k: st.current.k, got: st.current.got.slice(), fb: null, t0: 0 }));
   const cur = useRef(null), done = useRef(false), alive = useRef(true);
+  const keys = useRef(null);
+  if (!keys.current) keys.current = ownKeys();
   const pos = (t) => { const x = (Math.max(0, t - st.current.t0) / sp) % 2; return x < 1 ? x : 2 - x; };
   const sync = () => { const x = st.current; setView({ k: x.k, got: x.got.slice(), fb: x.fb, t0: x.t0 }); };
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / n); } };
@@ -1746,9 +1762,9 @@ function MontageGame({ game, onDone, run, keep }) {
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    const onKey = (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); st.current.key = performance.now(); cut(tapTime(e)); } };
+    const onKey = (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && keys.current.mine(e)) { e.preventDefault(); st.current.key = performance.now(); cut(tapTime(e)); } }; // (0.27.6: on top, and not while typing)
     window.addEventListener('keydown', onKey);
-    return () => { alive.current = false; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); };
+    return () => { alive.current = false; cancelAnimationFrame(raf); keys.current.drop(); window.removeEventListener('keydown', onKey); };
   }, []);
   if (view.k >= n) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   const z = items[view.k];
@@ -1835,13 +1851,13 @@ function MemoryGame({ game, onDone, now, run, keep }) {
       <div class="mm-pool">${pool.map((x) => html`<button key=${x} onClick=${() => tap(x)} disabled=${s.phase !== 'pick'} aria-label=${x}>${x}</button>`)}</div>`}
   </div>`;
 }
-function ShootPlay({ r, now, outcomes, icon }) {
+function ShootPlay({ r, now, outcomes, icon, onScore }) {
   const game = r.game;
   const resumed = !!(game.run && game.run.on); // started earlier: straight back into it, where it stood (the counter says where)
   const [phase, setPhase] = useState(resumed ? 'play' : 'intro');
   const keep = (part, soon) => mgKeep(game, part, soon);
   const run = game.run || null;
-  const onDone = (score) => finishShoot(r, score);
+  const onDone = (score) => (onScore ? onScore(score) : finishShoot(r, score)); // (0.27.6: a practice round counts for nothing)
   const kind = MG_LABEL[game.kind] ? game.kind : 'ordre';
   const D = diffOf(game.diff || r.diff);
   const g = S.game, crew = !r.player && r.crew ? r.crew : []; // a release's team (an editor, a scriptwriter) helps the shoot
@@ -1851,7 +1867,7 @@ function ShootPlay({ r, now, outcomes, icon }) {
     return html`<div class="mg-intro">
       <span class="eyebrow">${D.real && kind === 'quiz' ? 'Questions d’expert' : MG_LABEL[kind]}</span>
       <h3>${game.title}</h3>
-      <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · gains ${fmtMult(D.mult)}</span>
+      <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label}${r.practice ? '' : ` · gains ${fmtMult(D.mult)}`}</span>
       <p>${game.intro}</p>
       ${D.real ? html`<p class="mg-warn">De vraies questions de connaisseur sur ton sujet : rien d’inventé, aucune pitié.</p>` : null}
       <p class="muted">${MG_RULE[kind](clockSec(total), game)} ${outcomes || `Réussi : ${laW(r)} cartonne. Moyen : ${whatF(r) ? 'elle' : 'il'} marche moyen. Raté : flop.`}</p>
@@ -1905,9 +1921,10 @@ function ShootSetup({ r }) {
           <span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b><small>${d.desc}</small></span><span class="d-mult">gains ${fmtMult(d.mult)}</span>
         </button>`)}
       </div>
+      ${r.aiFail ? html`<p class="date-late nm-hint"><${Icon} n="flame" s=${15} /> ${AI_NAME} n’a pas pu écrire ton quiz Cauchemar (le budget IA du jour est peut-être épuisé). Réessaie, ou choisis une autre difficulté.</p>` : null}
       ${diffOf(diff).real ? html`<p class="date-late nm-hint"><${Icon} n="flame" s=${15} /> Les questions porteront sur le vrai sujet : écris-le précisément (le nom exact du jeu, du film, du sport, de l’artiste…). Si c’est une histoire du jeu, ce sera sur ce qui s’est vraiment passé ici.</p>` : null}
     </div>
-    ${g && can.ok && devisNeeded(g, r) ? html`<${DevisStep} g=${g} r=${r} topic=${topic} />` // 0.20: the quote, before the shoot (once nothing blocks it)
+    ${g && can.ok && devisNeeded(g, r) ? html`<${DevisStep} g=${g} r=${r} topic=${topic} plot=${plot} />` // 0.20: the quote, before the shoot (once nothing blocks it)
       : html`<button class="btn btn-hot" onClick=${launch} disabled=${!ok || !can.ok}><${Icon} n="clapper" s=${16} /> Lancer le tournage</button>`}
   </div>`;
 }
@@ -2016,6 +2033,7 @@ function Layer(props) {
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
   if (t === 'cheat') return html`<${ModeMenuLayer} ...${props} />`; // 0.27.4: the hidden menu
+  if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
   if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
   if (t === 'insta') return html`<${InstaLayer} ...${props} />`;
   if (t === 'tiktok') return html`<${TikTokLayer} ...${props} />`;
@@ -2806,7 +2824,7 @@ function tick() {
   if (S.phase === 'game' && g) {
     const dmOpen = topDMId();
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
-    const playing = S.stack.length > 0 && S.stack[S.stack.length - 1].t === 'minigame';
+    const playing = topIsGame(); // (0.27.6: a practice round, a commissioned edit too)
     for (const n of playing ? [] : g.notifs) {
       if (n.at > S.lastToastAt && n.at <= t && n.k in TOAST_KINDS && !((n.k === 'dm' || n.k === 'seen') && n.c === dmOpen)) {
         const cId = n.c;
@@ -2827,11 +2845,12 @@ function tick() {
     S.lastToastAt = t;
     if (g.low) { const before = g.low.gain; syncLow(g, t); if (!g.low || g.low.gain !== before) update(); fast = true; }
     if (g.fakes && g.fakes.length && checkFakes(g, t)) update(); // a counter-investigation that was due
-    if (g.releases && g.releases.length && checkReleases(g, t)) update(); // a release forgotten long after its time
-    if (settleRuns(g, t)) update(); // 0.10.2: a mini-game left finished, or whose clock ran out while the player was away
-    if (((g.events && g.events.length) || (g.invites && g.invites.length)) && checkEvents(g, t)) update(); // a stood-up date, an event nobody watched, an invitation left unanswered
+    const onScreen = (id) => S.stack.some((l) => l.t === 'minigame' && l.id === id); // 0.27.6: being played: never pulled away
+    if (settleRuns(g, t)) update(); // 0.10.2: a mini-game left finished, or whose clock ran out while the player was away (0.27.6: scored before any grace runs out)
+    if (g.releases && g.releases.length && checkReleases(g, t, onScreen)) update(); // a release forgotten long after its time
+    if (((g.events && g.events.length) || (g.invites && g.invites.length)) && checkEvents(g, t, onScreen)) update(); // a stood-up date, an event nobody watched, an invitation left unanswered
     for (const ev of activeEvents(g)) { // wherever the player is, the time is called out
-      if (ev.dueSaid || t < ev.due) continue;
+      if (ev.dueSaid || t < ev.due || (inMiniGame() && !S.stack.some((l) => l.t === 'minigame' && l.id === ev.id))) continue; // (0.27.6: after the game being played: its toast opened a second game over the first)
       ev.dueSaid = true;
       const K = EVENT_KINDS[ev.kind] || EVENT_KINDS.autre;
       const ec = g.chars[ev.c];
@@ -2844,7 +2863,7 @@ function tick() {
     if (rl && !rl.dueSaid && t >= rl.due) { // wherever the player is, the release time is called out
       rl.dueSaid = true;
       addNotif(g, { k: 'releasedue', p: rl.post, text: `C’est l’heure : ${ta(rl)} « ${str(rl.topic, 60)} » doit sortir !` });
-      if (!S.stack.some((l) => l.t === 'minigame')) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
+      if (!inMiniGame()) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
     if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
@@ -2988,9 +3007,11 @@ if (window.__HYPE_TEST__) {
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
     COND, resaleName, invOf, invItem, invLive, invSold, invAdd, gearToInv, equipInv, receiveGear, fairOf, suggestOf, fanBoost, resaleDemand, priceK, saleSpeed, listItem, unlist, tickResale, sellItem, noticeSale, resoldLine, resaleCtx, giftTalk, GIFT_LINE, receiveGift, roundPrice, SALE_RATE, NOTICE_MS, // 0.26
     dealOf, dealBounds, dealSummary, applyDealLine, declineDeal, // 0.19.1: contracts
-    upPctOf, upfrontOf, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
+    checkDeals, relLimit, fanPlanned, startShoot, menuClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
+    upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
     plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
     openMenu, menuKey, menuApply, menuOn, menuNum, tapCash, MENU_CODE, checkPayout, billGear, // 0.27.4: the hidden menu
+    startPractice, MENU_GAMES, MENU_TABS, // 0.27.6: the menu's mini-games
     // 0.20: the gear, the connection, the subscriptions, the start
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,

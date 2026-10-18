@@ -649,12 +649,15 @@ function readUpfront(v, d) {
   const money = !/%/.test(s) && (/[€$£]|\beur|[ée]cus?\b|cr[ée]dits?\b/i.test(s) || x > 100);
   if (money && !(d.fee > 0)) return null;
   const pct = money ? (100 * x) / d.fee : x > 0 && x < 1 && !/%/.test(s) ? x * 100 : x; // (0.4: a share, written as one)
-  return clamp(Math.round(pct), 0, 100);
+  return clamp(Math.round(pct * 100) / 100, 0, 100); // (0.27.6: « 300 € » stays 300 €, not a rounded percentage)
 }
 const upLine = (g, d) => (!(d.fee > 0) || d.payLate ? '' : d.upfront > 0 ? `, acompte de ${fmtMoney(g, d.upfront)} (${upShown(d)} %) ${d.state === 'offer' ? 'à la signature' : 'déjà versé'}`
   : d.state === 'offer' ? ', sans acompte (tout est payé à la livraison)' : '');
+// What a contract gives besides money: products (0.27.6: on top of a fee too; a contract with a fee signed before never
+// sent them).
+const dealGoods = (d) => !d.gift && d.value > 0 && (!d.fee || !d.signedAt || !!d.goodsSent);
 function dealSummary(g, d) {
-  return `${d.fee ? fmtMoney(g, d.fee) : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
+  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
 }
 // The agent's cut on what the brands pay.
 function agentCut(g, amount, brand) {
@@ -664,18 +667,46 @@ function agentCut(g, amount, brand) {
   charge(g, cut, `Commission de ${g.chars[m.c] ? g.chars[m.c].name.split(' ')[0] : 'ton agent'} (${brand})`, 'staff');
   return cut;
 }
-function signDeal(g, d) {
+// 0.27.6: a down payment that goes back takes the agent's cut on it back too (they kept it before).
+function refundUpfront(g, d) {
+  if (!(d.upfront > 0)) return 0;
+  charge(g, d.upfront, `Remboursement de l’acompte ${d.brand}`, 'deal');
+  if (d.upCut > 0) { earn(g, d.upCut, `Commission rendue par ton agent (${d.brand})`, 'staff'); d.upCut = 0; }
+  return d.upfront;
+}
+// What a brand bills when a signed contract breaks on the player's side: the gear it sent, the products it sent (0.27.6:
+// the products stayed free, and could be sold).
+function billSent(g, d) {
+  if (d.gift && d.giftSent) { charge(g, d.gift.value, `${d.brand} te facture le matos offert (${giftName(g, d.gift)})`, 'deal'); return d.gift.value; }
+  if (!d.gift && d.value > 0 && d.goodsSent) { charge(g, d.value, `${d.brand} te facture ses produits`, 'deal'); return d.value; }
+  return 0;
+}
+// The exclusive contract another signature would break (the same brand again: of course not).
+const dealClash = (g, d) => g.deals.find((x) => x.exclusive && x.sector === d.sector && x.id !== d.id && x.brand.toLowerCase() !== d.brand.toLowerCase() && (x.state === 'signed' || (x.state === 'done' && Date.now() - (x.signedAt || 0) < 30 * DAY_MS))) || null;
+// 0.27.6: signing anyway (the player is never stopped): the exclusive brand learns it. Still running, it breaks the
+// contract (the deposit and what it sent go back, a penalty); delivered less than 30 days ago, a penalty.
+function exclusiveBreach(g, x, d) {
+  const c = g.chars[x.contact], pen = Math.round((x.fee || x.value || 100) * 0.2);
+  let back = 0;
+  if (x.state === 'signed') { x.state = 'broken'; back = refundUpfront(g, x) + billSent(g, x); }
+  if (pen) charge(g, pen, `Pénalité d’exclusivité ${x.brand}`, 'deal');
+  const dr = repMove(g, { pro: -12 }, `exclusivité de ${x.brand} pas respectée`);
+  if (c) { applyRel(g, c, -18, `a signé avec ${d.brand} malgré l’exclusivité`, later(), 25); addIncomingDM(g, c, `On vient de voir ton partenariat avec ${d.brand}… Notre contrat était exclusif. ${x.state === 'broken' ? 'On arrête là, et tu recevras la facture.' : 'Tu vas recevoir la facture de la pénalité.'}`, later() + 4000, { max: 300 }); }
+  addNotif(g, { k: 'money', text: `⚖️ ${x.brand} : exclusivité pas respectée${x.state === 'broken' ? ', contrat rompu' : ''} (−${fmtMoney(g, pen + back)}, ${repWord(dr)}).` });
+}
+function signDeal(g, d, o = {}) {
   if (!d || d.state !== 'offer') return false;
-  const clash = g.deals.find((x) => x.exclusive && x.sector === d.sector && x.id !== d.id && x.brand.toLowerCase() !== d.brand.toLowerCase() && (x.state === 'signed' || (x.state === 'done' && Date.now() - (x.signedAt || 0) < 30 * DAY_MS))); // (the same brand again: of course)
-  if (clash) { toast(`Impossible : ton contrat avec ${clash.brand} t’interdit ce secteur pendant 30 jours (exclusivité).`, 'bad'); return false; }
+  const clash = dealClash(g, d);
+  if (clash && !o.force) { toast(`Ton contrat avec ${clash.brand} t’interdit ce secteur pendant 30 jours (exclusivité).`, 'bad'); return false; } // (the screens ask first, then sign anyway)
   if (!scamBeforeSign(g, d)) return false; // 0.20: an « ambassador » fee to pay first
   const t = Date.now();
-  Object.assign(d, { state: d.scam === 'frais' || (d.gift && d.scam === 'impaye') ? 'waiting' : 'signed', signedAt: t, due: t + d.days * DAY_MS });
+  Object.assign(d, { state: d.scam === 'frais' ? 'waiting' : 'signed', signedAt: t, due: t + d.days * DAY_MS }); // (0.27.6: a gift that will never come looks like any signed contract)
   const c = g.chars[d.contact];
-  if (d.upfront) { earn(g, d.upfront, `Acompte ${d.brand} (${upShown(d)} %)`, 'deal'); agentCut(g, d.upfront, d.brand); }
+  if (d.upfront && d.scam !== 'brief') { earn(g, d.upfront, `Acompte ${d.brand} (${upShown(d)} %)`, 'deal'); d.upCut = agentCut(g, d.upfront, d.brand); } // (0.27.6: a fake contract pays nothing)
   if (d.gift) sendGift(g, d); // 0.21
-  else if (!d.fee && d.value && d.state === 'signed') invAdd(g, { kind: 'goods', name: d.product.replace(/^(?:ses|son|sa|leurs?)\s+/i, ''), emoji: d.emoji, value: d.value, cond: 'neuf', from: { how: 'marque', brand: d.brand, deal: d.id, c: d.contact } }); // 0.26: the products, sent at the signature
-  if (c && d.scam !== 'brief') { addIncomingDM(g, c, d.scam === 'frais' ? 'Bienvenue dans la team des ambassadeurs ! 🎉 Ton kit part cette semaine 📦' : d.gift ? (d.state === 'waiting' ? `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} part cette semaine, tu nous diras 📦` : `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} est en route, tu l’as dès aujourd’hui 📦`) : pick(['Top, contrat signé ! On a hâte de voir ça 🙌', 'Parfait, c’est signé. Hâte de voir ce que tu vas en faire !', d.shady ? 'Génial, bienvenue dans la team ! Et comme convenu : on reste discrets 😉' : 'Génial, bienvenue dans la team ! N’oublie pas la mention « Collaboration commerciale » 😉']), later() + 1500, { max: 300 }); touch(c); }
+  else if (d.value > 0 && d.state === 'signed') { invAdd(g, { kind: 'goods', name: d.product.replace(/^(?:ses|son|sa|leurs?)\s+/i, ''), emoji: d.emoji, value: d.value, cond: 'neuf', from: { how: 'marque', brand: d.brand, deal: d.id, c: d.contact } }); d.goodsSent = true; } // 0.26: the products, sent at the signature (0.27.6: with money on top too)
+  if (clash) exclusiveBreach(g, clash, d);
+  if (c && d.scam !== 'brief') { addIncomingDM(g, c, d.scam === 'frais' ? 'Bienvenue dans la team des ambassadeurs ! 🎉 Ton kit part cette semaine 📦' : d.gift ? (!d.giftSent ? `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} part cette semaine, tu nous diras 📦` : `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} est en route, tu l’as dès aujourd’hui 📦`) : pick(['Top, contrat signé ! On a hâte de voir ça 🙌', 'Parfait, c’est signé. Hâte de voir ce que tu vas en faire !', d.shady ? 'Génial, bienvenue dans la team ! Et comme convenu : on reste discrets 😉' : 'Génial, bienvenue dans la team ! N’oublie pas la mention « Collaboration commerciale » 😉']), later() + 1500, { max: 300 }); touch(c); }
   addChronicle(g, `${g.player.name} a signé un partenariat avec ${d.brand}.`);
   penalClause(g, d); // a trap clause of another contract bites
   scamAfterSign(g, d); // the « brief » was a virus
@@ -709,8 +740,11 @@ function applyDealLine(g, c, o) {
     if (d.state === 'offer') { d.state = 'withdrawn'; addNotif(g, { k: 'money', c: c.id, text: `${d.brand} retire son offre.` }); }
     else if (d.resold) { // 0.26: their gift on sale before the content: they break the contract (the down payment goes back)
       d.state = 'broken';
-      if (d.upfront) charge(g, d.upfront, `Remboursement de l’acompte ${d.brand}`, 'deal');
-      addNotif(g, { k: 'reldown', c: c.id, text: `💔 ${d.brand} rompt votre contrat${d.upfront ? ` : tu rembourses l’acompte (${fmtMoney(g, d.upfront)})` : ''}.` });
+      const back = refundUpfront(g, d), billed = billSent(g, d); // 0.27.6: and what they sent is billed (it cost nothing before)
+      const dr = repMove(g, { pro: -8 }, `${d.brand} rompt votre contrat (son cadeau revendu)`);
+      applyRel(g, c, -15, 'a revendu notre cadeau avant de livrer', later(), 20);
+      const owed = [back ? `l’acompte (${fmtMoney(g, back)})` : '', billed ? `ce qu’ils t’avaient envoyé (${fmtMoney(g, billed)})` : ''].filter(Boolean).join(' et ');
+      addNotif(g, { k: 'reldown', c: c.id, text: `💔 ${d.brand} rompt votre contrat${owed ? ` : tu rembourses ${owed}` : ''} (${repWord(dr)}).` });
     }
     return;
   }
@@ -730,7 +764,7 @@ function applyDealLine(g, c, o) {
   let fee = Math.round(num(o.fee, 0));
   if (!(fee > 0) && m !== null && d.fee0 && !signed) fee = d.fee; // the mention changed, the price did not: kept within the new range
   if (fee > 0) {
-    const nf = Math.min(B.cap, niceRound(clamp(fee, B.lo, B.cap))); // never above the brand's maximum
+    const nf = Math.max(signed ? Math.ceil(d.upfront || 0) : 0, Math.min(B.cap, Math.round(clamp(fee, B.lo, B.cap)))); // never above the brand's maximum (0.27.6: as written, not rounded up; once signed, never below the deposit paid)
     if (nf !== d.fee) {
       d.fee = nf;
       if (!signed) d.upfront = upfrontOf(d); // (once signed, the down payment is paid: the rest comes on delivery)
@@ -748,7 +782,7 @@ function applyDealLine(g, c, o) {
         d.upPct = up;
         d.upfront = nu;
         earn(g, extra, `Acompte ${d.brand} (complément)`, 'deal');
-        agentCut(g, extra, d.brand);
+        d.upCut = (d.upCut || 0) + agentCut(g, extra, d.brand);
         said.push(`acompte porté à ${upShown(d)} % (+${fmtMoney(g, extra)} versés tout de suite)`);
       }
     }
@@ -768,7 +802,7 @@ function deliverDeal(g, d, post, mention, perf) {
   const rest = paid ? Math.max(0, d.fee - d.upfront) : 0;
   if (rest) { earn(g, rest, `Partenariat ${d.brand}`, 'deal'); agentCut(g, rest, d.brand); }
   repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
-  if (!d.fee && d.value) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
+  if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
   const c = g.chars[d.contact];
   if (c) applyRel(g, c, d.shady && mention ? -5 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : 'contente du partenariat', later() + 3000, 10);
   // the law: no mention, or a forbidden product, can be spotted later (a report, a check)
@@ -791,19 +825,19 @@ function checkDeals(g, t) {
     else if (d.state === 'signed' && t > d.due) {
       d.state = 'broken';
       const pen = Math.round(d.fee * 0.2);
-      if (d.upfront) charge(g, d.upfront, `Remboursement de l’acompte ${d.brand}`, 'deal');
+      const back = refundUpfront(g, d); // (0.27.6: the agent's cut on it comes back)
       if (pen) charge(g, pen, `Pénalité de retard ${d.brand}`, 'deal');
-      if (d.gift && d.giftSent) charge(g, d.gift.value, `${d.brand} te facture le matos offert (${giftName(g, d.gift)})`, 'deal'); // 0.21: no video, no gift
+      const billed = billSent(g, d); // 0.21: no video, no gift (0.27.6: nor the products)
       const dr = repMove(g, { pro: -25, cred: -5 }, `contrat ${d.brand} pas livré à temps`);
       const c = g.chars[d.contact];
       if (c) { applyRel(g, c, -20, 'contrat pas respecté', later(), 25); addIncomingDM(g, c, 'On n’a rien vu passer… Le contrat est rompu. Tu recevras la facture de la pénalité.', later() + 1000, { max: 300 }); }
-      addNotif(g, { k: 'money', text: `Contrat ${d.brand} rompu : délai dépassé (−${fmtMoney(g, d.upfront + pen + (d.gift && d.giftSent ? d.gift.value : 0))}${d.gift && d.giftSent ? ', le matos offert facturé' : ''}, ${repWord(dr)}).` });
+      addNotif(g, { k: 'money', text: `Contrat ${d.brand} rompu : délai dépassé (−${fmtMoney(g, back + pen + billed)}${billed ? (d.gift ? ', le matos offert facturé' : ', les produits facturés') : ''}, ${repWord(dr)}).` });
       ch = true;
     } else if (d.state === 'signed' && scandal && !d.moral) {
       d.moral = true; // the moral clause is checked once per scandal
       if (Math.random() < 0.5) {
         d.state = 'broken';
-        if (d.upfront) charge(g, d.upfront, `Remboursement de l’acompte ${d.brand}`, 'deal');
+        refundUpfront(g, d);
         const c = g.chars[d.contact];
         if (c) addIncomingDM(g, c, 'Vu ce qui se passe en ce moment… on préfère suspendre notre collaboration (clause de moralité). Désolée.', later() + 1000, { max: 300 });
         addNotif(g, { k: 'money', text: `${d.brand} rompt votre contrat à cause du scandale (clause de moralité).` });
@@ -1475,6 +1509,7 @@ function dmCareerCtx(g, c) {
     // the negotiation closed)
     else if (d && d.state === 'waiting') out.push(`Le contrat est signé : ${dealSummary(g, d)} ; ${d.gift ? 'le matos' : 'le kit'} doit arriver.`);
     else if (d) out.push(DEAL_OVER[d.state] ? DEAL_OVER[d.state](brand) : 'Leur partenariat est fini.');
+    if (d && d.state === 'signed' && d.gift && !d.giftSent) out.push('Le matos promis n’est pas encore arrivé chez le joueur.'); // (0.27.6: a signed contract now)
     if (d && d.resold) out.push(resoldLine(g, d)); // 0.26: its gift, put on sale
     if (d && (d.scam || c.ghost)) out.push(scamCtx(g, d, c)); // 0.20: the secret it never admits
     if (d && d.hard && d.state === 'offer') out.push(HARD_CTX(g, d, c)); // a big contract: no mercy
@@ -1485,7 +1520,7 @@ function dmCareerCtx(g, c) {
     const m = g.staff.find((x) => x.c === c.id);
     if (m) out.push(`${c.name} travaille pour le joueur : ${roleName(m.role, c.g).toLowerCase()} (${tierName(m.tier, c.g).toLowerCase()}), ${payWord(g, m)}, depuis ${fmtDur(Date.now() - m.since)}${m.unpaid ? ', et attend d’être payé·e' : ''}. Franc·he, donne son avis de pro sur les contenus du joueur, a son caractère, peut demander une augmentation, et peut démissionner si on le ou la traite mal.`);
     const offers = m && m.role === 'agent' ? g.deals.filter((d) => d.state === 'offer' || d.state === 'signed') : [];
-    if (offers.length) out.push(`Ce que ${c.name} pense des offres en cours (son avis de pro, à son niveau) : ${offers.map((d) => `${d.brand} (${d.flagged ? AGENT_WARN[d.scam || (d.banned ? 'banned' : 'shady')](d) : d.via === 'agent' ? `c’est ${gx(c.g, 'lui', 'elle', 'iel')} qui l’a trouvée, ${gx(c.g, 'il', 'elle', 'iel')} y croit` : 'rien remarqué de spécial'})`).join(' ; ')}.`); // 0.20: what the agent saw
+    if (offers.length) out.push(`Ce que ${c.name} pense des offres en cours (son avis de pro, à son niveau) : ${offers.map((d) => `${d.brand} (${d.flagged ? (d.scam || d.banned || d.shady ? AGENT_WARN[d.scam || (d.banned ? 'banned' : 'shady')](d) : 'le piège qui l’inquiétait a sauté du contrat : plus rien à redire') : d.via === 'agent' ? `c’est ${gx(c.g, 'lui', 'elle', 'iel')} qui l’a trouvée, ${gx(c.g, 'il', 'elle', 'iel')} y croit` : 'rien remarqué de spécial'})`).join(' ; ')}.`); // 0.20: what the agent saw
   } else if (c.kind === 'ex') out.push(`${c.name} a travaillé pour le joueur (${c.role}) et ne travaille plus pour lui.`);
   return out;
 }

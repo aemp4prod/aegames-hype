@@ -5,6 +5,38 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.6 — 18 octobre 2026 (build 27006)
+
+**Une grande passe de corrections sur tout ce qui est arrivé ces derniers jours : sorties programmées, contrats, devis, inventaire et mini-jeux.**
+
+### ✨ Nouveautés
+
+- **⏳ Le temps qui reste** : quand l’heure d’une sortie est passée, sa carte dit combien de temps il te reste pour la tourner ou la publier avant qu’elle soit abandonnée.
+
+### 🛠️ Corrections
+
+- **📅 Les défis gardent leur heure** : « Plus tôt » ne s’applique plus aux épisodes d’un défi Daily Upload. Comme pour « Repousser », ils sortent à heure fixe.
+- **⏱️ Chacune son tour** : une sortie prévue juste derrière une autre a maintenant son propre délai, qui commence quand vient son tour. Elle n’est plus abandonnée d’office pendant que tu publies la première.
+- **🎬 Jamais en plein jeu** : une sortie ou un rendez-vous en retard n’est plus abandonné pendant que tu es en train de le jouer.
+- **📣 Deux annonces, deux sorties** : deux contenus annoncés le même jour sur deux sujets différents donnent bien deux sorties, et une vidéo annoncée à côté d’un live aussi. Un simple rappel (« plus que 30 minutes ! ») reste la même sortie.
+- **💌 Une question, une vidéo** : la question d’un abonné ne peut plus être programmée deux fois, et ne compte qu’une fois.
+- **🗣️ Tout le monde est au courant** : les personnages connaissent toutes tes sorties prévues, jusqu’à 6 (4 avant).
+- **🤝 Les contrats** : quand un acompte est remboursé, ton agent te rend aussi sa commission dessus. Une marque qui paie en produits et ajoute un cachet t’envoie bien les deux, et le contrat affiche les deux. Les montants négociés sont ceux écrits dans la discussion, sans arrondi, et un avenant ne fait plus passer l’acompte au-dessus du prix.
+- **💔 Les ruptures** : un contrat rompu te facture aussi les produits que la marque t’avait envoyés, comme le matos offert. Une marque qui rompt parce que tu as revendu son cadeau te facture ce qu’elle t’avait donné.
+- **🔒 L’exclusivité** : elle ne bloque plus la signature. Le jeu te dit ce que ça va te coûter (contrat rompu, pénalité, réputation), puis c’est toi qui décides.
+- **🧾 Le devis** : il tient compte de ce que tu as écrit dans « Ce qui se passe » avant de le demander. Un objet de l’inventaire qui couvre une ligne est utilisé (et consommé si le tournage le consomme) au lieu d’être gratuit à chaque devis. Un objet compté « déjà là » puis vendu ou mis en vente bloque le paiement. Un prix écrit en texte (« 4,50 € ») compte enfin.
+- **📑 Plusieurs devis** : deux sorties ne partagent plus le même devis, et un sponsor déjà prévu pour une sortie n’est plus proposé pour une autre.
+- **📦 L’inventaire** : un prix trois fois trop élevé ne part plus (avant, même dix millions finissait par se vendre). Du matos en panne ou chez le réparateur qui part dans l’inventaire n’est plus perdu : sa réparation continue et tu peux le réutiliser. Les favoris s’accumulent vraiment, et un inventaire plein ne supprime plus jamais un objet en vente.
+- **🎮 Ne rien faire ne paie plus** : la modération du chat, le mixage, le recadrage et la remise en ordre donnaient un résultat moyen sans toucher à rien. La modération compte maintenant les messages que tu supprimes à raison et les fans que tu épargnes, avec un chat plus lent et des messages qui restent plus longtemps.
+- **🤖 Sans réponse de l’IA** : le tournage passe une épreuve d’adresse au lieu du même jeu trop facile à chaque fois. En Cauchemar, le jeu te le dit, et tu peux réessayer ou changer de difficulté.
+- **⌨️ Le clavier** : les touches vont au mini-jeu au premier plan, et plus du tout pendant que tu écris un message.
+- **🔕 Pas de pop-up pendant un mini-jeu** : plus de notification ni de fenêtre par-dessus un mini-jeu en cours, sauf ce que tu as demandé toi-même.
+- **🐞 Divers** : un rendez-vous ne plante plus quand l’IA change de format en cours de route, et « l’ancien est dans ton inventaire » ne s’affiche que quand c’est vrai.
+
+### 💡 Bon à savoir
+
+- La modération du chat a été réglée avec les mêmes joueurs simulés que les autres mini-jeux : en Mythique, un joueur moyen arrive surtout à des tournages moyens, un joueur rapide réussit souvent.
+
 ## 0.27.5 — 18 octobre 2026 (build 27005)
 
 **Des mini-jeux enfin à taille humaine, même en Mythique.**

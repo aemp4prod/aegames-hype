@@ -161,7 +161,7 @@ async function newGame(page, identity) {
 
   // ---------- subscriptions: pro rata, installation, the bill, unpaid, suspended ----------
   const sub = await G(page, () => { const H = window.__hype, g = H.S.game, G0 = g.gear, day = 86400000, out = {};
-    g.career.cash = 2000;
+    g.career.cash = 2000; G0.freeInstall = 0; // (a random start may have given the installation for free)
     const o = H.subOffer(g, 'fibre'); out.offer = o;
     const c0 = g.career.cash; out.ok = H.subscribe(g, 'fibre'); out.paid = c0 - g.career.cash; out.install = Math.round((G0.subs.fibre.installAt - Date.now()) / day);
     out.netBefore = H.netNow(g);
@@ -285,9 +285,9 @@ async function newGame(page, identity) {
   check('programming asks for the quote first (what this content takes, never the gear); paid, it programs; what is kept joins what the player owns',
     /Demander le devis/.test(ask) && /jeu de cartes magiques/.test(dv1.card) && /75 €/.test(dv1.card) && /Payer 75 € et programmer/.test(dv1.btn) && dv1.prompt.includes('Son matériel de tournage') && dv1.prompt.includes('ne le rachète jamais')
     && dv2.cash === 925 && dv2.owned.includes('le jeu de cartes magiques') && dv2.r && dv2.r.total === 75, { ask, card: dv1.card.slice(0, 160), btn: dv1.btn, dv2 });
-  const own = await G(page, async () => { const H = window.__hype, g = H.S.game; H.S.devis = null; const dv = await H.genDevis({ what: 'vidéo', topic: 'je refais une partie du jeu de cartes' }); const p = window.__prompts.filter((x) => x.includes('## TÂCHE : LE DEVIS')).pop(); return { items: dv.items.map((x) => x.item), total: H.devisTotal(dv), inPrompt: p.includes('le jeu de cartes magiques') }; });
+  const own = await G(page, async () => { const H = window.__hype, g = H.S.game; H.S.devis = null; H.S.devisBy = {}; const dv = await H.genDevis({ what: 'vidéo', topic: 'je refais une partie du jeu de cartes' }); const p = window.__prompts.filter((x) => x.includes('## TÂCHE : LE DEVIS')).pop(); return { items: dv.items.map((x) => x.item), total: H.devisTotal(dv), inPrompt: p.includes('le jeu de cartes magiques') }; });
   check('…a second quote never buys again what the player owns (dropped even if the AI forgets)', own.items.length === 1 && own.items[0] === 'snacks pour le tournage' && own.total === 15 && own.inPrompt, own);
-  await G(page, () => { window.__mockDevis = null; window.__hype.S.devis = null; window.__hype.closeLayer(); });
+  await G(page, () => { window.__mockDevis = null; window.__hype.S.devis = null; window.__hype.S.devisBy = {}; window.__hype.closeLayer(); });
 
   // ---------- the quote of an announced content, at its shoot ----------
   const an = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = 100; window.__mockDevis = [{ t: 'cost', item: 'location d’une voiturette (1 jour)', price: 90, kind: 'location', per: 'once' }, { t: 'cost', item: 'circuit privé (une heure)', price: 250, kind: 'service', per: 'once' }];

@@ -83,7 +83,7 @@ function dilemmaDM(g, c) {
   const d = c.kind === 'brand' ? g.deals.find((y) => y.contact === c.id && y.state === 'offer') : null;
   if (d && !d.shady && !d.banned && d.fee) {
     if (d.shadyAsk == null) d.shadyAsk = dilemmaFree(g) && (!!T18().__shadyOffer || Math.random() < 0.25); // decided once for this offer
-    if (d.shadyAsk && dilemmaFree(g)) out.lines.push(`- Facultatif, rare : ${c.name} peut proposer au joueur de payer bien plus (jusqu’à ${fmtMoney(g, Math.round(d.fee * 1.6))}) s’il accepte de NE PAS mettre la mention « Collaboration commerciale » (c’est illégal : ${gx(c.g, 'il', 'elle', 'iel')} le sait, n’en parle jamais d’${gx(c.g, 'lui', 'elle', 'iel')}-même et minimise si le joueur pose la question) : dis-le dans ses messages, puis {"t":"shady"}.`);
+    if (d.shadyAsk && dilemmaFree(g)) out.lines.push(`- Facultatif, rare : ${c.name} peut proposer au joueur de payer bien plus (jusqu’à ${fmtMoney(g, niceRound(d.fee * 1.6))}) s’il accepte de NE PAS mettre la mention « Collaboration commerciale » (c’est illégal : ${gx(c.g, 'il', 'elle', 'iel')} le sait, n’en parle jamais d’${gx(c.g, 'lui', 'elle', 'iel')}-même et minimise si le joueur pose la question) : dis-le dans ses messages, puis {"t":"shady"}.`);
   }
   return out;
 }

@@ -15,15 +15,16 @@ const CHAT_BAD = ['t’es nul, arrête le live', 'ABONNEZ-VOUS À MA CHAÎNE �
 const CHAT_TRAP_BAD = ['super live ! au fait, clique ici pour gagner un iPhone 🎁', 'j’adore… pas du tout 😴', 'trop cool ! code promo SCAM50 sur mon site 😉', 'bravo pour ce live, dommage que tu sois si moche', 'je t’aide à gagner des abonnés, envoie-moi tes codes en privé'];
 const CHAT_TRAP_GOOD = ['t’es vraiment nul à ce jeu 😂 je t’adore', 'ATTENTION LE SON COUPE !!', 'c’est quoi le lien du merch ?', 'NON MAIS LE MOMENT LÀ 😱😱', 'arrête, tu vas me faire pleurer 😭 trop beau', 'je vais te clasher… avec des cœurs ❤️❤️'];
 function makeChat(r, D) {
-  const ix = diffIx(D), n = [14, 16, 18, 20, 24, 28, 28][ix] || 18, per = [1500, 1300, 1100, 950, 850, 750, 750][ix] || 1100;
+  // 0.27.6: a calmer stream, messages that stay longer (the score now counts what is caught: see chatScore)
+  const ix = diffIx(D), n = [14, 16, 18, 20, 24, 28, 28][ix] || 18, per = [1600, 1450, 1350, 1250, 1200, 1150, 1150][ix] || 1300, lifeK = [4, 4.5, 5, 5.5, 6, 6.5, 6.5][ix] || 5;
   const t = shortTopic(r), fill = (s) => s.split('{t}').join(t);
   const nBad = Math.round(n * 0.42), trapsBad = ix >= 2 ? Math.min(nBad - 2, ix) : 0, trapsGood = ix >= 2 ? Math.min(n - nBad - 2, ix) : 0;
   const bad = shuffle(CHAT_TRAP_BAD).slice(0, trapsBad).concat(shuffle(CHAT_BAD).slice(0, nBad - trapsBad)).map((x) => ({ text: fill(x), bad: true }));
   const good = shuffle(CHAT_TRAP_GOOD).slice(0, trapsGood).concat(shuffle(CHAT_GOOD).slice(0, n - nBad - trapsGood)).map((x) => ({ text: fill(x), bad: false }));
   const nicks = shuffle(CHAT_NICKS);
   const items = shuffle(bad.concat(good)).map((x, k) => Object.assign(x, { who: nicks[k % nicks.length] }));
-  return { kind: 'chat', title: 'Modère le chat', what: r.what, intro: 'Ton chat déborde : supprime les insultes, les arnaques et le spam avant qu’ils restent à l’écran. Un fan supprimé par erreur, ça se voit aussi.', items, per, life: per * 4, diff: D.id,
-    rule: `Les messages défilent : touche 🚫 sur ceux qui n’ont rien à faire là (insultes, arnaques, spam), laisse les autres. ${items.length} messages.` };
+  return { kind: 'chat', title: 'Modère le chat', what: r.what, intro: 'Ton chat déborde : supprime les insultes, les arnaques et le spam avant qu’ils restent à l’écran. Un fan supprimé par erreur, ça se voit aussi.', items, per, life: Math.round(per * lifeK), diff: D.id,
+    rule: `Les messages défilent : touche 🚫 sur ceux qui n’ont rien à faire là (insultes, arnaques, spam), laisse les autres. Un message toxique qui reste à l’écran compte contre toi, un fan supprimé aussi. ${items.length} messages.` };
 }
 
 /* ---------- a podcast's mix: each track drifts, keep it in the green band ---------- */
@@ -34,7 +35,7 @@ function makeMix(r, D) {
     // 0.27.5: from Expert on, a wider band and a calmer drift (simulated players: Légendaire and Mythique were out of reach)
     tracks: MIX_TRACKS.slice(0, nT).map(([e, l, target]) => ({ e, l, target })), band: [0.3, 0.26, 0.22, 0.2, 0.18, 0.16, 0.16][ix] || 0.2,
     drift: [0.1, 0.13, 0.16, 0.18, 0.2, 0.22, 0.22][ix] || 0.16, roundMs: 7000, items: [0, 1, 2], diff: D.id,
-    rule: `${nT} pistes à tenir dans le vert avec + et −, trois passages de 7 secondes.` };
+    rule: `${nT} pistes partent hors de la bande verte : ramène-les dedans avec + et −, et garde-les-y. Trois passages de 7 secondes.` };
 }
 
 /* ---------- a horizontal video, reframed for a phone: keep the subject in the vertical frame ---------- */
@@ -44,7 +45,7 @@ function makeFrame(r, D) {
   return { kind: 'cadrage', title: 'Le recadrage vertical', what: r.what, intro: 'Ta vidéo est filmée à l’horizontale : garde le sujet dans le cadre vertical pendant qu’il bouge. S’il sort du cadre, on ne le voit plus sur le téléphone.',
     subject: pick(FRAME_SUBJECTS), w: [0.36, 0.32, 0.29, 0.26, 0.23, 0.21, 0.21][ix] || 0.28, speed: [0.16, 0.2, 0.25, 0.3, 0.36, 0.42, 0.42][ix] || 0.25,
     turns: [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.5][ix] || 0.9, roundMs: 6500, items: [0, 1, 2], diff: D.id,
-    rule: 'Fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour garder le sujet dedans : trois plans de 6 secondes.' };
+    rule: 'Le sujet démarre hors du cadre : fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour aller le chercher et le garder dedans. Trois plans de 6 secondes.' };
 }
 
 // The makers, by kind (the shoot's rotation and the edit step read them).
@@ -60,6 +61,15 @@ function roundsStart(run, n) {
   if (run && run.live === k && k < n) { got = got.concat(0); k += 1; }
   return { k, got };
 }
+// 0.27.6: what was caught (the share of the bad messages removed) and what was spared (the share of the fans left alone):
+// doing nothing caught nothing, removing everything spared nobody. (It was the share of right calls: doing nothing scored
+// « moyen » at every level, the fans letting it through.)
+function chatScore(items, res) {
+  let nb = 0, cb = 0, ng = 0, kg = 0;
+  items.forEach((it, j) => { if (it.bad) { nb++; if (res[j] === 1) cb++; } else { ng++; if (res[j] === 1) kg++; } });
+  const c = nb ? cb / nb : 1, k = ng ? kg / ng : 1;
+  return Math.round(k * (0.25 + 0.75 * c) * 1000) / 1000;
+}
 function ChatGame({ game, onDone, run, keep }) {
   const items = game.items, n = items.length, per = game.per || 1100, life = (game.life || per * 4) + MG_EXTRA; // (0.27.4: two more seconds on each message)
   const st = useRef(null);
@@ -72,8 +82,8 @@ function ChatGame({ game, onDone, run, keep }) {
   const [, setV] = useState(0);
   const render = () => setV((v) => v + 1);
   const done = useRef(false);
-  const finish = () => { if (!done.current) { done.current = true; const x = st.current; onDone(x.res.reduce((a, v) => a + (v || 0), 0) / n); } };
-  const save = () => { const x = st.current; keep(Object.assign({ i: x.i, res: x.res }, x.res.every((v) => v != null) ? { score: x.res.reduce((a, v) => a + (v || 0), 0) / n } : {})); };
+  const finish = () => { if (!done.current) { done.current = true; const x = st.current; onDone(chatScore(items, x.res)); } };
+  const save = () => { const x = st.current; keep(Object.assign({ i: x.i, res: x.res }, x.res.every((v) => v != null) ? { score: chatScore(items, x.res) } : {})); };
   useEffect(() => {
     const x = st.current;
     if (x.i >= n && x.res.every((v) => v != null)) { finish(); return undefined; }
@@ -120,7 +130,7 @@ function MixGame({ game, onDone, run, keep }) {
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / nR); } };
   const startRound = () => {
     const x = st.current;
-    Object.assign(x, { lv: T.map((t) => clamp(t.target + rand(-0.25, 0.25), 0.05, 0.95)), v: T.map(() => 0), inb: T.map(() => 0), t0: performance.now(), last: performance.now(), fb: null });
+    Object.assign(x, { lv: T.map((t) => clamp(t.target + (Math.random() < 0.5 ? -1 : 1) * (band / 2 + rand(0.01, 0.06)), 0.05, 0.95)), v: T.map(() => 0), inb: T.map(() => 0), t0: performance.now(), last: performance.now(), fb: null }); // (0.27.6: just outside the band, to bring in: left alone, a mix scored « moyen »)
     keep({ k: x.k, got: x.got, live: x.k });
     render();
   };
@@ -181,6 +191,8 @@ function FrameGame({ game, onDone, run, keep }) {
   const [, setV] = useState(0);
   const render = () => setV((v) => v + 1);
   const stage = useRef(null), subj = useRef(null), frame = useRef(null), bL = useRef(null), bR = useRef(null), done = useRef(false), alive = useRef(true);
+  const keys = useRef(null);
+  if (!keys.current) keys.current = ownKeys();
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / nR); } };
   // where the frame goes: a button held, else the arrows of the keyboard (both held: the last one pressed)
   const dirNow = () => { const x = st.current, K = x.keys; return x.ptr || (K.l && K.r ? K.last : K.l ? -1 : K.r ? 1 : 0); };
@@ -194,7 +206,7 @@ function FrameGame({ game, onDone, run, keep }) {
   const nudge = (d) => { const x = st.current; if (x.fb || done.current || !x.t0) return; x.f = clamp(x.f + d * FRAME_STEP, 0, 1 - w); draw(); };
   const startRound = () => {
     const x = st.current;
-    Object.assign(x, { sx: rand(0.3, 0.7), dir: Math.random() < 0.5 ? -1 : 1, f: 0.5 - w / 2, inT: 0, t0: performance.now(), last: performance.now(), fb: null });
+    Object.assign(x, { sx: Math.random() < 0.5 ? rand(0.04, Math.max(0.05, 0.5 - w / 2 - 0.03)) : rand(Math.min(0.95, 0.5 + w / 2 + 0.03), 0.96), dir: Math.random() < 0.5 ? -1 : 1, f: 0.5 - w / 2, inT: 0, t0: performance.now(), last: performance.now(), fb: null }); // (0.27.6: out of the frame, to go and get)
     keep({ k: x.k, got: x.got, live: x.k });
     render();
   };
@@ -217,8 +229,8 @@ function FrameGame({ game, onDone, run, keep }) {
         if (x.sx >= x.f && x.sx <= x.f + w) x.inT += dt;
         draw();
         if (t - x.t0 >= ms) {
-          const v = Math.min(1, x.inT / (ms / 1000));
-          x.got = x.got.concat(Math.round(v * 1000) / 1000);
+          const v = Math.min(1, x.inT / (ms / 1000)), c0 = Math.min(0.5, w * 0.7); // 0.27.6: what a frame left alone gets by chance does not count (it scored « moyen »)
+          x.got = x.got.concat(Math.round(clamp((v - c0) / (1 - c0), 0, 1) * 1000) / 1000);
           x.fb = { v };
           keep(Object.assign({ k: x.k + 1, got: x.got, live: -1 }, x.k + 1 >= nR ? { score: x.got.reduce((a, b) => a + b, 0) / nR } : {}));
           render();
@@ -231,8 +243,9 @@ function FrameGame({ game, onDone, run, keep }) {
     const onKey = (e) => {
       const d = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
       if (!d) return;
-      e.preventDefault();
       const K = st.current.keys, down = e.type === 'keydown';
+      if (down && !keys.current.mine(e)) return; // 0.27.6: a message typed above, another game on top: not for this one
+      e.preventDefault();
       if (d < 0) K.l = down; else K.r = down;
       if (down) { K.last = d; if (!e.repeat) nudge(d); } else draw();
     };
@@ -240,7 +253,7 @@ function FrameGame({ game, onDone, run, keep }) {
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     window.addEventListener('blur', letGo);
-    return () => { alive.current = false; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); window.removeEventListener('blur', letGo); };
+    return () => { alive.current = false; cancelAnimationFrame(raf); keys.current.drop(); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); window.removeEventListener('blur', letGo); };
   }, []);
   const moveTo = (e) => { const el = stage.current, x = st.current; if (!el || x.fb) return; const b = el.getBoundingClientRect(); x.f = clamp((e.clientX - b.left) / b.width - w / 2, 0, 1 - w); draw(); };
   const hold = (d) => ({

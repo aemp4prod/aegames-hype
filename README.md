@@ -166,7 +166,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   (pas de report possible pendant un défi : le jeu le dit à la place du bouton « Repousser »).
   Depuis la 0.27.4, tu peux **programmer jusqu’à 6 sorties d’avance**, même pendant un défi : la plus proche passe en
   premier, les autres attendent leur tour dans le Programme du Studio, et chacune peut **sortir plus tôt** (maintenant,
-  bientôt ou à une heure de ton choix avant la date prévue), sans aucun malus.
+  bientôt ou à une heure de ton choix avant la date prévue), sans aucun malus. Depuis la 0.27.6, un épisode de défi
+  garde son heure (pas de « Plus tôt »), une sortie qui attendait derrière une autre a son propre délai quand vient son
+  tour, et la carte d’une sortie en retard dit combien de temps il reste pour la tourner. Une exclusivité ne bloque
+  plus une signature : le jeu dit ce qu’elle coûtera (contrat rompu, pénalité, réputation), puis c’est toi qui décides ;
+  et une marque qui paie en produits peut ajouter un cachet : les deux sont versés.
   Depuis la 0.20, programmer une sortie commence par **le devis** : ce qu’il faut acheter, louer ou payer pour ce
   contenu-là (un jeu, une location, un circuit, des ingrédients…), à prix réalistes, jamais ton matos ni ce que tu as déjà
   acheté pour une ancienne vidéo. Il se paie pour programmer (un contenu sans rien à acheter reste gratuit) ; pour une
@@ -299,7 +303,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   la difficulté, plus le temps de choisir), jamais moins qu’en 0.27.4 ; chaque question du quiz a son propre chrono.
   Les difficultés ont été réglées avec des joueurs simulés (un lecteur moyen, un lecteur rapide) : Mythique est très
   dur pour le premier et jouable pour le second. Le mixage est plus doux à partir d’Expert, et le quiz et l’intrus ont
-  4 questions au moins.
+  4 questions au moins. Depuis la 0.27.6, **ne rien faire ne rapporte rien** : la modération du chat compte les messages
+  supprimés à raison et les fans épargnés (avec un chat plus lent), les pistes du mixage et le sujet du recadrage
+  partent hors de la zone, et les étapes jamais placées comptent comme fausses. Sans réponse de l’IA, le tournage passe
+  une épreuve d’adresse du format (en Cauchemar, le jeu le dit et propose de réessayer).
 - **Les mini-jeux** (tournages et rendez-vous) gardent ta progression à chaque réponse : si tu en sors, tu reprends où tu
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
@@ -346,7 +353,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.5.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.6.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

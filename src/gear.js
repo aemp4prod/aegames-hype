@@ -582,6 +582,7 @@ function tickGear(g, t = Date.now()) {
     if (it && it.fixAt && t >= it.fixAt) { it.fixAt = 0; it.broken = 0; addNotif(g, { k: 'gear', text: `🔧 ${itemName(g, k, it)} est de retour de réparation.` }); ch = true; }
     if (it && it.virusEnd && t >= it.virusEnd) { it.virusEnd = 0; it.virus = 0; addNotif(g, { k: 'gear', text: '💻 Tout est réinstallé : ton ordinateur repart.' }); ch = true; }
   }
+  if (tickInvGear(g, t)) ch = true; // 0.27.6: the inventory's gear too
   if (G.net.out && t >= G.net.out) { G.net.out = 0; G.net.outWhy = ''; G.net.storm = 0; addNotif(g, { k: 'gear', text: '📶 La connexion est revenue.' }); ch = true; }
   if (G.net.hack && t >= G.net.hack) { G.net.hack = 0; ch = true; }
   if (!G.net.fibreOk && G.net.fibreAt && t >= G.net.fibreAt) { G.net.fibreOk = true; G.net.fibreAt = 0; addNotif(g, { k: 'gear', text: '🌐 La fibre arrive enfin dans ta rue : tu peux t’abonner.' }); ch = true; }

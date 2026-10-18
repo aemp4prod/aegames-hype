@@ -9,11 +9,48 @@ const DEVIS_KINDS = { achat: '🛒', location: '🔑', transport: '🚗', servic
 const DEVIS_MAX = 6;
 const normItem = (s) => foldAcc(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(le|la|les|un|une|des|du|de|d|l)\b/g, ' ').replace(/\s+/g, ' ').trim();
 // Whether the player already owns something like this item (bought for an earlier video, or in the inventory: 0.27).
+const likeItem = (n, name) => { const m = normItem(name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); };
 function ownsItem(g, item) {
   const n = normItem(item);
   if (n.length < 3) return false;
-  const like = (name) => { const m = normItem(name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); };
-  return ((g.gear && g.gear.owned) || []).some((o) => like(o.name)) || devisStock(g).some((s) => like(s.x.name));
+  return boughtBefore(g, item) || devisStock(g).some((s) => likeItem(n, s.x.name));
+}
+const boughtBefore = (g, item) => { const n = normItem(item); return n.length >= 3 && ((g.gear && g.gear.owned) || []).some((o) => likeItem(n, o.name)); };
+const stockLike = (stock, item) => { const n = normItem(item); return n.length >= 3 ? stock.find((s) => likeItem(n, s.x.name)) || null : null; };
+// 0.27.6: a price the model wrote as text (« 4 € », « 12,50 », « 1 200 € ») is still a price (it was dropped: free).
+const devisPrice = (v) => (typeof v === 'number' ? v : num(String(v == null ? '' : v).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.').replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, ''), 0));
+// 0.27.6: an inventory item counted as « already there » that was sold or put on sale since: the quote no longer holds.
+function devisStale(g, dv) {
+  for (const h of (dv && dv.have) || []) {
+    if (!h.inv) continue;
+    const x = invItem(g, h.inv);
+    if (!x || x.sold || x.sale) return { name: h.name, gone: !x || !!x.sold };
+  }
+  return null;
+}
+// 0.27.6: the quotes asked and not settled yet, one per content: a second release's quote no longer wipes the first's
+// (asked again, and paid again). S.devis stays the last one received.
+function devisFor(o) {
+  if (S.devisG !== S.game) { S.devisBy = {}; S.devisG = S.game; S.devis = null; }
+  const k = devisKey(o);
+  return (S.devisBy && S.devisBy[k]) || (S.devis && S.devis.key === k ? S.devis : null);
+}
+function keepDevis(dv) {
+  if (S.devisG !== S.game) { S.devisBy = {}; S.devisG = S.game; }
+  S.devisBy = Object.assign({}, S.devisBy, { [dv.key]: dv });
+  const ks = Object.keys(S.devisBy);
+  if (ks.length > 8) delete S.devisBy[ks[0]];
+  S.devis = dv;
+}
+function dropDevis(dv) {
+  if (!dv) return;
+  if (S.devisBy) delete S.devisBy[dv.key];
+  if (S.devis && S.devis.key === dv.key) S.devis = null;
+}
+// Says why, and forgets a quote that can't be paid any more (asked again: what's at hand now).
+function staleSay(st, dv) {
+  if (st.gone) dropDevis(dv);
+  toast(st.gone ? `« ${st.name} » n’est plus dans ton inventaire : le devis comptait dessus, redemande-le.` : `« ${st.name} » est en vente : retire-le de la vente, ou redemande le devis.`, 'bad');
 }
 /* 0.27: what the player has at hand for a content: the inventory (what brands sent, the gifts, what they bought for
    themselves), never what is on sale, nor spare gear (gear is never in a quote). The AI is told about it, and about the
@@ -65,8 +102,10 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
   let sponsor = null;
   for (const x of objs) {
     if (x.t === 'cost' && items.length < DEVIS_MAX) {
-      const item = str(x.item, 60), price = Math.round(clamp(num(x.price, 0), 0, 50000));
-      if (!item || !(price > 0) || ownsItem(g, item) || items.some((y) => normItem(y.item) === normItem(item))) continue;
+      const item = str(x.item, 60), price = Math.round(clamp(devisPrice(x.price), 0, 50000));
+      if (!item || !(price > 0) || boughtBefore(g, item) || items.some((y) => normItem(y.item) === normItem(item))) continue;
+      const s = stockLike(stock, item), keep = x.keep === true || x.keep === 'true';
+      if (s) { if (!have.some((h) => h.inv === s.x.id)) have.push({ inv: s.x.id, name: s.x.name, emoji: s.x.emoji, from: stockFrom(g, s.x), use: x.kind === 'conso' || (x.kind === 'achat' && !keep) ? 'conso' : 'garde' }); continue; } // (0.27.6: what the inventory covers is used like any « already there »: it was free on every quote, never used up)
       items.push({ item, price, kind: DEVIS_KINDS[x.kind] ? x.kind : 'achat', keep: x.keep === true || x.keep === 'true', per: o.days && x.per === 'episode' ? 'episode' : 'once' });
     } else if (x.t === 'have' && have.length < DEVIS_HAVE) { // 0.27: already there, nothing to pay
       const s = stock.find((y) => y.key === String(x.id || '').trim().toLowerCase());
@@ -80,7 +119,7 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
 function makeDevis(o, items, sponsor, ai = true, have = []) {
   const once = items.filter((x) => x.per !== 'episode').reduce((n, x) => n + x.price, 0);
   const each = items.filter((x) => x.per === 'episode').reduce((n, x) => n + x.price, 0);
-  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), days: o.days || 0, items, once, each, sponsor, ai, have, at: Date.now() };
+  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), plot: str(o.plot || '', 300), days: o.days || 0, items, once, each, sponsor, ai, have, at: Date.now() };
 }
 const devisTotal = (dv) => (dv ? dv.once + dv.each * (dv.days || 1) : 0);
 // Asks the AI for the quote (the player's own action). key: where the screen waits for it (S.devis).
@@ -103,13 +142,14 @@ async function genDevis(o) {
   }
   S.busy.devis = null;
   endFlow(f);
-  if (dv && S.game === g) S.devis = dv;
+  if (dv && S.game === g) keepDevis(dv);
   update(false);
   return dv;
 }
 // Paying the quote: the money goes, what is kept joins what the player owns (never bought again), and what the shoot uses
 // up from the inventory leaves it (0.27).
 function payDevis(g, dv, label) {
+  if (devisStale(g, dv)) return false; // (the screens say why first)
   const total = devisTotal(dv);
   if (total > 0 && !pay(g, total, `Devis : ${label || str(dv.topic, 40)}`, 'devis')) return false;
   const G = g.gear;
@@ -138,10 +178,10 @@ function pitchBrand(g, dv) {
   return true;
 }
 /* ---------- the screens ---------- */
-function DevisCard({ g, dv, attach, onAttach }) {
+function DevisCard({ g, dv, attach, onAttach, rid }) {
   if (!dv) return null;
   const total = devisTotal(dv), cash = g.career.cash;
-  const deals = signedDeals(g).filter((d) => d.what === dv.what);
+  const deals = signedDeals(g).filter((d) => d.what === dv.what && !plannedReleases(g).some((x) => x.id !== rid && x.deal === d.id)); // (0.27.6: not one another planned release carries)
   return html`<div class="devis-card">
     <div class="dv-head"><${Icon} n="receipt" s=${18} /><b>Le devis</b><span>${dv.ai ? '' : 'estimé sans l’IA'}</span></div>
     ${dv.items.length ? html`<ul class="dv-lines">${dv.items.map((x, k) => html`<li key=${k}><span aria-hidden="true">${DEVIS_KINDS[x.kind]}</span><span>${x.item}${x.keep ? html` <em>à garder</em>` : null}${x.per === 'episode' ? html` <em>par épisode</em>` : null}</span><b>${fmtMoney(g, x.price)}</b></li>`)}</ul>`
@@ -156,13 +196,21 @@ function DevisCard({ g, dv, attach, onAttach }) {
   </div>`;
 }
 // The quote step of a content announced on the network (its shoot screen): ask, then pay.
-function DevisStep({ g, r, topic }) {
-  const o = { what: r.what, topic, plot: r.plot || '' };
-  const dv = S.devis && S.devis.key === devisKey(o) ? S.devis : null;
+function DevisStep({ g, r, topic, plot }) {
+  const o = { what: r.what, topic, plot: plot != null ? str(plot, 300) : r.plot || '' }; // (0.27.6: the plan being typed, not the one saved at launch)
+  const dv = devisFor(o);
   const busy = S.busy.devis === devisKey(o);
-  const paid = () => { if (!dv) return; if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; } r.devis = { total: devisTotal(dv), items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() }; S.devis = null; if (S.devisAttach) { r.deal = S.devisAttach; S.devisAttach = ''; } update(); };
+  const moved = dv && dv.ai && normItem(dv.plot || '') !== normItem(o.plot || ''); // the plan changed since the quote
+  const paid = () => {
+    if (!dv) return;
+    const st = devisStale(g, dv);
+    if (st) { staleSay(st, dv); update(false); return; }
+    if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; }
+    r.devis = { total: devisTotal(dv), items: dv.items, have: dv.have || [], topic: dv.topic, plot: dv.plot || '', at: Date.now() }; if (dv.attach) r.deal = dv.attach; dropDevis(dv); update();
+  };
   return html`<div class="devis-step">
-    ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${S.devisAttach || ''} onAttach=${(id) => { S.devisAttach = id; update(false); }} />
+    ${dv ? html`<${DevisCard} g=${g} dv=${dv} rid=${r.id} attach=${dv.attach || ''} onAttach=${(id) => { dv.attach = id; update(false); }} />
+      ${moved ? html`<p class="muted dv-moved">Tu as changé ce qui se passe depuis ce devis. <button type="button" class="linkbtn" disabled=${busy} onClick=${() => genDevis(o)}>Refaire le devis · ≈ ${costLabel(g, 'devis')} ☕</button></p>` : null}
       <button class="btn btn-hot" onClick=${paid} disabled=${devisTotal(dv) > 0 && devisTotal(dv) > g.career.cash}><${Icon} n="cash" s=${16} /> ${devisTotal(dv) ? `Payer ${fmtMoney(g, devisTotal(dv))}` : 'Valider le devis (rien à payer)'}</button>`
       : html`<p class="muted">Avant de tourner : ce qu’il faut acheter, louer ou payer pour ${laW(r)}. Rien n’est racheté si tu l’as déjà.</p>
       <button class="btn btn-hot" disabled=${busy || topic.trim().length < 3} onClick=${() => genDevis(o)}>${busy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`}</button>`}

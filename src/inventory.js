@@ -32,17 +32,25 @@ function invAdd(g, o) {
   if (o.gear) it.gear = o.gear;
   const list = invOf(g);
   list.push(it);
-  while (list.length > INV_MAX) { const k = list.findIndex((x) => x.sold); list.splice(k >= 0 ? k : 0, 1); }
+  // 0.27.6: over the cap, the sold entries go first, then the least valuable thing that is not on sale (it went silently,
+  // whatever it was worth, on sale or not)
+  while (list.length > INV_MAX) {
+    let k = list.findIndex((x) => x.sold);
+    if (k < 0) { let best = -1; list.forEach((x, j) => { if (x !== it && !x.sale && (best < 0 || x.value < list[best].value)) best = j; }); k = best; }
+    if (k < 0) break;
+    list.splice(k, 1);
+  }
   return it;
 }
 // A piece of gear: its state from its life (a gift never used is new).
 const gearCond = (it, fresh) => (it.broken || it.virus ? 'casse' : it.crack ? 'abime' : fresh ? 'neuf' : 'bon');
 function gearToInv(g, k, it, from = {}, fresh = false) {
   if (!it || !GEAR[k]) return null;
-  const value = priceOf(k, it) || 0;
+  const value = it.dead ? 0 : priceOf(k, it) || 0;
   if (!(value > 0)) return null; // (the old phone nobody wants)
   const X = it.sp ? NEW_BY_ID[it.sp] : null;
-  return invAdd(g, { kind: 'gear', name: itemName(g, k, it), emoji: X ? X.emoji : GEAR[k].emoji, value, cond: gearCond(it, fresh), from, gear: { k, it } });
+  const F = it.from && it.from.how === 'marque' ? it.from : from; // 0.27.6: a brand's gift stays theirs, in use or not
+  return invAdd(g, { kind: 'gear', name: itemName(g, k, it), emoji: X ? X.emoji : GEAR[k].emoji, value, cond: gearCond(it, fresh), from: F, gear: { k, it } });
 }
 // A piece of gear from the inventory goes in use; the one it replaces goes to the inventory.
 function equipInv(g, id) {
@@ -51,22 +59,43 @@ function equipInv(g, id) {
   const { k, it } = x.gear, cur = g.gear.items[k];
   invOf(g).splice(invOf(g).indexOf(x), 1);
   g.gear.items[k] = it;
-  if (cur) gearToInv(g, k, cur, { how: 'ancien' });
-  addNotif(g, { k: 'gear', text: `🔧 Tu utilises maintenant : ${x.name}${cur ? ' (l’ancien est dans ton inventaire)' : ''}.` });
+  const old = cur ? gearToInv(g, k, cur, { how: 'ancien' }) : null;
+  addNotif(g, { k: 'gear', text: `🔧 Tu utilises maintenant : ${x.name}${old ? ' (l’ancien est dans ton inventaire)' : ''}${it.broken || it.virus ? ' : il est encore en panne, fais-le réparer' : ''}.` });
   return true;
 }
 // A gift of gear (a brand's): in use if it is better than what the player has, otherwise in the inventory.
 function receiveGear(g, k, it, from, label) {
   const cur = g.gear && g.gear.items[k];
+  if (from && from.how === 'marque') it.from = Object.assign({ at: Date.now() }, from); // (0.27.6: where it came from travels with it)
   if (g.gear && (!usable(cur) || tierOfItem(cur) < tierOfItem(it))) {
     g.gear.items[k] = it;
-    if (cur) gearToInv(g, k, cur, { how: 'ancien' });
-    addNotif(g, { k: 'gear', text: `📦 ${label} : en service${cur ? ' (l’ancien est dans ton inventaire)' : ''}.` });
+    const old = cur ? gearToInv(g, k, cur, { how: 'ancien' }) : null; // (broken: it waits there, its repair goes on, it can be used again)
+    addNotif(g, { k: 'gear', text: `📦 ${label} : en service${old ? ' (l’ancien est dans ton inventaire)' : ''}.` });
     return 'used';
   }
   gearToInv(g, k, it, from, true);
   addNotif(g, { k: 'gear', text: `📦 ${label} : tu avais déjà aussi bien, il t’attend dans ton inventaire.` });
   return 'kept';
+}
+
+// 0.27.6: a repair paid for, a reinstall, a counterfeit's end go on in the inventory too (they only ran for gear in use:
+// a station at the repairer pushed there by a gift never came back).
+function tickInvGear(g, t = Date.now()) {
+  let ch = false;
+  for (const x of invOf(g)) {
+    const it = x.kind === 'gear' && !x.sold && x.gear && x.gear.it;
+    if (!it) continue;
+    if (it.fake && t >= it.fake) {
+      delete it.fake; it.dead = true; it.broken = 1; x.cond = 'casse'; x.value = 0;
+      if (x.sale) delete x.sale;
+      addNotif(g, { k: 'gear', text: `🪤 ${x.name}, dans ton inventaire : c’était une contrefaçon, elle a lâché. Elle ne vaut plus rien.` });
+      ch = true;
+      continue;
+    }
+    if (it.fixAt && t >= it.fixAt) { it.fixAt = 0; it.broken = 0; x.cond = gearCond(it, false); addNotif(g, { k: 'gear', text: `🔧 ${x.name} est de retour de réparation (dans ton inventaire).` }); ch = true; }
+    if (it.virusEnd && t >= it.virusEnd) { it.virusEnd = 0; it.virus = 0; x.cond = gearCond(it, false); ch = true; }
+  }
+  return ch;
 }
 
 /* ---------- the price, and how fast it goes ---------- */
@@ -76,10 +105,13 @@ const fanBoost = (g) => 0.4 * warm01(g) * fame01(g); // fans pay more for what c
 const fairOf = (g, x) => Math.max(1, x.value * (COND[x.cond] || COND.bon).k);
 const suggestOf = (g, x) => roundPrice(fairOf(g, x) * (1 + fanBoost(g)));
 const resaleDemand = (g) => (0.5 + 0.5 * warm01(g)) * (0.6 + 0.25 * Math.log10(1 + g.stats.followers / 1000));
-const priceK = (r) => (r <= 0.6 ? 3 : clamp(Math.pow(2, (1 - r) * 4), 0.03, 3));
+// 0.27.6: three times what it is worth (fans included) or more, nobody buys (before: 3 % of the pace, whatever the price:
+// a thing listed at ten million sold within weeks)
+const priceK = (r) => (r <= 0.6 ? 3 : r >= 3 ? 0 : clamp(Math.pow(2, (1 - r) * 4), 0, 3));
 // How it should go, in words (the sell sheet).
 function saleSpeed(g, x, price) {
-  const r = price / (fairOf(g, x) * (1 + fanBoost(g))), h = 1 / Math.max(1e-6, SALE_RATE * resaleDemand(g) * priceK(r));
+  const r = price / (fairOf(g, x) * (1 + fanBoost(g))), k = priceK(r), h = 1 / Math.max(1e-6, SALE_RATE * resaleDemand(g) * k);
+  if (!(k > 0)) return 'ne partira pas : beaucoup trop cher pour ce que c’est';
   return h <= 12 ? 'part dans la journée' : h <= 48 ? 'part en un ou deux jours' : h <= 24 * 6 ? 'peut prendre plusieurs jours' : 'risque de ne jamais partir';
 }
 function listItem(g, id, price) {
@@ -103,7 +135,7 @@ function tickResale(g, t = Date.now()) {
     if (hrs < 0.25) continue;
     const r = s.price / (fairOf(g, x) * (1 + fanBoost(g))), d = resaleDemand(g), k = priceK(r);
     s.views += Math.round(hrs * (3 + 12 * d) * rand(0.6, 1.4));
-    s.favs += Math.round(hrs * 0.35 * d * k * rand(0.5, 1.5));
+    s.favs = (s.favs || 0) + hrs * 0.35 * d * k * rand(0.5, 1.5); // (0.27.6: kept with its fractions, shown whole)
     s.last = t;
     ch = true;
     if (roll() >= 1 - Math.pow(1 - clamp(SALE_RATE * d * k, 0, 0.9), hrs)) continue;
@@ -125,15 +157,17 @@ function sellItem(g, x, at = Date.now()) {
 /* ---------- whoever gave it may see it on sale ---------- */
 function noticeSale(g, x) {
   const t = Date.now(), app = resaleName(g), F = x.from || {};
-  if (t - x.at > NOTICE_MS) return;
+  const got = F.at || x.at; // (0.27.6: when it came, not when it went back to the inventory)
+  if (t - got > NOTICE_MS) return;
   const d = F.deal ? (g.deals || []).find((y) => y.id === F.deal) : null, c = F.c ? g.chars[F.c] : null;
   if (d && c) {
-    d.resold = { at: t, what: x.name, price: x.sale.price, after: t - x.at };
+    if (d.resold) return; // (0.27.6: they learn it once; a new ad for the same gift is the same story)
+    d.resold = { at: t, what: x.name, price: x.sale.price, after: t - got };
     const il = gx(c.g, 'il', 'elle', 'iel');
-    addTrigger(g, `@${c.handle} (partenariats chez ${d.brand}) tombe sur l’annonce : le joueur revend sur ${app} « ${x.name} », que ${d.brand} lui a offert il y a ${fmtDur(t - x.at)} (à ${fmtMoney(g, x.sale.price)}). ${cap1(il)} peut lui écrire en privé à ce sujet, à sa façon (vexé·e, déçu·e, froid·e ou amusé·e, selon son caractère${d.state === 'signed' ? ' ; leur contrat n’est pas encore livré' : ''}).`, c.id);
+    addTrigger(g, `@${c.handle} (${d.brand}${d.state === 'signed' ? ', contrat pas encore livré' : ''}) tombe sur l’annonce : le joueur revend sur ${app} « ${str(x.name, 40)} », offert il y a ${fmtDur(t - got)}, à ${fmtMoney(g, x.sale.price)}. ${cap1(il)} peut lui en parler en privé, à sa façon.`, c.id); // (0.27.6: short enough to be kept whole)
   } else if (c && isMain(c) && F.how === 'cadeau') {
     const il = gx(c.g, 'il', 'elle', 'iel');
-    addTrigger(g, `@${c.handle} pourrait tomber sur l’annonce : le joueur revend sur ${app} « ${x.name} », qu’${il} lui a offert il y a ${fmtDur(t - x.at)}. S’${il} la voit, ${il} réagit à sa façon (blessé·e, vexé·e, ou ça le fait rire).`, c.id);
+    addTrigger(g, `@${c.handle} pourrait voir le joueur revendre « ${str(x.name, 40)} » sur ${app}, son cadeau d’il y a ${fmtDur(t - got)} : s’${il} le voit, ${il} réagit à sa façon (blessé·e, vexé·e, ou amusé·e).`, c.id);
   }
 }
 // The brand's DMs: what they know of it (kept with the contract).
@@ -171,9 +205,9 @@ function InvRow({ g, x, now }) {
   return html`<div class=${'inv-row' + (x.sale ? ' on-sale' : '')}>
     <span class="inv-emo" aria-hidden="true">${x.emoji}</span>
     <div class="mid"><b>${x.name}</b><small>${[fromText(g, x), fmtAgo(x.at, now), COND[x.cond].label, `valeur ${fmtMoney(g, x.value)}`].filter(Boolean).join(' · ')}</small>
-      ${x.sale ? html`<small class="inv-sale">🏷️ En vente sur ${resaleName(g)} · ${fmtMoney(g, x.sale.price)} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(x.sale.favs)}</small>` : null}</div>
+      ${x.sale ? html`<small class="inv-sale">🏷️ En vente sur ${resaleName(g)} · ${fmtMoney(g, x.sale.price)} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(Math.floor(x.sale.favs || 0))}</small>` : null}</div>
     <div class="acts">
-      ${x.kind === 'gear' && !x.sale && x.cond !== 'casse' ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (equipInv(g, x.id)) update(); }}>Utiliser</button>` : null}
+      ${x.kind === 'gear' && !x.sale && !(x.gear && x.gear.it && x.gear.it.dead) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (equipInv(g, x.id)) update(); }}>Utiliser</button>` : null}
       <button class=${'btn btn-sm ' + (x.sale ? 'btn-ghost' : 'btn-hot')} onClick=${() => openLayer({ t: 'sell', id: x.id })}>${x.sale ? 'L’annonce' : 'Vendre'}</button>
     </div>
   </div>`;
@@ -233,7 +267,7 @@ function ResaleLayer({ g, now, i }) {
           <span class="rs-pic" aria-hidden="true">${x.emoji}</span>
           <b class="rs-price">${fmtMoney(g, x.sold ? x.sold.price : x.sale ? x.sale.price : suggestOf(g, x))}</b>
           <span class="rs-name">${x.name}</span>
-          <small>${x.sold ? `Vendu ${fmtAgo(x.sold.at, now)}${x.sold.fan ? ' · à quelqu’un qui te suit' : ''}` : x.sale ? `${COND[x.cond].label} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(x.sale.favs)}` : `${COND[x.cond].label} · prix conseillé`}</small>
+          <small>${x.sold ? `Vendu ${fmtAgo(x.sold.at, now)}${x.sold.fan ? ' · à quelqu’un qui te suit' : ''}` : x.sale ? `${COND[x.cond].label} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(Math.floor(x.sale.favs || 0))}` : `${COND[x.cond].label} · prix conseillé`}</small>
         </button>`)}</div>`
         : html`<div class="empty"><b>${tab === 'on' ? 'Rien en vente' : tab === 'sold' ? 'Pas encore de vente' : 'Ton inventaire est vide'}</b><span>${tab === 'add' ? 'Les cadeaux des marques, ton ancien matos et ce qu’on t’offre arrivent dans ton inventaire.' : 'Mets en vente ce que tu n’utilises plus, depuis ton inventaire.'}</span></div>`}
       <p class="muted rs-note">Une appli de seconde main de ${g.world.name}. Ce qui vient de toi part plus vite et plus cher quand ta commu est chaleureuse.</p>

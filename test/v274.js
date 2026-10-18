@@ -68,7 +68,7 @@ const offer = (page, o) => G(page, (o) => {
   const H = window.__hype, g = H.S.game;
   g.deals = g.deals.filter((x) => x.state !== 'offer');
   const d = H.makeOffer(g, { brand: o.brand, sector: o.sector, product: o.product, shady: false, scam: o.scam || '', gift: false });
-  if (!o.scam || o.scam !== 'impaye') Object.assign(d, { fee: o.fee, fee0: o.fee, base: o.fee, max: Math.round(o.fee * 1.3), maxBase: Math.round(o.fee * 1.3) });
+  if (!o.scam || o.scam !== 'impaye') Object.assign(d, { fee: o.fee, fee0: o.fee, base: o.fee, max: Math.round(o.fee * 1.3), maxBase: Math.round(o.fee * 1.3), value: 0 }); // (a money contract: no products with it)
   Object.assign(d, { exclusive: false, hard: '', days: 7 });
   delete d.upPct;
   d.upfront = H.upfrontOf(d);
@@ -144,7 +144,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     H.applyDealLine(g, c, { upfront: 40 });
     out.imp = { upfront: im.upfront, upPct: im.upPct === undefined, terms: H.payTerms(g, im), prompt: !/"upfront"/.test(H.promptDM(g, c, [], 'un acompte ?')), refuse: /refuse tout acompte/.test(H.promptDM(g, c, [], 'un acompte ?')) };
     const sm = H.makeOffer(g, { brand: 'Grimoires Express', sector: 'tech', product: 'sa liseuse', shady: false, scam: '', gift: false });
-    Object.assign(sm, { fee: 800, fee0: 800, base: 800, max: 1000, maxBase: 1000, hard: '', exclusive: false }); sm.upfront = H.upfrontOf(sm);
+    Object.assign(sm, { fee: 800, fee0: 800, base: 800, max: 1000, maxBase: 1000, hard: '', exclusive: false, value: 0 }); sm.upfront = H.upfrontOf(sm);
     const sc = g.chars[sm.contact];
     H.applyDealLine(g, sc, { upfront: '250 €' });
     out.money2 = { pct: sm.upPct, upfront: sm.upfront };
@@ -156,7 +156,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     p.pct === 40 && p.num === 35 && p.money === 20 && p.big === 25 && p.no === 0 && p.non === 0 && p.yes === null && p.junk === null && p.over && p.none === null && p.share === 40, p);
   check('a brand that never pays: no down payment, even if its contact says yes (the field is not even offered to it, and it refuses with an excuse); before the signature, a deposit can also go down to none',
     p.imp.upfront === 0 && p.imp.upPct && /^En une fois/.test(p.imp.terms) && p.imp.prompt && p.imp.refuse
-    && p.money2.pct === 31 && p.money2.upfront === 248 && p.zero.pct === 0 && p.zero.upfront === 0 && p.zero.terms === 'À la livraison' && /sans acompte, tout à la livraison/.test(p.zero.notif), { imp: p.imp, money2: p.money2, zero: p.zero });
+    && p.money2.pct === 31.25 && p.money2.upfront === 250 && p.zero.pct === 0 && p.zero.upfront === 0 && p.zero.terms === 'À la livraison' && /sans acompte, tout à la livraison/.test(p.zero.notif), { imp: p.imp, money2: p.money2, zero: p.zero });
 
   // ---------- several releases planned, one sooner at no cost ----------
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.update(); });
@@ -310,7 +310,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   const m0 = await G(page, () => ({ on: window.__hype.menuOn(), ls: localStorage.getItem('hype:menu'), title: document.querySelector('.layer .layer-head h2').textContent, text: document.querySelector('.layer').textContent }));
   await shot(page, 'menu-open');
   check('the Konami code opens the hidden menu (typed in a text field, or wrong, nothing); it stays unlocked',
-    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🛠️ Mode menu' && /Argent et compteurs/.test(m0.text) && /Réputation/.test(m0.text) && /Date et heure du jeu/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text), { inField, wrong, title: m0.title });
+    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🛠️ Mode menu' && /Argent/.test(m0.text) && /Réputation/.test(m0.text) && /Temps/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text) && /Abonnés/.test(m0.text), { inField, wrong, title: m0.title });
   await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); }); // (what the game had to say meanwhile)
   await dismiss(page);
   await page.locator('.layer .menu-num', { hasText: 'Argent' }).locator('input').fill('50 000');
@@ -319,7 +319,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   const lv0 = await G(page, () => { const H = window.__hype, g = H.S.game; return { level: g.stats.level, unlocked: H.mains(g).length, locked: H.mains(g, false).length - H.mains(g).length }; });
   await page.locator('.layer .menu-num', { hasText: 'Niveau' }).locator('input').fill(String(lv0.level + 2));
   await dismiss(page);
-  await page.locator('.layer section.section', { hasText: 'Argent et compteurs' }).locator('button', { hasText: 'Appliquer' }).click();
+  await page.locator('.layer section.section', { hasText: 'Abonnés' }).locator('button', { hasText: 'Appliquer' }).click(); // (0.27.6: the money tab)
   await sleep(400);
   const m1 = await G(page, () => { const H = window.__hype, g = H.S.game; return { cash: g.career.cash, fol: g.stats.followers, gems: g.stats.gems, level: g.stats.level, xp: g.stats.xp, unlocked: H.mains(g).length }; });
   check('money, followers, gems and level set from the menu (« 50 000 » is 50 000); a higher level brings the characters it unlocks',

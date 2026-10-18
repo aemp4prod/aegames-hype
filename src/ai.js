@@ -187,7 +187,7 @@ function ctxText(g, o = {}) {
   if (dates) L.push(`Ces rendez-vous n’ont pas encore eu lieu : personne ne les dit passés, ratés ou annulés (c’est le jeu qui le dit quand ça arrive).`);
   // 0.9.4: a date talked about but never on the agenda is no lapin
   if (g.chronicle.slice(-(nChron || 8)).some((e) => /rendez-vous|rencard|\brdv\b|d[îi]ner|un verre/i.test(e.text))) L.push('Seuls les rendez-vous de l’agenda (ci-dessus) engagent le joueur : s’il a été question d’un autre sans qu’il soit inscrit, personne ne lui reproche de lapin.');
-  plannedReleases(g).slice(0, 4).forEach((rl, k) => { // 0.27.4: several can be planned
+  plannedReleases(g).slice(0, MAX_PLANNED).forEach((rl, k) => { // 0.27.4: several can be planned (0.27.6: all of them)
     const rc = rl.c && g.chars[rl.c];
     L.push(`Le joueur a ${k ? 'aussi ' : ''}${rl.series ? 'programmé' : 'annoncé'} ${unW(rl)}${rl.series ? ` (épisode ${rl.ep} de son défi quotidien)` : ''} : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}, sortie ${rl.due > now ? 'prévue dans ' + fmtDur(rl.due - now) : 'attendue maintenant'}${rl.delays ? `, déjà ${whatF(rl) ? 'repoussée' : 'repoussé'} ${rl.delays} fois` : ''}. Le public l’attend.`);
   });
@@ -1626,11 +1626,11 @@ function finishAct(ctx) {
   try {
     commitEval(ctx);
     for (const fx of ctx.effects) { try { fx(); } catch (err) { console.error(err); } }
-    if (!ctx.announce && !ctx.video && !ctx.accuse && !ctx.apology && !activeRelease(g)) { // the model missed it: the player's own words
+    if (!ctx.announce && !ctx.video && !ctx.accuse && !ctx.apology && planRoom(g)) { // the model missed it: the player's own words (0.27.6: with other releases planned too)
       const said = (ctx.post || ctx.mine).text;
       const pa = parseAnnounce(said);
       const men = mentionedChars(g, said).filter((c) => isMain(c));
-      if (pa) ctx.announce = { what: pa.what, in: pa.in, topic: str(said, 100), about: men[0] ? men[0].handle : '' };
+      if (pa) ctx.announce = { what: pa.what, in: pa.in, topic: str(said, 100), about: men[0] ? men[0].handle : '', loose: true };
     }
     if (ctx.announce) addRelease(g, ctx.announce, ctx.post || ctx.target, (ctx.post || ctx.mine).text);
     for (const o of ctx.plans) { // under the message where the character said it
@@ -2148,12 +2148,24 @@ function promptMiniGame(g, r, force) {
       : (force ? [force] : MG_KINDS_AI).map((k) => (force ? '- Puis ' : `- Si "${k}" : `) + LINES_OF[k])),
   ].filter((x) => x !== null).join('\n');
 }
+// 0.27.6: without the AI, a skill round of the format (it was always the same order game below, an easy win, Cauchemar
+// included). Cauchemar needs the AI (real questions): nothing, and the player is told.
+function shootFallback(g, r) {
+  const D = diffOf(r.diff);
+  if (D.real) return null;
+  const editor = (r.crew || []).includes('monteur'), recent = Array.isArray(g.mgRecent) ? g.mgRecent : [];
+  const pool = (ROUNDS_FOR[r.what] || ROUNDS_FOR.vidéo).filter((k) => ROUND_MAKERS[k] && !(editor && k === 'montage'));
+  const fresh = pool.filter((k) => k !== recent[1]);
+  const k = pick(fresh.length ? fresh : pool) || 'memoire';
+  if (!r.practice) g.mgRecent = [k].concat(recent.slice(1)).slice(0, 3); // (what was played, not what the AI was asked)
+  return Object.assign(ROUND_MAKERS[k](r, D), { fallback: true });
+}
 // Without Claude, the shoot is the production itself: put its steps back in order.
 const prodGame = (r) => ({ kind: 'ordre', title: 'Le tournage', intro: `Remets les étapes de ${laW(r)} « ${str(r.topic, 60)} » dans le bon ordre.`, items: (PROD_STEPS[r.what] || PROD_STEPS.vidéo).map((text) => ({ text })) });
 const MG_NAMES = { tri: 'trier', ordre: 'remettre dans l’ordre', quiz: 'quiz', vf: 'vrai ou faux', intrus: 'trouve l’intrus', montage: 'montage au rythme', memoire: 'mémoire', chat: 'modérer le chat', mixage: 'mixage', cadrage: 'recadrage' };
 function validGame(sp) {
   if (sp.kind === 'tri' || sp.kind === 'vf') return sp.items.length >= 4 && sp.items.some((x) => x.good) && sp.items.some((x) => !x.good);
-  if (sp.kind === 'intrus') return sp.items.length >= 3;
+  if (sp.kind === 'intrus') return sp.items.length >= 3; // (the prompts ask for 4 at least since 0.27.5; a model that writes 3 still gives a game that fits, better than a stock one)
   if (sp.kind === 'ordre') return sp.items.length >= 4;
   if (sp.kind === 'quiz') return sp.items.length >= 3;
   return false;
@@ -2183,6 +2195,7 @@ function shootWeights(g, r) {
 function pickShootKind(g, r) {
   if (S.mgForce) return S.mgForce; // tests (« ai »: the AI picks its format)
   if (diffOf(r.diff).real) return 'quiz';
+  if (g && g.mgNext && (MG_KINDS_AI.includes(g.mgNext) || ROUND_MAKERS[g.mgNext]) && !r.practice) { const k = g.mgNext; delete g.mgNext; return k; } // 0.27.6: imposed from the menu, once
   const ws = shootWeights(g, r);
   let x = Math.random() * ws.reduce((a, w) => a + w[1], 0);
   for (const [k, w] of ws) { x -= w; if (x < 0) return k; }
@@ -2202,7 +2215,7 @@ const genShoot = (r) => {
     return null;
   }
   const force = MG_KINDS_AI.includes(kind) ? kind : null; // (« ai »: the AI picks)
-  return genGame(r, () => promptMiniGame(g, r, force), () => prodGame(r), 'Le tournage', force);
+  return genGame(r, () => promptMiniGame(g, r, force), () => shootFallback(g, r), 'Le tournage', force);
 };
 const genDate = (ev) => {
   const g = S.game;
@@ -2228,7 +2241,7 @@ function gameReader(force) {
   const kindOf = { item: 'tri', step: 'ordre', q: 'quiz', vf: 'vf', odd: 'intrus' };
   const read = (o) => {
     if (o.t === 'game' && !sp.title) {
-      if (!force) sp.kind = ['tri', 'ordre', 'quiz', 'vf', 'intrus'].includes(o.kind) ? o.kind : sp.kind; // (imposed: kept)
+      if (!force && !sp.items.length) sp.kind = ['tri', 'ordre', 'quiz', 'vf', 'intrus'].includes(o.kind) ? o.kind : sp.kind; // (imposed: kept; 0.27.6: a late « game » line no longer turns sorted items into a quiz without answers)
       sp.title = str(o.title, 60);
       sp.intro = str(o.intro, 200);
       return;
@@ -2282,7 +2295,15 @@ async function genGame(r, makePrompt, fallback, title, force) {
   let game = null;
   try { game = await writeMiniGame(g, r, makePrompt, f, !!(r.player && g.opts && g.opts.careDates), force); }
   catch (e) { S.busy.mg = null; endFlow(f); update(); return; }
-  if (r.state === 'scheduled') { r.game = Object.assign(game ? Object.assign(game, { title: game.title || title }) : fallback(), { diff: r.diff || 'moyen' }); g.mgLast = r.game.kind; }
+  if (r.state === 'scheduled') {
+    const fb = game ? null : fallback();
+    if (game || fb) {
+      r.game = Object.assign(game ? Object.assign(game, { title: game.title || title }) : fb, { diff: r.diff || 'moyen' });
+      g.mgLast = r.game.kind;
+      delete r.aiFail;
+      if (fb && fb.fallback) toast(`${AI_NAME} n’a pas répondu : tu passes un mini-jeu d’adresse à la place.`);
+    } else r.aiFail = Date.now(); // 0.27.6: nothing to play without the AI (Cauchemar): the screen says so
+  }
   S.busy.mg = null;
   endFlow(f);
   update();

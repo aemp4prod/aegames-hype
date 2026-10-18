@@ -215,8 +215,8 @@ const lastVideo = (page) => G(page, () => { const g = window.__hype.S.game; cons
     H.signDeal(g, f); out.mic = G0.items.mic && G0.items.mic.t; out.fake = !!(G0.items.mic && G0.items.mic.fake);
     H.tickGear(g, Date.now() + 6 * day); out.micAfter = G0.items.mic; out.fakeNote = (g.notifs.find((x) => /contrefaçon/.test(x.text)) || {}).text || '';
     return out; });
-  check('scams with gear: a too-good gift that never ships (the contract waits, then nothing, the contact gone); a fake that works a few days, then dies beyond repair',
-    sc.promised === 2 && /matos offert/.test(sc.sum) && sc.wait === 'waiting' && sc.after === 'scammed' && /n’est jamais arrivé/.test(sc.lost) && sc.mic === 2 && sc.fake && sc.micAfter === null && /contrefaçon/.test(sc.fakeNote), sc);
+  check('scams with gear: a too-good gift that never ships (0.27.6: the contract looks signed like any other, then nothing, the contact gone); a fake that works a few days, then dies beyond repair',
+    sc.promised === 2 && /matos offert/.test(sc.sum) && sc.wait === 'signed' && sc.after === 'scammed' && /n’est jamais arrivé/.test(sc.lost) && sc.mic === 2 && sc.fake && sc.micAfter === null && /contrefaçon/.test(sc.fakeNote), sc);
 
   // the placement: logical with the video's topic, a small boost; nothing to do with it, a small malus (the AI judges it)
   const fx = await G(page, () => {

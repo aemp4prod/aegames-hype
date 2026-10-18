@@ -204,7 +204,7 @@ const toStudio = (page) => G(page, () => { const H = window.__hype; H.S.stack = 
     out.speed = [H.saleSpeed(g, box, Math.round(out.warm * 0.7)), H.saleSpeed(g, box, out.warm * 3)];
     return out; }, [br.d3]);
   check('the price: what it is worth second hand (new: 75 % of its value), more with a warm community and a big audience; the speed told in words (cheap: soon; far too dear: maybe never)',
-    px.fair === 67.5 && px.warm > px.cold && px.dWarm > px.dCold && /dans la journée|un ou deux jours/.test(px.speed[0]) && /jamais/.test(px.speed[1]), px);
+    px.fair === 67.5 && px.warm > px.cold && px.dWarm > px.dCold && /dans la journée|un ou deux jours/.test(px.speed[0]) && /jamais|ne partira pas/.test(px.speed[1]), px);
 
   // ---------- selling a brand's products a few days later: the brand may see it ----------
   const boxId = await G(page, () => window.__hype.invLive(window.__hype.S.game).find((x) => x.kind === 'goods').id);

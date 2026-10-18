@@ -333,7 +333,15 @@ function menuLevel(g, n) {
   s.xp = 0;
 }
 // The clock: the game shows `target` now (only the clock moves: nothing happens in between; a new month pays and bills once).
-function menuClock(g, target) { if (Number.isFinite(target)) g.clockOff = Math.round(target - Date.now()); }
+// 0.27.6: the day counters follow, or the days skipped were played at once (a month of merch orders in a second).
+function menuClock(g, target) {
+  if (!Number.isFinite(target)) return;
+  g.clockOff = Math.round(target - Date.now());
+  const day = gameDay(Date.now()), M = g.career && g.career.merch, m = membOf(g);
+  for (const d of (M && M.drops) || []) if (d.state === 'live') d.day = day;
+  if (m) m.day = day;
+  if (g.career) g.career.warmDay = day;
+}
 // o: { cash, followers, gems, level, rep: { image, cred, pro, kind } on 1000, skills: { id: level }, at, rel: { charId: -100..100 } }
 function menuApply(g, o) {
   const s = g.stats, c = g.career, done = [];
@@ -356,7 +364,13 @@ function menuApply(g, o) {
     done.push('compétences');
   }
   if (o.at != null && Number.isFinite(+o.at)) { menuClock(g, +o.at); done.push('heure'); }
-  if (o.rel) for (const id of Object.keys(o.rel)) { const ch = g.chars[id], x = menuNum(o.rel[id]); if (ch && x !== null) ch.rel = clamp(Math.round(x), -100, 100); }
+  if (o.rel) for (const id of Object.keys(o.rel)) {
+    const ch = g.chars[id], x = menuNum(o.rel[id]);
+    if (!ch || x === null) continue;
+    ch.rel = clamp(Math.round(x), -100, 100);
+    if (!ch.followsYou && ch.rel >= 25) ch.followsYou = true; // (0.27.6: the usual rule, in silence)
+    else if (ch.followsYou && ch.rel < 0) ch.followsYou = false;
+  }
   return done;
 }
 const pad2 = (x) => String(x).padStart(2, '0');
@@ -371,38 +385,100 @@ function MenuRel({ g, c }) {
         onInput=${(ev) => setV(+ev.target.value)} onChange=${(ev) => { menuApply(g, { rel: { [c.id]: ev.target.value } }); update(); }} /></div>
   </div>`;
 }
+// 0.27.6: the mini-games on demand: a practice round that counts for nothing (the AI writes the ones it writes, the
+// others are made at once), or the next shoot's game imposed.
+const MENU_GAMES = [['tri', 'Trier'], ['ordre', 'Remettre dans l’ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Chat d’un live'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage']];
+const PRACTICE_WHAT = { chat: 'live', mixage: 'podcast', cadrage: 'short' };
+function startPractice(g, kind, diffId) {
+  if (S.busy.mg) { toast('Un mini-jeu est déjà en préparation.'); return false; }
+  const D = diffOf(D_REAL_OK(kind, diffId)), P = PF(g);
+  const what = PRACTICE_WHAT[kind] || (P.fmts.includes('vidéo') ? 'vidéo' : P.main);
+  const last = (g.releases || []).filter((x) => x.state === 'released').slice(-1)[0];
+  const r = { id: 'practice', kind, what, noun: what === 'short' ? P.shortName : '', topic: (last && last.topic) || str(g.player.identity, 80) || 'mon sujet', state: 'scheduled',
+    diff: D.id, game: null, played: null, crew: [], practice: true, at: Date.now(), due: Date.now(), delays: 0, tries: 0, score: null };
+  S.practice = r;
+  if (!S.stack.some((l) => l.t === 'practice')) openLayer({ t: 'practice' });
+  if (ROUND_MAKERS[kind]) { r.game = Object.assign(ROUND_MAKERS[kind](r, D), { diff: D.id }); update(); return true; }
+  genGame(r, () => promptMiniGame(g, r, kind), () => null, 'Entraînement', kind); // (without the AI: said, not replaced)
+  return true;
+}
+const D_REAL_OK = (kind, id) => (diffOf(id).real && kind !== 'quiz' ? 'mythique' : id); // (Cauchemar: real questions, a quiz only)
+function PracticeLayer({ g, i, now }) {
+  const r = S.practice;
+  let body;
+  if (!r) body = html`<div class="empty"><b>Pas d’entraînement en cours</b><span>Ouvre le mode menu pour en lancer un.</span></div>`;
+  else if (r.score != null) {
+    const tier = tierOf(r.score), D = diffOf(r.diff);
+    body = html`<div class="mg-intro practice-end">
+      <span class="eyebrow">Entraînement · ${(MENU_GAMES.find((x) => x[0] === r.kind) || [0, r.kind])[1]}</span>
+      <h3>${Math.round(r.score * 100)} % · ${tier === 'top' ? 'réussi 🎉' : tier === 'mid' ? 'moyen' : 'raté'}</h3>
+      <span class="chip">${D.emoji} ${D.label}</span>
+      <p class="muted">Rien ne compte dans ta partie : ni vues, ni argent, ni réputation.</p>
+      <div class="row"><button class="btn btn-hot" onClick=${() => startPractice(g, r.kind, r.diff)}><${Icon} n="refresh" s=${16} /> Rejouer</button><button class="btn btn-ghost" onClick=${closeLayer}>Fermer</button></div>
+    </div>`;
+  } else if (!r.game && r.aiFail && !S.busy.mg) body = html`<div class="mg-intro practice-end"><h3>${AI_NAME} n’a pas répondu</h3><p class="muted">Ce mini-jeu est écrit par ${AI_NAME} (le budget IA du jour est peut-être épuisé). Réessaie, ou choisis un jeu d’adresse.</p>
+      <div class="row"><button class="btn btn-hot" onClick=${() => startPractice(g, r.kind, r.diff)}><${Icon} n="refresh" s=${16} /> Réessayer</button><button class="btn btn-ghost" onClick=${closeLayer}>Fermer</button></div></div>`;
+  else if (!r.game) body = html`<div class="mg-play mg-wait"><${Typing} /><p class="muted">${AI_NAME} écrit ton mini-jeu…</p></div>`;
+  else body = html`<${ShootPlay} r=${r} now=${now} outcomes="Entraînement : rien ne compte dans ta partie." icon="play" onScore=${(sc) => { r.score = Math.round(clamp(num(sc, 0), 0, 1) * 1000) / 1000; update(); }} />`;
+  return html`<${LayerShell} i=${i} title="🎮 Entraînement">${body}<//>`;
+}
+function MenuGames({ g }) {
+  const [kind, setKind] = useState(() => S.menuGame || 'quiz');
+  const [diff, setDiff] = useState(() => S.menuDiff || 'mythique');
+  const pickK = (k) => { S.menuGame = k; setKind(k); if (diffOf(diff).real && k !== 'quiz') { S.menuDiff = 'mythique'; setDiff('mythique'); } };
+  const pickD = (d) => { S.menuDiff = d; setDiff(d); };
+  const ai = MG_KINDS_AI.includes(kind), next = g.mgNext;
+  return html`<section class="section">
+    <div class="field"><span class="lbl">Le mini-jeu</span><div class="tr-chips">${MENU_GAMES.map(([k, l]) => html`<button type="button" key=${k} class=${'chip-btn' + (kind === k ? ' on' : '')} onClick=${() => pickK(k)}>${l}</button>`)}</div></div>
+    <div class="field"><span class="lbl">La difficulté</span><div class="tr-chips">${DIFFS.map((d) => html`<button type="button" key=${d.id} disabled=${d.real && kind !== 'quiz'} class=${'chip-btn' + (diff === d.id ? ' on' : '')} onClick=${() => pickD(d.id)}>${d.emoji} ${d.label}</button>`)}</div>
+      ${diffOf(diff).real ? html`<small class="muted">Cauchemar, c’est le quiz de vraies questions, rien d’autre.</small>` : null}</div>
+    <div class="row">
+      <button class="btn btn-hot btn-sm" disabled=${!!S.busy.mg} onClick=${() => startPractice(g, kind, diff)}><${Icon} n="play" s=${15} /> Jouer maintenant${ai ? ` · ≈ ${costLabel(g, 'shoot')} ☕` : ''}</button>
+      <button class=${'btn btn-sm ' + (next === kind ? 'btn-hot' : 'btn-ghost')} onClick=${() => { if (g.mgNext === kind) { delete g.mgNext; toast('Le prochain tournage tire son mini-jeu au sort.'); } else { g.mgNext = kind; toast(`Ton prochain tournage : ${(MENU_GAMES.find((x) => x[0] === kind) || [0, kind])[1]}.`, 'good'); } update(); }}>${next === kind ? '✓ Imposé au prochain tournage' : 'Imposer au prochain tournage'}</button>
+    </div>
+    <small class="muted">« Jouer maintenant » : un entraînement, rien ne compte dans ta partie${ai ? ` (ce mini-jeu est écrit par ${AI_NAME} sur ton sujet du moment)` : ''}. ${next ? `Imposé au prochain tournage : ${(MENU_GAMES.find((x) => x[0] === next) || [0, next])[1]} (sauf en Cauchemar).` : 'Sinon, le prochain tournage tire son mini-jeu au sort.'}</small>
+  </section>`;
+}
+const MENU_TABS = [['argent', '💰', 'Argent'], ['rep', '⭐', 'Réputation'], ['temps', '🕐', 'Temps'], ['jeux', '🎮', 'Mini-jeux'], ['skills', '💪', 'Compétences'], ['liens', '💞', 'Relations']];
 function ModeMenuLayer({ g, i, now }) {
   const s = g.stats, c = g.career, P = ensureRep(s), d0 = gameDate(now);
+  const [tab, setTab0] = useState(() => S.menuTab || 'argent');
+  const setTab = (t) => { S.menuTab = t; setTab0(t); };
   const [v, setV] = useState(() => ({
     cash: String(Math.round(c.cash * 100) / 100), followers: String(s.followers), gems: String(s.gems), level: String(s.level),
     rep: Object.fromEntries(REP_IDS.map((k) => [k, String(rep1000(P[k]))])),
     skills: Object.fromEntries(SKILL_IDS.map((id) => [id, String(skillLevel(g, id))])),
     date: dateField(d0), time: timeField(d0),
   }));
+  const [base, setBase] = useState(() => v); // 0.27.6: what the fields showed: only what the player changed is applied
   const set = (k, x) => setV((o) => Object.assign({}, o, { [k]: x }));
   const setIn = (grp, k, x) => setV((o) => Object.assign({}, o, { [grp]: Object.assign({}, o[grp], { [k]: x }) }));
-  const apply = (o, msg) => { menuApply(g, o); toast(msg, 'good'); saveNow(); update(); };
-  const num = (k, label, hint) => html`<label class="menu-num"><span>${label}</span><input class="input" inputmode="decimal" value=${v[k]} onInput=${(ev) => set(k, ev.target.value)} />${hint ? html`<small>${hint}</small>` : null}</label>`;
+  const changed = (keys, grp) => { const o = {}, a = grp ? v[grp] : v, b = grp ? base[grp] : base; for (const k of keys) if (String(a[k]).trim() !== String(b[k]).trim()) o[k] = a[k]; return o; };
+  const apply = (o, msg) => {
+    const empty = !Object.keys(o).length || (o.rep && !Object.keys(o.rep).length) || (o.skills && !Object.keys(o.skills).length);
+    if (empty) { toast('Rien n’a changé.'); return; }
+    menuApply(g, o); setBase(v); toast(msg, 'good'); saveNow(); update();
+  };
+  const num2 = (k, label, hint) => html`<label class="menu-num"><span>${label}</span><input class="input" inputmode="decimal" value=${v[k]} onInput=${(ev) => set(k, ev.target.value)} />${hint ? html`<small>${hint}</small>` : null}</label>`;
   const at = new Date(`${v.date}T${v.time || '00:00'}`).getTime();
   const people = mains(g).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   const sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : '€';
-  return html`<${LayerShell} i=${i} title="🛠️ Mode menu">
-    <section class="section">
-      <p class="muted">Les réglages cachés de ta partie : ça s’applique tout de suite, et personne dans le jeu n’en saura rien.</p>
-      <div class="section-h"><h3>Argent et compteurs</h3></div>
-      <div class="menu-grid">${num('cash', `Argent (${sym})`, `Maintenant : ${fmtMoney(g, c.cash)}`)}${num('followers', 'Abonnés')}${num('gems', 'Gemmes')}${num('level', 'Niveau', 'Monter fait arriver les persos du niveau')}</div>
-      <button class="btn btn-hot btn-sm" onClick=${() => apply({ cash: v.cash, followers: v.followers, gems: v.gems, level: v.level }, 'C’est fait.')}>Appliquer</button>
-    </section>
-    <section class="section">
-      <div class="section-h"><h3>Réputation</h3><span>${rep1000(s.reputation)}/1000 · ${repLabel(s.reputation)}</span></div>
-      <div class="menu-grid">${REP_IDS.map((k) => html`<label class="menu-num" key=${k}><span>${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}</span><input class="input" inputmode="numeric" value=${v.rep[k]} onInput=${(ev) => setIn('rep', k, ev.target.value)} /><small>sur 1000</small></label>`)}</div>
+  const panel = {
+    argent: () => html`<section class="section">
+      <div class="menu-grid">${num2('cash', `Argent (${sym})`, `Maintenant : ${fmtMoney(g, c.cash)}`)}${num2('followers', 'Abonnés')}${num2('gems', 'Gemmes')}${num2('level', 'Niveau', 'Monter fait arriver les persos du niveau')}</div>
+      <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => apply(changed(['cash', 'followers', 'gems', 'level']), 'C’est fait.')}>Appliquer</button>
+        <button class="btn btn-ghost btn-sm" onClick=${() => { if (g.stats.followers < 800) toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); else { const d = makeOffer(g, {}); toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); update(); } }}>Faire venir une marque</button></div>
+    </section>`,
+    rep: () => html`<section class="section">
+      <div class="section-h"><h3>Sur 1000</h3><span>${rep1000(s.reputation)}/1000 · ${repLabel(s.reputation)}</span></div>
+      <div class="menu-grid">${REP_IDS.map((k) => html`<label class="menu-num" key=${k}><span>${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}</span><input class="input" inputmode="numeric" value=${v.rep[k]} onInput=${(ev) => setIn('rep', k, ev.target.value)} /></label>`)}</div>
       <div class="row">
-        <button class="btn btn-hot btn-sm" onClick=${() => apply({ rep: v.rep }, 'Réputation changée.')}>Appliquer</button>
+        <button class="btn btn-hot btn-sm" onClick=${() => apply({ rep: changed(REP_IDS, 'rep') }, 'Réputation changée.')}>Appliquer</button>
         ${playerBadBuzz(g, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { g.pbb = null; toast('Bad buzz terminé.', 'good'); update(); }}>Arrêter le bad buzz</button>` : null}
       </div>
-    </section>
-    <section class="section">
-      <div class="section-h"><h3>Date et heure du jeu</h3><span>${cap1(d0.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${timeField(d0)}</span></div>
+    </section>`,
+    temps: () => html`<section class="section">
+      <div class="section-h"><h3>L’horloge du jeu</h3><span>${cap1(d0.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${timeField(d0)}</span></div>
       <div class="menu-grid">
         <label class="menu-num"><span>Date</span><input class="input" type="date" value=${v.date} onInput=${(ev) => set('date', ev.target.value)} /></label>
         <label class="menu-num"><span>Heure</span><input class="input" type="time" value=${v.time} onInput=${(ev) => set('time', ev.target.value)} /></label>
@@ -411,18 +487,23 @@ function ModeMenuLayer({ g, i, now }) {
         <button class="btn btn-hot btn-sm" disabled=${!Number.isFinite(at)} onClick=${() => apply({ at }, `Il est ${v.time.replace(':', ' h ')} dans le jeu.`)}>Appliquer</button>
         <button class="btn btn-ghost btn-sm" onClick=${() => { const d = new Date(); set('date', dateField(d)); set('time', timeField(d)); }}>Heure de ton PC</button>
       </div>
-      <small class="muted">Seule l’horloge bouge : rien ne se passe pendant le temps sauté. Passer à un nouveau mois déclenche une fois ce qui tombe en fin de mois (paie, factures) ; revenir en arrière ne déclenche rien.</small>
-    </section>
-    <section class="section">
-      <div class="section-h"><h3>Compétences</h3><span>sur ${SKILL_MAX}</span></div>
+      <small class="muted">Seule l’horloge bouge : rien ne se passe pendant le temps sauté. Passer à un nouveau mois déclenche une fois ce qui tombe en fin de mois (paie, factures) ; revenir en arrière ne déclenche rien. Pour faire passer le temps pour de vrai, utilise « Avancer ».</small>
+    </section>`,
+    jeux: () => html`<${MenuGames} g=${g} />`,
+    skills: () => html`<section class="section">
+      <div class="section-h"><h3>Sur ${SKILL_MAX}</h3></div>
       <div class="menu-grid">${SKILL_IDS.map((id) => html`<label class="menu-num" key=${id}><span>${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}</span><input class="input" inputmode="numeric" value=${v.skills[id]} onInput=${(ev) => setIn('skills', id, ev.target.value)} /></label>`)}</div>
-      <button class="btn btn-hot btn-sm" onClick=${() => apply({ skills: v.skills }, 'Compétences changées.')}>Appliquer</button>
-    </section>
-    ${people.length ? html`<section class="section">
-      <div class="section-h"><h3>Relations</h3><span>de −100 à +100</span></div>
-      <div class="menu-rels">${people.map((p) => html`<${MenuRel} key=${p.id} g=${g} c=${p} />`)}</div>
-    </section>` : null}
+      <button class="btn btn-hot btn-sm" onClick=${() => apply({ skills: changed(SKILL_IDS, 'skills') }, 'Compétences changées.')}>Appliquer</button>
+    </section>`,
+    liens: () => html`<section class="section">
+      ${people.length ? html`<div class="section-h"><h3>De −100 à +100</h3></div><div class="menu-rels">${people.map((p) => html`<${MenuRel} key=${p.id} g=${g} c=${p} />`)}</div>` : html`<p class="muted">Personne dans ton monde pour l’instant.</p>`}
+    </section>`,
+  };
+  return html`<${LayerShell} i=${i} title="🛠️ Mode menu">
+    <nav class="menu-tabs" role="tablist" aria-label="Mode menu">${MENU_TABS.map(([k, e, l]) => html`<button type="button" key=${k} role="tab" aria-selected=${tab === k ? 'true' : 'false'} class=${'menu-tab' + (tab === k ? ' on' : '')} onClick=${() => setTab(k)}><span aria-hidden="true">${e}</span>${l}</button>`)}</nav>
+    ${(panel[tab] || panel.argent)()}
     <section class="section" style="border-bottom:0">
+      <p class="muted">Les réglages cachés de ta partie : ça s’applique tout de suite, et personne dans le jeu n’en saura rien.</p>
       <button class="linkbtn quiet" onClick=${() => { lsSet('hype:menu', '0'); closeLayer(); toast('Mode menu masqué : le code le rouvre.'); update(); }}>Masquer le mode menu</button>
     </section>
   <//>`;
@@ -519,6 +600,21 @@ function StudioTab({ g, now }) {
       </details>
     </section>`;
 }
+// 0.27.6: an exclusive contract elsewhere no longer forbids signing: the player is told what it will cost, then decides.
+function trySign(g, d) {
+  const go = (o) => { if (signDeal(g, d, o)) { if (d.state !== 'scammed') toast(`Contrat signé avec ${d.brand}.`, 'good'); update(); } };
+  const x = dealClash(g, d);
+  if (!x) return go();
+  askConfirm({ title: `Signer malgré l’exclusivité ${x.brand} ?`, text: `Ton contrat avec ${x.brand} t’interdit ce secteur pendant 30 jours. ${x.state === 'signed' ? `${x.brand} rompra le contrat : tu rembourses l’acompte et ce qu’ils t’ont envoyé, plus une pénalité.` : `${x.brand} te facturera une pénalité.`} Et ta réputation pro en prendra un coup.`, ok: 'Signer quand même', danger: true, run: () => go({ force: true }) });
+}
+// What the pay line adds: the first price, what comes with the money (0.27.6: gear or products on top of a fee).
+function dealPayNote(g, d) {
+  const was = d.fee && d.fee0 && d.fee !== d.fee0 ? `au départ ${fmtMoney(g, d.fee0)}` : '';
+  const more = d.gift ? `${d.fee ? `+ ${GEAR[d.gift.kind].emoji} ${giftName(g, d.gift)} · ` : 'matos offert · '}${TIER_LABELS[d.gift.t].toLowerCase()} · valeur ${fmtMoney(g, d.gift.value)}`
+    : dealGoods(d) ? (d.fee ? `+ ≈ ${fmtMoney(g, d.value)} en produits` : `≈ ${fmtMoney(g, d.value)} en produits · pas d’argent`) : '';
+  const t = [was && `(${was})`, more].filter(Boolean).join(' ');
+  return t ? html`<em>${t}</em>` : null;
+}
 const DEAL_STATES = { offer: 'Proposition', signed: 'Signé', done: 'Livré ✓', broken: 'Rompu', expired: 'Expiré', declined: 'Refusé', withdrawn: 'Offre retirée', waiting: 'Signé', scammed: 'Arnaque' };
 // A brand's proposal (in DMs and in the Studio): what it pays, what it asks, what the law says.
 function DealCard({ g, d, now, inDM }) {
@@ -529,9 +625,9 @@ function DealCard({ g, d, now, inDM }) {
   return html`<div class=${'deal-card st-' + d.state}>
     <div class="dl-head"><span class="dl-emo" aria-hidden="true">${d.emoji}</span><div><b>${d.brand}</b><span>${cap1(d.product)}</span></div><span class="dl-state">${DEAL_STATES[d.state] || ''}</span></div>
     <div class="dl-terms">
-      <span><small>Rémunération</small><b>${d.fee ? fmtMoney(g, d.fee) : d.gift ? `${GEAR[d.gift.kind].emoji} ${giftName(g, d.gift)}` : 'Produits offerts'}</b>${d.fee && d.fee !== d.fee0 ? html`<em>(au départ ${fmtMoney(g, d.fee0)})</em>` : d.gift ? html`<em>matos offert · ${TIER_LABELS[d.gift.t].toLowerCase()} · valeur ${fmtMoney(g, d.gift.value)}</em>` : !d.fee ? html`<em>≈ ${fmtMoney(g, d.value)} en produits · pas d’argent</em>` : null}</span>
+      <span><small>Rémunération</small><b>${d.fee ? fmtMoney(g, d.fee) : d.gift ? `${GEAR[d.gift.kind].emoji} ${giftName(g, d.gift)}` : 'Produits offerts'}</b>${dealPayNote(g, d)}</span>
       <span><small>À livrer</small><b>${d.what === 'live' ? 'Un live' : cap1(`${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`)}</b><em>${d.state === 'signed' ? `avant ${fmtGameAt(d.due)}` : `sous ${d.days} jours`}</em></span>
-      ${d.upfront ? html`<span><small>Acompte</small><b>${fmtMoney(g, d.upfront)}</b><em>${d.state === 'broken' ? 'remboursé' : d.signedAt ? 'versé' : 'à la signature'}</em></span>` : null}
+      ${d.upfront ? html`<span><small>Acompte</small><b>${fmtMoney(g, d.upfront)}</b><em>${d.state === 'broken' ? 'remboursé' : d.signedAt && d.scam === 'brief' ? 'jamais versé' : d.signedAt ? 'versé' : 'à la signature'}</em></span>` : null}
     </div>
     <ul class="dl-clauses">
       <li>Paiement : ${payTerms(g, d)}.</li>
@@ -544,11 +640,11 @@ function DealCard({ g, d, now, inDM }) {
     </ul>
     <${DealExtra} g=${g} d=${d} />
     ${d.state === 'offer' ? html`<div class="row">
-      <button class="btn btn-hot btn-sm" onClick=${() => { if (signDeal(g, d)) { if (d.state !== 'scammed') toast(`Contrat signé avec ${d.brand}.`, 'good'); update(); } }}>${d.costs ? `Signer et payer ${fmtMoney(g, d.costs)}` : d.brief ? 'Télécharger et signer' : 'Signer'}</button>
+      <button class="btn btn-hot btn-sm" onClick=${() => trySign(g, d)}>${d.costs ? `Signer et payer ${fmtMoney(g, d.costs)}` : d.brief ? 'Télécharger et signer' : 'Signer'}</button>
       <button class="btn btn-ghost btn-sm" onClick=${nego}>Négocier</button>
       <button class="linkbtn quiet" onClick=${() => { declineDeal(g, d); update(); }}>Refuser</button>
       <small class="muted">${left > 0 ? `Offre valable ${fmtDur(left)}` : ''}</small>
-    </div>` : d.state === 'signed' ? html`<p class="muted dl-note">À livrer ${fmtWhen(d.due, now)} : choisis ce sponsor au moment de publier ${d.what === 'vidéo' ? 'ta prochaine vidéo' : `ton prochain ${dealWhat(g, d)}`}.</p>`
+    </div>` : d.state === 'signed' ? html`<p class="muted dl-note">À livrer ${fmtWhen(d.due, now)} : choisis ce sponsor au moment de publier ${d.what === 'vidéo' ? 'ta prochaine vidéo' : `ton prochain ${dealWhat(g, d)}`}.${d.gift && !d.giftSent ? ' Ton matos doit arriver dans les prochains jours.' : ''}</p>`
       : d.state === 'waiting' ? html`<p class="muted dl-note">${d.gift ? 'Ton matos' : 'Ton kit'} doit arriver dans les prochains jours.</p>` : null}
     ${!inDM && c ? html`<button class="linkbtn dl-contact" onClick=${() => openDM(c.id)}>Écrire à ${c.name.split(' ')[0]}</button>` : null}
   </div>`;
@@ -561,7 +657,7 @@ function PlanRow({ g, r, first, now }) {
     <div class="mid"><b>${cap1(nounOf(r))} « ${r.topic} »</b>
       <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · avec ${cc.name.split(' ')[0]}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
     <div class="acts">
-      ${left > 0 ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Plus tôt</button>`
+      ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Plus tôt</button>`)
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
       ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="linkbtn quiet" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="linkbtn quiet" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
     </div>
@@ -649,20 +745,22 @@ function SeriesLayer({ l, g, i }) {
   const step = hard ? 0.35 : 0.2, cap = hard ? 4 : 3;
   // 0.20: the quote first (what this content takes), paid to program
   const o = { what, topic: theme.trim(), days: single ? 0 : days };
-  const needDevis = !easyGear(), dv = needDevis && S.devis && S.devis.key === devisKey(o) ? S.devis : null, dvBusy = S.busy.devis === devisKey(o);
+  const needDevis = !easyGear(), dv = needDevis ? devisFor(o) : null, dvBusy = S.busy.devis === devisKey(o);
   const total = dv ? devisTotal(dv) : 0;
   const launch = () => {
     if (!ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
     if (needDevis && !dv) { genDevis(o); return; }
     if (total > 0 && total > g.career.cash) return; // (nothing to pay: even in the red, a content made with what you have)
+    const st = dv && devisStale(g, dv); // 0.27.6: what it counted on was sold, or put on sale, since
+    if (st) { staleSay(st, dv); update(false); return; }
     const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
     if (single) {
       const due = nextAt(hour, 0) + day * DAY_MS;
-      const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: S.devisAttach || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '' });
-      if (r) { if (dv) payDevis(g, dv, theme.trim()); S.devis = null; S.devisAttach = ''; toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer(); update(); }
+      const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '' });
+      if (r) { if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); } toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer(); update(); }
       return;
     }
-    if (startSeries(g, { what, days, hour, min: 0, theme: theme.trim(), diff, hard, devis: paid })) { if (dv) payDevis(g, dv, `défi « ${theme.trim()} »`); S.devis = null; closeLayer(); goTab('feed'); update(); }
+    if (startSeries(g, { what, days, hour, min: 0, theme: theme.trim(), diff, hard, devis: paid })) { if (dv) { payDevis(g, dv, `défi « ${theme.trim()} »`); dropDevis(dv); } closeLayer(); goTab('feed'); update(); }
   };
   return html`<${LayerShell} i=${i} title=${single ? 'Programmer une sortie' : 'Défi Daily Upload'}>
     <div class="mg-setup">
@@ -674,14 +772,14 @@ function SeriesLayer({ l, g, i }) {
       <div class="field"><span class="lbl">Heure de sortie</span>
         <div class="hour-pick">${[8, 12, 17, 18, 19, 20, 21, 22].map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
         <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>
-      ${single && fanQuestions(g).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${c.name.split(' ')[0]}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
+      ${single && fanQuestions(g).filter((c) => !fanPlanned(g, c)).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).filter((c) => !fanPlanned(g, c)).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${c.name.split(' ')[0]}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
       <div class="field"><label class="lbl" for="se-theme">${single ? 'Le sujet' : 'Le thème du défi'}</label>
         <input id="se-theme" class="input" maxlength="80" value=${theme} onInput=${(ev) => setTheme(ev.target.value)} placeholder=${single ? 'ex : je teste les potions du marché noir' : 'ex : une recette ratée par jour'} /></div>
       ${single ? null : html`<div class="field"><span class="lbl" id="se-diff">Difficulté des tournages</span>
         <div class="diff-list compact" role="radiogroup" aria-labelledby="se-diff">${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}><span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b></span><span class="d-mult">gains ${fmtMult(d.mult)}</span></button>`)}</div></div>
       <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le multiplicateur grimpe presque deux fois plus vite (jusqu’à ×4) et les récompenses doublent. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
       <div class="se-stakes"><span>🏆 <b>Réussi</b> : +${2 * days * (hard ? 2 : 1)} gemmes, une vague d’abonnés, et une marque te repère.</span><span>😬 <b>Pas tenu</b> : un petit bide.</span><span>💥 <b>Raté en beauté</b> (la moitié des épisodes ratés ou manqués${hard ? ', ou un seul en hardcore' : ''}) : bad buzz.</span></div>`}
-      ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? S.devisAttach || '' : null} onAttach=${single ? (id) => { S.devisAttach = id; update(false); } : null} />` : null}
+      ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; update(false); } : null} />` : null}
       <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (total > 0 && total > g.career.cash)}>${needDevis && !dv
         ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`)
         : html`<${Icon} n="calendar" s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${single ? 'programmer' : 'lancer le défi'}` : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
@@ -722,7 +820,8 @@ function PublishForm({ g, r, now }) {
   const partner = r.collab && g.chars[r.collab] ? g.chars[r.collab] : null; // 0.14: a video planned with them
   const collabs = partner && !collabs0.includes(partner) ? [partner].concat(collabs0) : collabs0;
   const T0 = r.thumb || null; // 0.14: the thumbnail made in the studio
-  const d0 = deals.find((d) => d.id === r.deal) || deals[0] || null; // 0.20: the sponsor chosen with the quote
+  const taken = (d) => plannedReleases(g).some((x) => x.id !== r.id && x.deal === d.id); // 0.27.6: carried by another planned release
+  const d0 = r.deal ? deals.find((d) => d.id === r.deal) || null : deals.find((d) => !taken(d)) || null; // 0.20: the sponsor chosen with the quote (0.27.6: delivered since by another release, none rather than another brand)
   const [f, setF] = useState(() => ({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', mention: !(d0 && d0.shady), decl: [], membAvant: false, membLive: false }));
   const set = (k, v, more) => setF(Object.assign({}, f, { [k]: v }, more || {}));
   const [lo, hi] = estimateViews(g, r, f);

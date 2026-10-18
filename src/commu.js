@@ -31,6 +31,7 @@ const FAN_OPEN_MAX = 3; // messages waiting for an answer at once
 const fanList = (g) => Object.values(g.chars).filter((c) => c.kind === 'fan' && c.fan);
 const fansWaiting = (g) => fanList(g).filter((c) => c.fan.open).sort((a, b) => a.fan.at - b.fan.at);
 const fanQuestions = (g) => fanList(g).filter((c) => c.fan.q && !c.fan.video).sort((a, b) => b.fan.at - a.fan.at);
+const fanPlanned = (g, c) => plannedReleases(g).some((r) => r.fanQ === c.id); // 0.27.6: a video on it already planned
 const fanRegulars = (g) => fanList(g).filter((c) => c.regular);
 const fanLineOK = (g, t = Date.now()) => g.stats.followers >= 300 && fansWaiting(g).length < FAN_OPEN_MAX && t >= (g.career.fanAt || 0);
 // The line a refresh may write: a fan (an adult of this world, never a main character) writes to the player.
@@ -62,7 +63,7 @@ function fanAnswered(g, c, t = Date.now()) {
 // A release that answers a fan's question: the fan becomes a regular, the community warms up a lot.
 function fanVideoDone(g, r, post) {
   const c = r && r.fanQ ? g.chars[r.fanQ] : null;
-  if (!c || !c.fan) return false;
+  if (!c || !c.fan || c.fan.video) return false; // (0.27.6: one question, one video that counts)
   c.fan.video = post ? post.id : 'done';
   c.fan.open = false;
   c.regular = true;
@@ -113,7 +114,7 @@ function CommuSection({ g, now }) {
     ${qs.length ? html`<div class="fan-qs">${qs.map((c) => html`<div class="fan-q" key=${c.id}>
       <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} onClick=${() => openDM(c.id)} />
       <div class="mid"><b>${c.name}</b><span>« ${str(c.fan.text, 120)} »</span>
-        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button><button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button></div></div>
+        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button>${fanPlanned(g, c) ? html`<span class="chip">📅 Vidéo prévue</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button>`}</div></div>
     </div>`)}</div>` : html`<p class="muted">Pas de question d’abonné en attente. Elles arrivent en message privé, quand ton fil bouge.</p>`}
     ${regs.length ? html`<p class="commu-regs">💛 Tes habitués : ${regs.slice(-8).map((c) => c.name.split(' ')[0]).join(', ')}</p>` : null}
     <${MembBlock} g=${g} />

@@ -75,7 +75,7 @@ function scamOffer(g, d, o) {
   const t = Date.now();
   d.expose = t + randi(2, 7) * DAY_MS; // the critic will tell (always when the player signed; about half of the others)
   if (kind === 'impaye' && d.gift) { const t1 = clamp(d.gift.t + 1, 0, 3); Object.assign(d.gift, { t: t1, value: GEAR[d.gift.kind].prices[t1] }); d.value = d.gift.value; d.product = `${GIFT_ART[d.gift.kind]} « ${giftName(g, d.gift)} »`; } // 0.21: gear too good to be true, that never ships
-  else if (kind === 'impaye') { const fee = niceRound(Math.max(d.fee, 300) * rand(1.2, 1.5)); Object.assign(d, { fee, fee0: fee, base: fee, upfront: 0, payLate: 60 }); d.max = Math.round(fee * 1.4); d.maxBase = d.max; }
+  else if (kind === 'impaye') { const fee = niceRound(Math.max(d.fee, 300) * rand(1.2, 1.5)); Object.assign(d, { fee, fee0: fee, base: fee, upfront: 0, payLate: 60, value: 0 }); d.max = Math.round(fee * 1.4); d.maxBase = d.max; } // (0.27.6: a big fee only, no products)
   else if (kind === 'frais') Object.assign(d, { gift: null, fee: 0, fee0: 0, base: null, maxBase: null, upfront: 0, value: randi(15, 40) * 10, costs: pick([29, 39, 49, 59, 79, 89]), product: 'son kit ambassadeur (produits et code promo à ton nom)', exclusive: false, max: 0 });
   else if (kind === 'dangereux') { if (d.gift) { d.gift = null; d.value = randi(4, 15) * 10; d.max = Math.max(40, Math.round(d.value * 0.8)); } d.product = pick(DANGER[d.sector] || DANGER.food); if (d.fee) { const fee = niceRound(d.fee * rand(1.3, 1.6)); Object.assign(d, { fee, fee0: fee, base: fee, upfront: fee >= 500 ? Math.round(fee * 0.3) : 0 }); d.max = Math.round(fee * 1.3); d.maxBase = d.max; } }
   else if (kind === 'clause') { const C = pick(CLAUSES); d.clause = { kind: C.kind, amount: niceRound(Math.max(150, (d.fee || d.value || 100) * 3)) }; d.clause.text = C.text(g, d.clause); } // (three times the contract)
@@ -85,10 +85,10 @@ function scamOffer(g, d, o) {
 // What the player sees of the terms (neutral: the same lines for every brand).
 function payTerms(g, d) {
   if (d.costs) return `Frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}`;
-  if (d.gift) return 'Le matos, envoyé à la signature'; // 0.21
-  if (!d.fee) return 'Les produits, envoyés à la signature';
-  if (d.payLate) return `En une fois, ${d.payLate} jours après la publication`;
-  return d.upfront ? (upShown(d) >= 100 ? 'Tout à la signature' : `${upShown(d)} % à la signature, le reste à la livraison`) : 'À la livraison'; // 0.27.4: what was agreed
+  const goods = d.gift ? 'le matos, envoyé à la signature' : dealGoods(d) || !d.fee ? 'les produits, envoyés à la signature' : ''; // 0.21
+  if (!d.fee) return cap1(goods);
+  const cash = d.payLate ? `en une fois, ${d.payLate} jours après la publication` : d.upfront ? (upShown(d) >= 100 ? 'tout à la signature' : `${upShown(d)} % à la signature, le reste à la livraison`) : 'à la livraison'; // 0.27.4: what was agreed
+  return goods ? `${cap1(goods)} ; l’argent ${cash}` : cap1(cash); // (0.27.6: both, when there are both)
 }
 
 /* ---------- the agents: what they see, what they bring, how far they can go ---------- */
@@ -119,7 +119,7 @@ function agentReview(g, d) {
 }
 // How hard a contract is to negotiate: above the agent's level, a gamble; without an agent, a big brand gives nothing.
 function dealHard(g, d) {
-  if (!d.fee || d.scam || easyGear()) return;
+  if (!d.fee || easyGear()) return; // (0.27.6: a scam too, or the agent's silence would give it away)
   const size = dealSize(d.fee), m = hasStaff(g, 'agent');
   if (!m) { if (size >= 2) d.hard = 'alone'; return; }
   const gap = size - m.tier;
@@ -251,7 +251,9 @@ function imageAbuse(g, d) {
 function criticExposes(g, d) {
   if (d.scam && ['done', 'signed', 'scammed', 'waiting'].includes(d.state) && d.post) warmMove(g, -5, `tu as fait la promo d’une arnaque (${d.brand})`); // 0.21: the community saw it
   if (!d.scam) return; // (the player had the trap taken out)
-  const h = g.player.handle, mine = ['signed', 'done', 'scammed', 'waiting'].includes(d.state) || d.unpaid;
+  const victim = d.scam === 'impaye' || d.scam === 'frais' || d.scam === 'brief';
+  // 0.27.6: a victim is one who signed; a promoter, one who published (a contract never delivered promoted nothing)
+  const h = g.player.handle, mine = victim ? ['signed', 'done', 'scammed', 'waiting'].includes(d.state) || d.unpaid : !!(d.post || d.state === 'done' || d.unpaid);
   if (!mine && Math.random() < 0.5) return; // not every scam makes a video
   const lines = {
     impaye: `🧨 ARNAQUE : ${d.brand} ne paie pas les créateurs. Même méthode à chaque fois : gros cachet promis, zéro acompte, paiement « à ${d.payLate} jours »… puis plus rien.`,
@@ -261,7 +263,6 @@ function criticExposes(g, d) {
     clause: `🧨 Lisez vos contrats : ${d.brand} glisse une clause piège (« ${d.clause ? d.clause.text : ''} »). Des créateurs se retrouvent coincés.`,
     brief: `🧨 ALERTE : de faux contrats « ${d.brand} » circulent. Le « brief » à télécharger est un virus qui pirate vos comptes. Ne cliquez sur rien.`,
   };
-  const victim = d.scam === 'impaye' || d.scam === 'frais' || d.scam === 'brief';
   const t = Date.now(), at = t + randi(2000, 6000);
   addAmbientPost(g, Object.assign({}, CRITIC, { text: lines[d.scam] + (mine ? ` ${victim ? 'Parmi ceux qui se sont fait avoir' : 'Parmi ceux qui en ont fait la promo'} : @${h}.` : '') }), at, at);
   if (d.state === 'signed') { // the contract of a scam no longer binds anyone
