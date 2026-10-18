@@ -2682,11 +2682,12 @@ svg.watch:active { cursor: grabbing; }
 .mix-dot { position: absolute; top: 3px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--bad); }
 .mix-meter.in .mix-dot { background: var(--good); }
 .frame-stage { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-md); background: linear-gradient(180deg, #8ecbf0 0%, #cfe9f7 58%, #9ccf86 58%, #7fb86a 100%); overflow: hidden; touch-action: none; cursor: grab; }
-.frame-subj { position: absolute; bottom: 18%; transform: translateX(-50%); font-size: 34px; line-height: 1; pointer-events: none; }
-.frame-win { position: absolute; top: 0; bottom: 0; border: 3px solid var(--bad); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.42); pointer-events: none; }
+.frame-subj { position: absolute; left: 0; bottom: 18%; transform: translateX(-50%); will-change: transform; font-size: 34px; line-height: 1; pointer-events: none; }
+.frame-win { position: absolute; left: 0; top: 0; bottom: 0; will-change: transform; border: 3px solid var(--bad); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.42); pointer-events: none; }
 .frame-win.in { border-color: var(--good); }
 .frame-btns { gap: 10px; justify-content: center; }
-.frame-btns .btn { min-width: 84px; font-size: 18px; }
+.frame-btns .btn { min-width: 96px; font-size: 18px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.frame-btns .btn.on { border-color: var(--hot); background: var(--hot-soft); color: var(--hot-t); }
 .grade-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grade-shot { position: relative; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .grade-img { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; }

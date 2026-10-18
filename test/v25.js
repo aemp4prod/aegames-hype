@@ -170,7 +170,7 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     window.__frBot = setInterval(() => {
       const st = document.querySelector('.layer .frame-stage'), su = document.querySelector('.layer .frame-subj');
       if (!st || !su) return;
-      const b = st.getBoundingClientRect(), x = b.left + (parseFloat(su.style.left) / 100) * b.width;
+      const b = st.getBoundingClientRect(), r = su.getBoundingClientRect(), x = r.left + r.width / 2; // (0.27.2: placed by transform)
       st.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: b.top + 10, bubbles: true, pointerId: 7, buttons: 1 }));
     }, 40);
   });

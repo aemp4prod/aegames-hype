@@ -211,7 +211,8 @@ const TWIN = `(function twin(H, game, it) {
   await G(page, () => { window.__hype.S.stack = []; window.__hype.S.emoOpen = null; window.__hype.update(); });
 
   // ---------- the reframing's buttons: faster than the quickest subject ----------
-  check('the reframing’s buttons move the frame faster than the quickest subject (0,9 a second, 0,59 at most for the subject)', /x\.hold \* 0\.9 \* dt/.test(PAGE), null);
+  const fsp = /const FRAME_SPEED = ([\d.]+)/.exec(PAGE); // (0.27.2: 1,1)
+  check('the reframing’s buttons move the frame faster than the quickest subject (0,9 a second or more, 0,59 at most for the subject)', !!fsp && parseFloat(fsp[1]) >= 0.9 && /x\.f \+ d \* FRAME_SPEED \* dt/.test(PAGE), fsp && fsp[1]);
 
   await browser.close();
   console.log('\nERRORS', errors.length ? errors.join('\n') : 'none');

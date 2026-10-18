@@ -5,6 +5,15 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.2 — 18 octobre 2026 (build 27002)
+
+**Le recadrage vertical répond enfin au quart de tour.**
+
+### 🛠️ Corrections
+
+- **📱 Le recadrage vertical** : le cadre bouge dès que tu appuies sur ◀ ▶ ou sur les flèches du clavier, puis glisse plus vite tant que tu restes appuyé. Passer d’une flèche à l’autre ne le fige plus, et un bouton maintenu continue même si ta souris glisse à côté.
+- **✨ Plus fluide** : le cadre et le sujet se déplacent sans à-coups, même sur un grand écran, et le bouton s’allume tant que le cadre bouge dans sa direction.
+
 ## 0.27.1 — 18 octobre 2026 (build 27001)
 
 **Les nouvelles photos arrivent enfin chez tout le monde, même si tu as un Atelier photos, et plus aucune limite de photos par visage.**

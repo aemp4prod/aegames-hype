@@ -43,7 +43,7 @@ function makeFrame(r, D) {
   return { kind: 'cadrage', title: 'Le recadrage vertical', what: r.what, intro: 'Ta vidéo est filmée à l’horizontale : garde le sujet dans le cadre vertical pendant qu’il bouge. S’il sort du cadre, on ne le voit plus sur le téléphone.',
     subject: pick(FRAME_SUBJECTS), w: [0.36, 0.32, 0.29, 0.26, 0.23, 0.21, 0.21][ix] || 0.28, speed: [0.16, 0.2, 0.25, 0.3, 0.36, 0.42, 0.42][ix] || 0.25,
     turns: [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.5][ix] || 0.9, roundMs: 6500, items: [0, 1, 2], diff: D.id,
-    rule: 'Fais glisser le cadre (ou ◀ ▶) pour garder le sujet dedans : trois plans de 6 secondes.' };
+    rule: 'Fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour garder le sujet dedans : trois plans de 6 secondes.' };
 }
 
 /* ---------- a video's colors, graded to match the reference shot ----------
@@ -241,21 +241,36 @@ function MixGame({ game, onDone, run, keep }) {
     </div>`)}
   </div>`;
 }
+/* 0.27.2: the frame answers at once. A press moves it right away (a little step, then it glides while held, faster than
+   the quickest subject); two arrows held, the last one pressed wins, and letting one go never stops the other; a button
+   held keeps going even if the pointer slips off it. The frame and the subject move by transform (no layout, no repaint
+   of the whole picture at every frame). */
+const FRAME_SPEED = 1.1, FRAME_STEP = 0.015; // (a second's glide, in widths of the picture; 0.9 in the 0.27, 0.55 before)
 function FrameGame({ game, onDone, run, keep }) {
   const nR = game.items.length, ms = game.roundMs || 6500, w = game.w || 0.28;
   const st = useRef(null);
-  if (!st.current) st.current = Object.assign(roundsStart(run, nR), { sx: 0.5, dir: 1, f: 0.5 - w / 2, inT: 0, t0: 0, last: 0, fb: null, hold: 0 });
+  if (!st.current) st.current = Object.assign(roundsStart(run, nR), { sx: 0.5, dir: 1, f: 0.5 - w / 2, inT: 0, t0: 0, last: 0, fb: null, ptr: 0, keys: { l: false, r: false, last: 0 } });
   const [, setV] = useState(0);
   const render = () => setV((v) => v + 1);
-  const stage = useRef(null), subj = useRef(null), frame = useRef(null), done = useRef(false), alive = useRef(true);
+  const stage = useRef(null), subj = useRef(null), frame = useRef(null), bL = useRef(null), bR = useRef(null), done = useRef(false), alive = useRef(true);
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / nR); } };
-  const draw = () => { const x = st.current; if (subj.current) subj.current.style.left = (x.sx * 100).toFixed(2) + '%'; if (frame.current) { frame.current.style.left = (x.f * 100).toFixed(2) + '%'; frame.current.classList.toggle('in', x.sx >= x.f && x.sx <= x.f + w); } };
+  // where the frame goes: a button held, else the arrows of the keyboard (both held: the last one pressed)
+  const dirNow = () => { const x = st.current, K = x.keys; return x.ptr || (K.l && K.r ? K.last : K.l ? -1 : K.r ? 1 : 0); };
+  const draw = () => {
+    const x = st.current, W = stage.current ? stage.current.clientWidth : 0, d = dirNow();
+    if (subj.current) subj.current.style.transform = `translate3d(${(x.sx * W).toFixed(1)}px,0,0) translateX(-50%)`;
+    if (frame.current) { frame.current.style.transform = `translate3d(${(x.f * W).toFixed(1)}px,0,0)`; frame.current.classList.toggle('in', x.sx >= x.f && x.sx <= x.f + w); }
+    if (bL.current) bL.current.classList.toggle('on', d < 0);
+    if (bR.current) bR.current.classList.toggle('on', d > 0);
+  };
+  const nudge = (d) => { const x = st.current; if (x.fb || done.current || !x.t0) return; x.f = clamp(x.f + d * FRAME_STEP, 0, 1 - w); draw(); };
   const startRound = () => {
     const x = st.current;
-    Object.assign(x, { sx: rand(0.3, 0.7), dir: Math.random() < 0.5 ? -1 : 1, f: 0.5 - w / 2, inT: 0, t0: performance.now(), last: performance.now(), fb: null, hold: 0 });
+    Object.assign(x, { sx: rand(0.3, 0.7), dir: Math.random() < 0.5 ? -1 : 1, f: 0.5 - w / 2, inT: 0, t0: performance.now(), last: performance.now(), fb: null });
     keep({ k: x.k, got: x.got, live: x.k });
     render();
   };
+  useLayoutEffect(() => { draw(); }); // (after every render: the positions are set by hand)
   useEffect(() => {
     const x0 = st.current;
     if (x0.k >= nR) { finish(x0.got); return () => { alive.current = false; }; }
@@ -269,7 +284,8 @@ function FrameGame({ game, onDone, run, keep }) {
         if (Math.random() < game.turns * dt) x.dir = -x.dir; // the subject changes its mind
         x.sx += x.dir * game.speed * rand(0.6, 1.4) * dt;
         if (x.sx < 0.04) { x.sx = 0.04; x.dir = 1; } else if (x.sx > 0.96) { x.sx = 0.96; x.dir = -1; }
-        if (x.hold) x.f = clamp(x.f + x.hold * 0.9 * dt, 0, 1 - w); // (0.27: faster than the quickest subject, 0.59 a second: it could outrun the buttons)
+        const d = dirNow();
+        if (d) x.f = clamp(x.f + d * FRAME_SPEED * dt, 0, 1 - w);
         if (x.sx >= x.f && x.sx <= x.f + w) x.inT += dt;
         draw();
         if (t - x.t0 >= ms) {
@@ -284,23 +300,39 @@ function FrameGame({ game, onDone, run, keep }) {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    const onKey = (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); st.current.hold = e.type === 'keydown' ? (e.key === 'ArrowLeft' ? -1 : 1) : 0; } };
+    const onKey = (e) => {
+      const d = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+      if (!d) return;
+      e.preventDefault();
+      const K = st.current.keys, down = e.type === 'keydown';
+      if (d < 0) K.l = down; else K.r = down;
+      if (down) { K.last = d; if (!e.repeat) nudge(d); } else draw();
+    };
+    const letGo = () => { const x = st.current; x.keys.l = x.keys.r = false; x.ptr = 0; draw(); }; // (the window left: nothing stays pressed)
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
-    return () => { alive.current = false; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); };
+    window.addEventListener('blur', letGo);
+    return () => { alive.current = false; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); window.removeEventListener('blur', letGo); };
   }, []);
   const moveTo = (e) => { const el = stage.current, x = st.current; if (!el || x.fb) return; const b = el.getBoundingClientRect(); x.f = clamp((e.clientX - b.left) / b.width - w / 2, 0, 1 - w); draw(); };
+  const hold = (d) => ({
+    onPointerDown: (e) => { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* (a pointer the browser does not track) */ } st.current.ptr = d; nudge(d); },
+    onPointerUp: () => { if (st.current.ptr === d) { st.current.ptr = 0; draw(); } },
+    onPointerCancel: () => { if (st.current.ptr === d) { st.current.ptr = 0; draw(); } },
+    onLostPointerCapture: () => { if (st.current.ptr === d) { st.current.ptr = 0; draw(); } },
+    onContextMenu: (e) => e.preventDefault(),
+  });
   const x = st.current;
   if (x.k >= nR) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   return html`<div class="mg-play frame-play">
     <div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb ? `${Math.round(x.fb.v * 100)} % du temps dans le cadre` : 'Garde le sujet dans le cadre'}</span></div>
     <div class="frame-stage" ref=${stage} onPointerDown=${(e) => { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* (a pointer the browser does not track) */ } moveTo(e); }} onPointerMove=${(e) => { if (e.buttons || e.pointerType === 'touch') moveTo(e); }}>
-      <span class="frame-subj" ref=${subj} style=${'left:' + (x.sx * 100).toFixed(2) + '%'} aria-hidden="true">${game.subject}</span>
-      <span class="frame-win" ref=${frame} style=${`left:${(x.f * 100).toFixed(2)}%;width:${(w * 100).toFixed(2)}%`}></span>
+      <span class="frame-subj" ref=${subj} aria-hidden="true">${game.subject}</span>
+      <span class="frame-win" ref=${frame} style=${`width:${(w * 100).toFixed(2)}%`}></span>
     </div>
     <div class="row frame-btns">
-      <button type="button" class="btn btn-ghost" onPointerDown=${() => { st.current.hold = -1; }} onPointerUp=${() => { st.current.hold = 0; }} onPointerLeave=${() => { st.current.hold = 0; }} aria-label="Cadre à gauche">◀</button>
-      <button type="button" class="btn btn-ghost" onPointerDown=${() => { st.current.hold = 1; }} onPointerUp=${() => { st.current.hold = 0; }} onPointerLeave=${() => { st.current.hold = 0; }} aria-label="Cadre à droite">▶</button>
+      <button type="button" class="btn btn-ghost" ref=${bL} ...${hold(-1)} aria-label="Cadre à gauche">◀</button>
+      <button type="button" class="btn btn-ghost" ref=${bR} ...${hold(1)} aria-label="Cadre à droite">▶</button>
     </div>
   </div>`;
 }
