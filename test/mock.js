@@ -111,6 +111,21 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     { t: 'reply', by: 'gargouille_ronchon', text: 'encore une qui va faire pschitt' },
     { t: 'announce', what: 'vidéo', topic: 'Les magouilles de Léandre au conseil des maisons', in: 60, about: 'leandre.aube' }
   );
+  const MG_ORDER = L(
+    { t: 'game', kind: 'ordre', title: 'Le tournage, étape par étape', intro: 'Remets dans l’ordre ce que tu vas montrer : une étape de travers, et ta vidéo perd le fil.' },
+    { t: 'step', text: 'Présenter le sujet en une phrase' },
+    { t: 'step', text: 'Montrer la première preuve' },
+    { t: 'step', text: 'Donner la parole à un témoin' },
+    { t: 'step', text: 'Révéler le rebondissement' },
+    { t: 'step', text: 'Conclure et demander l’avis des abonnés' }
+  );
+  const MG_QUIZ = L(
+    { t: 'game', kind: 'quiz', title: 'Le quiz du sujet', intro: 'Avant de tourner, vérifie que tu maîtrises ton sujet.' },
+    { t: 'q', text: 'Qui préside le conseil des maisons ?', a: ['Léandre', 'Zara', 'Théo'], ok: 0, why: 'il l’a annoncé lui-même' },
+    { t: 'q', text: 'Où a disparu le chaudron ?', a: ['en salle 3', 'au réfectoire', 'à la bibliothèque'], ok: 0, why: 'tout Lumen en parle' },
+    { t: 'q', text: 'Quelle maison organise le duel ?', a: ['Marée', 'Brasier', 'Aube'], ok: 1, why: 'c’est leur tradition' },
+    { t: 'q', text: 'Quand a lieu le vote ?', a: ['vendredi', 'lundi', 'dimanche'], ok: 0, why: 'affiché au panneau' }
+  );
   const MG_TRI = L(
     { t: 'game', kind: 'tri', title: 'Les preuves du conseil', intro: 'Garde ce qui prouve les magouilles de Léandre, jette les rumeurs et le hors-sujet.' },
     { t: 'item', text: 'Le procès-verbal du conseil signé deux fois par Léandre', good: true, why: 'une preuve écrite' },
@@ -450,6 +465,8 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     if (p.includes('CONVERSATION PRIVÉE') && /je la déteste|c’est une tricheuse|je vais l’enterrer/i.test(p.split('Nouveau message du joueur')[1] || '')) return L({ t: 'msg', text: 'woah. ok. je note.' }, { t: 'rel', d: -2, why: 'choqué·e par ta méchanceté' }, { t: 'intel', text: 'le joueur insulte Zara en privé', weight: 2 });
     if (p.includes('LE MINI-JEU DU TOURNAGE')) {
       if (p.includes('NIVEAU CAUCHEMAR')) return MG_REAL;
+      const imposed = /\{"t":"game","kind":"(tri|ordre|quiz|vf|intrus)"/.exec(p); // 0.27.3: the format the game picked
+      if (imposed) return { tri: MG_TRI, ordre: MG_ORDER, quiz: MG_QUIZ, vf: MG_VF, intrus: MG_ODD }[imposed[1]];
       const topic = (/SON SUJET, choisi par lui : « ([^»]*)/.exec(p) || [])[1] || '';
       if (/idées reçues/.test(topic)) return MG_VF;
       if (/intrus/.test(topic)) return MG_ODD;

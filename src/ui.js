@@ -2890,7 +2890,7 @@ if (window.__HYPE_TEST__) {
     vibePrivate, learnLove, allLearn, knowsOf, seesChron, privNote, dateSeen, KNOW_RULE, lastWord, lastWordsFor, STAY_RE, logDate, backfillDates, dateLogText, dateLogOf, dateLogFor, DATE_LOG_MAX,
     JOB_KINDS, addJob, addJobFile, jobOf, openJob, jobsOf, jobWorked, sendJob, jobOutcome, tickJobs, jobsCtx, jobDMCtx, jobTalk, JOB_LINE, jobFilesWanted, thumbQual, jobGame, payCap,
     vibePath, vibeOK, normVibe, breakUp, dateOutcome, partnerWord, meetKind, sameWhat,
-    pickArc, addArc, liveArcs, isTroll, crowdFor, pickShootKind, makeMontage, makeMemoire, DIFFS,
+    pickArc, addArc, liveArcs, isTroll, crowdFor, pickShootKind, shootWeights, MG_KINDS_AI, promptMiniGame, makeMontage, makeMemoire, DIFFS,
     // 0.7
     budgetOf, cafesLeft, chargeBudget, canAfford, energyNow, calMoment, audienceAt, adSeason, gameDate, fmtGameClock, programOf, applyProgram, checkPayout, releaseViews, estimateViews, rpmOf,
     makeOffer, signDeal, dealFee, deliverDeal, sanction, addCandidate, hireStaff, quitStaff, staffMult, payroll, startSeries, seriesMult, endSeries, scheduleRelease,

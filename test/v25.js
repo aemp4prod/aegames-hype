@@ -112,7 +112,7 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     const seen = {};
     for (const w of ['live', 'short', 'podcast', 'vidéo']) {
       const r = { what: w, diff: 'moyen', crew: [] };
-      for (let i = 0; i < 300; i++) { g.mgLast = null; const k = H.pickShootKind(g, r); seen[w + ':' + k] = (seen[w + ':' + k] || 0) + 1; }
+      for (let i = 0; i < 400; i++) { g.mgRecent = []; const k = H.pickShootKind(g, r); seen[w + ':' + k] = (seen[w + ':' + k] || 0) + 1; } // (0.27.3: every game of the format alike)
     }
     const edits = {};
     for (const [w, shotK] of [['vidéo', 'quiz'], ['vidéo', 'etalonnage'], ['short', 'cadrage'], ['podcast', 'quiz'], ['clip', 'montage']]) {
@@ -124,7 +124,7 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     return { seen, edits };
   });
   check('the shoot’s rotation by format: the chat for a live, the reframing for a short, the mix for a podcast, the grading for a video (with the cut and the memory); the edit rotates too, never the shoot’s own game',
-    rot.seen['live:chat'] > 10 && !rot.seen['live:cadrage'] && rot.seen['short:cadrage'] > 10 && rot.seen['podcast:mixage'] > 10 && rot.seen['vidéo:etalonnage'] > 10 && !rot.seen['vidéo:chat']
+    rot.seen['live:chat'] > 20 && !rot.seen['live:cadrage'] && rot.seen['short:cadrage'] > 20 && rot.seen['podcast:mixage'] > 20 && rot.seen['vidéo:etalonnage'] > 20 && !rot.seen['vidéo:chat']
       && rot.edits['vidéo<quiz'] === 'etalonnage,montage,tri' && rot.edits['vidéo<etalonnage'] === 'montage,tri' && rot.edits['short<cadrage'] === 'montage,tri' && rot.edits['podcast<quiz'] === 'mixage,montage,tri' && rot.edits['clip<montage'] === 'etalonnage', rot);
 
   // ---------- the chat of a live: the bad ones removed, the fans kept ----------

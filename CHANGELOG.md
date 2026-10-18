@@ -5,6 +5,21 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.3 — 18 octobre 2026 (build 27003)
+
+**Fini le quiz à chaque tournage : tous les mini-jeux ont enfin la même chance de tomber.**
+
+### 🛠️ Corrections
+
+- **🎲 Le mini-jeu du tournage** : jusqu’ici, l’IA choisissait le plus souvent le quiz, et les épreuves comme la coupe au rythme ne tombaient qu’une fois sur dix. Désormais, c’est le jeu qui tire au sort : chacun des 8 mini-jeux de ton format a 1 chance sur 8, quelle que soit la difficulté, et jamais le même deux fois de suite.
+
+### 💡 Bon à savoir
+
+- Pour une vidéo, les 8 mini-jeux sont : trier, remettre dans l’ordre, quiz, vrai ou faux, trouve l’intrus, le montage au rythme, la mémoire et l’étalonnage. Le short a le recadrage, le live la modération du chat, le podcast le mixage.
+- Avec un monteur dans ton équipe, la coupe au rythme est pour lui : il reste 7 mini-jeux, 1 chance sur 7 chacun.
+- Au montage, le mini-jeu change aussi à chaque fois : environ 1 chance sur 3 pour chacun, jamais celui du tournage.
+- Le niveau Cauchemar garde son quiz de vraies questions de connaisseur : c’est tout son principe.
+
 ## 0.27.2 — 18 octobre 2026 (build 27002)
 
 **Le recadrage vertical répond enfin au quart de tour.**

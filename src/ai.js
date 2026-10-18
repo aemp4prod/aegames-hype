@@ -2091,7 +2091,7 @@ function stayCtx(g, about) {
   return `Ce matin, le joueur ${home ? `est encore chez @${c.handle}, où il a passé la nuit` : `a encore chez lui @${c.handle}, qui y a passé la nuit`}${vibePrivate(c) ? ' (c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion)' : ''}.`;
 }
 
-function promptMiniGame(g, r) {
+function promptMiniGame(g, r, force) {
   const c = r.c ? g.chars[r.c] : null;
   const clues = c ? (g.clues || []).filter((k) => k.c === c.id).map((k) => k.text) : [];
   const D = diffOf(r.diff);
@@ -2101,18 +2101,32 @@ function promptMiniGame(g, r) {
   const nT = mgCount('tri', D), nO = mgCount('ordre', D), nQ = mgCount('quiz', D), nV = mgCount('vf', D), nI = mgCount('intrus', D);
   const opts = Array.from({ length: D.opts }, () => '"…"').join(',');
   const last = g.mgLast && MG_NAMES[g.mgLast] ? g.mgLast : '';
+  const FORMAT_LINE = {
+    tri: `- "tri" : ${nT} éléments à garder ou à jeter, pour un contenu qui prouve, dénonce, révèle ou défend quelque chose (preuves solides contre rumeurs, éléments hors sujet, pièges qui le décrédibiliseraient).`,
+    ordre: `- "ordre" : ${nO} étapes à remettre dans le bon ordre, pour un tuto, une recette, une histoire, un vlog, un clip, un défi…`,
+    quiz: `- "quiz" : ${nQ} questions à ${D.opts} choix, pour un contenu d’analyse, de culture, de conseils, de réaction…`,
+    vf: `- "vf" : ${nV} affirmations sur le sujet, vraies ou fausses, pour un contenu qui explique, démystifie ou casse des idées reçues.`,
+    intrus: `- "intrus" : ${nI} séries de ${D.opts} propositions dont une seule n’a rien à faire dans ${laW(r)} (hors sujet, fausse ou qui le ferait couler).`,
+  };
+  const LINES_OF = {
+    tri: `${nT} lignes {"t":"item","text":"≤ 80 caractères","good":true,"why":"≤ 70 caractères"} (à peu près moitié de bons, les autres sont des pièges)`,
+    ordre: `${nO} lignes {"t":"step","text":"≤ 70 caractères"}, DANS LE BON ORDRE (le jeu les mélangera)`,
+    quiz: `${nQ} lignes {"t":"q","text":"≤ 110 caractères","a":[${opts}],"ok":0,"why":"≤ 80 caractères"} ("ok" = index de la bonne réponse)`,
+    vf: `${nV} lignes {"t":"vf","text":"≤ 90 caractères","good":true,"why":"≤ 70 caractères"} ("good" = true si l’affirmation est vraie ; à peu près moitié de vraies)`,
+    intrus: `${nI} lignes {"t":"odd","text":"≤ 70 caractères : le thème de la série","a":[${opts}],"ok":0,"why":"≤ 70 caractères"} ("ok" = index de l’intrus)`,
+  };
   const formats = D.real ? [ // the very last level: real knowledge, nothing invented
     `NIVEAU ${D.label.toUpperCase()}, LE PLUS DUR DU JEU : un "quiz" de ${nQ} questions de connaisseur à ${D.opts} choix sur ce dont parle ${laW(r)}, de plus en plus dures (les premières pour un bon fan, les dernières pour un vrai expert).`,
     '- Si le sujet porte sur quelque chose de RÉEL (un jeu vidéo, un film, une série, un livre, un artiste, un sport, une marque, un plat, un fait historique…), pose de VRAIES questions dessus : dates, noms, chiffres, règles, détails que seuls les vrais passionnés connaissent. Rien d’inventé.',
     '- S’il est propre au monde du jeu (une personne ou une histoire d’ici), pose des questions pointues sur ce qui s’est vraiment passé : qui a dit quoi, quand, les détails des posts, des messages et des événements que le joueur a pu voir.',
     '- Uniquement des faits dont tu es certain : au moindre doute, pose une autre question. Rien qui ait pu changer récemment (records, classements, « l’actuel… »)' + (isReal(g) ? ', sauf l’actu fournie plus haut' : '') + '. Les mauvaises réponses sont crédibles, la bonne est exacte. L’intro ne donne aucune réponse.',
+  ] : force ? [ // 0.27.3: the game picks the format (left free, the AI wrote a quiz most of the time)
+    `Le format de ce mini-jeu est imposé : « ${MG_NAMES[force]} » ("${force}"). Trouve comment le faire coller au sujet :`,
+    FORMAT_LINE[force],
+    'Tout colle au sujet, au monde et à ce qui s’est passé. Pas de question pointue sur des faits réels. L’intro ne donne aucune réponse.',
   ] : [
     'Choisis le format le plus adapté au sujet' + (last ? ` (le dernier mini-jeu de ce joueur était « ${MG_NAMES[last]} » : prends-en un autre)` : '') + ' :',
-    `- "tri" : ${nT} éléments à garder ou à jeter, pour un contenu qui prouve, dénonce, révèle ou défend quelque chose (preuves solides contre rumeurs, éléments hors sujet, pièges qui le décrédibiliseraient).`,
-    `- "ordre" : ${nO} étapes à remettre dans le bon ordre, pour un tuto, une recette, une histoire, un vlog, un clip, un défi…`,
-    `- "quiz" : ${nQ} questions à ${D.opts} choix, pour un contenu d’analyse, de culture, de conseils, de réaction…`,
-    `- "vf" : ${nV} affirmations sur le sujet, vraies ou fausses, pour un contenu qui explique, démystifie ou casse des idées reçues.`,
-    `- "intrus" : ${nI} séries de ${D.opts} propositions dont une seule n’a rien à faire dans ${laW(r)} (hors sujet, fausse ou qui le ferait couler).`,
+    ...MG_KINDS_AI.map((k) => FORMAT_LINE[k]),
     'Tout colle au sujet, au monde et à ce qui s’est passé. Pas de question pointue sur des faits réels. L’intro ne donne aucune réponse.',
   ];
   return [RULES, '', ctxText(g, { kind: 'light', feed: D.real ? 10 : 4, chron: D.real ? 12 : 6, focus: new Set(c ? [c.id] : []) }), '',
@@ -2127,12 +2141,10 @@ function promptMiniGame(g, r) {
     ...formats,
     '', FORMAT, 'Lignes à produire :',
     D.real ? '- D’abord : {"t":"game","kind":"quiz","title":"≤ 40 caractères","intro":"≤ 140 caractères : ce que le joueur doit prouver, dans le contexte de son contenu"}'
+      : force ? `- D’abord : {"t":"game","kind":"${force}","title":"≤ 40 caractères","intro":"≤ 140 caractères : ce que le joueur doit faire, dans le contexte de son contenu"}`
       : '- D’abord : {"t":"game","kind":"…","title":"≤ 40 caractères","intro":"≤ 140 caractères : ce que le joueur doit faire, dans le contexte de son contenu"} ("kind" = le format choisi : "tri", "ordre", "quiz", "vf" ou "intrus")',
-    D.real ? null : `- Si "tri" : ${nT} lignes {"t":"item","text":"≤ 80 caractères","good":true,"why":"≤ 70 caractères"} (à peu près moitié de bons, les autres sont des pièges)`,
-    D.real ? null : `- Si "ordre" : ${nO} lignes {"t":"step","text":"≤ 70 caractères"}, DANS LE BON ORDRE (le jeu les mélangera)`,
-    `- ${D.real ? 'Puis' : 'Si "quiz" :'} ${nQ} lignes {"t":"q","text":"≤ 110 caractères","a":[${opts}],"ok":0,"why":"≤ 80 caractères"} ("ok" = index de la bonne réponse)`,
-    D.real ? null : `- Si "vf" : ${nV} lignes {"t":"vf","text":"≤ 90 caractères","good":true,"why":"≤ 70 caractères"} ("good" = true si l’affirmation est vraie ; à peu près moitié de vraies)`,
-    D.real ? null : `- Si "intrus" : ${nI} lignes {"t":"odd","text":"≤ 70 caractères : le thème de la série","a":[${opts}],"ok":0,"why":"≤ 70 caractères"} ("ok" = index de l’intrus)`,
+    ...(D.real ? [`- Puis ${nQ} lignes {"t":"q","text":"≤ 110 caractères","a":[${opts}],"ok":0,"why":"≤ 80 caractères"} ("ok" = index de la bonne réponse)`]
+      : (force ? [force] : MG_KINDS_AI).map((k) => (force ? '- Puis ' : `- Si "${k}" : `) + LINES_OF[k])),
   ].filter((x) => x !== null).join('\n');
 }
 // Without Claude, the shoot is the production itself: put its steps back in order.
@@ -2155,11 +2167,25 @@ function startShoot(r) {
 // Saved first: an attempt the player does not like can be taken back and played again, without postponing.
 // Now and then a skill round instead (cutting on the beat, remembering the script; 0.25: the chat of a live, the reframing
 // of a short, the mix of a podcast, the grading of a video): no Claude needed, never twice in a row.
-function pickShootKind(g, r) {
-  if (S.mgForce) return S.mgForce; // tests
-  if (diffOf(r.diff).real || Math.random() >= 0.3) return 'ai';
+/* 0.27.3: at the shoot, every mini-game of the format has the same chance: the five the AI writes on the subject (sort,
+   order, quiz, true or false, odd one out) and the format's skill rounds (the cut on the beat, the memory, and the chat
+   of a live, the reframing of a short, the mix of a podcast or the grading of a video). Never the same as the last
+   shoot, half as likely when played in the two before. The game picks the format: left to choose, the AI wrote a quiz
+   most of the time. « Cauchemar » stays the real-knowledge quiz (its very idea). */
+const MG_KINDS_AI = ['tri', 'ordre', 'quiz', 'vf', 'intrus'];
+function shootWeights(g, r) {
   const editor = (r.crew || []).includes('monteur'); // the editor does the cutting: no rhythm round for the player
-  return pick((ROUNDS_FOR[r.what] || ROUNDS_FOR.vidéo).filter((k) => k !== g.mgLast && !(editor && k === 'montage'))) || 'ai';
+  const pool = MG_KINDS_AI.concat((ROUNDS_FOR[r.what] || ROUNDS_FOR.vidéo).filter((k) => !(editor && k === 'montage')));
+  const recent = Array.isArray(g.mgRecent) ? g.mgRecent : [];
+  return pool.map((k) => [k, k === recent[0] ? 0 : recent.slice(1, 3).includes(k) ? 0.5 : 1]);
+}
+function pickShootKind(g, r) {
+  if (S.mgForce) return S.mgForce; // tests (« ai »: the AI picks its format)
+  if (diffOf(r.diff).real) return 'quiz';
+  const ws = shootWeights(g, r);
+  let x = Math.random() * ws.reduce((a, w) => a + w[1], 0);
+  for (const [k, w] of ws) { x -= w; if (x < 0) return k; }
+  return ws[ws.length - 1][0];
 }
 const genShoot = (r) => {
   const g = S.game;
@@ -2167,13 +2193,15 @@ const genShoot = (r) => {
   autoSave(g, `Avant le tournage de ${ta(r)}`);
   payCrew(g, r); // the team paid per release gets to work (once per release)
   const kind = pickShootKind(g, r);
+  if (kind !== 'ai') g.mgRecent = [kind].concat(Array.isArray(g.mgRecent) ? g.mgRecent : []).slice(0, 3);
   if (ROUND_MAKERS[kind]) {
     r.game = ROUND_MAKERS[kind](r, diffOf(r.diff));
     g.mgLast = kind;
     update();
     return null;
   }
-  return genGame(r, () => promptMiniGame(g, r), () => prodGame(r), 'Le tournage');
+  const force = MG_KINDS_AI.includes(kind) ? kind : null; // (« ai »: the AI picks)
+  return genGame(r, () => promptMiniGame(g, r, force), () => prodGame(r), 'Le tournage', force);
 };
 const genDate = (ev) => {
   const g = S.game;
@@ -2194,12 +2222,12 @@ const genDate = (ev) => {
   return genGame(ev, () => promptDateGame(g, ev), () => dateGame(ev), 'Le rendez-vous');
 };
 // The lines of a mini-game written by the AI, as they stream (a shoot, a date, a date read again).
-function gameReader() {
-  const sp = { kind: '', title: '', intro: '', items: [] };
+function gameReader(force) {
+  const sp = { kind: force || '', title: '', intro: '', items: [] };
   const kindOf = { item: 'tri', step: 'ordre', q: 'quiz', vf: 'vf', odd: 'intrus' };
   const read = (o) => {
     if (o.t === 'game' && !sp.title) {
-      sp.kind = ['tri', 'ordre', 'quiz', 'vf', 'intrus'].includes(o.kind) ? o.kind : sp.kind;
+      if (!force) sp.kind = ['tri', 'ordre', 'quiz', 'vf', 'intrus'].includes(o.kind) ? o.kind : sp.kind; // (imposed: kept)
       sp.title = str(o.title, 60);
       sp.intro = str(o.intro, 200);
       return;
@@ -2220,8 +2248,8 @@ function gameReader() {
 }
 // A mini-game written by the AI: null when nothing valid came (throws when the player left the game meanwhile).
 // review: a date read again against the story (« Rendez-vous soignés »), rewritten when something does not fit.
-async function writeMiniGame(g, r, makePrompt, f, review) {
-  const rd = gameReader();
+async function writeMiniGame(g, r, makePrompt, f, review, force) {
+  const rd = gameReader(force);
   try { await aiStream(makePrompt(), rd.read, { signal: f.ctl.signal, kind: r.player ? 'date' : 'shoot' }); }
   catch (e) {
     if (!e || e.code !== 'cancelled') console.warn('mini-game', e && (e.code || e.message));
@@ -2244,14 +2272,14 @@ async function reviewDate(g, ev, game, f) {
   await aiStream(promptDateCheck(g, ev, game), (o) => { if (o.t === 'ok') ok = true; else if (!ok) rd.read(o); }, { signal: f.ctl.signal, kind: 'date' });
   return !ok && validGame(rd.sp) ? rd.sp : null;
 }
-async function genGame(r, makePrompt, fallback, title) {
+async function genGame(r, makePrompt, fallback, title, force) {
   const g = S.game;
   if (!g || !r || r.state !== 'scheduled' || r.game || S.busy.mg) return;
   S.busy.mg = r.id;
   update(false);
   const f = startFlow(g);
   let game = null;
-  try { game = await writeMiniGame(g, r, makePrompt, f, !!(r.player && g.opts && g.opts.careDates)); }
+  try { game = await writeMiniGame(g, r, makePrompt, f, !!(r.player && g.opts && g.opts.careDates), force); }
   catch (e) { S.busy.mg = null; endFlow(f); update(); return; }
   if (r.state === 'scheduled') { r.game = Object.assign(game ? Object.assign(game, { title: game.title || title }) : fallback(), { diff: r.diff || 'moyen' }); g.mgLast = r.game.kind; }
   S.busy.mg = null;

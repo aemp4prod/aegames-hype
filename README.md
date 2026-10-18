@@ -285,7 +285,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   contraste en Expert, au plan de référence ; depuis la 0.27, c’est l’image qui est jugée, comme à l’œil, et le jeu dit ce
   qui clochait). Ils arrivent au tournage selon le format, et le montage tourne lui aussi
   (la coupe au rythme, le dérushage, l’étalonnage, le recadrage, le mixage), jamais le même jeu qu’au tournage.
-  Plus la difficulté monte, plus c’est rapide, serré et chargé.
+  Plus la difficulté monte, plus c’est rapide, serré et chargé. Depuis la 0.27.3, au tournage, chaque mini-jeu du
+  format a la même chance, quelle que soit la difficulté : les cinq que l’IA écrit sur ton sujet (trier, remettre dans
+  l’ordre, quiz, vrai ou faux, trouve l’intrus) et les trois épreuves du format, soit 1 chance sur 8, jamais le même
+  deux fois de suite (1 sur 7 avec un monteur dans l’équipe : pas de coupe au rythme pour toi). Cauchemar reste le quiz
+  de vraies questions.
 - **Les mini-jeux** (tournages et rendez-vous) gardent ta progression à chaque réponse : si tu en sors, tu reprends où tu
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
@@ -332,7 +336,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.2.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.3.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.
