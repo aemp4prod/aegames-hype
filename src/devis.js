@@ -8,14 +8,28 @@
 const DEVIS_KINDS = { achat: '🛒', location: '🔑', transport: '🚗', service: '🧾', conso: '🧺' };
 const DEVIS_MAX = 6;
 const normItem = (s) => foldAcc(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(le|la|les|un|une|des|du|de|d|l)\b/g, ' ').replace(/\s+/g, ' ').trim();
-// Whether the player already owns something like this item (bought for an earlier video).
+// Whether the player already owns something like this item (bought for an earlier video, or in the inventory: 0.27).
 function ownsItem(g, item) {
   const n = normItem(item);
   if (n.length < 3) return false;
-  return ((g.gear && g.gear.owned) || []).some((o) => { const m = normItem(o.name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); });
+  const like = (name) => { const m = normItem(name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); };
+  return ((g.gear && g.gear.owned) || []).some((o) => like(o.name)) || devisStock(g).some((s) => like(s.x.name));
 }
+/* 0.27: what the player has at hand for a content: the inventory (what brands sent, the gifts, what they bought for
+   themselves), never what is on sale, nor spare gear (gear is never in a quote). The AI is told about it, and about the
+   brands signed for this kind of content: what covers a need is not paid for, it shows as « already there »; what the
+   shoot uses up (food, drinks, consumables) leaves the inventory when the quote is settled. */
+const DEVIS_STOCK = 20, DEVIS_HAVE = 5;
+const devisStock = (g) => invLive(g).filter((x) => !x.sale && x.kind !== 'gear').sort((a, b) => b.at - a.at).slice(0, DEVIS_STOCK).map((x, k) => ({ key: 'i' + (k + 1), x }));
+function stockFrom(g, x) {
+  const F = x.from || {}, c = F.c ? g.chars[F.c] : null;
+  if (x.kind === 'goods' || F.how === 'marque') return `envoyé par ${F.brand || (c && c.brand) || 'une marque'}`;
+  if (x.kind === 'gift' || F.how === 'cadeau') return c ? `offert par ${c.name.split(' ')[0]}` : 'un cadeau';
+  return 'à toi';
+}
+const devisDeals = (g, o) => signedDeals(g).filter((d) => d.what === o.what);
 const devisKey = (o) => [o.what, str(o.topic, 120).toLowerCase(), o.days || 0].join('|');
-function promptDevis(g, o) {
+function promptDevis(g, o, stock = devisStock(g), deals = devisDeals(g, o)) {
   const money = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros';
   const owned = ((g.gear && g.gear.owned) || []).slice(-25).map((x) => x.name);
   const one = o.what === 'live' ? 'un live' : o.what === 'vidéo' ? 'une vidéo longue' : o.what === 'short' ? `un format court vertical (${PF(g).shortName})` : `un ${o.what}`;
@@ -24,30 +38,40 @@ function promptDevis(g, o) {
     o.days ? `C’est un défi de ${o.days} jours : un épisode par jour sur ce thème. Sépare ce qui s’achète une seule fois ("per":"once") de ce qui se rachète à chaque épisode ("per":"episode", le prix d’UN épisode).` : null,
     `Son matériel de tournage, déjà à lui (ne le compte jamais) : ${gearBrief(g)}.`,
     `Ce qu’il a déjà acheté pour d’anciennes vidéos (ne le rachète jamais) : ${owned.length ? owned.join(' ; ') : 'rien'}.`,
+    stock.length ? `Ce qu’il a sous la main, dans son inventaire : ${stock.map((s) => `[${s.key}] ${s.x.name} (${stockFrom(g, s.x)})`).join(' ; ')}.` : null,
+    deals.length ? `Ses partenariats signés pour ce type de contenu : ${deals.map((d) => `${d.brand} (${str(d.product, 60)})`).join(' ; ')}.` : null,
     '', '## TÂCHE : LE DEVIS',
     `Ce qu’il faut acheter, louer ou payer pour faire CE contenu, avec des prix réalistes (en ${money}, comme en vrai). Rien d’inutile : un contenu tourné chez soi, sans accessoire, peut ne rien coûter du tout. Jamais de matériel de tournage (le sien suffit), jamais de salaire (son équipe est déjà payée). Des noms génériques, sans marque.`,
+    stock.length || deals.length ? `Ne lui fais jamais payer ce qu’il a déjà : si un objet de son inventaire couvre un besoin de ce contenu (les produits qu’une marque lui a envoyés, un cadeau, un achat), aucune ligne à payer pour ça, signale-le. Pareil pour ce qu’une marque partenaire fournit pour qu’il en parle.` : null,
     '', FORMAT,
     `Au plus ${DEVIS_MAX} lignes : {"t":"cost","item":"≤ 60 caractères","price":40,"kind":"achat","keep":true,"per":"once"} (kind : achat, location, transport, service ou conso ; keep : true seulement pour un objet qu’il gardera et pourra réutiliser).`,
-    'Si rien n’est à payer, une seule ligne : {"t":"free"}.',
+    stock.length ? `- Chaque objet de son inventaire qui sert ce contenu (au plus ${DEVIS_HAVE}) : {"t":"have","id":"i1","use":"conso"} (use : "conso" si le tournage le consomme — on le mange, on le boit, on l’use —, "garde" s’il le récupère après).` : null,
+    deals.length ? `- Ce qu’une marque partenaire fournit pour ce contenu : {"t":"have","brand":"${deals[0].brand}","item":"≤ 60 caractères"}.` : null,
+    `Si rien n’est à payer, une seule ligne : {"t":"free"}${stock.length || deals.length ? ' (plus les lignes "have", s’il y en a)' : ''}.`,
     '- Facultatif, si un type de marque pourrait financer ce contenu : {"t":"sponsor","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","why":"≤ 80 caractères"}.'].filter((x) => x !== null).join('\n');
 }
 // The lines of the AI, cleaned: owned things dropped, prices bounded, at most DEVIS_MAX.
-function readDevis(g, o, objs) {
-  const items = [];
+function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) {
+  const items = [], have = [];
   let sponsor = null;
   for (const x of objs) {
     if (x.t === 'cost' && items.length < DEVIS_MAX) {
       const item = str(x.item, 60), price = Math.round(clamp(num(x.price, 0), 0, 50000));
       if (!item || !(price > 0) || ownsItem(g, item) || items.some((y) => normItem(y.item) === normItem(item))) continue;
       items.push({ item, price, kind: DEVIS_KINDS[x.kind] ? x.kind : 'achat', keep: x.keep === true || x.keep === 'true', per: o.days && x.per === 'episode' ? 'episode' : 'once' });
+    } else if (x.t === 'have' && have.length < DEVIS_HAVE) { // 0.27: already there, nothing to pay
+      const s = stock.find((y) => y.key === String(x.id || '').trim().toLowerCase());
+      if (s) { if (!have.some((h) => h.inv === s.x.id)) have.push({ inv: s.x.id, name: s.x.name, emoji: s.x.emoji, from: stockFrom(g, s.x), use: x.use === 'garde' ? 'garde' : 'conso' }); continue; }
+      const d = deals.find((y) => y.brand.toLowerCase() === str(x.brand, 40).toLowerCase()), item = str(x.item, 60);
+      if (d && item && !have.some((h) => normItem(h.name) === normItem(item))) have.push({ name: item, emoji: d.emoji, from: `fourni par ${d.brand}`, brand: d.brand });
     } else if (x.t === 'sponsor' && !sponsor && SECTORS.some((s) => s.id === x.sector)) sponsor = { sector: x.sector, why: str(x.why, 80) };
   }
-  return makeDevis(o, items, sponsor);
+  return makeDevis(o, items, sponsor, true, have);
 }
-function makeDevis(o, items, sponsor, ai = true) {
+function makeDevis(o, items, sponsor, ai = true, have = []) {
   const once = items.filter((x) => x.per !== 'episode').reduce((n, x) => n + x.price, 0);
   const each = items.filter((x) => x.per === 'episode').reduce((n, x) => n + x.price, 0);
-  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), days: o.days || 0, items, once, each, sponsor, ai, at: Date.now() };
+  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), days: o.days || 0, items, once, each, sponsor, ai, have, at: Date.now() };
 }
 const devisTotal = (dv) => (dv ? dv.once + dv.each * (dv.days || 1) : 0);
 // Asks the AI for the quote (the player's own action). key: where the screen waits for it (S.devis).
@@ -59,9 +83,10 @@ async function genDevis(o) {
   const f = startFlow(g);
   const objs = [];
   let dv = null;
+  const stock = devisStock(g), deals = devisDeals(g, o); // (the same list for the prompt and its reading)
   try {
-    await aiStream(promptDevis(g, o), (x) => { if (x && (x.t === 'cost' || x.t === 'sponsor' || x.t === 'free')) objs.push(x); }, { signal: f.ctl.signal, src: f.id, kind: 'devis', tier: 'quick' });
-    dv = readDevis(g, o, objs);
+    await aiStream(promptDevis(g, o, stock, deals), (x) => { if (x && (x.t === 'cost' || x.t === 'sponsor' || x.t === 'free' || x.t === 'have')) objs.push(x); }, { signal: f.ctl.signal, src: f.id, kind: 'devis', tier: 'quick' });
+    dv = readDevis(g, o, objs, stock, deals);
   } catch (e) {
     if (e && e.code === 'budget') reportAiError(e);
     else if (!e || e.code !== 'cancelled') console.warn('devis', e && (e.code || e.message));
@@ -73,13 +98,20 @@ async function genDevis(o) {
   update(false);
   return dv;
 }
-// Paying the quote: the money goes, what is kept joins what the player owns (never bought again).
+// Paying the quote: the money goes, what is kept joins what the player owns (never bought again), and what the shoot uses
+// up from the inventory leaves it (0.27).
 function payDevis(g, dv, label) {
   const total = devisTotal(dv);
   if (total > 0 && !pay(g, total, `Devis : ${label || str(dv.topic, 40)}`, 'devis')) return false;
   const G = g.gear;
   for (const x of dv.items) if (x.keep && G && !ownsItem(g, x.item)) G.owned.push({ name: x.item, price: x.price, at: Date.now() });
   if (G && G.owned.length > 60) G.owned.splice(0, G.owned.length - 60);
+  const used = [];
+  for (const h of dv.have || []) {
+    const x = h.inv && h.use === 'conso' ? invItem(g, h.inv) : null;
+    if (x && !x.sold && !x.sale) { invOf(g).splice(invOf(g).indexOf(x), 1); used.push(x.name); }
+  }
+  if (used.length) addNotif(g, { k: 'gear', text: `📦 Pour ton tournage, tu utilises ce que tu avais : ${used.join(', ')}.` });
   dv.paid = Date.now();
   return true;
 }
@@ -105,6 +137,7 @@ function DevisCard({ g, dv, attach, onAttach }) {
     <div class="dv-head"><${Icon} n="receipt" s=${18} /><b>Le devis</b><span>${dv.ai ? '' : 'estimé sans l’IA'}</span></div>
     ${dv.items.length ? html`<ul class="dv-lines">${dv.items.map((x, k) => html`<li key=${k}><span aria-hidden="true">${DEVIS_KINDS[x.kind]}</span><span>${x.item}${x.keep ? html` <em>à garder</em>` : null}${x.per === 'episode' ? html` <em>par épisode</em>` : null}</span><b>${fmtMoney(g, x.price)}</b></li>`)}</ul>`
       : html`<p class="muted">Rien à acheter : ton matos et ce que tu as déjà suffisent.</p>`}
+    ${dv.have && dv.have.length ? html`<div class="dv-have"><span class="lbl">Déjà là, rien à payer</span><ul class="dv-lines">${dv.have.map((h, k) => html`<li key=${k}><span aria-hidden="true">${emoParts(h.emoji || '📦', 'dh' + k)}</span><span>${h.name} <em>${h.from}${h.inv ? (h.use === 'conso' ? ', utilisé pour le tournage' : ', tu le gardes') : ''}</em></span><b>${fmtMoney(g, 0)}</b></li>`)}</ul></div>` : null}
     ${dv.days && dv.each ? html`<p class="muted dv-sum">${fmtMoney(g, dv.once)} une fois + ${fmtMoney(g, dv.each)} × ${dv.days} épisodes</p>` : null}
     <div class="dv-total"><span>Total</span><b class=${total > 0 && total > cash ? 'neg' : ''}>${fmtMoney(g, total)}</b></div>
     ${total > 0 && total > cash ? html`<p class="dv-miss">Il te manque ${fmtMoney(g, total - Math.max(0, cash))} : choisis un sujet moins cher, ou trouve un sponsor.</p>` : null}
@@ -118,7 +151,7 @@ function DevisStep({ g, r, topic }) {
   const o = { what: r.what, topic, plot: r.plot || '' };
   const dv = S.devis && S.devis.key === devisKey(o) ? S.devis : null;
   const busy = S.busy.devis === devisKey(o);
-  const paid = () => { if (!dv) return; if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; } r.devis = { total: devisTotal(dv), items: dv.items, topic: dv.topic, at: Date.now() }; S.devis = null; if (S.devisAttach) { r.deal = S.devisAttach; S.devisAttach = ''; } update(); };
+  const paid = () => { if (!dv) return; if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; } r.devis = { total: devisTotal(dv), items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() }; S.devis = null; if (S.devisAttach) { r.deal = S.devisAttach; S.devisAttach = ''; } update(); };
   return html`<div class="devis-step">
     ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${S.devisAttach || ''} onAttach=${(id) => { S.devisAttach = id; update(false); }} />
       <button class="btn btn-hot" onClick=${paid} disabled=${devisTotal(dv) > 0 && devisTotal(dv) > g.career.cash}><${Icon} n="cash" s=${16} /> ${devisTotal(dv) ? `Payer ${fmtMoney(g, devisTotal(dv))}` : 'Valider le devis (rien à payer)'}</button>`

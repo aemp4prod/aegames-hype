@@ -26,7 +26,7 @@ MOMENTS = {'all', 'jour', 'soir'}
 OLD_PLACES = {'selfie': 'selfie', 'tenue': 'tenue', 'maison': 'maison', 'cafe': 'café', 'resto': 'resto', 'soiree': 'soirée', 'amis': 'amis', 'sport': 'sport',
               'plage': 'plage', 'nature': 'nature', 'ville': 'ville', 'voyage': 'voyage', 'travail': 'travail', 'concert': 'concert'}
 OLD_OCCS = {'halloween': 'halloween', 'noel': 'noël', 'nouvelan': 'nouvel an', 'valentin': 'saint-valentin'}
-DESC_MAX, PROFILE_MAX, TAG_MAX = 300, 300, 12
+DESC_MAX, PROFILE_MAX, TAG_MAX = 300, 300, 20
 STYLES = {'moderne', 'magie', 'scifi', 'cyber', 'fantasy'}
 GOAL = {'f': 7, 'm': 6, 'x': 2, 'photos': 9}
 EXT = {'webp': 'webp', 'jpeg': 'jpg', 'png': 'png'}
@@ -96,7 +96,7 @@ def main():
             if not file:
                 continue
             tags = y.get('tags') if isinstance(y.get('tags'), list) else [OLD_PLACES.get(k) for k in y.get('places') or []] + [OLD_OCCS.get(k) for k in y.get('occ') or []]
-            tags = [t for t in dict.fromkeys(text(t, 24).lstrip('#').lower() for t in tags if isinstance(t, str)) if t][:TAG_MAX]
+            tags = [t for t in dict.fromkeys(text(t, 32).lstrip('#').lower() for t in tags if isinstance(t, str)) if t][:TAG_MAX]
             ph = {
                 'id': phid, 'file': file,
                 'season': y.get('season') if y.get('season') in SEASONS else 'all',

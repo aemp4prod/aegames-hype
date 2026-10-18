@@ -1,0 +1,1396 @@
+[
+ {
+  "id": "rire-larmes",
+  "char": "😂",
+  "name": "Rire aux larmes",
+  "tags": [
+   "rire",
+   "drôle",
+   "mdr"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "mdr",
+  "char": "🤣",
+  "name": "Mort de rire",
+  "tags": [
+   "rire",
+   "mort de rire",
+   "ptdr"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "sourire",
+  "char": "😊",
+  "name": "Sourire",
+  "tags": [
+   "content",
+   "gentil",
+   "merci"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "grand-sourire",
+  "char": "😁",
+  "name": "Grand sourire",
+  "tags": [
+   "joyeux",
+   "content",
+   "fier"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "yeux-coeurs",
+  "char": "😍",
+  "name": "Yeux en cœur",
+  "tags": [
+   "amour",
+   "beau",
+   "magnifique"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "coeurs",
+  "char": "🥰",
+  "name": "Entouré de cœurs",
+  "tags": [
+   "amour",
+   "tendresse",
+   "mignon"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "bisou",
+  "char": "😘",
+  "name": "Bisou",
+  "tags": [
+   "bisou",
+   "amour",
+   "merci"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "clin-doeil",
+  "char": "😉",
+  "name": "Clin d'œil",
+  "tags": [
+   "complice",
+   "blague",
+   "drague"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "narquois",
+  "char": "😏",
+  "name": "Narquois",
+  "tags": [
+   "drague",
+   "malin",
+   "sous-entendu"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "cool",
+  "char": "😎",
+  "name": "Cool",
+  "tags": [
+   "cool",
+   "stylé",
+   "frime"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "etoiles",
+  "char": "🤩",
+  "name": "Des étoiles plein les yeux",
+  "tags": [
+   "wow",
+   "fan",
+   "incroyable"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "fete",
+  "char": "🥳",
+  "name": "Fête",
+  "tags": [
+   "fête",
+   "anniversaire",
+   "bravo"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "rire-gene",
+  "char": "😅",
+  "name": "Rire gêné",
+  "tags": [
+   "gêne",
+   "ouf",
+   "oups"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "sourire-larme",
+  "char": "🥲",
+  "name": "Sourire ému",
+  "tags": [
+   "ému",
+   "ça va",
+   "touché"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "a-lenvers",
+  "char": "🙃",
+  "name": "À l'envers",
+  "tags": [
+   "ironie",
+   "second degré"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "fond",
+  "char": "🫠",
+  "name": "Visage qui fond",
+  "tags": [
+   "gêne",
+   "chaud",
+   "fondre"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "reflechit",
+  "char": "🤔",
+  "name": "Réfléchit",
+  "tags": [
+   "doute",
+   "question",
+   "hmm"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "yeux-au-ciel",
+  "char": "🙄",
+  "name": "Yeux au ciel",
+  "tags": [
+   "agacé",
+   "blasé",
+   "sérieux"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "blase",
+  "char": "😒",
+  "name": "Blasé",
+  "tags": [
+   "bof",
+   "agacé",
+   "jaloux"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "rougit",
+  "char": "😳",
+  "name": "Rougit",
+  "tags": [
+   "gêne",
+   "choc",
+   "timide"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "bouche-bee",
+  "char": "😮",
+  "name": "Bouche bée",
+  "tags": [
+   "surprise",
+   "wow",
+   "quoi"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "cri",
+  "char": "😱",
+  "name": "Cri d'effroi",
+  "tags": [
+   "choc",
+   "peur",
+   "scandale"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "explose",
+  "char": "🤯",
+  "name": "Tête qui explose",
+  "tags": [
+   "choc",
+   "wow",
+   "dingue"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "grimace",
+  "char": "😬",
+  "name": "Grimace",
+  "tags": [
+   "gêne",
+   "oups",
+   "malaise"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "supplie",
+  "char": "🥺",
+  "name": "Supplie",
+  "tags": [
+   "mignon",
+   "s'il te plaît"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "larme",
+  "char": "😢",
+  "name": "Larme",
+  "tags": [
+   "triste",
+   "déçu"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "sanglots",
+  "char": "😭",
+  "name": "Sanglots",
+  "tags": [
+   "pleurer",
+   "triste",
+   "émotion"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "colere",
+  "char": "😡",
+  "name": "Colère",
+  "tags": [
+   "colère",
+   "énervé"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "souffle",
+  "char": "😤",
+  "name": "Souffle",
+  "tags": [
+   "énervé",
+   "déterminé"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "rage",
+  "char": "🤬",
+  "name": "Rage",
+  "tags": [
+   "colère",
+   "insulte",
+   "rage"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "nausee",
+  "char": "🤢",
+  "name": "Nausée",
+  "tags": [
+   "dégoût",
+   "beurk"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "dort",
+  "char": "😴",
+  "name": "Dort",
+  "tags": [
+   "fatigué",
+   "ennui",
+   "dodo"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "chut",
+  "char": "🤫",
+  "name": "Chut",
+  "tags": [
+   "secret",
+   "chut"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "ange",
+  "char": "😇",
+  "name": "Ange",
+  "tags": [
+   "innocent",
+   "gentil"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "diable",
+  "char": "😈",
+  "name": "Diable",
+  "tags": [
+   "malin",
+   "coquin"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "crane",
+  "char": "💀",
+  "name": "Crâne",
+  "tags": [
+   "mort de rire",
+   "dead",
+   "choqué"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "clown",
+  "char": "🤡",
+  "name": "Clown",
+  "tags": [
+   "ridicule",
+   "troll"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "pouce",
+  "char": "👍",
+  "name": "Pouce levé",
+  "tags": [
+   "ok",
+   "d'accord",
+   "bien"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "pouce-bas",
+  "char": "👎",
+  "name": "Pouce baissé",
+  "tags": [
+   "nul",
+   "non",
+   "bof"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "bravo",
+  "char": "👏",
+  "name": "Bravo",
+  "tags": [
+   "bravo",
+   "applaudir",
+   "respect"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "mains-jointes",
+  "char": "🙏",
+  "name": "Mains jointes",
+  "tags": [
+   "merci",
+   "s'il te plaît"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "muscle",
+  "char": "💪",
+  "name": "Muscle",
+  "tags": [
+   "force",
+   "courage",
+   "sport"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "coucou",
+  "char": "👋",
+  "name": "Coucou",
+  "tags": [
+   "salut",
+   "coucou",
+   "bye"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "coeur",
+  "char": "❤️",
+  "name": "Cœur",
+  "tags": [
+   "amour",
+   "cœur",
+   "love"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeur-brise",
+  "char": "💔",
+  "name": "Cœur brisé",
+  "tags": [
+   "rupture",
+   "triste"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "deux-coeurs",
+  "char": "💕",
+  "name": "Deux cœurs",
+  "tags": [
+   "amour",
+   "tendresse"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeur-brillant",
+  "char": "💖",
+  "name": "Cœur brillant",
+  "tags": [
+   "amour",
+   "mignon"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "feu",
+  "char": "🔥",
+  "name": "Feu",
+  "tags": [
+   "feu",
+   "chaud",
+   "trop bien",
+   "hype"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "etincelles",
+  "char": "✨",
+  "name": "Étincelles",
+  "tags": [
+   "magie",
+   "brillant",
+   "nouveau"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "cent",
+  "char": "💯",
+  "name": "Cent",
+  "tags": [
+   "parfait",
+   "vrai"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "etoile",
+  "char": "⭐",
+  "name": "Étoile",
+  "tags": [
+   "star",
+   "favori"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "couronne",
+  "char": "👑",
+  "name": "Couronne",
+  "tags": [
+   "roi",
+   "reine",
+   "boss"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "trophee",
+  "char": "🏆",
+  "name": "Trophée",
+  "tags": [
+   "victoire",
+   "champion"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "argent",
+  "char": "💰",
+  "name": "Argent",
+  "tags": [
+   "argent",
+   "thune",
+   "business"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "photo",
+  "char": "📸",
+  "name": "Photo",
+  "tags": [
+   "photo",
+   "selfie"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "micro",
+  "char": "🎤",
+  "name": "Micro",
+  "tags": [
+   "chanter",
+   "live"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "popcorn",
+  "char": "🍿",
+  "name": "Popcorn",
+  "tags": [
+   "drama",
+   "regarder"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "yeux",
+  "char": "👀",
+  "name": "Yeux",
+  "tags": [
+   "regarder",
+   "curieux",
+   "potin"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "eclair",
+  "char": "⚡",
+  "name": "Éclair",
+  "tags": [
+   "rapide",
+   "énergie"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "fusee",
+  "char": "🚀",
+  "name": "Fusée",
+  "tags": [
+   "décollage",
+   "succès"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "confettis",
+  "char": "🎉",
+  "name": "Confettis",
+  "tags": [
+   "fête",
+   "bravo",
+   "félicitations"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "cadeau",
+  "char": "🎁",
+  "name": "Cadeau",
+  "tags": [
+   "cadeau",
+   "surprise"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "valide",
+  "char": "✅",
+  "name": "Validé",
+  "tags": [
+   "ok",
+   "validé",
+   "oui"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "non",
+  "char": "❌",
+  "name": "Non",
+  "tags": [
+   "non",
+   "faux"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "musique",
+  "char": "🎵",
+  "name": "Musique",
+  "tags": [
+   "musique",
+   "son"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "vernis",
+  "char": "💅",
+  "name": "Vernis",
+  "tags": [
+   "classe",
+   "diva",
+   "je m'en fiche"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "chevre",
+  "char": "🐐",
+  "name": "Chèvre",
+  "tags": [
+   "goat",
+   "le meilleur"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "sourire-leger",
+  "char": "🙂",
+  "name": "Petit sourire",
+  "tags": [
+   "ok",
+   "poli",
+   "gentil",
+   "ça va"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "soulage",
+  "char": "😌",
+  "name": "Soulagé",
+  "tags": [
+   "soulagé",
+   "serein",
+   "zen",
+   "apaisé"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "entre-doigts",
+  "char": "🫣",
+  "name": "Entre les doigts",
+  "tags": [
+   "gêne",
+   "oups",
+   "peur",
+   "j'ose pas"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "emu",
+  "char": "🥹",
+  "name": "Ému",
+  "tags": [
+   "ému",
+   "touché",
+   "mignon",
+   "larmes de joie"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "rire",
+  "char": "😄",
+  "name": "Rire",
+  "tags": [
+   "rire",
+   "joyeux",
+   "content",
+   "haha"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "sueur",
+  "char": "😰",
+  "name": "Sueur froide",
+  "tags": [
+   "stress",
+   "angoisse",
+   "peur",
+   "panique"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "gele",
+  "char": "🥶",
+  "name": "Gelé",
+  "tags": [
+   "froid",
+   "gelé",
+   "glacé",
+   "hiver"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "inspecteur",
+  "char": "🧐",
+  "name": "Inspecteur",
+  "tags": [
+   "louche",
+   "enquête",
+   "suspicieux",
+   "hmm"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "sonne",
+  "char": "😵",
+  "name": "Sonné",
+  "tags": [
+   "sonné",
+   "choqué",
+   "ko",
+   "épuisé"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "motus",
+  "char": "🤐",
+  "name": "Bouche cousue",
+  "tags": [
+   "secret",
+   "motus",
+   "je dis rien",
+   "chut"
+  ],
+  "cat": "visages"
+ },
+ {
+  "id": "hourra",
+  "char": "🙌",
+  "name": "Hourra",
+  "tags": [
+   "bravo",
+   "enfin",
+   "victoire",
+   "youpi"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "coeur-mains",
+  "char": "🫶",
+  "name": "Cœur avec les mains",
+  "tags": [
+   "amour",
+   "merci",
+   "soutien",
+   "love"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "ok",
+  "char": "👌",
+  "name": "OK",
+  "tags": [
+   "parfait",
+   "ok",
+   "top",
+   "nickel"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "ici",
+  "char": "👇",
+  "name": "Ici",
+  "tags": [
+   "regarde",
+   "en bas",
+   "lien",
+   "ici"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "accord",
+  "char": "🤝",
+  "name": "Poignée de main",
+  "tags": [
+   "accord",
+   "deal",
+   "partenariat",
+   "contrat"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "selfie",
+  "char": "🤳",
+  "name": "Selfie",
+  "tags": [
+   "selfie",
+   "photo",
+   "moi",
+   "story"
+  ],
+  "cat": "mains"
+ },
+ {
+  "id": "coeur-jaune",
+  "char": "💛",
+  "name": "Cœur jaune",
+  "tags": [
+   "amitié",
+   "soleil",
+   "joie",
+   "cœur"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeur-orange",
+  "char": "🧡",
+  "name": "Cœur orange",
+  "tags": [
+   "chaleur",
+   "douceur",
+   "cœur"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeur-blanc",
+  "char": "🤍",
+  "name": "Cœur blanc",
+  "tags": [
+   "doux",
+   "pur",
+   "paix",
+   "cœur"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeurs-tournent",
+  "char": "💞",
+  "name": "Cœurs qui tournent",
+  "tags": [
+   "amour",
+   "couple",
+   "love",
+   "cœurs"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coup-de-foudre",
+  "char": "💘",
+  "name": "Coup de foudre",
+  "tags": [
+   "crush",
+   "coup de foudre",
+   "amoureux",
+   "cupidon"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "mot-doux",
+  "char": "💌",
+  "name": "Mot doux",
+  "tags": [
+   "lettre",
+   "mot doux",
+   "déclaration",
+   "message"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "coeur-cadeau",
+  "char": "💝",
+  "name": "Cœur cadeau",
+  "tags": [
+   "cadeau",
+   "saint-valentin",
+   "amour",
+   "surprise"
+  ],
+  "cat": "coeurs"
+ },
+ {
+  "id": "telephone",
+  "char": "📱",
+  "name": "Téléphone",
+  "tags": [
+   "téléphone",
+   "portable",
+   "appel",
+   "réseaux"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "appareil",
+  "char": "📷",
+  "name": "Appareil photo",
+  "tags": [
+   "appareil",
+   "photo",
+   "shooting"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "clap",
+  "char": "🎬",
+  "name": "Clap",
+  "tags": [
+   "vidéo",
+   "tournage",
+   "action",
+   "film"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "micro-studio",
+  "char": "🎙️",
+  "name": "Micro de studio",
+  "tags": [
+   "podcast",
+   "micro",
+   "voix",
+   "enregistrement"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "casque",
+  "char": "🎧",
+  "name": "Casque",
+  "tags": [
+   "casque",
+   "musique",
+   "écoute",
+   "gaming"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "manette",
+  "char": "🎮",
+  "name": "Manette",
+  "tags": [
+   "jeu",
+   "gaming",
+   "manette",
+   "gamer"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "pellicule",
+  "char": "🎞️",
+  "name": "Pellicule",
+  "tags": [
+   "film",
+   "montage",
+   "pellicule",
+   "cinéma"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "ampoule",
+  "char": "💡",
+  "name": "Idée",
+  "tags": [
+   "idée",
+   "astuce",
+   "ampoule",
+   "eurêka"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "cafe",
+  "char": "☕",
+  "name": "Café",
+  "tags": [
+   "café",
+   "pause",
+   "matin",
+   "thé"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "trinque",
+  "char": "🥂",
+  "name": "Santé",
+  "tags": [
+   "santé",
+   "fête",
+   "champagne",
+   "trinquer"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "bieres",
+  "char": "🍻",
+  "name": "Tchin",
+  "tags": [
+   "apéro",
+   "tchin",
+   "potes",
+   "bière"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "boisson",
+  "char": "🥤",
+  "name": "Boisson",
+  "tags": [
+   "soda",
+   "boisson",
+   "paille",
+   "smoothie"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "pizza",
+  "char": "🍕",
+  "name": "Pizza",
+  "tags": [
+   "pizza",
+   "soirée",
+   "manger",
+   "faim"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "shopping",
+  "char": "🛍️",
+  "name": "Shopping",
+  "tags": [
+   "shopping",
+   "achats",
+   "boutique",
+   "haul"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "basket",
+  "char": "👟",
+  "name": "Basket",
+  "tags": [
+   "basket",
+   "sneakers",
+   "mode",
+   "sport"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "mallette",
+  "char": "💼",
+  "name": "Mallette",
+  "tags": [
+   "travail",
+   "business",
+   "pro",
+   "boulot"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "colis",
+  "char": "📦",
+  "name": "Colis",
+  "tags": [
+   "colis",
+   "livraison",
+   "unboxing",
+   "envoi"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "etiquette",
+  "char": "🏷️",
+  "name": "Étiquette",
+  "tags": [
+   "prix",
+   "vente",
+   "promo",
+   "étiquette"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "calendrier",
+  "char": "📅",
+  "name": "Calendrier",
+  "tags": [
+   "date",
+   "rendez-vous",
+   "planning",
+   "agenda"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "maison",
+  "char": "🏠",
+  "name": "Maison",
+  "tags": [
+   "maison",
+   "chez moi",
+   "appart",
+   "home"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "billets",
+  "char": "💸",
+  "name": "Argent qui s’envole",
+  "tags": [
+   "dépense",
+   "cher",
+   "argent",
+   "facture"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "bague",
+  "char": "💍",
+  "name": "Bague",
+  "tags": [
+   "bague",
+   "fiançailles",
+   "mariage",
+   "oui"
+  ],
+  "cat": "objets"
+ },
+ {
+  "id": "bulle",
+  "char": "💬",
+  "name": "Bulle",
+  "tags": [
+   "message",
+   "commentaire",
+   "discussion",
+   "dm"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "megaphone",
+  "char": "📣",
+  "name": "Mégaphone",
+  "tags": [
+   "annonce",
+   "appel",
+   "alerte",
+   "info"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "hausse",
+  "char": "📈",
+  "name": "En hausse",
+  "tags": [
+   "hausse",
+   "stats",
+   "succès",
+   "croissance"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "baisse",
+  "char": "📉",
+  "name": "En baisse",
+  "tags": [
+   "baisse",
+   "chute",
+   "flop",
+   "stats"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "boum",
+  "char": "💥",
+  "name": "Boum",
+  "tags": [
+   "boum",
+   "choc",
+   "explosion",
+   "bam"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "petard",
+  "char": "🧨",
+  "name": "Pétard",
+  "tags": [
+   "drama",
+   "scandale",
+   "buzz",
+   "pétard"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "attention",
+  "char": "⚠️",
+  "name": "Attention",
+  "tags": [
+   "attention",
+   "alerte",
+   "danger",
+   "prudence"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "interdit",
+  "char": "🚫",
+  "name": "Interdit",
+  "tags": [
+   "interdit",
+   "stop",
+   "non",
+   "bloqué"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "lune",
+  "char": "🌙",
+  "name": "Lune",
+  "tags": [
+   "nuit",
+   "lune",
+   "soir",
+   "dodo"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "soleil-leve",
+  "char": "🌅",
+  "name": "Lever de soleil",
+  "tags": [
+   "matin",
+   "lever de soleil",
+   "réveil",
+   "aube"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "papillon",
+  "char": "🦋",
+  "name": "Papillon",
+  "tags": [
+   "papillon",
+   "papillons",
+   "crush",
+   "léger"
+  ],
+  "cat": "symboles"
+ },
+ {
+  "id": "soleil",
+  "char": "☀️",
+  "name": "Soleil",
+  "tags": [
+   "soleil",
+   "été",
+   "beau temps",
+   "chaud"
+  ],
+  "cat": "symboles"
+ }
+]

@@ -144,9 +144,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   annoncé par le Minotaure. Tant que tes posts marchent, il avance du niveau 1 au niveau 5 (plus il y a de Y, plus ça
   va vite) et tes posts portent plus loin ; à l’arrivée, de l’XP, et dès le niveau 3 les marques te remarquent. Quelques
   jours de pause entre deux trains.
-- **Les emojis du jeu** : 67 autocollants dessinés pour Hype, partout où un emoji s’affiche (ceux du téléphone quand il
-  en manque un), et un bouton **Emojis** comme sur un clavier de téléphone : catégories, recherche par mot (joyeux,
-  triste, drague…), les derniers utilisés en premier.
+- **Les emojis du jeu** : 124 autocollants dessinés pour Hype (67 depuis la 0.17, 57 de plus dans la 0.27 : objets du
+  quotidien de créateur, visages, mains, cœurs), partout où un emoji s’affiche (ceux du téléphone quand il en manque
+  un), et un bouton **Emojis** comme sur un clavier de téléphone : catégories, recherche par mot (joyeux, triste,
+  drague…), les derniers utilisés en premier.
 - **Ta cote** : un scandale, une mauvaise passe, le vent en poupe ou le sommet (affichée sous la barre du haut).
   Chaque personnage y réagit selon son **tempérament**, écrit par l’IA quand elle le crée : les fidèles restent, les
   intègres prennent leurs distances, les opportunistes suivent le vent, les envieux savourent ta chute ou jalousent ton
@@ -166,6 +167,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   contenu-là (un jeu, une location, un circuit, des ingrédients…), à prix réalistes, jamais ton matos ni ce que tu as déjà
   acheté pour une ancienne vidéo. Il se paie pour programmer (un contenu sans rien à acheter reste gratuit) ; pour une
   vidéo annoncée dans un post, il arrive au tournage. C’est là qu’on associe une marque déjà signée, ou qu’on en démarche une.
+  Depuis la 0.27, il connaît ton inventaire et tes partenariats : ce qu’une marque t’a envoyé, un cadeau, ce que tu t’es
+  offert couvre un besoin sans rien payer (« Déjà là »), et ce que le tournage consomme quitte l’inventaire.
   Avant chaque tournage, tu peux raconter **ce qui se passe dans ta vidéo** : le mini-jeu, les réactions et la suite de
   la partie s’en servent. Après le tournage, **le montage** (couper au rythme, ou trier les rushes) fait gagner ou
   perdre jusqu’à 15 points à ta vidéo, puis **la miniature** des vidéos longues : tu la composes (fond, tête, texte,
@@ -279,7 +282,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   les insultes, les arnaques et le spam sans toucher aux fans, avec des pièges à partir de Difficile), **le mixage** d’un
   podcast (garder chaque piste dans la bande verte), **le recadrage vertical** d’un short (garder le sujet dans le
   cadre du téléphone) et **l’étalonnage** d’une vidéo (accorder la température, la lumière, la saturation, et le
-  contraste en Expert, au plan de référence). Ils arrivent au tournage selon le format, et le montage tourne lui aussi
+  contraste en Expert, au plan de référence ; depuis la 0.27, c’est l’image qui est jugée, comme à l’œil, et le jeu dit ce
+  qui clochait). Ils arrivent au tournage selon le format, et le montage tourne lui aussi
   (la coupe au rythme, le dérushage, l’étalonnage, le recadrage, le mixage), jamais le même jeu qu’au tournage.
   Plus la difficulté monte, plus c’est rapide, serré et chargé.
 - **Les mini-jeux** (tournages et rendez-vous) gardent ta progression à chaque réponse : si tu en sors, tu reprends où tu
@@ -298,7 +302,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Les photos d’un même shooting forment une série : un carrousel, ou une seule photo plus tard, jamais deux fois à
   quelques jours d’écart. Une photo ne revient pas tant que son post est encore visible, et leurs pages ne gardent
   qu’une semaine de jeu. Le pack livré avec le jeu a trois visages pour l’instant (trois femmes, dans les mondes
-  d’aujourd’hui et l’académie de magie ; depuis la 0.21, une DJ techno et ses 43 photos) ; les autres persos gardent
+  d’aujourd’hui et l’académie de magie ; depuis la 0.21, une DJ techno et ses 43 photos ; depuis la 0.27, la streameuse
+  aux mèches roses en a 103) ; les autres persos gardent
   leur emoji en attendant les suivants.
 - **Tes photos à toi** : une photo, un carrousel ou un diapo façon TikTok (10 photos au plus), les tiennes ou celles de
   ton perso IA. Elles restent sur ton appareil ; les persos ne lisent que ce que tu dis qu’on y voit, et y réagissent.
@@ -327,7 +332,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.26.0.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.0.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

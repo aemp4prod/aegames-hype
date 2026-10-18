@@ -38,7 +38,7 @@ function emoOnly(text) {
 }
 
 /* ---------- the keyboard ---------- */
-const EMO_CATS = [['recents', 'Récents'], ['visages', 'Visages'], ['mains', 'Mains'], ['coeurs', 'Cœurs'], ['symboles', 'Symboles']];
+const EMO_CATS = [['recents', 'Récents'], ['visages', 'Visages'], ['mains', 'Mains'], ['coeurs', 'Cœurs'], ['objets', 'Objets'], ['symboles', 'Symboles']]; // (0.27: the objects)
 const EMO_RECENT_KEY = 'hype:emo:recent';
 function emoRecents() {
   try { const v = JSON.parse(localStorage.getItem(EMO_RECENT_KEY) || '[]'); return Array.isArray(v) ? v.filter((id) => EMO_LIST.some((e) => e.id === id)).slice(0, 16) : []; } catch (e) { return []; }

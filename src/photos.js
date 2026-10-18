@@ -13,7 +13,7 @@ const PH_GENDERS = [['f', 'Femme'], ['m', 'Homme'], ['x', 'Look androgyne']];
 // What a complete pack holds: a face for every main character of a game (the 10 of the start, the 5 who arrive with
 // the levels), each with a profile photo and enough photos for a grid of 3 × 3.
 const PACK_GOAL = { f: 7, m: 6, x: 2, photos: 9 };
-const PH_DESC_MAX = 300, PH_PROFILE_MAX = 300, PH_TAG_MAX = 12;
+const PH_DESC_MAX = 300, PH_PROFILE_MAX = 300, PH_TAG_MAX = 20, PH_PER_PERSON = 150; // (0.27: 20 tags of up to 32 characters, the creator's as written; 150 photos a face, 60 before)
 // The creator's tags are free. The game understands them through these families of words (case and accents
 // ignored): what a photo shows (for the highlights, and to match what a post talks about), its mood (a character in a
 // bad buzz posts a serious photo rather than a laughing one), the occasions it belongs to (out only at their time).
@@ -67,7 +67,7 @@ function familiesOf(text, groups, from) {
 }
 const SEASON_RE = { ete: /(?<![a-zà-ÿ])[ée]t[ée](?![a-zà-ÿ])|summer|juillet|ao[ûu]t/i, hiver: /hiver|winter|neige|ski\b|d[ée]cembre|janvier/i, mi: /printemps|automne|spring|autumn|fall\b/i };
 // A tag as the creator typed it, tidied up (« Jeu Vidéo » stays readable, two spaces do not).
-const cleanTag = (t) => str(t, 24).replace(/^#+/, '').toLowerCase();
+const cleanTag = (t) => str(t, 32).replace(/^#+/, '').toLowerCase();
 // The 0.8.0 atelier had fixed labels: they become tags.
 const OLD_PLACES = { selfie: 'selfie', tenue: 'tenue', maison: 'maison', cafe: 'café', resto: 'resto', soiree: 'soirée', amis: 'amis', sport: 'sport', plage: 'plage', nature: 'nature', ville: 'ville', voyage: 'voyage', travail: 'travail', concert: 'concert' };
 const OLD_OCCS = { halloween: 'halloween', noel: 'noël', nouvelan: 'nouvel an', valentin: 'saint-valentin' };
@@ -112,7 +112,7 @@ function cleanPerson(x, local) {
     style: PH_STYLES.some((v) => v[0] === x.style) ? x.style : 'moderne',
     label: str(x.label, 30), look: str(x.look, 60), profile: str(x.profile, PH_PROFILE_MAX),
     portrait: local ? (PH_ID.test(pt) ? pt : null) : (PH_FILE.test(pt) ? pt : null),
-    photos: (Array.isArray(x.photos) ? x.photos : []).map((ph) => cleanPhoto(ph, local)).filter(Boolean).slice(0, 60),
+    photos: (Array.isArray(x.photos) ? x.photos : []).map((ph) => cleanPhoto(ph, local)).filter(Boolean).slice(0, PH_PER_PERSON),
   };
 }
 const bundledPack = () => (window.__HYPE_TEST_PACK__ && typeof window.__HYPE_TEST_PACK__ === 'object' ? window.__HYPE_TEST_PACK__ : PACK_BUNDLED);
@@ -505,7 +505,7 @@ function capLines(g, batch) {
       L.push(`- ${q.id} · @${c.handle} · un diaporama de ${(q.phs || []).length} photos façon TikTok${tags.length ? ' · tags : ' + tags.join(', ') : ''} : son titre, court, façon trend`);
     } else {
       const x = PACK.photos[q.ph], n = 1 + (q.more || []).length;
-      if (x) L.push(`- ${q.id} · @${c.handle}${n > 1 ? ` · un carrousel de ${n} photos du même shooting` : ''}${x.ph.tags.length ? ' · tags : ' + x.ph.tags.join(', ') : ''} · « ${x.ph.desc || 'une photo d’' + (c.g === 'm' ? 'eux' : c.g === 'f' ? 'elle' : 'iel')} »`);
+      if (x) L.push(`- ${q.id} · @${c.handle}${n > 1 ? ` · un carrousel de ${n} photos du même shooting` : ''}${x.ph.tags.length ? ' · tags : ' + x.ph.tags.slice(0, 12).join(', ') : ''} · « ${x.ph.desc || 'une photo d’' + (c.g === 'm' ? 'eux' : c.g === 'f' ? 'elle' : 'iel')} »`);
     }
   }
   if (!L.length) return [];
@@ -794,7 +794,7 @@ async function packImportText(text) {
       PACK_IMG[id] = x.portrait;
       meta.portrait = id;
     }
-    for (const y of (Array.isArray(x.photos) ? x.photos : []).slice(0, 60)) {
+    for (const y of (Array.isArray(x.photos) ? x.photos : []).slice(0, PH_PER_PERSON)) {
       const ph = cleanPhoto(y, true);
       if (!ph || !ph.id.startsWith(p.id + '-') || typeof y.img !== 'string' || y.img.length > 1200000 || !DATA_IMG.test(y.img)) continue;
       await Store.write('pk_img_' + ph.id, { data: y.img });

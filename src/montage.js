@@ -58,7 +58,7 @@ function makeEdit(r, g) {
     const m = ROUND_MAKERS[kind](r, D), w = E ? E.w : 1;
     if (m.band) m.band = Math.min(0.45, m.band * w);
     if (m.w) m.w = Math.min(0.5, m.w * w);
-    if (m.tol) m.tol = Math.min(0.8, m.tol * w);
+    if (m.d1) { const k = Math.min(1.6, w); m.d0 = Math.round(m.d0 * k * 10) / 10; m.d1 = Math.round(m.d1 * k * 10) / 10; } // (0.27: the grading's thresholds)
     return Object.assign(m, { edit: true, timeK: E ? E.time : 1 });
   }
   const m = makeMontage(r, D);

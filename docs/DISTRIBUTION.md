@@ -64,7 +64,8 @@ Pour les mêmes fichiers, le ZIP est identique octet pour octet (chemins triés,
 ## Publier une version
 
 1. Monter la version dans `desktop/package.json` et `src/core.js` (`APP_VERSION`), ajouter sa section en tête de
-   `CHANGELOG.md` (titre `## X.Y.Z — date`) : ce sera la note de la Release.
+   `CHANGELOG.md` (titre `## X.Y.Z — date`, puis les notes décrites plus bas) : ce sera la description de la Release,
+   affichée dans le launcher.
 2. Puis :
 
 ```powershell
@@ -79,6 +80,22 @@ Le workflow `.github/workflows/release.yml` fait le reste, sur un runner Windows
 Windows x64 (`npm run release:launcher`), manifeste local, ZIP, manifeste distant, vérification complète, Release non
 brouillon marquée « latest » avec les deux fichiers, puis il relit le manifeste « latest » en ligne et refait toutes les
 vérifications depuis Internet.
+
+Si le code est déjà sur `main` (poussé par quelqu’un d’autre, Claude par exemple), il ne reste que le tag : `git pull`,
+puis `git tag hype-vX.Y.Z` et `git push origin hype-vX.Y.Z`.
+
+### Les notes de version
+
+Æ Games Launcher affiche la description de chaque Release, en Markdown : c’est la section de la version dans
+`CHANGELOG.md`, sans son titre. Elle s’adresse aux joueurs :
+
+- une première ligne en gras qui dit l’essentiel de la mise à jour ;
+- des sous-titres `###` : `✨ Nouveautés`, puis au besoin `💡 Bon à savoir` et `🛠️ Corrections` ;
+- une puce par changement : son nom en gras, avec un emoji qui le résume, puis une ou deux phrases au tutoiement, sans
+  détail technique ni révélation sur les pièges du jeu ;
+- une ligne par puce ou par paragraphe, sans retour à la ligne au milieu d’une phrase : GitHub et le launcher
+  afficheraient la coupure ;
+- jamais de titre `##` dans la section : il ouvrirait la version suivante.
 
 ### Si un jour les sources deviennent privées
 

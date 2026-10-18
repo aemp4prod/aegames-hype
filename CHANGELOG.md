@@ -1,21 +1,42 @@
 # Changelog
 
 Les versions de Hype, de la plus récente à la plus ancienne. Chaque version a son tag `hype-vX.Y.Z` et sa GitHub
-Release ; ses notes sont la section de cette version, telle quelle. Le numéro entre parenthèses
-(MAJEURE × 1 000 000 + MINEURE × 1 000 + CORRECTIF) ne fait que monter.
+Release : la section de la version en est la description, telle quelle, et Æ Games Launcher l’affiche aux joueurs (le
+format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
+CORRECTIF) ne fait que monter.
+
+## 0.27.0 — 18 octobre 2026 (build 27000)
+
+**57 nouveaux autocollants, un étalonnage enfin juste, un devis qui connaît tes partenariats… et 86 nouvelles photos pour la streameuse aux mèches roses.**
+
+### ✨ Nouveautés
+
+- **😄 57 nouveaux autocollants** : ton téléphone, ton café, ta manette, le clap, les cœurs de toutes les couleurs, le cœur avec les mains, l’argent qui s’envole… 124 emojis dessinés pour Hype en tout, et un onglet **Objets** dans le clavier.
+- **📸 La streameuse aux mèches roses** se dévoile : 86 nouvelles photos de sa vie de gameuse et de pâtissière (bureau gaming, labo de pâtisserie, métro, soirées pizza…), rangées en séries comme de vrais shootings, et une nouvelle photo de profil. Son prénom change toujours d’une partie à l’autre.
+- **🧾 Un devis qui sait ce que tu as** : ce qu’une marque t’a envoyé, un cadeau, ce que tu t’es offert… tout ce qui sert déjà ton tournage s’affiche dans « Déjà là, rien à payer ». Ce que le tournage consomme quitte ensuite ton inventaire.
+
+### 🛠️ Corrections
+
+- **🎨 L’étalonnage** juge enfin ce que tu vois : deux plans qui se ressemblent à l’œil sont raccord, même avec des réglages différents. Après chaque plan, le jeu te dit ce qui clochait (« un peu trop chaud », « trop sombre »…).
+- **📱 Le recadrage vertical** : les boutons ◀ ▶ vont maintenant plus vite que le sujet, même aux plus hautes difficultés. Les autres épreuves du tournage et du montage ont été passées au crible : elles restent jouables à toutes les difficultés.
 
 ## 0.26.0 — 17 octobre 2026 (build 26000)
 
-- Ton inventaire, dans ton studio : ton ancien matos quand tu en achètes un meilleur, le matos et les produits que les
-  marques t’envoient, ce que tu t’achètes pour toi (un objet) et ce qu’on t’offre, en messages ou en rendez-vous. Le jeu
-  ne revend plus rien à ta place : un cadeau de marque meilleur que ton matos se met en service (l’ancien va dans
-  l’inventaire), sinon il t’attend. Un matos se réutilise d’un geste.
-- Occaz, l’appli de seconde main du jeu (son nom change selon le monde) : tu fixes le prix, le jeu dit ce que ça vaut et
-  à quelle vitesse ça partirait. Plus ta commu est chaleureuse et plus tu es suivi, plus tes abonnés paient cher ce qui
-  vient de toi. Ça se vend avec le temps du jeu, sans appel IA.
-- Un cadeau revendu trop tôt peut se voir : la marque (ou le perso) qui te l’a offert tombe sur l’annonce, et c’est son
-  IA qui décide comment elle le prend, jusqu’à rompre un contrat pas encore livré.
-- Correction : « Anneau lumineux acheté » (et non « achetée »).
+**Nouveau : ton inventaire, et Occaz, l’appli de seconde main. Tout ce que tu reçois, tu le gardes… ou tu le revends.**
+
+### ✨ Nouveautés
+
+- **🎒 Ton inventaire**, dans ton studio : ton ancien matos quand tu en achètes un meilleur, ce que les marques t’envoient, ce que tu t’offres et les cadeaux qu’on te fait, en messages comme en rendez-vous. Un matos se remet en service d’un geste.
+- **🏷️ Occaz**, pour revendre : tu fixes le prix, le jeu te dit ce que ça vaut et à quelle vitesse ça partira. Plus ta commu est chaleureuse et plus tu es suivi, plus tes abonnés paient cher ce qui vient de toi. Les ventes se font au fil du temps du jeu, sans rien consommer de ton usage ChatGPT.
+
+### 💡 Bon à savoir
+
+- Le jeu ne revend plus rien à ta place : un cadeau de marque meilleur que ton matos se met en service, sinon il t’attend dans ton inventaire.
+- Revendre trop vite un cadeau, ça peut se voir : la marque ou la personne qui te l’a offert peut tomber sur ton annonce… et c’est elle qui décide comment elle le prend.
+
+### 🛠️ Corrections
+
+- On écrit enfin « Anneau lumineux acheté », et non plus « achetée ».
 
 ## 0.25.3 — 17 octobre 2026 (build 25003)
 

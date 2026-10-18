@@ -98,8 +98,8 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     return {
       chat: [c1.items.length, c1.per, c4.items.length, c4.per, bad(c1), bad(c4), c4.items.some((x) => /je t’adore|ATTENTION|merch|😱|pleurer|cœurs/.test(x.text) && !x.bad), c1.items.every((x) => x.who && x.text)],
       mix: [m1.tracks.length, m4.tracks.length, m1.band > m4.band, m1.drift < m4.drift], frame: [f1.w > f4.w, f1.speed < f4.speed],
-      grade: [e1.keys.length, e4.keys.length, e1.tol > e4.tol, e1.per > e4.per, e1.items.every((it) => e1.keys.every((k) => Math.abs(it.start[k] - it.target[k]) >= 0.29))],
-      perfect: H.gradeScore(e1, e1.items[0], e1.items[0].target), start: H.gradeScore(e1, e1.items[0], e1.items[0].start),
+      grade: [e1.keys.length, e4.keys.length, e1.d1 > e4.d1 && e1.d0 > e4.d0, e1.per > e4.per, e1.items.every((it) => e1.keys.every((k) => Math.abs(it.start[k] - it.target[k]) >= 0.29))],
+      perfect: H.gradeScore(e1, e1.items[0], e1.items[0].target), start: Math.max(...e4.items.map((it) => H.gradeScore(e4, it, it.start))), // (0.27: judged on the picture)
     };
   });
   check('the new rounds get harder: the chat (14 messages every 1,5 s → 20 every 0,95 s at Expert, traps that look rude but are fans), the mix (2 tracks → 3, a narrower band, faster drift), the frame (narrower, faster), the grading (3 settings → 4, tighter, less time; a perfect match scores 1, the start far less)',

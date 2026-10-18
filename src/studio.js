@@ -482,7 +482,7 @@ function SeriesLayer({ l, g, i }) {
     if (!ok || !canMake(g, what).ok || activeRelease(g)) return;
     if (needDevis && !dv) { genDevis(o); return; }
     if (total > 0 && total > g.career.cash) return; // (nothing to pay: even in the red, a content made with what you have)
-    const paid = dv ? { total, items: dv.items, topic: dv.topic, at: Date.now() } : null;
+    const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
     if (single) {
       const due = nextAt(hour, 0) + day * DAY_MS;
       const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: S.devisAttach || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '' });

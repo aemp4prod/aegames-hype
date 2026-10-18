@@ -46,8 +46,14 @@ function makeFrame(r, D) {
     rule: 'Fais glisser le cadre (ou ◀ ▶) pour garder le sujet dedans : trois plans de 6 secondes.' };
 }
 
-/* ---------- a video's colors, graded to match the reference shot ---------- */
+/* ---------- a video's colors, graded to match the reference shot ----------
+   0.27: judged on the picture, the way the eye sees it, no longer on the sliders' hidden values (two grades that look the
+   same — a little more light and a little less contrast — scored 0 % before). The scene's colours go through the very
+   filters of the screen, then their distance in CIELAB (ΔE) is weighed: under the first threshold, the same shot; past
+   the second, not the same shot at all. Harder: tighter thresholds, less time. */
 const GRADE_SLIDERS = { temp: 'Température', lum: 'Lumière', sat: 'Saturation', con: 'Contraste' };
+const GRADE_DE = [[4, 22], [3.5, 18], [3, 15], [2.5, 12.5], [2, 10.5], [1.8, 9], [1.8, 9]]; // by difficulty: [perfect under, nothing past]
+const GRADE_PER = [18000, 15000, 13000, 13000, 12000, 11000, 11000]; // a shot's time (four sliders from « Expert » on)
 function makeGrade(r, D) {
   const ix = diffIx(D), keys = ix >= 3 ? ['temp', 'lum', 'sat', 'con'] : ['temp', 'lum', 'sat'];
   const rnd = () => Math.round(rand(-0.6, 0.6) * 100) / 100;
@@ -56,12 +62,59 @@ function makeGrade(r, D) {
     for (const k of keys) { target[k] = rnd(); const off = rand(0.4, 0.9) * (Math.random() < 0.5 ? -1 : 1); start[k] = Math.round(clamp(target[k] + off, -1, 1) * 100) / 100; if (Math.abs(start[k] - target[k]) < 0.3) start[k] = Math.round(clamp(target[k] - off, -1, 1) * 100) / 100; }
     return { target, start, scene: pick(['plage', 'ville', 'foret', 'studio']) };
   });
-  return { kind: 'etalonnage', title: 'L’étalonnage', what: r.what, intro: `Trois plans à accorder : règle ${keys.length > 3 ? 'la température, la lumière, la saturation et le contraste' : 'la température, la lumière et la saturation'} jusqu’à ce que ton plan ressemble au plan de référence.`,
-    keys, items, per: [18000, 15000, 13000, 11000, 10000, 9000, 9000][ix] || 13000, tol: [0.55, 0.45, 0.38, 0.32, 0.27, 0.23, 0.23][ix] || 0.38, diff: D.id,
-    rule: `Trois plans, ${Math.round(([18000, 15000, 13000, 11000, 10000, 9000, 9000][ix] || 13000) / 1000)} secondes chacun : accorde tes réglages au plan de référence, puis valide.` };
+  const [d0, d1] = GRADE_DE[ix] || GRADE_DE[2], per = GRADE_PER[ix] || 13000;
+  return { kind: 'etalonnage', title: 'L’étalonnage', what: r.what, intro: `Trois plans à accorder : règle ${keys.length > 3 ? 'la température, la lumière, la saturation et le contraste' : 'la température, la lumière et la saturation'} jusqu’à ce que ton plan ressemble au plan de référence. C’est l’image qui compte : s’ils se ressemblent à l’œil, c’est gagné.`,
+    keys, items, per, d0, d1, diff: D.id,
+    rule: `Trois plans, ${Math.round(per / 1000)} secondes chacun : accorde ton plan à la référence jusqu’à ce qu’ils se ressemblent, puis valide.` };
 }
-// How close a grade is to the reference (1: the same; 0: as far as the tolerance or more).
-const gradeScore = (game, item, vals) => clamp(1 - game.keys.reduce((n, k) => n + Math.abs(num(vals[k]) - item.target[k]), 0) / game.keys.length / game.tol, 0, 1);
+// A colour (#rrggbb) through a grade, as the screen shows it: brightness, saturate, contrast (the CSS filters, in that
+// order), then the warm or cold veil over it.
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+function gradeRgb(c, v) {
+  const b = 1 + 0.45 * num(v.lum), s = 1 + 0.85 * num(v.sat), k = 1 + 0.5 * num(v.con), t = num(v.temp);
+  let [R, G, B] = c.map((x) => clamp(x * b, 0, 1));
+  [R, G, B] = [(0.213 + 0.787 * s) * R + (0.715 - 0.715 * s) * G + (0.072 - 0.072 * s) * B,
+    (0.213 - 0.213 * s) * R + (0.715 + 0.285 * s) * G + (0.072 - 0.072 * s) * B,
+    (0.213 - 0.213 * s) * R + (0.715 - 0.715 * s) * G + (0.072 + 0.928 * s) * B].map((x) => clamp((clamp(x, 0, 1) - 0.5) * k + 0.5, 0, 1));
+  const a = Math.abs(t) * 0.38, V = hexRgb(t >= 0 ? '#ff9a3c' : '#3c8dff');
+  return [R, G, B].map((x, i) => x * (1 - a) + V[i] * a);
+}
+const srgbLin = (x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+function rgbLab(c) {
+  const [R, G, B] = c.map(srgbLin), f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+  const X = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047), Y = f(0.2126 * R + 0.7152 * G + 0.0722 * B), Z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+  return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+}
+// How different two grades of a scene look (ΔE, weighed by how much of the picture each colour takes: the sky, the sun,
+// the ground, and a grey and a skin tone for what stands in it).
+const GRADE_W = [0.35, 0.15, 0.35, 0.1, 0.05];
+function gradeDE(scene, a, b) {
+  const S0 = GRADE_SCENES[scene] || GRADE_SCENES.plage;
+  return [S0[0], S0[1], S0[2], '#808080', '#f1c27d'].reduce((n, h, i) => { const c = hexRgb(h), x = rgbLab(gradeRgb(c, a)), y = rgbLab(gradeRgb(c, b)); return n + GRADE_W[i] * Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); }, 0);
+}
+// How close a grade looks to the reference (1: the same to the eye; 0: another shot). A grade started before the 0.27
+// kept its old tolerance: it becomes thresholds of the same strictness.
+function gradeScore(game, item, vals) {
+  let d0 = num(game.d0), d1 = num(game.d1);
+  if (!(d1 > d0)) { d1 = 15 * num(game.tol, 0.38) / 0.38; d0 = d1 / 5; }
+  return clamp((d1 - gradeDE(item.scene, item.target, vals)) / (d1 - d0), 0, 1);
+}
+// After a shot: what was off the most (the setting that, put right, would have brought the shot closest), in words.
+const GRADE_OFF = { // [too much, too little] × [a little, a lot]
+  temp: [['un peu trop chaud', 'trop chaud'], ['un peu trop froid', 'trop froid']], lum: [['un peu trop clair', 'trop clair'], ['un peu trop sombre', 'trop sombre']],
+  sat: [['un peu trop saturé', 'trop saturé'], ['un peu trop terne', 'trop terne']], con: [['un peu trop contrasté', 'trop contrasté'], ['manque un peu de contraste', 'manque de contraste']],
+};
+function gradeHint(game, item, vals) {
+  const d = gradeDE(item.scene, item.target, vals);
+  let best = null, gain = 0;
+  for (const k of game.keys) {
+    const g0 = d - gradeDE(item.scene, item.target, Object.assign({}, vals, { [k]: item.target[k] }));
+    if (g0 > gain) { gain = g0; best = k; }
+  }
+  if (!best || gain < 0.8) return '';
+  const off = num(vals[best]) - item.target[best];
+  return GRADE_OFF[best][off > 0 ? 0 : 1][Math.abs(off) < 0.25 ? 0 : 1];
+}
 // The look of a grade, on a neutral scene: CSS filters (and a warm or cold veil for the temperature).
 const gradeCss = (v) => `filter:brightness(${(1 + 0.45 * num(v.lum)).toFixed(3)}) saturate(${(1 + 0.85 * num(v.sat)).toFixed(3)}) contrast(${(1 + 0.5 * num(v.con)).toFixed(3)})`;
 const gradeVeil = (v) => { const t = num(v.temp); return `background:${t >= 0 ? '#ff9a3c' : '#3c8dff'};opacity:${(Math.abs(t) * 0.38).toFixed(3)}`; };
@@ -216,7 +269,7 @@ function FrameGame({ game, onDone, run, keep }) {
         if (Math.random() < game.turns * dt) x.dir = -x.dir; // the subject changes its mind
         x.sx += x.dir * game.speed * rand(0.6, 1.4) * dt;
         if (x.sx < 0.04) { x.sx = 0.04; x.dir = 1; } else if (x.sx > 0.96) { x.sx = 0.96; x.dir = -1; }
-        if (x.hold) x.f = clamp(x.f + x.hold * 0.55 * dt, 0, 1 - w);
+        if (x.hold) x.f = clamp(x.f + x.hold * 0.9 * dt, 0, 1 - w); // (0.27: faster than the quickest subject, 0.59 a second: it could outrun the buttons)
         if (x.sx >= x.f && x.sx <= x.f + w) x.inT += dt;
         draw();
         if (t - x.t0 >= ms) {
@@ -264,7 +317,7 @@ function GradeShot({ scene, vals, label }) {
   </figure>`;
 }
 function GradeGame({ game, onDone, now, run, keep }) {
-  const items = game.items, nR = items.length, per = game.per || 13000;
+  const items = game.items, nR = items.length, per = Math.round((game.per || 13000) * (game.timeK || 1)); // (0.27: the machine's speed counts here too)
   const st = useRef(null);
   if (!st.current) { const s = roundsStart(run, nR); st.current = Object.assign(s, { vals: s.k < nR ? Object.assign({}, items[s.k].start) : {}, end: 0, fb: null }); }
   const [, setV] = useState(0);
@@ -284,7 +337,7 @@ function GradeGame({ game, onDone, now, run, keep }) {
     if (x.fb || done.current || x.k >= nR) return;
     const v = Math.round(gradeScore(game, items[x.k], x.vals) * 1000) / 1000;
     x.got = x.got.concat(v);
-    x.fb = { v };
+    x.fb = { v, hint: v < 0.85 ? gradeHint(game, items[x.k], x.vals) : '' };
     keep(Object.assign({ k: x.k + 1, got: x.got, live: -1 }, x.k + 1 >= nR ? { score: x.got.reduce((a, b) => a + b, 0) / nR } : {}));
     render();
     setTimeout(() => { if (x.k + 1 >= nR) finish(x.got); else if (alive.current) { x.k += 1; startRound(); } }, 1300);
@@ -294,7 +347,7 @@ function GradeGame({ game, onDone, now, run, keep }) {
   if (x.k >= nR) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   const it = items[x.k];
   return html`<div class="mg-play grade-play">
-    ${x.fb ? html`<div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb.v >= 0.85 ? 'Parfait, c’est raccord !' : x.fb.v >= 0.5 ? `Presque : ${Math.round(x.fb.v * 100)} %` : `Pas raccord : ${Math.round(x.fb.v * 100)} %`}</span></div>`
+    ${x.fb ? html`<div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb.v >= 0.85 ? `Parfait, c’est raccord ! (${Math.round(x.fb.v * 100)} %)` : `${x.fb.v >= 0.5 ? 'Presque' : 'Pas raccord'} : ${Math.round(x.fb.v * 100)} % de ressemblance${x.fb.hint ? ' · ' + x.fb.hint : ''}`}</span></div>`
       : html`<${MgTop} k=${x.k + 1} n=${nR} left=${x.end - now} total=${per} />`}
     <div class="grade-pair"><${GradeShot} scene=${it.scene} vals=${it.target} label="La référence" /><${GradeShot} scene=${it.scene} vals=${x.vals} label="Ton plan" /></div>
     <div class="grade-sliders">${game.keys.map((k) => html`<label key=${k} class="grade-sl"><span>${GRADE_SLIDERS[k]}</span>

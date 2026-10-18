@@ -339,7 +339,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   const k3 = await page.$eval('.layer .emo-panel', (e) => [...e.querySelectorAll('.emo-cat')].map((x) => x.textContent));
   await shot(page, 'emoji-keyboard');
   check('private messages: an emoji alone is big, our stickers inside the text; the keyboard opens like a phone’s (categories), puts the emoji where the caret is, finds them by word, and the recent ones come first',
-    e3.jumbo && e3.inline && k1.cats.join(',') === 'Visages,Mains,Cœurs,Symboles' && k1.cells === 37 && v1 === '🤣😂' && k2.length >= 2 && k2.join('|') === want.join('|') && k3[0] === 'Récents', { e3, k1, v1, k2, k3 });
+    e3.jumbo && e3.inline && k1.cats.join(',') === 'Visages,Mains,Cœurs,Objets,Symboles' && k1.cells === 47 /* (0.27: 10 more faces, the objects) */ && v1 === '🤣😂' && k2.length >= 2 && k2.join('|') === want.join('|') && k3[0] === 'Récents', { e3, k1, v1, k2, k3 });
   await G(page, () => { window.__hype.S.stack = []; window.__hype.S.emoOpen = null; window.__hype.update(); });
 
   await browser.close();

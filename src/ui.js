@@ -2950,7 +2950,7 @@ if (window.__HYPE_TEST__) {
     VOL, volId, volFor, levelOf, chattyOn, autoLiveOn, lifeK, COST_IN, COST_OUT, costAt, hourCafes, hourCafesOf, setOpt, COMMENTS, COMMENT_IDS, LIVE, LIVE_IDS, commentsOf, liveOf, volIdOf, usesOf, USE_LABELS, livePause, AUTO_IDLE_MS,
     SKILL_MAX, SKILL_TREE, SKILL_IDS, SKILL_CUM, skillNeed, skillLevelOf, skillLevel, skillFx, skillFxAt, ensureSkills, trainSkill, practiseAct, practiseDM, practiseTalk, skillsCtx, skillNow, nextTier,
     BUY_KINDS, BUY_RE, buyTalk, BUY_LINE, applyBuy, buyText, buyLabel, buyTotals, buyPrice, PAY_DEFAULT, sround, talkTranscript,
-    makeChat, makeMix, makeFrame, makeGrade, gradeScore, ROUND_MAKERS, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
+    makeChat, makeMix, makeFrame, makeGrade, gradeScore, gradeDE, gradeHint, ROUND_MAKERS, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
     importPhoto, removePhoto, ownPhoto, setPhotoDesc, pfpQuiet, pfpAnnounce, pfpPosted, // 0.25.1
     JOB_TIERS, JOB_K, JOB_DIFFS, JOB_FLOP, jobTier, jobQual, jobQ, qOf, jobBest, legendFrom, jobExpect, tierRank, // 0.25.2
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
@@ -2960,7 +2960,7 @@ if (window.__HYPE_TEST__) {
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,
     theft, nextLaunchAt, gearIssues, outagePostpone, easyGear, usable, subOn, hasBonus, firstBill,
-    promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey,
+    promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey, devisStock,
     SCAM_KINDS, CRITIC, scamChance, scamOffer, brandSheet, sheetLine, payTerms, AGENT_CEIL, dealSize, agentReview, dealHard, agentGamble, scamBeforeSign, scamAfterSign,
     penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MAKERS, MERCH_MIN, merchOK, merchOf, openDrop, lastDrop, prepDrop, cancelDrop, launchDrop, sellDay, tickMerch, restock, stopDrop, merchCtx, merchLine, priceRatio, unitCost, stockCost,
   };
