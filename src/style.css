@@ -45,7 +45,7 @@
     --line-strong: #44353D;
     --ink: #F6EEF2;
     --ink-2: #BBA9B3;
-    --ink-3: #8C7A84;
+    --ink-3: #94828C; /* 0.27.8: 4,6:1 on --surface-2 (was 4,1:1) */
     --hot: #FF4FA0;
     --hot-t: #FF4FA0;
     --hot-ink: #1D0611;
@@ -76,7 +76,7 @@
   --line-strong: #44353D;
   --ink: #F6EEF2;
   --ink-2: #BBA9B3;
-  --ink-3: #8C7A84;
+  --ink-3: #94828C;
   --hot: #FF4FA0;
   --hot-t: #FF4FA0;
   --hot-ink: #1D0611;
@@ -2848,3 +2848,13 @@ svg.watch:active { cursor: grabbing; }
 .rs-note { margin-top: 14px; font-size: 12.5px; }
 .dm-card.gift { border-color: color-mix(in srgb, var(--hot) 35%, var(--line-strong)); }
 .talk-gift { background: var(--hot-soft); }
+
+/* 0.27.8: the rules said, the reasons shown */
+.diff-note { display: block; margin: -2px 0 8px; font-size: 13px; line-height: 1.35; }
+.mg-clock-note { display: flex; gap: 6px; align-items: center; justify-content: center; margin: 2px 0 10px; font-size: 13px; color: var(--ink-2); }
+.why-off { display: block; margin-top: 6px; text-align: center; }
+.evt-held { display: block; color: var(--warn, #C77700); font-size: 12px; margin-top: 2px; }
+.se-when { display: flex; gap: 6px; align-items: center; margin: 4px 0 8px; font-size: 14px; color: var(--ink-2); }
+.memb-warn { display: block; margin: 2px 0 6px; }
+.mg-fix li small { display: block; color: var(--ink-3); font-size: 13px; line-height: 1.35; }
+.talk-gestes .chip-btn.armed { border-color: var(--hot); color: var(--hot-t); background: var(--hover); font-weight: 600; }

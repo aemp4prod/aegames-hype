@@ -200,7 +200,7 @@ const lastVideo = (page) => G(page, () => { const g = window.__hype.S.game; cons
   await sleep(400);
   const card = await G(page, () => { const el = [...document.querySelectorAll('.deal-card')].find((x) => /Pixelforge/.test(x.textContent)); return el ? el.textContent : ''; });
   check('a brand may offer its gear instead of money: told in the offer and the contract (the model, its tier, its value), sent at the signature; better than what the player has, it replaces it (0.26: the old one to the inventory); otherwise it waits in the inventory, new; not delivered, the brand bills it',
-    gf.d.fee === 0 && gf.d.gift.kind === 'cam' && /matos offert : Hybride plein format \(milieu de gamme, valeur 6/.test(gf.d.sum) && /Le matos, envoyé à la signature/.test(gf.d.terms) && /Hybride plein format offert/.test(gf.notif)
+    gf.d.fee === 0 && gf.d.gift.kind === 'cam' && /matos offert : Hybride plein format \(milieu de gamme, valeur 6/.test(gf.d.sum) && /le matos, envoyé à la signature/.test(gf.d.terms) && /Hybride plein format offert/.test(gf.notif)
       && gf.sign && gf.state === 'signed' && gf.cam === 2 && gf.resale === 0 && gf.camAfter === 2 && gf.sold === 0 && gf.inv.join() === '1:bon,1:neuf' && gf.d2 === 'broken' && gf.billed >= 1200 && /Hybride plein format/.test(card) && /matos offert · milieu de gamme/.test(card), { gf, card: card.slice(0, 200) });
   const sc = await G(page, () => {
     const H = window.__hype, g = H.S.game, G0 = g.gear, out = {}, day = 86400000;
@@ -254,7 +254,7 @@ const lastVideo = (page) => G(page, () => { const g = window.__hype.S.game; cons
   const fitRow = await G(page, () => { const el = document.querySelector('.layer .fit-chip'); return el ? el.textContent : ''; });
   check('the placement: a brand logical with the topic (a cake recipe and a food brand) gives the video +6 % views, one with nothing to do with it (an anti-wrinkle cream in a horror game, judged by the AI) −6 %; the upload screen says so, the video and the delivery too; the brand gives its bonus more often when it fits',
     fx.h.join() === '1,-1,0,0,-1' && fx.k.join() === '1.06,1,0.94' && fx.love.join() === 'true,true' && fx.prime.length === 1 && fx.state === 'signed'
-      && /logique avec ton sujet : \+6 % de vues\. Hors sujet : −6 %/.test(spNote) && fv && fv.sponsor.fit === -1 && /Placement hors sujet : −6 % de vues/.test(fv.notif) && /Placement hors sujet · −6 % de vues/.test(fitRow), { fx, spNote, fv, fitRow });
+      && /logique avec ton sujet : \+6\s% de vues\. Hors sujet : −6\s%/.test(spNote) && fv && fv.sponsor.fit === -1 && /Placement hors sujet : −6\s% de vues/.test(fv.notif) && /Placement hors sujet · −6\s% de vues/.test(fitRow), { fx, spNote, fv, fitRow });
 
   // ---------- the community: fans who write, answered; a video on a question; regulars; what cools it ----------
   await G(page, () => { const H = window.__hype, g = H.S.game; g.career.warmth = 40; g.career.warmLog = []; g.career.fanAt = 0; g.lastRefreshAt = 0; window.__mockFan = true; return H.refreshFeed(0); });

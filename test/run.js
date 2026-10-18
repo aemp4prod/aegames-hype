@@ -79,7 +79,7 @@ async function studioSteps(page, thumb) {
   for (let k = 0; k < 4; k++) {
     await page.waitForSelector('.layer .upload, .layer .edit-step, .layer .thumb-step', { timeout: 10000 });
     if (await page.$('.layer .upload')) return;
-    if (await page.$('.layer .edit-step')) { await page.click('.layer .edit-step button:has-text("Monter vite")'); await new Promise((r) => setTimeout(r, 300)); continue; }
+    if (await page.$('.layer .edit-step')) { await page.click('.layer .edit-step button:has-text("Passer le montage")'); await new Promise((r) => setTimeout(r, 300)); continue; }
     if (thumb) await page.click(`.layer .thumb-opt:has-text("${thumb}")`);
     await page.click('.layer .th-ok');
     await new Promise((r) => setTimeout(r, 300));

@@ -4,7 +4,7 @@
    the AI writes who asks for what, the player answers in their own words, and whoever is left aside may take it badly, by
    temperament and by how often it happens to them. Each choice leaves a trace (a screenshot, a witness) that may come
    back later.
-   - A spot on a contract: a brand deal signed while at least two close friends are around: 30 % that two of them want it.
+   - A spot on a contract: a brand deal signed while at least two close friends are around: 30 % that two of them want it.
    - A dossier on someone: a friend offers the player compromising material on someone they cannot stand.
    - The hidden ad: a brand's contact offers far more if the mention « Collaboration commerciale » goes (it is illegal);
      delivered that way, it becomes one of the player's secrets (secrets.js).

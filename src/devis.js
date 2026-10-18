@@ -17,7 +17,7 @@ function ownsItem(g, item) {
 }
 const boughtBefore = (g, item) => { const n = normItem(item); return n.length >= 3 && ((g.gear && g.gear.owned) || []).some((o) => likeItem(n, o.name)); };
 const stockLike = (stock, item) => { const n = normItem(item); return n.length >= 3 ? stock.find((s) => likeItem(n, s.x.name)) || null : null; };
-// 0.27.6: a price the model wrote as text (« 4 € », « 12,50 », « 1 200 € ») is still a price (it was dropped: free).
+// 0.27.6: a price the model wrote as text (« 4 € », « 12,50 », « 1 200 € ») is still a price (it was dropped: free).
 const devisPrice = (v) => (typeof v === 'number' ? v : num(String(v == null ? '' : v).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.').replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, ''), 0));
 // 0.27.6: an inventory item counted as « already there » that was sold or put on sale since: the quote no longer holds.
 function devisStale(g, dv) {
@@ -172,7 +172,7 @@ function pitchBrand(g, dv) {
   dv.pitched = Date.now();
   const sector = dv.sponsor ? dv.sponsor.sector : pick(SECTORS).id;
   const S0 = SECTORS.find((x) => x.id === sector) || SECTORS[0];
-  if (Math.random() < 0.45) { toast(`Tu as écrit à des marques (${S0.emoji} ${S0.id}). Pas de réponse pour l’instant… ça arrive.`); return true; }
+  if (Math.random() < 0.45) { toast(`Tu as écrit à des marques (${S0.emoji} ${S0.label}). Pas de réponse pour l’instant… ça arrive.`); return true; }
   const d = makeOffer(g, { sector, what: dv.what, pitched: true });
   toast(d ? `Une marque te répond en message privé : ${d.brand}.` : 'Les marques contactées n’ont rien à te proposer pour le moment.', d ? 'good' : '');
   return true;
@@ -184,15 +184,15 @@ function DevisCard({ g, dv, attach, onAttach, rid }) {
   const deals = signedDeals(g).filter((d) => d.what === dv.what && !plannedReleases(g).some((x) => x.id !== rid && x.deal === d.id)); // (0.27.6: not one another planned release carries)
   return html`<div class="devis-card">
     <div class="dv-head"><${Icon} n="receipt" s=${18} /><b>Le devis</b><span>${dv.ai ? '' : 'estimé sans l’IA'}</span></div>
-    ${dv.items.length ? html`<ul class="dv-lines">${dv.items.map((x, k) => html`<li key=${k}><span aria-hidden="true">${DEVIS_KINDS[x.kind]}</span><span>${x.item}${x.keep ? html` <em>à garder</em>` : null}${x.per === 'episode' ? html` <em>par épisode</em>` : null}</span><b>${fmtMoney(g, x.price)}</b></li>`)}</ul>`
+    ${dv.items.length ? html`<ul class="dv-lines">${dv.items.map((x, k) => html`<li key=${k}><span aria-hidden="true">${DEVIS_KINDS[x.kind]}</span><span>${x.item}${x.keep ? html` <em>tu le gardes</em>` : null}${x.per === 'episode' ? html` <em>par épisode</em>` : null}</span><b>${fmtMoney(g, x.price)}</b></li>`)}</ul>`
       : html`<p class="muted">Rien à acheter : ton matos et ce que tu as déjà suffisent.</p>`}
     ${dv.have && dv.have.length ? html`<div class="dv-have"><span class="lbl">Déjà là, rien à payer</span><ul class="dv-lines">${dv.have.map((h, k) => html`<li key=${k}><span aria-hidden="true">${emoParts(h.emoji || '📦', 'dh' + k)}</span><span>${h.name} <em>${h.from}${h.inv ? (h.use === 'conso' ? ', utilisé pour le tournage' : ', tu le gardes') : ''}</em></span><b>${fmtMoney(g, 0)}</b></li>`)}</ul></div>` : null}
     ${dv.days && dv.each ? html`<p class="muted dv-sum">${fmtMoney(g, dv.once)} une fois + ${fmtMoney(g, dv.each)} × ${dv.days} épisodes</p>` : null}
     <div class="dv-total"><span>Total</span><b class=${total > 0 && total > cash ? 'neg' : ''}>${fmtMoney(g, total)}</b></div>
     ${total > 0 && total > cash ? html`<p class="dv-miss">Il te manque ${fmtMoney(g, total - Math.max(0, cash))} : choisis un sujet moins cher, ou trouve un sponsor.</p>` : null}
-    ${deals.length && onAttach ? html`<div class="field"><span class="lbl">Un sponsor déjà signé pour ce contenu ?</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!attach ? ' on' : '')} onClick=${() => onAttach('')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (attach === d.id ? ' on' : '')} onClick=${() => onAttach(d.id)}>${d.emoji} ${d.brand}${d.fee ? ` · ${fmtMoney(g, d.fee)}` : ''}</button>`)}</div></div>` : null}
+    ${deals.length && onAttach ? html`<div class="field"><span class="lbl">Un sponsor déjà signé pour ce contenu ?</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!attach ? ' on' : '')} onClick=${() => onAttach('')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (attach === d.id ? ' on' : '')} onClick=${() => onAttach(d.id)}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div></div>` : null}
     ${dv.sponsor || g.stats.followers >= 800 ? html`<div class="dv-pitch">${dv.sponsor ? html`<small>💡 ${dv.sponsor.why || 'Une marque pourrait financer ça.'}</small>` : null}
-      <button type="button" class="btn btn-ghost btn-sm" disabled=${!!dv.pitched} onClick=${() => { if (pitchBrand(g, dv)) update(); }}>${dv.pitched ? 'Marques démarchées' : `Démarcher une marque${dv.sponsor ? ` (${(SECTORS.find((s) => s.id === dv.sponsor.sector) || {}).emoji || ''} ${dv.sponsor.sector})` : ''}`}</button></div>` : null}
+      <button type="button" class="btn btn-ghost btn-sm" disabled=${!!dv.pitched || g.stats.followers < 800} onClick=${() => { if (pitchBrand(g, dv)) update(); }}>${dv.pitched ? 'Marques démarchées' : `Démarcher une marque${dv.sponsor ? ` (${sectorWord(dv.sponsor.sector)})` : ''}${g.stats.followers < 800 ? ' · dès 800 abonnés' : ''}`}</button></div>` : null}
   </div>`;
 }
 // The quote step of a content announced on the network (its shoot screen): ask, then pay.
@@ -210,9 +210,9 @@ function DevisStep({ g, r, topic, plot }) {
   };
   return html`<div class="devis-step">
     ${dv ? html`<${DevisCard} g=${g} dv=${dv} rid=${r.id} attach=${dv.attach || ''} onAttach=${(id) => { dv.attach = id; update(false); }} />
-      ${moved ? html`<p class="muted dv-moved">Tu as changé ce qui se passe depuis ce devis. <button type="button" class="linkbtn" disabled=${busy} onClick=${() => genDevis(o)}>Refaire le devis · ≈ ${costLabel(g, 'devis')} ☕</button></p>` : null}
+      ${moved ? html`<p class="muted dv-moved">Tu as changé ce qui se passe depuis ce devis. <button type="button" class="linkbtn" disabled=${busy} onClick=${() => genDevis(o)}>Refaire le devis · ≈ ${costLabel(g, 'devis')} ☕</button></p>` : null}
       <button class="btn btn-hot" onClick=${paid} disabled=${devisTotal(dv) > 0 && devisTotal(dv) > g.career.cash}><${Icon} n="cash" s=${16} /> ${devisTotal(dv) ? `Payer ${fmtMoney(g, devisTotal(dv))}` : 'Valider le devis (rien à payer)'}</button>`
       : html`<p class="muted">Avant de tourner : ce qu’il faut acheter, louer ou payer pour ${laW(r)}. Rien n’est racheté si tu l’as déjà.</p>
-      <button class="btn btn-hot" disabled=${busy || topic.trim().length < 3} onClick=${() => genDevis(o)}>${busy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`}</button>`}
+      <button class="btn btn-hot" disabled=${busy || topic.trim().length < 3} onClick=${() => genDevis(o)}>${busy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`}</button>${!busy && topic.trim().length < 3 ? html`<small class="muted why-off">Écris d’abord le sujet.</small>` : null}`}
   </div>`;
 }

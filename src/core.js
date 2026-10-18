@@ -8,7 +8,7 @@ const randi = (a, b) => Math.floor(rand(a, b + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const num = (v, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 const int = (v, a, b, d) => clamp(Math.round(num(v, d)), a, b);
-const str = (v, max = 400) => (typeof v === 'string' ? v : (v == null ? '' : String(v))).replace(/\s+/g, ' ').trim().slice(0, max);
+const str = (v, max = 400) => (typeof v === 'string' ? v : (v == null ? '' : String(v))).replace(/[^\S\u00a0\u202f]+/g, ' ').trim().slice(0, max); // (0.27.8: the no-break spaces stay: « 150 € » never breaks)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cloneJSON = (o) => JSON.parse(JSON.stringify(o));
 const ease = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.7';
+const APP_VERSION = '0.27.8';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -946,7 +946,7 @@ const hourCafesOf = (g) => hourCafes(levelOf(g), volIdOf(g), HOST ? liveOf(g) : 
 function budgetHint(n, lv = 'normal', vol = COMMENTS[(INTENSITY[lv] || INTENSITY.normal).comments].vol) {
   if (!n) return 'compté, jamais bloqué';
   const posts = Math.max(1, Math.round(n / costAt(lv, vol, 'post'))), dms = Math.max(1, Math.round(n / costAt(lv, vol, 'dm')));
-  return `≈ ${fmtPlain(posts)} ${plural(posts, 'post', 'posts')} ou ${fmtPlain(dms)} ${plural(dms, 'message', 'messages')}`;
+  return `≈ ${fmtPlain(posts)} ${plural(posts, 'post', 'posts')} ou ${fmtPlain(dms)} ${plural(dms, 'message', 'messages')}`;
 }
 // What the rarer kinds of call usually cost, before the game has measured them (cafés); the others: costAt.
 const CAFE_GUESS = { wave: 0.62, accuse: 1.2, debunk: 1.15, shoot: 0.7, date: 0.75, event: 0.9, write: 0.55, cand: 0.6, newchar: 0.6, world: 2.6, repost: 0.5, devis: 0.3 }; // 0.20: the quote
@@ -971,7 +971,7 @@ function energyNow(g, t = Date.now()) {
   const b = budgetOf(g), left = cafesLeft(g);
   return { energy: left === Infinity ? Infinity : Math.floor(left + 1e-9), left, max: budgetMax(g), used: b.used, full: b.used <= 0, nextIn: nextMidnight(t) - t, unlimited: b.daily === 0 };
 }
-// What an action will cost, from what this kind of call cost before in this game (shown on the buttons: « ≈ 2 ☕ »).
+// What an action will cost, from what this kind of call cost before in this game (shown on the buttons: « ≈ 2 ☕ »).
 const costGuess = (g, kind) => { const a = budgetOf(g).avg[kind]; return a > 0 ? a : COST_KINDS.includes(kind) ? costAt(levelOf(g), volIdOf(g), kind) : CAFE_GUESS[kind] || 1; };
 const costLabel = (g, kind) => Math.max(1, Math.round(costGuess(g, kind)));
 // The guard: can this action start? (the call is paid after, for what it really used)
@@ -1281,12 +1281,12 @@ const PROD_STEPS = { // the shoot when Claude cannot write one: the production s
 };
 // Shoot difficulty: less time, more items and finer traps, for bigger rewards.
 const DIFFS = [
-  { id: 'facile', emoji: '😌', label: 'Facile', time: 2, items: -1, opts: 3, mult: 0.6, traps: 'pièges évidents, faciles à repérer', desc: 'Deux fois plus de temps, pièges évidents' },
+  { id: 'facile', emoji: '😌', label: 'Facile', time: 2, items: -1, opts: 3, mult: 0.6, traps: 'pièges évidents, faciles à repérer', desc: 'Plus de temps, pièges évidents' },
   { id: 'moyen', emoji: '🙂', label: 'Moyen', time: 1.4, items: 0, opts: 3, mult: 1, traps: 'pièges plausibles', desc: 'Le rythme tranquille' },
   { id: 'difficile', emoji: '😤', label: 'Difficile', time: 1, items: 0, opts: 3, mult: 1.6, traps: 'pièges subtils', desc: 'Moins de temps, pièges plus fins' },
   { id: 'expert', emoji: '🔥', label: 'Expert', time: 0.75, items: 1, opts: 4, mult: 2.3, traps: 'pièges très subtils, réponses très proches les unes des autres', desc: 'Encore moins de temps, plus de choses à gérer' },
-  { id: 'legende', emoji: '💀', label: 'Légendaire', time: 0.55, items: 2, opts: 4, mult: 3.2, viral: true, traps: 'pièges diaboliques : tout semble vrai, un seul détail fait la différence', desc: 'Presque impossible. Réussi, c’est viral à coup sûr' },
-  { id: 'mythique', emoji: '🌌', label: 'Mythique', time: 0.42, items: 3, opts: 4, mult: 4.4, viral: true, traps: 'pièges vicieux : les mauvaises réponses ont l’air plus vraies que la bonne', desc: 'Des réflexes de pro, zéro seconde à perdre. Viral assuré' },
+  { id: 'legende', emoji: '💀', label: 'Légendaire', time: 0.55, items: 2, opts: 4, mult: 3.2, viral: true, traps: 'pièges diaboliques : tout semble vrai, un seul détail fait la différence', desc: 'Très dur. Réussi, c’est viral à coup sûr' },
+  { id: 'mythique', emoji: '🌌', label: 'Mythique', time: 0.42, items: 3, opts: 4, mult: 4.4, viral: true, traps: 'pièges vicieux : les mauvaises réponses ont l’air plus vraies que la bonne', desc: 'Le plus rapide. Réussi, c’est viral à coup sûr' },
   // the very last: real questions on the real subject (a game, a film, a sport…), no mercy
   { id: 'cauchemar', emoji: '👹', label: 'Cauchemar', time: 0.8, items: 2, opts: 4, mult: 6, viral: true, real: true, traps: 'de vraies questions de connaisseur, sans aucune pitié', desc: 'Le tout dernier : de VRAIES questions pointues sur ton sujet. Seuls les vrais experts survivent' },
 ];
@@ -1298,11 +1298,12 @@ const mgCount = (kind, d) => Math.max(4, (MG_BASE_N[kind] || 5) + d.items); // (
 const diffIx = (D) => Math.max(0, DIFFS.findIndex((d) => d.id === D.id));
 // Skill rounds played without Claude: cut on the beat, remember the script. Harder: faster, tighter, longer.
 const MONTAGE = {
-  vidéo: { title: 'Le montage au rythme', verb: 'Couper', intro: 'Chaque coupe pile dans le temps fort rend la vidéo plus nerveuse. Une coupe ratée, et ça se voit.' },
-  short: { title: 'Le cut parfait', verb: 'Couper', intro: 'Un format court, c’est du rythme : chaque coupe doit tomber pile. Une seule de travers, et on scrolle.' },
-  live: { title: 'Le direct sans blanc', verb: 'Relancer', intro: 'En direct, chaque relance doit tomber pile au bon moment. Trop tôt ou trop tard, et c’est le blanc gênant.' },
-  clip: { title: 'Le beat parfait', verb: 'Couper', intro: 'Chaque coupe doit tomber pile sur le beat. Une coupe à côté, et tout le clip sonne faux.' },
-  podcast: { title: 'Le mixage', verb: 'Couper', intro: 'Chaque coupe doit tomber pile dans le blanc. Une coupe ratée, et on entend la bourde.' },
+  // (0.27.8: the score is the average of the cuts: one miss does not ruin it, and the texts no longer say so)
+  vidéo: { title: 'Le montage au rythme', verb: 'Couper', intro: 'Chaque coupe pile dans le temps fort rend ta vidéo plus nerveuse.' },
+  short: { title: 'La coupe parfaite', verb: 'Couper', intro: 'Un format court, c’est du rythme : plus tes coupes tombent pile, plus on reste jusqu’au bout.' },
+  live: { title: 'Le direct sans blanc', verb: 'Relancer', intro: 'En direct, chaque relance au bon moment évite un blanc.' },
+  clip: { title: 'Le beat parfait', verb: 'Couper', intro: 'Le clip vit sur le beat : plus tes coupes tombent dessus, mieux il sonne.' },
+  podcast: { title: 'La chasse aux blancs', verb: 'Couper', intro: 'Coupe pile dans les blancs : plus tu en attrapes, plus l’épisode est fluide.' },
 };
 function makeMontage(r, D) {
   const ix = diffIx(D), w = [0.3, 0.22, 0.16, 0.12, 0.09, 0.08, 0.08][ix];
@@ -1324,6 +1325,10 @@ function makeMemoire(r, D) {
   return { kind: 'memoire', title: 'Retiens ton script', what: r.what, intro: 'Ton script tient en quelques images clés : oublie-en une en plein tournage, et ça se verra.', items: [0, 1, 2].map((k) => ({ seq: seqOf(len + k) })), pool, per: [1000, 850, 750, 650, 560, 480, 480][ix], diff: D.id };
 }
 const tierOf = (score) => (score >= 0.75 ? 'top' : score >= 0.4 ? 'mid' : 'flop');
+// 0.27.8: a score shown next to its tier, rounded down: 74,6 % reads « 74 % » (moyen), never « 75 % »
+const pctOf = (score) => Math.floor(clamp(num(score, 0), 0, 1) * 100 + 1e-9);
+const TIER_STEPS = ['75 % et plus', '40 à 74 %', 'moins de 40 %'];
+const tierRule = (top, mid, flop) => `Réussi (${TIER_STEPS[0]}) : ${top}. Moyen (${TIER_STEPS[1]}) : ${mid}. Raté (${TIER_STEPS[2]}) : ${flop}.`;
 const VIDEO_RANGES = { // the community's grades a release gets, by how the shoot went
   top: { quality: [7, 9], reception: [6, 9], virality: [7, 9] },
   mid: { quality: [4, 6], reception: [1, 4], virality: [3, 5] },
@@ -1565,13 +1570,13 @@ function meetKind(c, ev) {
 }
 const MEET = {
   love: { emoji: '🥂', icon: 'heart', tiers: ['Soirée réussie', 'Soirée mitigée', 'Soirée ratée'], lines: ['Le courant passe, vous ne voyez pas le temps filer.', 'Sympa, sans plus.', 'Ça ne prend pas du tout.'], end: 'Voir comment la soirée se termine', ending: 'La soirée se termine…',
-    outcomes: 'Réussi : une soirée magique. Moyen : sympa, sans plus. Raté : malaise garanti.', why: ['une soirée réussie', 'une soirée sympa, sans plus', 'un rendez-vous raté'], mem: ['notre rendez-vous était génial', 'notre rendez-vous était sympa, sans plus', 'notre rendez-vous était un fiasco'],
+    outcomes: tierRule('une soirée magique', 'sympa, sans plus', 'malaise garanti'), why: ['une soirée réussie', 'une soirée sympa, sans plus', 'un rendez-vous raté'], mem: ['notre rendez-vous était génial', 'notre rendez-vous était sympa, sans plus', 'notre rendez-vous était un fiasco'],
     task: 'un rendez-vous amoureux', res: ['RÉUSSI : le courant passe, complicité, éclats de rire, envie de se revoir', 'MOYEN : sympa mais sans plus, un ou deux malaises', 'RATÉ : gênant, froid ou dispute, la soirée tourne court'] },
   friends: { emoji: '🍻', icon: 'users', tiers: ['Super moment', 'Moment sympa', 'Sortie ratée'], lines: ['Fous rires et vraie complicité.', 'Sympa, sans plus.', 'Ambiance gênante, vous écourtez.'], end: 'Voir la suite', ending: 'Vous vous quittez…',
-    outcomes: 'Réussi : un super moment. Moyen : sympa, sans plus. Raté : ambiance gênante.', why: ['un super moment ensemble', 'un moment sympa', 'une sortie ratée'], mem: ['on a passé un super moment ensemble', 'notre sortie était sympa, sans plus', 'notre sortie était gênante'],
+    outcomes: tierRule('un super moment', 'sympa, sans plus', 'ambiance gênante'), why: ['un super moment ensemble', 'un moment sympa', 'une sortie ratée'], mem: ['on a passé un super moment ensemble', 'notre sortie était sympa, sans plus', 'notre sortie était gênante'],
     task: 'une sortie entre amis', res: ['RÉUSSI : fous rires, complicité, vraie amitié', 'MOYEN : sympa, sans plus', 'RATÉ : malaise ou dispute, ça tourne court'] },
   pro: { emoji: '💼', icon: 'msg', tiers: ['Échange réussi', 'Échange mitigé', 'Échange raté'], lines: ['Vous vous comprenez : ça peut mener loin.', 'Poli, sans rien de décisif.', 'Ça coince : rien de concret.'], end: 'Voir comment ça se termine', ending: 'Ça se termine…',
-    outcomes: 'Réussi : un échange qui compte. Moyen : poli, sans plus. Raté : rien de concret.', why: ['un échange qui compte', 'un échange poli', 'un rendez-vous pro raté'], mem: ['notre échange a été vraiment utile', 'notre échange était poli, sans plus', 'notre rendez-vous n’a rien donné'],
+    outcomes: tierRule('un échange qui compte', 'poli, sans plus', 'rien de concret'), why: ['un échange qui compte', 'un échange poli', 'un rendez-vous pro raté'], mem: ['notre échange a été vraiment utile', 'notre échange était poli, sans plus', 'notre rendez-vous n’a rien donné'],
     task: 'un rendez-vous pro (appel, visio, réunion ou café de travail : convaincre, négocier, rester crédible)', res: ['RÉUSSI : ils se comprennent, une vraie avancée (accord, piste, confiance)', 'MOYEN : poli, rien de décisif', 'RATÉ : ça coince, rien de concret, méfiance'] },
 };
 const tierIx = (tier) => (tier === 'top' ? 0 : tier === 'mid' ? 1 : 2);

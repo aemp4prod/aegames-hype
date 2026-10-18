@@ -311,7 +311,7 @@ function ctxText(g, o = {}) {
   const qs = K.quests === 'none' ? [] : storyQuests(g, K.quests === 'about' ? about : null);
   if (qs.length) {
     L.push('', '## QUÊTES HISTOIRE DU JOUEUR (id : objectif)');
-    for (const q of qs) L.push(`${q.id} : ${q.title} — ${q.desc}${q.pct ? ` (avancée à ${q.pct} %)` : ''}`);
+    for (const q of qs) L.push(`${q.id} : ${q.title} — ${q.desc}${q.pct ? ` (avancée à ${q.pct} %)` : ''}`);
   }
   if (o.triggers && o.triggers.length) {
     L.push('', '## À JOUER CETTE FOIS (intègre-le naturellement)');
@@ -399,7 +399,7 @@ const VIBE_LINE = (withBy) => `- Facultatif (au plus 1) : {"t":"vibe",${withBy ?
    a relationship that may change, a meeting or an event with a time, a content the player announces, a compromising
    message. Generous on purpose: a line too many costs a little, a line missing costs a feature. */
 const REL_RE = /aim|ador|love|crush|c[œo]eur|bisou|c[âa]lin|couple|ensemble|rencard|date|flirt|drag|mignon|charmant|ami|pote|bff|fr[èe]re|s[œo]eur|famille|mentor|[ée]l[èe]ve|rival|ennemi|\bex\b|rupture|cass|trah|confian|secret|complice|coloc|alli|partenai|collab|fan|jalou|manque|pardon|d[ée]sol|excuse|merci|bravo|fier|soutien|d[ée]fend|d[ée]test|hais|clash|guerre|paix/i;
-const WHEN_RE = /ce soir|demain|tout [àa] l|plus tard|dans \d|\d ?h\b|\d ?h\d\d|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|week-?end|live|direct|concert|match|annonc|rdv|rendez-vous|rencard|verre|d[îi]ner|resto|soir[ée]e|appel|visio|on se (?:voit|capte|retrouve|fait)|qui vient|venez|viens|rejoin|prochain/i;
+const WHEN_RE = /ce soir|demain|tout [àa] l|plus tard|dans \d|\d\s?h\b|\d\s?h\d\d|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|week-?end|live|direct|concert|match|annonc|rdv|rendez-vous|rencard|verre|d[îi]ner|resto|soir[ée]e|appel|visio|on se (?:voit|capte|retrouve|fait)|qui vient|venez|viens|rejoin|prochain/i;
 const ANNOUNCE_RE = /vid[ée]o|live|direct|stream|clip|podcast|short|reel|tiktok|story|stories|[ée]pisode|[ée]mission|teaser|trailer|bande-annonce|sortie|sort |bient[ôo]t|demain|ce soir|tout [àa] l|prochain|pr[ée]par|arrive|annonc|stay tuned|restez|en ligne|upload|poster|publi|tourn|film|montage|cha[îi]ne|abonn|preuve|prouv|d[ée]voil|r[ée]v[ée]l|expos/i;
 const INTEL_RE = /@|secret|entre nous|dis (?:pas|rien)|personne (?:sait|ne sait)|avou|menti|trich|vol[ée]|fait semblant|hypocrite|d[ée]test|supporte pas|nul|conn|bouffon|clown|fake|faux|fausse|menteu|mytho|arnaque|pi[èe]ge|veng|d[ée]truire|couler|balanc|expos|humili|ridicul|promets|promis|jure|trahi|ruin|cancel|bad buzz|rumeur|ragot|potin|achet|pay[ée]|argent|thune|fric/i;
 const MAKE_RE = /collab|tourn|vid[ée]o|live|feat|ensemble/i; // making something together
@@ -474,7 +474,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     if (r.plot) L.push(`Ce qui se passe dedans (le joueur le raconte, c’est ce qu’on voit vraiment) : « ${r.plot} ». Les réactions parlent de ce contenu-là, de ses moments précis, pas d’autre chose.`);
     const fq = fanVideoLine(g, r); // 0.21: a video on a fan's question
     if (fq) L.push(fq);
-    L.push(`Résultat du tournage (un mini-jeu joué par le joueur, en difficulté ${diffOf(vid.diff).label.toLowerCase()}) : ${VIDEO_TIER_TEXT[vid.tier](r)} (${Math.round(vid.score * 100)} %). Ce résultat décide l’accueil. Les réactions parlent du contenu (ce qu’on y voit, ce que ça montre ou prouve).`);
+    L.push(`Résultat du tournage (un mini-jeu joué par le joueur, en difficulté ${diffOf(vid.diff).label.toLowerCase()}) : ${VIDEO_TIER_TEXT[vid.tier](r)} (${pctOf(vid.score)} %). Ce résultat décide l’accueil. Les réactions parlent du contenu (ce qu’on y voit, ce que ça montre ou prouve).`);
     const VD = diffOf(vid.diff);
     if (vid.tier === 'top' && VD.real) L.push(`Réussi au niveau ${VD.label}, le plus dur du jeu : de vraies questions d’expert sur le sujet. On sent que le joueur maîtrise vraiment : des connaisseurs le saluent, même les plus pointus.`);
     else if (vid.tier === 'top' && VD.viral) L.push(`Réussi au niveau ${VD.label} : une exécution bluffante, ça part en viral.`);
@@ -1562,7 +1562,7 @@ function accusationResult(ctx) {
     queueModalFor(g, { t: 'badbuzz', charId: c.id, exposed: truth, fake: true });
     return;
   }
-  if (ctx.video && inBadBuzz(c)) { // a new video while they are down: at 80 % or more, they are buried
+  if (ctx.video && inBadBuzz(c)) { // a new video while they are down: at 80 % or more, they are buried
     if (ctx.video.score >= 0.8) buryChar(g, c);
     else if (cred >= 7) {
       Object.assign(c.badBuzz, { until: Math.max(c.badBuzz.until, Date.now()) + BADBUZZ_MS, strength: Math.max(c.badBuzz.strength || 0, ctx.video.score) });
@@ -2460,7 +2460,7 @@ function eventOutcome(g, ev, c, o, post) {
   const pr = pr0 ? repPts(repMove(g, { image: pr0 > 0 ? pr0 * 1.6 : pr0 * 2.5 }, `${eventLabel(g, ev)} (« ${str(ev.what, 40)} »)`)) : 0; // in points on 1000
   post.evt.outcome = { success, pct, line, pr };
   const K = EVENT_KINDS[ev.kind] || EVENT_KINDS.autre;
-  addNotif(g, { k: 'event', c: c.id, p: post.id, at: t, text: `${K.emoji} ${eventLabel(g, ev)} : ${line || (success ? 'ça a marché' : 'c’est raté')}${pct ? ` (${pct > 0 ? '+' : '−'}${Math.abs(pct)} % d’abonnés)` : ''}${pr ? ` · ${repWord(pr / 10)}` : ''}` });
+  addNotif(g, { k: 'event', c: c.id, p: post.id, at: t, text: `${K.emoji} ${eventLabel(g, ev)} : ${line || (success ? 'ça a marché' : 'c’est raté')}${pct ? ` (${pct > 0 ? '+' : '−'}${Math.abs(pct)} % d’abonnés)` : ''}${pr ? ` · ${repWord(pr / 10)}` : ''}` });
   addChronicle(g, `${eventLabel(g, ev)} (« ${str(ev.what, 60)} ») : ${line || (success ? 'réussi' : 'raté')}.`);
   addTrigger(g, `${eventLabel(g, ev)} vient d’avoir lieu (${line || (success ? 'réussi' : 'raté')}) : le réseau en parle encore.`, c.id);
 }
@@ -2556,8 +2556,8 @@ function promptDateEnd(g, ev) {
     `Le joueur et @${c.handle} (${c.name}) viennent de passer leur rendez-vous (${M.task}) : « ${ev.what} ».`,
     `Fiche de ${c.name} : ${ficheText(g, c)}.`,
     c.mem && c.mem.length ? `Ce que ${c.name} retient du joueur : ${c.mem.slice(-4).map((m) => m.t).join(' ; ')}` : null,
-    ev.talk ? `Comment ça s’est passé (d’après la soirée ci-dessous, exigence ${D.label.toLowerCase()}, ${Math.round(ev.played.score * 100)} %) : ${res}.`
-      : `Comment ça s’est passé (mini-jeu joué par le joueur, difficulté ${D.label.toLowerCase()}, ${Math.round(ev.played.score * 100)} %) : ${res}.`,
+    ev.talk ? `Comment ça s’est passé (d’après la soirée ci-dessous, exigence ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`
+      : `Comment ça s’est passé (mini-jeu joué par le joueur, difficulté ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`,
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',
     ...talkEndLines(g, ev),
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,

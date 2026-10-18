@@ -384,7 +384,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await sleep(800); // the layer slides in
   const note = await G(page, () => ({ note: (document.querySelector('.layer .series-note') || {}).textContent || '', postpone: [...document.querySelectorAll('.layer .mg-result button')].some((b) => /Repousser/.test(b.textContent)) }));
   await shot(page, 'series-no-postpone');
-  check('Daily Upload: a failed episode says clearly, up top, why there is no « Repousser » and what to do', !!se && /Défi Daily Upload : pas de report possible/.test(note.note) && /repart de zéro/.test(note.note) && !note.postpone, note);
+  check('Daily Upload: a failed episode says clearly, up top, why there is no « Repousser » and what to do', !!se && /Défi Daily Upload : pas de report possible/.test(note.note) && /retombe à ×1/.test(note.note) && !note.postpone, note);
 
   await browser.close();
   console.log('ERRORS', errors.join('\n'));

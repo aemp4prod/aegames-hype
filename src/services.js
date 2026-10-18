@@ -17,7 +17,7 @@ const jobsOf = (g, cid) => (g.jobs || []).filter((j) => !cid || j.c === cid);
 const JOB_LIVE = ['open', 'ready', 'sent'];
 const openJob = (g, cid) => jobsOf(g, cid).find((j) => JOB_LIVE.includes(j.state)) || null;
 const jobOf = (g, id) => (g.jobs || []).find((j) => j.id === id) || null;
-const payCap = (c, g) => Math.max(30, Math.round(Math.sqrt(Math.max(0, c.followers || 0)) * 2 * (1 + (g ? skillFx(g, 'jobPay') : 0)) / 10) * 10); // a small creator pays a little (3 000 subscribers: 110 €; 1 million: 2 000 €); 0.24: creativity, tier 10
+const payCap = (c, g) => Math.max(30, Math.round(Math.sqrt(Math.max(0, c.followers || 0)) * 2 * (1 + (g ? skillFx(g, 'jobPay') : 0)) / 10) * 10); // a small creator pays a little (3 000 subscribers: 110 €; 1 million: 2 000 €); 0.24: creativity, tier 10
 const jobFileKind = (name) => (/\.(mp4|mov|mkv|avi|webm)$/i.test(name) ? ['🎞️', 'Vidéo'] : /\.(png|jpe?g|webp|psd|gif)$/i.test(name) ? ['🖼️', 'Image'] : /\.(wav|mp3|ogg|flac)$/i.test(name) ? ['🎵', 'Son'] : /\.(zip|rar|7z)$/i.test(name) ? ['🗜️', 'Archive'] : ['📄', 'Fichier']);
 // 0.25.2: what the client sees, from bad to legendary. A montage's quality = its rhythm game's score × what its difficulty
 // allows (the player picks it, as for their own videos): at « Facile », a perfect run is « bon »; « légendaire » takes
@@ -41,6 +41,8 @@ const jobQ = (m, diff) => clamp(num(m, 0) * (JOB_K[diff] || 1), 0, 1);
 const qOf = (j) => (j.q != null ? j.q : j.m); // (an order done before 0.25.2: its score was its quality)
 const jobBest = (d) => jobTier(JOB_K[d.id] || 1);
 const legendFrom = (d) => (JOB_K[d.id] >= 0.9 ? Math.ceil((0.9 / JOB_K[d.id]) * 100) : null); // the score it takes, in %
+// 0.27.8: from what score a difficulty gives « bon », and under which it is « raté » (the worst, not only the best)
+const jobFrom = (d, q) => Math.ceil((100 * q) / (JOB_K[d.id] || 1) - 1e-9);
 // What they expect, by their audience (one notch more if they pay): the difficulty that gets there is the first offered.
 function jobExpect(g, c, j) {
   const ix = clamp(diffIx(diffOf(fameDiff(c))) + (j && j.pay ? 1 : 0), 0, 3);
@@ -111,7 +113,7 @@ function promptJobDone(g, c, j, paid) {
     c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${c.mem.slice(-4).map((m) => m.t).join(' ; ')}` : null,
     msgs.length ? 'Leurs derniers messages (du plus ancien au plus récent) :\n' + msgs.map((m) => (m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur)' : first} : ${str(m.text, 200)}`)).join('\n') : null,
     `Le joueur vient d’envoyer à ${first} ${K.noun} commandé${j.kind === 'miniature' ? 'e' : ''} : « ${j.what} »${j.files.length ? ` (à partir de ${j.files.map((f) => f.name).join(', ')})` : ''}${late ? `, avec ${fmtDur(late)} de retard` : ''}.`,
-    `Le résultat, tel que ${first} le découvre : ${jobTier(qOf(j)).ai} (qualité ${Math.round(qOf(j) * 100)} %).`,
+    `Le résultat, tel que ${first} le découvre : ${jobTier(qOf(j)).ai} (qualité ${pctOf(qOf(j))} %).`,
     j.kind === 'montage' ? `Ce que ${first} attendait, vu son audience${j.pay ? ' et ce qu’' + il + ' paie' : ''} : un montage au moins ${jobExpect(g, c, j).tier.label}.` : null,
     j.pay ? (paid >= j.pay ? `${first} paie ${fmtMoney(g, paid)} au joueur, comme convenu.` : `${first} ne paie que ${fmtMoney(g, paid)} sur les ${fmtMoney(g, j.pay)} convenus : le résultat ne vaut pas plus à ses yeux.`) : 'C’était un service entre eux, sans argent.',
     '', '## TA MISSION',
@@ -228,7 +230,7 @@ function jobsCtx(g) {
   if (!done.length) return '';
   const avg = Math.round((done.reduce((n, j) => n + qOf(j), 0) / done.length) * 100);
   const kinds = [...new Set(done.map((j) => JOB_KINDS[j.kind].label.toLowerCase() + 's'))].join(' et ');
-  return `Le joueur rend aussi des services aux autres créateurs (${kinds}) : ${done.length} ${plural(done.length, 'travail rendu', 'travaux rendus')}, ${avg} % de qualité en moyenne${done.some((j) => j.post) ? ', certains partagés en public avec son nom' : ''}. Quelqu’un peut lui en demander un.`;
+  return `Le joueur rend aussi des services aux autres créateurs (${kinds}) : ${done.length} ${plural(done.length, 'travail rendu', 'travaux rendus')}, ${avg} % de qualité en moyenne${done.some((j) => j.post) ? ', certains partagés en public avec son nom' : ''}. Quelqu’un peut lui en demander un.`;
 }
 // In their conversation: the order under way.
 function jobDMCtx(g, c) {
@@ -269,7 +271,7 @@ function JobLayer({ l, g, now, i }) {
   const head = html`<div class="dlog-head job-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${K.emoji} ${j.what}</b><small>${K.label} pour ${c.name} · ${j.pay ? fmtMoney(g, j.pay) : 'entre amis'} · ${now > j.due ? 'en retard' : 'à rendre ' + fmtWhen(j.due, now)}</small></div></div>`;
   const files = got.length ? html`<div class="job-files">${got.map((f) => html`<${FileCard} key=${f.name} m=${{ name: f.name, me: false }} />`)}</div>` : null;
   let body;
-  if (j.state === 'done' || j.state === 'dropped') body = html`<p class="muted">${j.state === 'done' ? `Rendu : ${jobQual(qOf(j))}${j.diff ? ` (${diffOf(j.diff).label}, ${Math.round(j.m * 100)} %)` : ''}${j.paid ? `, payé ${fmtMoney(g, j.paid)}` : ''}${j.fol ? `, partagé en public (${nAbonnes(j.fol, true)})` : ''}.` : 'Commande abandonnée.'}</p>`;
+  if (j.state === 'done' || j.state === 'dropped') body = html`<p class="muted">${j.state === 'done' ? `Rendu : ${jobQual(qOf(j))}${j.diff ? ` (${diffOf(j.diff).label}, ${pctOf(j.m)} %)` : ''}${j.paid ? `, payé ${fmtMoney(g, j.paid)}` : ''}${j.fol ? `, partagé en public (${nAbonnes(j.fol, true)})` : ''}.` : 'Commande abandonnée.'}</p>`;
   else if (j.state === 'sent' || busy) body = html`<p class="muted">${busy ? html`<${Typing} /> ${first} découvre ton travail…` : `Envoyé à ${first}. Sa réponse est dans vos messages.`}</p>`;
   else if (j.state === 'ready') body = html`<${JobReady} g=${g} j=${j} c=${c} busy=${busy} />`;
   else if (K.files && !got.length) body = html`<p class="muted">${first} ne t’a pas encore envoyé ses fichiers. Tu peux les lui réclamer en message.</p>`;
@@ -296,15 +298,15 @@ function JobEdit({ g, j }) {
   return html`<div class="mg-intro studio-step edit-step job-setup">
     <span class="eyebrow">${D.emoji} ${D.label}</span>
     <h3>Le montage pour ${first}</h3>
-    <p>${MONTAGE.short.intro}</p>
+    <p>Coupe ses rushes au rythme : chaque coupe dans la zone compte.</p>
     <p class="job-expect">${first} attend un montage au moins <b>${exp.tier.label}</b>.</p>
     <div class="field">
       <span class="lbl" id="job-diff">Difficulté</span>
       <div class="diff-list compact" role="radiogroup" aria-labelledby="job-diff">${JOB_DIFFS.map((d) => { const lfd = legendFrom(d); return html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '')} onClick=${() => setDiff(d.id)}>
-        <span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b><small>${mgCount('montage', d)} coupes, ${JOB_DIFF_TXT[d.id]}${lfd ? ` · légendaire dès ${lfd} %` : ''}</small></span><span class="d-mult">${lfd ? 'légendaire' : 'au mieux ' + jobBest(d).label}</span>
+        <span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b><small>${mgCount('montage', d)} coupes, ${JOB_DIFF_TXT[d.id]} · bon dès ${jobFrom(d, 0.5)} %, raté sous ${jobFrom(d, JOB_FLOP)} %${lfd ? ` · légendaire dès ${lfd} %` : ''}</small></span><span class="d-mult">${lfd ? 'légendaire' : 'au mieux ' + jobBest(d).label}</span>
       </button>`; })}</div>
     </div>
-    <p class="muted">Touche « Couper » quand le curseur passe dans la zone : ${n} coupes. ${lf ? `Un sans-faute (${lf} % et plus) donne un montage légendaire.` : `Même sans faute, ce sera au mieux « ${best.label} ».`}</p>
+    <p class="muted">${cutRule('Couper', n, false)} ${lf ? `Dès ${lf} %, le montage est légendaire.` : `Même sans faute, ce sera au mieux « ${best.label} ».`} Raté : sa vidéo fait un flop${j.pay ? ` et ${first} ne paie que la moitié` : ''}.</p>
     <button class="btn btn-hot" onClick=${start}><${Icon} n="scissors" s=${16} /> Monter</button>
   </div>`;
 }
@@ -313,7 +315,7 @@ function JobReady({ g, j, c, busy }) {
   const K = JOB_KINDS[j.kind], first = c.name.split(' ')[0], t = jobTier(qOf(j));
   const exp = j.kind === 'montage' ? jobExpect(g, c, j).tier : null, gap = exp ? tierRank(t) - tierRank(exp) : 0;
   return html`<div class=${'job-ready tier-' + t.id}>
-    <p><b>${K.label} : ${t.label}</b>${j.diff ? ` · ${Math.round(j.m * 100)} % en ${diffOf(j.diff).emoji} ${diffOf(j.diff).label}` : ` · ${Math.round(j.m * 100)} %`}</p>
+    <p><b>${K.label} : ${t.label}</b>${j.diff ? ` · ${pctOf(j.m)} % en ${diffOf(j.diff).emoji} ${diffOf(j.diff).label}` : ` · ${pctOf(j.m)} %`}</p>
     ${exp ? html`<p class="muted">${gap > 0 ? `Mieux que ce que ${first} attendait (${exp.label}).` : gap === 0 ? `C’est ce que ${first} attendait.` : `${first} attendait au moins « ${exp.label} ».`}</p>` : null}
     <div class="row ss-actions">
       <button class="btn btn-hot" onClick=${() => sendJob(j.id)} disabled=${busy}><${Icon} n="send" s=${16} /> Envoyer à ${first}</button>
@@ -322,7 +324,10 @@ function JobReady({ g, j, c, busy }) {
 }
 function JobsSection({ g, now }) {
   const live = jobsOf(g).filter((j) => JOB_LIVE.includes(j.state));
-  if (!live.length) return null;
+  if (!live.length) { // 0.27.8: said before the first one (it is agreed in private, never on its own)
+    return html`<section class="section jobs-sec"><div class="section-h"><h3>Tes commandes</h3><span>aucune en cours</span></div>
+      <p class="muted">Propose en message à un créateur de monter sa vidéo ou de faire sa miniature : s’il accepte, sa commande arrive ici.</p></section>`;
+  }
   return html`<section class="section jobs-sec">
     <div class="section-h"><h3>Tes commandes</h3><span>${live.length} en cours</span></div>
     ${live.map((j) => { const c = g.chars[j.c], K = JOB_KINDS[j.kind]; return c ? html`<button key=${j.id} class="rel-row" onClick=${() => openLayer({ t: 'job', id: j.id })}>

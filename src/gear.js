@@ -73,13 +73,13 @@ const SUBS = {
   box5g: { emoji: '📶', label: 'Box 5G', price: 40, net: true, desc: 'Des lives possibles, quelques coupures. Branchée tout de suite.' },
   fibre: { emoji: '🌐', label: 'Fibre', price: 35, net: true, install: 150, days: [3, 8], fibre: true, desc: 'Des lives fluides, très peu de coupures. Installée en quelques jours.' },
   fibrepro: { emoji: '🛰️', label: 'Fibre pro', price: 89, net: true, install: 150, days: [3, 8], fibre: true, desc: 'La fibre des pros : presque jamais coupée, rétablie en quelques heures.' },
-  montage: { emoji: '🎞️', label: 'Logiciel de montage pro', price: 25, desc: 'Un montage plus facile, une sauvegarde auto si ça plante, +2 % de vues sur ce que tu montes à l’ordinateur.' },
+  montage: { emoji: '🎞️', label: 'Logiciel de montage pro', price: 25, desc: 'Un montage plus facile, une sauvegarde auto si ça plante, +2 % de vues sur ce que tu montes à l’ordinateur.' },
   sons: { emoji: '🎵', label: 'Banque de sons et de musiques', price: 15, desc: 'Des musiques libres de droits : plus jamais une réclamation qui te prend l’argent d’une vidéo.' },
-  assur: { emoji: '🛡️', label: 'Assurance matos', price: 19, desc: 'Casse et vol couverts : réparé ou remplacé contre une franchise (5 % de son prix, 50 € au moins). Son prix suit la valeur de ton matos.' },
+  assur: { emoji: '🛡️', label: 'Assurance matos', price: 19, desc: 'Casse et vol couverts : réparé ou remplacé contre une franchise (5 % de son prix, 50 € au moins). Son prix suit la valeur de ton matos.' },
 };
 const NET_SUBS = ['fibrepro', 'fibre', 'box5g'];
 const subName = (g, id) => { const W = gearWorld(g); return (W && W.subs[id]) || (W && W.net[id]) || SUBS[id].label; };
-const FRANCHISE = 50; // at least (0.20 balance: 5 % of the price of what broke or was stolen)
+const FRANCHISE = 50; // at least (0.20 balance: 5 % of the price of what broke or was stolen)
 const franchiseOf = (price) => Math.max(FRANCHISE, niceRound((price || 0) * 0.05));
 const NOISE_FIX = 350; // soundproofing the room: the noisy neighbours are no longer heard
 
@@ -88,25 +88,25 @@ const NOISE_FIX = 350; // soundproofing the room: the noisy neighbours are no lo
 // or 'extra' (owned on top of the rest).
 const NEW_GEAR = [
   { id: 'sourire', kind: 'cam', emoji: '😄', name: 'Caméra Sourire', w: { aldoree: 'Œil rieur', orion: 'Capteur Sourire' }, price: 120000, bonus: 'sympathie',
-    fx: 'Une image chaleureuse : on te trouve plus drôle. +10 % de j’aime et d’abonnés sur tes sorties.' },
+    fx: 'Une image chaleureuse : on te trouve plus drôle. +10 % de j’aime et d’abonnés sur tes sorties.' },
   { id: 'vitrine', kind: 'cam', emoji: '🛍️', name: 'Caméra Vitrine', w: { aldoree: 'Œil du marchand', orion: 'Capteur Vitrine' }, price: 130000, bonus: 'produits',
-    fx: 'Les produits brillent à l’image : les marques paient 15 % de plus, et reviennent plus volontiers.' },
+    fx: 'Les produits brillent à l’image : les marques paient 15 % de plus, et reviennent plus volontiers.' },
   { id: 'velours', kind: 'mic', emoji: '🎙️', name: 'Micro Velours', w: { aldoree: 'Conque de velours', orion: 'Capteur Velours' }, price: 20000, bonus: 'voix',
-    fx: 'Une voix qui captive : +12 % de vues sur tes lives et tes podcasts.' },
+    fx: 'Une voix qui captive : +12 % de vues sur tes lives et tes podcasts.' },
   { id: 'drone', kind: 'extra', emoji: '🚁', name: 'Drone de tournage', w: { aldoree: 'Faucon de tournage', orion: 'Drone d’orbite' }, price: 30000, bonus: 'aerien',
-    fx: 'Des plans vus du ciel : +7 % de vues sur tes vidéos et tes clips.' },
+    fx: 'Des plans vus du ciel : +7 % de vues sur tes vidéos et tes clips.' },
   { id: 'station', kind: 'pc', emoji: '🖥️', name: 'Station de rendu', w: { aldoree: 'Grimoire des sages', orion: 'Cœur de calcul' }, price: 50000, bonus: 'rendu',
     fx: 'Rendu instantané, plus jamais de plantage, et un montage encore plus facile.' },
   { id: 'prompteur', kind: 'extra', emoji: '📜', name: 'Prompteur intelligent', w: { aldoree: 'Parchemin souffleur', orion: 'Prompteur holo' }, price: 30000, bonus: 'prompteur',
-    fx: '+15 % de temps pendant tes tournages.' },
+    fx: '+15 % de temps pendant tes tournages.' },
   { id: 'cam360', kind: 'extra', emoji: '🌐', name: 'Caméra 360°', w: { aldoree: 'Œil aux mille faces', orion: 'Capteur 360°' }, price: 50000, bonus: 'viral',
     fx: 'Des images que personne n’a : +4 points de chances de faire le buzz à chaque sortie.' },
   { id: 'aura', kind: 'light', emoji: '✨', name: 'Lumière Aura', w: { aldoree: 'Lanterne d’aurore', orion: 'Éclairage Aura' }, price: 30000, bonus: 'miniatures',
-    fx: 'Une image qui claque : +9 % de vues sur tes vidéos longues (miniatures comprises).' },
+    fx: 'Une image qui claque : +9 % de vues sur tes vidéos longues (miniatures comprises).' },
   { id: 'stabi', kind: 'extra', emoji: '🤳', name: 'Stabilisateur nouvelle génération', w: { aldoree: 'Bâton de l’équilibre', orion: 'Stabilisateur gravitationnel' }, price: 35000, bonus: 'nervosite',
-    fx: 'Des formats courts plus nerveux : +6 % de vues dessus, et un montage plus facile.' },
+    fx: 'Des formats courts plus nerveux : +6 % de vues dessus, et un montage plus facile.' },
   { id: 'doubleur', kind: 'extra', emoji: '🗣️', name: 'Doubleur vocal', w: { aldoree: 'Pierre des langues', orion: 'Traducteur universel' }, price: 150000, bonus: 'monde',
-    fx: 'Tes contenus doublés dans dix langues : +10 % de vues sur tout.' },
+    fx: 'Tes contenus doublés dans dix langues : +10 % de vues sur tout.' },
 ];
 const NEW_BY_ID = Object.fromEntries(NEW_GEAR.map((x) => [x.id, x]));
 const newName = (g, X) => (X.w && g && g.world && X.w[g.world.preset]) || X.name;
@@ -122,7 +122,7 @@ const PERKS = [
   { id: 'fibre', w: 2, text: () => 'Un bon plan : l’installation de la fibre t’est offerte.', ok: (G) => G.net.base !== 'fibre' && G.net.fibreOk, apply: (G) => { G.freeInstall = 1; } },
 ];
 const FLAWS = [
-  { id: 'crack', w: 3, text: () => 'L’objectif de ton téléphone est rayé : −6 % de vues sur ce que tu filmes avec, tant qu’il n’est pas réparé.', ok: () => true, apply: (G) => { G.items.phone.crack = 1; } },
+  { id: 'crack', w: 3, text: () => 'L’objectif de ton téléphone est rayé : −6 % de vues sur ce que tu filmes avec, tant qu’il n’est pas réparé.', ok: () => true, apply: (G) => { G.items.phone.crack = 1; } },
   { id: 'loan', w: 2, text: (g) => `Tu rembourses un petit prêt : ${fmtMoney(g, 40)} par mois pendant 6 mois.`, ok: () => true, apply: (G) => { G.debt = { left: 6, amount: 40 }; } },
   { id: 'box', w: 2, text: () => 'Ta box plante souvent : deux fois plus de coupures, tant que tu la gardes.', ok: (G) => G.net.base !== 'fibre', apply: (G) => { G.flaky = 1; } },
   { id: 'noisy', w: 2, text: () => 'Des voisins très bruyants : tes lives et tes enregistrements en pâtissent parfois.', ok: () => true, apply: (G, t) => { G.noisy = t + randi(30, 70) * DAY_MS; } },
@@ -235,7 +235,7 @@ function makeableWhat(g, what) {
   if (fmts.includes('short') && canMake(g, 'short').ok) return 'short';
   return fmts.find((f) => canMake(g, f).ok) || what;
 }
-const fmtPct = (x) => (x >= 0 ? '+' : '−') + Math.round(Math.abs(x) * 100) + ' %';
+const fmtPct = (x) => (x >= 0 ? '+' : '−') + Math.round(Math.abs(x) * 100) + ' %';
 const viewsWord = (x, what) => (Math.round(x * 100) ? `${fmtPct(x)} de vues${what ? ' ' + what : ''}` : `ni bonus ni malus${what ? ' ' + what : ''}`);
 // One line for the prompts: what the player films and edits with.
 function gearBrief(g) {
@@ -338,7 +338,7 @@ function breakItem(g, k, why, t = Date.now()) {
   if (k === 'phone') { // a phone never stops: it films worse until it is repaired
     if (it.crack) return false;
     it.crack = 1;
-    addNotif(g, { k: 'gear', text: `📱 ${pick(CRACK_WHY)} : −6 % de vues sur ce que tu filmes avec, tant qu’il n’est pas réparé.` });
+    addNotif(g, { k: 'gear', text: `📱 ${pick(CRACK_WHY)} : −6 % de vues sur ce que tu filmes avec, tant qu’il n’est pas réparé.` });
     return true;
   }
   if (it.broken) return false;
@@ -354,7 +354,7 @@ function breakItem(g, k, why, t = Date.now()) {
 
 /* ---------- money: buying, selling, repairing, subscribing ---------- */
 const priceOf = (k, it) => (it && it.sp ? NEW_BY_ID[it.sp].price : GEAR[k].prices[it ? it.t : 0]);
-// What the gear is worth new (the insurance covers that): about 0.25 % of it per month, 19 € at least.
+// What the gear is worth new (the insurance covers that): about 0.25 % of it per month, 19 € at least.
 const gearValue = (g) => { const G = g && g.gear; if (!G) return 0; let v = 0; for (const k of GEAR_KINDS) if (G.items[k]) v += priceOf(k, G.items[k]) || 0; for (const x of G.extras || []) v += NEW_BY_ID[x.id] ? NEW_BY_ID[x.id].price : 0; return v; };
 const subPrice = (g, id) => (id === 'assur' ? Math.max(SUBS.assur.price, niceRound(gearValue(g) * 0.0025)) : SUBS[id].price);
 // What the old one sells for, second hand (much less when it is broken).
@@ -612,9 +612,9 @@ function gearIssues(g, now) {
     const it = G.items[k];
     if (!it) continue;
     const name = itemName(g, k, it);
-    if (k === 'phone' && it.crack) out.push({ id: 'crack', text: `${GEAR.phone.emoji} Objectif rayé : −6 % de vues sur ce que tu filmes au téléphone.`, acts: [{ label: `Réparer · ${fmtMoney(g, repairCost(g, k))}`, run: () => repairGear(g, k) }] });
+    if (k === 'phone' && it.crack) out.push({ id: 'crack', text: `${GEAR.phone.emoji} Objectif rayé : −6 % de vues sur ce que tu filmes au téléphone.`, acts: [{ label: `Réparer · ${fmtMoney(g, repairCost(g, k))}`, run: () => repairGear(g, k) }] });
     if (k !== 'phone' && it.broken) out.push({ id: 'broken-' + k, text: it.fixAt ? `${GEAR[k].emoji} ${name} : chez le réparateur, retour ${fmtWhen(it.fixAt, now)}.` : `${GEAR[k].emoji} ${name} : en panne.`,
-      acts: (it.fixAt ? [] : [{ label: `Réparer · ${fmtMoney(g, repairCost(g, k))}`, run: () => repairGear(g, k) }]).concat([{ label: `Express · ${fmtMoney(g, repairCost(g, k, true))}`, run: () => repairGear(g, k, true) }]) });
+      acts: (it.fixAt ? [] : [{ label: `Réparer (1 à 3 jours) · ${fmtMoney(g, repairCost(g, k))}`, run: () => repairGear(g, k) }]).concat([{ label: `Réparer tout de suite · ${fmtMoney(g, repairCost(g, k, true))}`, run: () => repairGear(g, k, true) }]) });
     if (k === 'pc' && it.hot) out.push({ id: 'hot', text: '🔥 Ton ordinateur surchauffe : il plante deux fois plus souvent.', acts: [{ label: `${FIXES.hot.label} · ${fmtMoney(g, FIXES.hot.cost)}`, run: () => fixGear(g, 'hot') }] });
     if (k === 'pc' && it.virus) out.push({ id: 'virus', text: it.virusEnd ? `🦠 Tu réinstalles tout : ton ordinateur repart ${fmtWhen(it.virusEnd, now)}.` : '🦠 Un virus bloque ton ordinateur.', acts: it.virusEnd ? [] : [{ label: `${FIXES.virus.label} · ${fmtMoney(g, FIXES.virus.cost)}`, run: () => fixGear(g, 'virus') }, { label: FIXES.virusSelf.label, run: () => fixGear(g, 'virusSelf') }] });
   }
@@ -629,7 +629,7 @@ function gearLine(g, k, it) {
   if (!it) return { name: { pc: `Pas ${WORLD_GEAR[g.world.preset] ? 'de ' + kindLabel(g, 'pc').toLowerCase() : 'd’ordinateur'}`, cam: `Pas de ${kindLabel(g, 'cam').toLowerCase()}`, mic: `Pas de ${kindLabel(g, 'mic').toLowerCase()}`, light: `Pas de ${kindLabel(g, 'light').toLowerCase()}` }[k],
     fx: { pc: 'pas de vidéos longues', cam: 'tu filmes au téléphone', mic: 'le son du téléphone', light: 'la lumière du jour' }[k] };
   const t = tierOfItem(it), X = it.sp ? NEW_BY_ID[it.sp] : null;
-  const fx = k === 'pc' ? `montage ${['laborieux', 'correct', 'facile', 'très facile'][t]}, ${Math.round(PC_EDIT[t].crash * 100) || '< 1'} % de plantages${GEAR.pc.views[t] ? `, ${fmtPct(GEAR.pc.views[t])} de vues` : ''}`
+  const fx = k === 'pc' ? `montage ${['laborieux', 'correct', 'facile', 'très facile'][t]}, ${Math.round(PC_EDIT[t].crash * 100) || '< 1'} % de plantages${GEAR.pc.views[t] ? `, ${fmtPct(GEAR.pc.views[t])} de vues` : ''}`
     : k === 'phone' ? viewsWord(GEAR.phone.views[t], 'sur ce que tu filmes avec')
       : viewsWord(GEAR[k].views[t]);
   return { name: X ? newName(g, X) : gearName(g, k, t), tier: X ? 'Nouveauté' : TIER_LABELS[t], fx: X ? `${fx} · ${X.fx}` : fx, bad: !usable(it) || (k === 'phone' && it.crack) };
@@ -647,7 +647,7 @@ function GearSection({ g, now }) {
       ${GEAR_KINDS.map((k) => { const it = G.items[k], L = gearLine(g, k, it); return html`<div key=${k} class=${'gear-row' + (it ? '' : ' none') + (L.bad ? ' bad' : '')}>
         <span class="gr-emo" aria-hidden="true">${GEAR[k].emoji}</span><div><b>${L.name}</b><small>${L.tier ? L.tier + ' · ' : ''}${L.fx}</small></div></div>`; })}
       ${G.extras.map((x) => { const X = NEW_BY_ID[x.id]; return html`<div key=${x.id} class=${'gear-row' + (x.broken ? ' bad' : '')}><span class="gr-emo" aria-hidden="true">${X.emoji}</span><div><b>${newName(g, X)}</b><small>Nouveauté · ${X.fx}</small></div></div>`; })}
-      <div class=${'gear-row net' + (n === 'data' ? ' bad' : '')}><span class="gr-emo" aria-hidden="true">${NETS[n].emoji}</span><div><b>${netName(g, n)}</b><small>${NETS[n].live ? (NETS[n].drop ? `lives possibles (${Math.round(NETS[n].drop * 100)} % de risque qu’un live coupe)` : 'lives fluides') : 'pas de live'}${pending ? ` · ${subName(g, pending)} : installation ${fmtWhen(G.subs[pending].installAt, now)}` : ''}${!G.net.fibreOk ? ' · la fibre n’est pas encore arrivée chez toi' : ''}</small></div></div>
+      <div class=${'gear-row net' + (n === 'data' ? ' bad' : '')}><span class="gr-emo" aria-hidden="true">${NETS[n].emoji}</span><div><b>${netName(g, n)}</b><small>${NETS[n].live ? (NETS[n].drop ? `lives possibles (${Math.round(NETS[n].drop * 100)} % de risque qu’un live coupe)` : 'lives fluides') : 'pas de live'}${pending ? ` · ${subName(g, pending)} : installation ${fmtWhen(G.subs[pending].installAt, now)}` : ''}${!G.net.fibreOk ? ' · la fibre n’est pas encore arrivée chez toi' : ''}</small></div></div>
     </div>
     ${issues.map((x) => html`<div class="gear-issue" key=${x.id}><span>${x.text}</span>${x.acts.length ? html`<div class="row">${x.acts.map((a, j) => html`<button key=${j} class=${'btn btn-sm ' + (j ? 'btn-ghost' : 'btn-hot')} onClick=${act(a)}>${a.label}</button>`)}</div>` : null}</div>`)}
     ${fmts.length ? html`<ul class="gear-cant">${fmts.map((f) => html`<li key=${f}><b>${f === 'vidéo' ? 'Vidéos longues' : f === 'live' ? 'Lives' : cap1(f)}</b> : ${canMake(g, f, now).why}</li>`)}</ul>` : null}
@@ -662,24 +662,27 @@ function GearShopLayer({ g, now, i }) {
   const [tab, setTab] = useState('matos');
   const G = g.gear, cash = g.career.cash;
   const buy = (fn) => () => { if (fn()) update(); };
+  // 0.27.8: over 1 000 €, or half of what is in the bank: one question first (one tap could spend 150 000 €)
+  const askBuy = (o) => () => { if (o.cost < 1000 && o.cost <= cash / 2) { buy(o.run)(); return; }
+    askConfirm({ title: `Acheter ${o.name} ?`, text: `${fmtMoney(g, o.cost)}. Il te restera ${fmtMoney(g, cash - o.cost)}.${o.swap ? ' Ton ancien matos ira dans ton inventaire.' : ''}`, ok: 'Acheter', run: buy(o.run) }); };
   const card = (key, o) => html`<div key=${key} class=${'shop-card' + (o.own ? ' own' : '') + (o.dim ? ' dim' : '')}>
     <div class="sc-head"><span aria-hidden="true">${o.emoji}</span><div><b>${o.name}</b><small>${o.tier}</small></div><b class="sc-price">${o.price}</b></div>
     <p>${o.fx}</p>
-    ${o.own ? html`<span class="chip good">${o.own}</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!!o.off} onClick=${buy(o.run)}>${o.label || 'Acheter'}</button>${o.off ? html`<small class="muted">${o.off}</small>` : null}`}
+    ${o.own ? html`<span class="chip good">${o.own}</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!!o.off} onClick=${o.cost ? askBuy(o) : buy(o.run)}>${o.label || 'Acheter'}</button>${o.off ? html`<small class="muted">${o.off}</small>` : null}`}
   </div>`;
   let body;
   if (tab === 'matos') {
     body = GEAR_KINDS.map((k) => { const cur = G.items[k], ct = usable(cur) && !(cur.crack) ? tierOfItem(cur) : -1; return html`<section class="section" key=${k}>
       <div class="section-h"><h3>${GEAR[k].emoji} ${kindLabel(g, k)}</h3><span>${cur ? itemName(g, k, cur) : 'rien pour l’instant'}</span></div>
       <div class="shop-grid">${[0, 1, 2, 3].filter((t) => GEAR[k].prices[t] > 0).map((t) => { const p = GEAR[k].prices[t], L = gearLine(g, k, mkItem(t));
-        return card(k + t, { emoji: GEAR[k].emoji, name: L.name, tier: TIER_LABELS[t], price: fmtMoney(g, p), fx: L.fx, own: ct === t && !cur.sp ? 'Tu l’as' : ct > t ? 'Tu as mieux' : '', off: cash < p ? `Il te manque ${fmtMoney(g, p - cash)}` : '', run: () => buyGear(g, k, t) }); })}</div>
+        return card(k + t, { emoji: GEAR[k].emoji, name: L.name, tier: TIER_LABELS[t], price: fmtMoney(g, p), cost: p, swap: !!cur, fx: L.fx, own: ct === t && !cur.sp ? 'Tu l’as' : ct > t ? 'Tu as mieux' : '', off: cash < p ? `Il te manque ${fmtMoney(g, p - cash)}` : '', run: () => buyGear(g, k, t) }); })}</div>
     </section>`; });
   } else if (tab === 'news') {
     const out = NEW_GEAR.slice(0, G.launch.n).reverse();
     const nd = gameDate(G.launch.next);
     body = html`<section class="section"><p class="muted">Tous les six mois, une nouveauté sort avec un bonus jamais vu. Elle remplace ton matos du même type (et compte comme du haut de gamme), ou s’ajoute au reste.</p>
       <div class="shop-grid">${out.map((X) => { const own = X.kind === 'extra' ? G.extras.some((x) => x.id === X.id) : G.items[X.kind] && G.items[X.kind].sp === X.id;
-        return card(X.id, { emoji: X.emoji, name: newName(g, X), tier: X.kind === 'extra' ? 'En plus du reste' : `Remplace : ${kindLabel(g, X.kind).toLowerCase()}`, price: fmtMoney(g, X.price), fx: X.fx, own: own ? 'Tu l’as' : '', off: cash < X.price ? `Il te manque ${fmtMoney(g, X.price - cash)}` : '', run: () => buyNew(g, X.id) }); })}
+        return card(X.id, { emoji: X.emoji, name: newName(g, X), tier: X.kind === 'extra' ? 'En plus du reste' : `Remplace : ${kindLabel(g, X.kind).toLowerCase()}`, price: fmtMoney(g, X.price), cost: X.price, swap: X.kind !== 'extra' && !!G.items[X.kind], fx: X.fx, own: own ? 'Tu l’as' : '', off: cash < X.price ? `Il te manque ${fmtMoney(g, X.price - cash)}` : '', run: () => buyNew(g, X.id) }); })}
         ${NEW_GEAR[G.launch.n] ? html`<div class="shop-card dim next"><div class="sc-head"><span aria-hidden="true">❔</span><div><b>Prochaine nouveauté</b><small>le 1er ${MONTHS[nd.getMonth()]} ${nd.getFullYear()}</small></div></div><p>Personne ne sait encore ce qu’elle fera.</p></div>` : null}</div></section>`;
   } else {
     const subCard = (id) => { const X = SUBS[id], s = G.subs[id], on = !!(s && s.on), o = subOffer(g, id);
@@ -756,7 +759,7 @@ function GearBlocker({ g, r, now }) {
   if (c.ok) return null;
   const G = g.gear, pc = G.items.pc;
   const acts = [];
-  if (c.fix === 'repair' && pc) acts.push({ label: `Réparation express · ${fmtMoney(g, repairCost(g, 'pc', true))}`, run: () => repairGear(g, 'pc', true) });
+  if (c.fix === 'repair' && pc) acts.push({ label: `Réparer tout de suite · ${fmtMoney(g, repairCost(g, 'pc', true))}`, run: () => repairGear(g, 'pc', true) });
   if (c.fix === 'virus') acts.push({ label: `${FIXES.virus.label} · ${fmtMoney(g, FIXES.virus.cost)}`, run: () => fixGear(g, 'virus') });
   if (c.fix === 'net' && G.net.storm) acts.push({ label: `${FIXES.storm.label} · ${fmtMoney(g, FIXES.storm.cost)}`, run: () => fixGear(g, 'storm') });
   const outage = c.fix === 'net' && G.net.out > now;

@@ -91,7 +91,7 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
   const r1 = await shootDone(0.6);
   await page.waitForSelector('.layer .edit-step', { timeout: 5000 });
   await shot(page, 'edit-step');
-  await clickText(page, '.layer .edit-step button', 'Monter vite');
+  await clickText(page, '.layer .edit-step button', 'Passer le montage');
   await page.waitForSelector('.layer .thumb-step', { timeout: 5000 });
   const e1 = await G(page, (id) => { const r = window.__hype.S.game.releases.find((x) => x.id === id); return { edit: r.edit, score: r.played.score, line: (document.querySelector('.layer .ss-edit') || {}).textContent || '' }; }, r1.id);
   await page.click('.layer .th-sw[aria-label="Rouge"]');
@@ -111,7 +111,7 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
   const v1 = await G(page, () => { const p = window.__hype.S.game.posts.find((x) => x.video && x.video.thumbLook); return p && { thumb: p.video.thumb, look: p.video.thumbLook, text: (document.querySelector('.video-card .th-art .th-text') || {}).textContent || '' }; });
   await shot(page, 'video-custom-thumb');
   check('after the shoot, a quick edit costs a few points (0.6 → 0.54) and says so; the thumbnail is put together (a red background, a shocked face, three words, an arrow: clickbait, said); the upload screen shows it; the video goes out with it',
-    e1.edit && e1.edit.by === 'vite' && Math.abs(e1.score - 0.54) < 0.001 && /bâclé.*−6 points/.test(e1.line) && /\+30 % de clics/.test(est) && /putaclic/.test(est) && v1 && v1.look.bg === 'rouge' && v1.look.emo === '😱' && /JE TESTE/.test(v1.text), { e1, est, v1 });
+    e1.edit && e1.edit.by === 'vite' && Math.abs(e1.score - 0.54) < 0.001 && /bâclé.*−6 points/.test(e1.line) && /\+30\s% de vues/.test(est) && /putaclic/.test(est) && v1 && v1.look.bg === 'rouge' && v1.look.emo === '😱' && /JE TESTE/.test(v1.text), { e1, est, v1 });
 
   // ---------- the rushes to sort (the shoot was the rhythm game); a thumbnail drawn by hand ----------
   const r2 = await shootDone(0.5, 'montage');
@@ -119,8 +119,9 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
   const kind2 = await G(page, (id) => window.__hype.S.game.releases.find((x) => x.id === id).editGame.kind, r2.id);
   await clickText(page, '.layer .edit-step button', 'Monter');
   for (let k = 0; k < 9; k++) {
+    // (0.27.8: an answer's explanation stays up to 4 s: the last one may still show when the loop comes back)
+    await page.waitForFunction((id) => !!window.__hype.S.game.releases.find((x) => x.id === id).edit || !!document.querySelector('.layer .mg-actions .btn-hot:not([disabled])'), r2.id, { timeout: 8000 });
     if (await G(page, (id) => !!window.__hype.S.game.releases.find((x) => x.id === id).edit, r2.id)) break;
-    await page.waitForSelector('.layer .mg-actions .btn-hot:not([disabled])', { timeout: 8000 });
     const good = await G(page, (id) => { const r = window.__hype.S.game.releases.find((x) => x.id === id), t = (document.querySelector('.layer .mg-card p') || {}).textContent || ''; return !!(r.editGame.items.find((x) => x.text === t) || {}).good; }, r2.id); // the take on screen
     await page.click(good ? '.layer .mg-actions .btn-hot' : '.layer .mg-actions .btn-ghost');
     await sleep(1350);

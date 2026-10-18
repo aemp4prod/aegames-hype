@@ -10,7 +10,7 @@ const firstWordsOf = (s, n) => String(s || '').replace(/[«»"“”()]/g, ' ').
 /* ---------- the chat of a live: remove the insults, the scams and the spam, keep the fans ---------- */
 const CHAT_NICKS = ['lucas_92', 'mel.lumiere', 'xXdarkXx', 'nina.b', 'zozo_officiel', 'kev1n', 'la_vraie_ines', 'tom.tom', 'saraah', 'noe_gaming', 'juju.bzh', 'pablito', 'emma_ldn', 'mehdi.13', 'clara_o', 'yanis.prod', 'lou_pi', 'theo.dlc', 'chlo3', 'bastien.v'];
 const CHAT_GOOD = ['trop bien ce live 🔥', 'première fois ici, je kiffe déjà', 'c’est quoi ton setup ?', 'gg !!', 'tu peux dire bonjour à ma sœur ? 😄', 'on t’aime ❤️', 'le son est un peu bas', 'ça fait combien de temps que tu fais ça ?', 'mdr 😂😂', 'enfin quelqu’un qui parle de {t}', 'tu refais un live demain ?', 'salut de Lyon 👋', 'trop fort', 'je partage à mes potes', 'mon moment préféré de la semaine', 'question : tu conseilles quoi pour débuter ?', 'bon courage pour la suite 💪', 'les autres, soyez sympas dans le chat svp', '{t} 😍', 'je suis là depuis le début !'];
-const CHAT_BAD = ['t’es nul, arrête le live', 'ABONNEZ-VOUS À MA CHAÎNE 🔥🔥🔥', 'gagne 1000 € par jour ➜ lien dans ma bio', 'donne-moi ton mot de passe, je t’offre un badge', 'je sais où t’habites', 'regarde mes photos 🔞 lien ici', 'vous êtes tous des clowns', 'FREE ROBUX ➜ bit.ly/xx', 'achète des abonnés ici, pas cher', 'cringe. personne te regarde', '{t} c’est pour les losers', 'spam spam spam spam spam'];
+const CHAT_BAD = ['t’es nul, arrête le live', 'ABONNEZ-VOUS À MA CHAÎNE 🔥🔥🔥', 'gagne 1000 € par jour ➜ lien dans ma bio', 'donne-moi ton mot de passe, je t’offre un badge', 'je sais où t’habites', 'regarde mes photos 🔞 lien ici', 'vous êtes tous des clowns', 'FREE ROBUX ➜ bit.ly/xx', 'achète des abonnés ici, pas cher', 'cringe. personne te regarde', '{t} c’est pour les losers', 'spam spam spam spam spam'];
 // From « Difficile » on, the traps: friendly words that hide a scam or an insult, rough words that are only teasing or useful.
 const CHAT_TRAP_BAD = ['super live ! au fait, clique ici pour gagner un iPhone 🎁', 'j’adore… pas du tout 😴', 'trop cool ! code promo SCAM50 sur mon site 😉', 'bravo pour ce live, dommage que tu sois si moche', 'je t’aide à gagner des abonnés, envoie-moi tes codes en privé'];
 const CHAT_TRAP_GOOD = ['t’es vraiment nul à ce jeu 😂 je t’adore', 'ATTENTION LE SON COUPE !!', 'c’est quoi le lien du merch ?', 'NON MAIS LE MOMENT LÀ 😱😱', 'arrête, tu vas me faire pleurer 😭 trop beau', 'je vais te clasher… avec des cœurs ❤️❤️'];
@@ -24,7 +24,7 @@ function makeChat(r, D) {
   const nicks = shuffle(CHAT_NICKS);
   const items = shuffle(bad.concat(good)).map((x, k) => Object.assign(x, { who: nicks[k % nicks.length] }));
   return { kind: 'chat', title: 'Modère le chat', what: r.what, intro: 'Ton chat déborde : supprime les insultes, les arnaques et le spam avant qu’ils restent à l’écran. Un fan supprimé par erreur, ça se voit aussi.', items, per, life: Math.round(per * lifeK), diff: D.id,
-    rule: `Les messages défilent : touche 🚫 sur ceux qui n’ont rien à faire là (insultes, arnaques, spam), laisse les autres. Un message toxique qui reste à l’écran compte contre toi, un fan supprimé aussi. ${items.length} messages.` };
+    rule: `Les messages défilent : touche 🚫 sur ceux qui n’ont rien à faire là (insultes, arnaques, spam), laisse les autres. Ton score monte avec chaque message toxique supprimé et baisse à chaque fan supprimé : ne rien supprimer, c’est raté. ${items.length} messages.` };
 }
 
 /* ---------- a podcast's mix: each track drifts, keep it in the green band ---------- */
@@ -45,7 +45,7 @@ function makeFrame(r, D) {
   return { kind: 'cadrage', title: 'Le recadrage vertical', what: r.what, intro: 'Ta vidéo est filmée à l’horizontale : garde le sujet dans le cadre vertical pendant qu’il bouge. S’il sort du cadre, on ne le voit plus sur le téléphone.',
     subject: pick(FRAME_SUBJECTS), w: [0.36, 0.32, 0.29, 0.26, 0.23, 0.21, 0.21][ix] || 0.28, speed: [0.16, 0.2, 0.25, 0.3, 0.36, 0.42, 0.42][ix] || 0.25,
     turns: [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.5][ix] || 0.9, roundMs: 6500, items: [0, 1, 2], diff: D.id,
-    rule: 'Le sujet démarre hors du cadre : fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour aller le chercher et le garder dedans. Trois plans de 6 secondes.' };
+    rule: 'Le sujet démarre hors du cadre : fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour aller le chercher et le garder dedans. Un cadre qui ne bouge pas ne marque presque rien. Trois plans de 6 secondes et demie.' };
 }
 
 // The makers, by kind (the shoot's rotation and the edit step read them).
@@ -109,9 +109,10 @@ function ChatGame({ game, onDone, run, keep }) {
     save();
     render();
   };
-  const x = st.current, ok = x.res.filter((v) => v === 1).length, seen = x.res.filter((v) => v != null).length;
+  // 0.27.8: the counter says what the score counts (letting everything through « handled » the fans, and scored a flop)
+  const x = st.current, caught = x.res.filter((v, j) => v === 1 && items[j].bad).length, hit = x.res.filter((v, j) => v === 0 && !items[j].bad).length, seen = x.res.filter((v) => v != null).length;
   return html`<div class="mg-play chat-play">
-    <div class="mg-top"><span class="mono">${Math.min(x.i, n)}/${n}</span><span class="mt-fb">${seen ? `${ok}/${seen} bien gérés` : 'Le chat s’anime…'}</span></div>
+    <div class="mg-top"><span class="mono">${Math.min(x.i, n)}/${n}</span><span class="mt-fb">${seen ? `🚫 ${caught} ${plural(caught, 'supprimé', 'supprimés')} à raison · ${hit ? `${hit} ${plural(hit, 'fan supprimé', 'fans supprimés')}` : 'aucun fan touché'}` : 'Le chat s’anime…'}</span></div>
     <div class="chat-box" aria-live="polite">
       ${x.shown.map((m) => { const it = items[m.j]; return html`<div key=${m.j} class=${'chat-msg' + (m.gone ? (m.ok ? ' del ok' : ' del ko') : '')} data-j=${m.j} data-bad=${it.bad ? '1' : '0'}>
         <span class="chat-txt"><b>${it.who}</b> ${it.text}</span>
@@ -170,7 +171,7 @@ function MixGame({ game, onDone, run, keep }) {
   const x = st.current;
   if (x.k >= nR) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   return html`<div class="mg-play mix-play">
-    <div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb ? `${Math.round(x.fb.v * 100)} % dans le vert` : 'Garde chaque piste dans le vert'}</span></div>
+    <div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb ? `${Math.round(x.fb.v * 100)} % dans le vert` : 'Garde chaque piste dans le vert'}</span></div>
     ${T.map((tr, k) => html`<div key=${k} class="mix-row" data-k=${k}>
       <span class="mix-lbl"><span aria-hidden="true">${tr.e}</span> ${tr.l}</span>
       <button type="button" class="mix-btn" onClick=${() => nudge(k, -0.08)} aria-label=${'Baisser ' + tr.l}>−</button>
@@ -231,7 +232,7 @@ function FrameGame({ game, onDone, run, keep }) {
         if (t - x.t0 >= ms) {
           const v = Math.min(1, x.inT / (ms / 1000)), c0 = Math.min(0.5, w * 0.7); // 0.27.6: what a frame left alone gets by chance does not count (it scored « moyen »)
           x.got = x.got.concat(Math.round(clamp((v - c0) / (1 - c0), 0, 1) * 1000) / 1000);
-          x.fb = { v };
+          x.fb = { v, got: x.got[x.got.length - 1] }; // (0.27.8: what counts is shown, not the raw time in the frame)
           keep(Object.assign({ k: x.k + 1, got: x.got, live: -1 }, x.k + 1 >= nR ? { score: x.got.reduce((a, b) => a + b, 0) / nR } : {}));
           render();
           setTimeout(() => { if (x.k + 1 >= nR) finish(x.got); else if (alive.current) { x.k += 1; startRound(); } }, 1100);
@@ -266,7 +267,7 @@ function FrameGame({ game, onDone, run, keep }) {
   const x = st.current;
   if (x.k >= nR) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   return html`<div class="mg-play frame-play">
-    <div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb ? `${Math.round(x.fb.v * 100)} % du temps dans le cadre` : 'Garde le sujet dans le cadre'}</span></div>
+    <div class="mg-top"><span class="mono">${x.k + 1}/${nR}</span><span class="mt-fb" aria-live="polite">${x.fb ? `Plan noté ${Math.round((x.fb.got != null ? x.fb.got : x.fb.v) * 100)} %` : 'Garde le sujet dans le cadre'}</span></div>
     <div class="frame-stage" ref=${stage} onPointerDown=${(e) => { try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* (a pointer the browser does not track) */ } moveTo(e); }} onPointerMove=${(e) => { if (e.buttons || e.pointerType === 'touch') moveTo(e); }}>
       <span class="frame-subj" ref=${subj} aria-hidden="true">${game.subject}</span>
       <span class="frame-win" ref=${frame} style=${`width:${(w * 100).toFixed(2)}%`}></span>

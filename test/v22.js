@@ -99,7 +99,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
   await sleep(400);
   const opened = await G(page, () => { const H = window.__hype, g = H.S.game, m = H.membOf(g); return { on: m.on, price: m.price, perks: m.perks, members: m.members, target: H.membTarget(g), trig: (g.triggers || []).some((x) => /adhésions payantes/.test(x.text)) }; });
   check('the memberships open on YouTube with the partner program and 1 000 subscribers (Instagram: 10 000; on Twitch, the paying subs are in the lives already); 1,99, 4,99 or 9,99 € a month, a badge and promises; the community hears of it',
-    /1\s000 abonnés/.test(gate.small) && /Programme Partenaire/.test(gate.noProg) && /Twitch/.test(gate.twitch) && gate.insta === true && gate.yt === true && /1,99 € par mois/.test(setupTxt) && /9,99 € par mois/.test(setupTxt) && /avant-première/.test(setupTxt) && /garde 30 %/.test(setupTxt)
+    /1\s000 abonnés/.test(gate.small) && /Programme Partenaire/.test(gate.noProg) && /Twitch/.test(gate.twitch) && gate.insta === true && gate.yt === true && /1,99\s€ par mois/.test(setupTxt) && /9,99\s€ par mois/.test(setupTxt) && /avant-première/.test(setupTxt) && /garde 30\s%/.test(setupTxt)
       && opened.on && opened.price === 4.99 && opened.perks.join() === 'badge,avant' && opened.target > 100 && opened.trig, { gate, opened, setupTxt: setupTxt.slice(0, 200) });
 
   const grow = await G(page, () => {
@@ -131,7 +131,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
     grow.after20 > 100 && grow.after20 <= grow.target * 1.15 && grow.warm > grow.target && grow.cheap > grow.target && grow.dear < grow.target && Math.abs(grow.paid - grow.expect) < 0.05 && grow.paid > 0 && /Adhésions de janvier/.test(grow.ledger) && /membres/.test(grow.notif) && grow.unmet === false, grow);
   check('a month without the promised early video: some members leave (−15 %), the community cools, they complain; the AI knows how many pay and what they were promised',
     grow.broken.after < grow.broken.before && grow.broken.after / grow.broken.before > 0.75 && grow.broken.after / grow.broken.before < 0.95 && grow.broken.unmet && grow.broken.warm < 0 && /certains s’en vont/.test(grow.broken.notif)
-      && /membres payants \(adhésions à 4,99 € par mois, promis : vidéos en avant-première\)/.test(grow.ctx), { broken: grow.broken, ctx: grow.ctx });
+      && /membres payants \(adhésions à 4,99\s€ par mois, promis : vidéos en avant-première\)/.test(grow.ctx), { broken: grow.broken, ctx: grow.ctx });
 
   // the promises kept by the releases: a video in early access, a members-only live
   await readyRelease(page, 'vidéo', 'les lucioles de la forêt, la nuit');
@@ -162,7 +162,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
   const onTxt = await G(page, () => (document.querySelector('.memb.on') || {}).textContent || '');
   const close = await G(page, () => { const H = window.__hype, g = H.S.game, w = g.career.warmth; const ok = H.closeMemb(g); return { ok, members: H.membOf(g).members, warm: Math.round((g.career.warmth - w) * 10) / 10 }; });
   check('« Ta commu » follows them: members, the price, what each brings, the promises kept this month; closing them cools the community',
-    /membres/.test(onTxt) && /4,99 € par mois/.test(onTxt) && /fait ce mois-ci/.test(onTxt) && /Fermer les adhésions/.test(onTxt) && close.ok && close.members === 0 && close.warm < 0, { onTxt: onTxt.slice(0, 220), close });
+    /membres/.test(onTxt) && /4,99\s€ par mois/.test(onTxt) && /fait ce mois-ci/.test(onTxt) && /Fermer les adhésions/.test(onTxt) && close.ok && close.members === 0 && close.warm < 0, { onTxt: onTxt.slice(0, 220), close });
 
   // ---------- the merch ----------
   await G(page, () => { const H = window.__hype, g = H.S.game; g.stats.followers = 4000; H.update(); });
@@ -389,7 +389,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
     g.deals = g.deals.filter((x) => x.id !== 'dlGoods'); g.stats.followers = f0;
     return out; });
   check('a last word as they part: « Tu veux rentrer avec moi ? » welcomed ends the evening at the door, tenderly (a success); turned down, a goodbye (counted like a gesture); « Se dire au revoir » costs nothing; a deal paid in products says so (no money)',
-    lw.prompt && lw.faded && lw.down && lw.bye && lw.ideas.includes('Tu veux rentrer avec moi ?') && /payé en produits \(≈ 100\s€\), pas en argent/.test(lw.notif) && lw.cash === 0, lw);
+    lw.prompt && lw.faded && lw.down && lw.bye && lw.ideas.includes('Tu veux rentrer avec moi ?') && /payé en produits \(≈\s100\s€\), pas en argent/.test(lw.notif) && lw.cash === 0, lw);
   await idle(page);
   await dismiss(page);
 

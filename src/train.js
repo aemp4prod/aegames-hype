@@ -124,7 +124,7 @@ function TrainCard({ g, m, close }) {
     <p class="mino-says">« ${m.info && on ? (tr.lvl >= TRAIN_TOP ? 'On est à fond ! Profite, ça ne dure pas.' : 'Continue de publier : chaque post qui marche remet du charbon.') : tr.line} »</p>
     <div class="train-name">Le train de la ${hyWord(tr.lvl)}</div>
     <${TrainLevels} lvl=${tr.lvl} />
-    <p>${m.info ? '' : 'Deux vidéos virales d’affilée : tout le réseau monte à bord. '}Chaque post bien reçu fait avancer le train, et tes posts portent ${Math.round((trainMult(g) - 1) * 100) || 8} % plus loin tant qu’il roule. ${on ? `Sans nouveau post qui marche, il s’arrête dans ${fmtLeft(tr.until - Date.now())}.` : ''}</p>
+    <p>${m.info ? '' : 'Deux vidéos virales d’affilée : tout le réseau monte à bord. '}Chaque post bien reçu fait avancer le train, et tes posts portent ${Math.round((trainMult(g) - 1) * 100) || 8} % plus loin tant qu’il roule. ${on ? `Sans nouveau post qui marche, il s’arrête dans ${fmtLeft(tr.until - Date.now())}.` : ''}</p>
     <button class="btn btn-hot" onClick=${close}>${m.info ? 'Compris' : 'Tout le monde à bord !'}</button>
   </div>`;
 }

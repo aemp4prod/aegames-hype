@@ -105,7 +105,7 @@ const fanBoost = (g) => 0.4 * warm01(g) * fame01(g); // fans pay more for what c
 const fairOf = (g, x) => Math.max(1, x.value * (COND[x.cond] || COND.bon).k);
 const suggestOf = (g, x) => roundPrice(fairOf(g, x) * (1 + fanBoost(g)));
 const resaleDemand = (g) => (0.5 + 0.5 * warm01(g)) * (0.6 + 0.25 * Math.log10(1 + g.stats.followers / 1000));
-// 0.27.6: three times what it is worth (fans included) or more, nobody buys (before: 3 % of the pace, whatever the price:
+// 0.27.6: three times what it is worth (fans included) or more, nobody buys (before: 3 % of the pace, whatever the price:
 // a thing listed at ten million sold within weeks)
 const priceK = (r) => (r <= 0.6 ? 3 : r >= 3 ? 0 : clamp(Math.pow(2, (1 - r) * 4), 0, 3));
 // How it should go, in words (the sell sheet).
@@ -204,11 +204,11 @@ const fromText = (g, x) => {
 function InvRow({ g, x, now }) {
   return html`<div class=${'inv-row' + (x.sale ? ' on-sale' : '')}>
     <span class="inv-emo" aria-hidden="true">${x.emoji}</span>
-    <div class="mid"><b>${x.name}</b><small>${[fromText(g, x), fmtAgo(x.at, now), COND[x.cond].label, `valeur ${fmtMoney(g, x.value)}`].filter(Boolean).join(' · ')}</small>
+    <div class="mid"><b>${x.name}</b><small>${[fromText(g, x), fmtAgo(x.at, now), COND[x.cond].label, x.value > 0 ? `revente ≈ ${fmtMoney(g, roundPrice(fairOf(g, x)))}` : ''].filter(Boolean).join(' · ')}</small>
       ${x.sale ? html`<small class="inv-sale">🏷️ En vente sur ${resaleName(g)} · ${fmtMoney(g, x.sale.price)} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(Math.floor(x.sale.favs || 0))}</small>` : null}</div>
     <div class="acts">
       ${x.kind === 'gear' && !x.sale && !(x.gear && x.gear.it && x.gear.it.dead) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (equipInv(g, x.id)) update(); }}>Utiliser</button>` : null}
-      <button class=${'btn btn-sm ' + (x.sale ? 'btn-ghost' : 'btn-hot')} onClick=${() => openLayer({ t: 'sell', id: x.id })}>${x.sale ? 'L’annonce' : 'Vendre'}</button>
+      <button class=${'btn btn-sm ' + (x.sale ? 'btn-ghost' : 'btn-hot')} onClick=${() => openLayer({ t: 'sell', id: x.id })}>${x.sale ? 'Voir l’annonce' : 'Vendre'}</button>
     </div>
   </div>`;
 }
@@ -220,7 +220,7 @@ function InvSection({ g, now }) {
     ${live.length ? live.slice(0, 6).map((x) => html`<${InvRow} key=${x.id} g=${g} x=${x} now=${now} />`)
       : html`<p class="muted">Les cadeaux des marques, ton ancien matos, ce que tu t’achètes et ce qu’on t’offre arrivent ici. Tu les gardes, tu les utilises ou tu les revends.</p>`}
     <div class="row">${live.length > 6 ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'inv' })}>Tout voir (${live.length})</button>` : null}
-      <button class="btn btn-ghost btn-sm resale-btn" onClick=${() => openLayer({ t: 'resale' })}><span aria-hidden="true">🏷️</span> ${app}${sold.length ? ` · ${sold.length} ${plural(sold.length, 'vente', 'ventes')}` : ''}</button></div>
+      <button class="btn btn-ghost btn-sm resale-btn" onClick=${() => openLayer({ t: 'resale' })}><span aria-hidden="true">🏷️</span> Revendre sur ${app}${sold.length ? ` · ${sold.length} ${plural(sold.length, 'vente', 'ventes')}` : ''}</button></div>
   </section>`;
 }
 function InvLayer({ g, now, i }) {
@@ -240,7 +240,7 @@ function SellLayer({ l, g, now, i }) {
   const go = () => { if (listItem(g, x.id, p)) { toast(x.sale && x.sale.at < Date.now() - 1000 ? 'Prix mis à jour.' : `En vente sur ${app} : ${fmtMoney(g, p)}.`, 'good'); closeLayer(); update(); } };
   return html`<${LayerShell} i=${i} title=${x.sale ? 'Ton annonce' : 'Vendre sur ' + app}><div class="lpad sell">
     <div class="sell-item"><span class="inv-emo big" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${[fromText(g, x), COND[x.cond].label, `valeur neuve ${fmtMoney(g, x.value)}`].filter(Boolean).join(' · ')}</small></div></div>
-    <p class="muted">${x.cond === 'neuf' ? 'Neuf, jamais servi' : `D’occasion, ${COND[x.cond].label.toLowerCase()}`} : ça se revend autour de ${fmtMoney(g, roundPrice(fairOf(g, x)))}.${boost >= 3 ? ` Ta commu est ${w[1]} ${w[2]} : tes abonnés paient jusqu’à ${boost} % de plus ce qui vient de toi.` : ''}</p>
+    <p class="muted">${x.cond === 'neuf' ? 'Neuf, jamais servi' : `D’occasion, ${COND[x.cond].label.toLowerCase()}`} : ça se revend autour de ${fmtMoney(g, roundPrice(fairOf(g, x)))}.${boost >= 3 ? ` Ta commu est ${w[1]} ${w[2]} : tes abonnés paient jusqu’à ${boost} % de plus ce qui vient de toi.` : ''}</p>
     <div class="field"><label class="lbl" for="sell-price">Ton prix</label>
       <input id="sell-price" class="input" inputmode="numeric" value=${price} onInput=${(ev) => setPrice(ev.target.value.replace(/[^\d]/g, '').slice(0, 7))} />
       <div class="row sell-picks">${picks.map(([lbl, v]) => html`<button key=${lbl} type="button" class=${'chip-btn' + (p === v ? ' on' : '')} onClick=${() => setPrice(String(v))}>${lbl} · ${fmtMoney(g, v)}</button>`)}</div>

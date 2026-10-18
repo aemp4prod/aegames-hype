@@ -348,7 +348,7 @@ const stored = (page, ids) => G(page, async (list) => { const H = window.__hype;
   await overflowCheck(page, 'composer, images seen');
   check('with real images: « Les persos voient ces images », unticked, and it says so: AI images only, never real people, sent to Claude; ticked, the description becomes optional',
     !box0.on && /Les persos voient ces images/.test(box0.text) && /Images générées par IA uniquement/.test(box0.text) && /jamais de photos de vraies personnes/.test(box0.text) && /envoyées à Claude/.test(box0.text) && /c’est ce que lisent les persos/.test(box0.label) && !box0.can
-    && box1.on && /facultatif/.test(box1.label) && /ta description devient facultative/.test(box1.note) && /≈ \+0,2 café/.test(box1.note) && box1.can, { box0, box1 });
+    && box1.on && /facultatif/.test(box1.label) && /ta description devient facultative/.test(box1.note) && /≈\s\+0,2 café/.test(box1.note) && box1.can, { box0, box1 });
   const v0 = await G(page, () => ({ n: window.__prompts.length, imgs: (window.__imgs || []).length, used: window.__hype.S.game.budget.chars }));
   await publish(page);
   const v1 = await G(page, (a) => {

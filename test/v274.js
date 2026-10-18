@@ -88,8 +88,8 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   await page.waitForFunction(() => [...document.querySelectorAll('.layer .deal-card')].some((e) => /Thé des Brumes/.test(e.textContent)), null, { timeout: 10000 });
   const a0 = await G(page, (a) => { const H = window.__hype, g = H.S.game, d = H.dealOf(g, a.id); return { summary: H.dealSummary(g, d), terms: H.payTerms(g, d), prompt: H.promptDM(g, g.chars[d.contact], [], 'et pour l’acompte ?'), card: document.querySelector('.layer .deal-card').textContent }; }, a);
   check('a small contract has no down payment by default: the card says it is all paid on delivery, the brand knows it, and knows how to write one into the contract (the "upfront" field, in % of the price, with an example)',
-    a.upfront === 0 && a0.terms === 'À la livraison' && /sans acompte \(tout est payé à la livraison\)/.test(a0.summary) && !/Acompte/.test(a0.card)
-    && /"upfront":30 \(l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison\)/.test(a0.prompt) && /Elle accepte un acompte de 40 % → \{"t":"deal","upfront":40\}/.test(a0.prompt) && /l’acompte \(la part versée à la signature/.test(a0.prompt), { summary: a0.summary, terms: a0.terms });
+    a.upfront === 0 && a0.terms === 'à la livraison' && /sans acompte \(tout est payé à la livraison\)/.test(a0.summary) && !/Acompte/.test(a0.card)
+    && /"upfront":30 \(l’acompte, en\s% du prix, versé à la signature : 0 = tout à la livraison\)/.test(a0.prompt) && /Elle accepte un acompte de 40\s% → \{"t":"deal","upfront":40\}/.test(a0.prompt) && /l’acompte \(la part versée à la signature/.test(a0.prompt), { summary: a0.summary, terms: a0.terms });
   const n0 = await G(page, () => window.__prompts.length);
   await G(page, (a) => window.__hype.sendDM(a.c, 'Ok pour 300 €, mais je voudrais un acompte de 40 % à la signature.'), a);
   await idle(page);
@@ -104,8 +104,8 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   const cardA = await page.$$eval('.layer .deal-card', (els) => els.map((e) => e.textContent).pop());
   await shot(page, 'deposit-agreed');
   check('the player asks for a 40 % down payment and the brand agrees in the DM: the contract follows (40 %, 120 € at the signature, a new card, a notice)',
-    a1.upPct === 40 && a1.upfront === 120 && a1.fee === 300 && a1.cards >= 2 && a1.upd && /acompte de 40 % à la signature \(120\s€\)/.test(a1.notif)
-    && /Acompte\s*120\s€\s*à la signature/.test(cardA) && a1.terms === '40 % à la signature, le reste à la livraison', Object.assign({ card: cardA.slice(0, 260) }, a1));
+    a1.upPct === 40 && a1.upfront === 120 && a1.fee === 300 && a1.cards >= 2 && a1.upd && /acompte de 40\s% à la signature \(120\s€\)/.test(a1.notif)
+    && /Acompte\s*120\s€\s*à la signature/.test(cardA) && a1.terms === '40\u00a0% à la signature, le reste à la livraison', Object.assign({ card: cardA.slice(0, 260) }, a1));
   const a2 = await G(page, (a) => {
     const H = window.__hype, g = H.S.game, d = H.dealOf(g, a.id), c0 = g.career.cash;
     const ok = H.signDeal(g, d);
@@ -114,7 +114,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     return { ok, paidAtSign: Math.round((c1 - c0) * 100) / 100, led: led && led.label, rest: Math.round((g.career.cash - c1) * 100) / 100, state: d.state };
   }, a);
   check('signed: the agreed down payment is paid at once (120 €, « Acompte … (40 %) »), the rest at delivery (180 €)',
-    a2.ok && a2.paidAtSign === 120 && a2.led === 'Acompte Thé des Brumes (40 %)' && a2.rest === 180 && a2.state === 'done', a2);
+    a2.ok && a2.paidAtSign === 120 && a2.led === 'Acompte Thé des Brumes (40\u00a0%)' && a2.rest === 180 && a2.state === 'done', a2);
 
   // a signed contract: a bigger down payment is paid now
   const b = await offer(page, { brand: 'Capes & Co', sector: 'mode', product: 'sa cape d’hiver', fee: 1000 });
@@ -130,8 +130,8 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     return { upfront: d.upfront, upPct: d.upPct, led: led && `${led.label} ${led.amount}`, notif, rest: Math.round((g.career.cash - before) * 100) / 100 };
   }, b);
   check('a 1 000 € contract: 30 % at the signature by default (300 €); once signed, the brand agrees to 50 %: the 200 € difference comes at once, and 500 € at delivery',
-    b0.upfront === 300 && b0.paid === 300 && b0.terms === '30 % à la signature, le reste à la livraison' && /acompte de 300\s€ \(30 %\) déjà versé/.test(b0.summary)
-    && b1.upfront === 500 && b1.upPct === 50 && b1.led === 'Acompte Capes & Co (complément) 200' && /modifie votre contrat : acompte porté à 50 % \(\+200\s€ versés tout de suite\)/.test(b1.notif) && b1.rest === 500, { b0, b1 });
+    b0.upfront === 300 && b0.paid === 300 && b0.terms === '30\u00a0% à la signature, le reste à la livraison' && /acompte de 300\s€ \(30\s%\) déjà versé/.test(b0.summary)
+    && b1.upfront === 500 && b1.upPct === 50 && b1.led === 'Acompte Capes & Co (complément) 200' && /modifie votre contrat : acompte porté à 50\s% \(\+200\s€ versés tout de suite\)/.test(b1.notif) && b1.rest === 500, { b0, b1 });
 
   // what the model may write, and the brands that never pay
   const p = await G(page, () => {
@@ -155,8 +155,8 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   check('the model writes the down payment as a percentage (« 40 % », 35), or as an amount (« 200 € », 250 on 1 000 €), or none (false, « non »); nonsense changes nothing',
     p.pct === 40 && p.num === 35 && p.money === 20 && p.big === 25 && p.no === 0 && p.non === 0 && p.yes === null && p.junk === null && p.over && p.none === null && p.share === 40, p);
   check('a brand that never pays: no down payment, even if its contact says yes (the field is not even offered to it, and it refuses with an excuse); before the signature, a deposit can also go down to none',
-    p.imp.upfront === 0 && p.imp.upPct && /^En une fois/.test(p.imp.terms) && p.imp.prompt && p.imp.refuse
-    && p.money2.pct === 31.25 && p.money2.upfront === 250 && p.zero.pct === 0 && p.zero.upfront === 0 && p.zero.terms === 'À la livraison' && /sans acompte, tout à la livraison/.test(p.zero.notif), { imp: p.imp, money2: p.money2, zero: p.zero });
+    p.imp.upfront === 0 && p.imp.upPct && /^en une fois/.test(p.imp.terms) && p.imp.prompt && p.imp.refuse
+    && p.money2.pct === 31.25 && p.money2.upfront === 250 && p.zero.pct === 0 && p.zero.upfront === 0 && p.zero.terms === 'à la livraison' && /sans acompte, tout à la livraison/.test(p.zero.notif), { imp: p.imp, money2: p.money2, zero: p.zero });
 
   // ---------- several releases planned, one sooner at no cost ----------
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.update(); });
@@ -185,7 +185,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   const btn = await G(page, () => { const b = [...document.querySelectorAll('.btn')].find((x) => /Programmer une autre sortie/.test(x.textContent)); return b ? !b.disabled : null; });
   await shot(page, 'programme-three');
   check('the feed shows the next release and what comes after it; the Studio lists the three, each with « Plus tôt » and « Repousser », and another one can still be planned',
-    /Ensuite : 📱 « un sort en 30 secondes »/.test(more) && /« la grande dictée de Lumen »/.test(more) && rows.length === 3 && rows.every((t) => /Plus tôt/.test(t) && /Repousser/.test(t))
+    /Ensuite : 📱 « un sort en 30 secondes »/.test(more) && /« la grande dictée de Lumen »/.test(more) && rows.length === 3 && rows.every((t) => /Sortir plus tôt/.test(t) && /Repousser/.test(t))
     && /mes potions ratées/.test(rows[0]) && /la grande dictée/.test(rows[2]) && btn === true, { more, rows });
   const st0 = await G(page, () => { const s = window.__hype.S.game.stats; return { rep: s.reputation, fol: s.followers, log: (s.repLog || []).length }; });
   await page.locator('.plan-row').nth(2).locator('button', { hasText: 'Plus tôt' }).click();

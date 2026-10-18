@@ -4,15 +4,15 @@
    people against the player, allies who help).
    Real-world orders of magnitude (2026), simplified for the game:
    - YouTube Partner Program: 1 000 subscribers + 4 000 public watch hours over 12 months (or 10 M Shorts views
-     over 90 days); 55 % of the ad revenue on videos, 45 % on Shorts; AdSense pays monthly from 70 €.
+     over 90 days); 55 % of the ad revenue on videos, 45 % on Shorts; AdSense pays monthly from 70 €.
      Long videos earn a few euros per 1 000 views (more in finance or tech, less in gaming), Shorts a few cents.
-     Advertisers pay the most at the end of the year (Q4 50 % or more above Q1), January collapses.
-   - TikTok Creator Rewards: 10 000 followers + 100 000 views over 30 days, videos over a minute, ~0,40-1 € per 1 000 views.
+     Advertisers pay the most at the end of the year (Q4 50 % or more above Q1), January collapses.
+   - TikTok Creator Rewards: 10 000 followers + 100 000 views over 30 days, videos over a minute, ~0,40-1 € per 1 000 views.
    - Twitch Affiliate: 50 followers, 500 minutes of live over 7 different days, 3 viewers on average.
-   - Instagram: no ad revenue share: brands pay (very roughly 10 € per 1 000 followers for a sponsored post).
+   - Instagram: no ad revenue share: brands pay (very roughly 10 € per 1 000 followers for a sponsored post).
    - French influencer law (9 June 2023): « Publicité » or « Collaboration commerciale », visible for the whole
      content; some products may not be promoted (cosmetic surgery, nicotine and vapes, betting tips…);
-     up to 2 years and 300 000 € in the worst cases.
+     up to 2 years and 300 000 € in the worst cases.
    ========================================================= */
 
 /* ---------- the game clock: the date and the hour matter ---------- */
@@ -89,7 +89,7 @@ const PLATFORMS = {
   twitch: { name: 'Twitch', emoji: '🎮', fmts: ['live', 'vidéo'], main: 'live', shortName: 'clip', fans: 'followers',
     tips: ['Ce sont les lives qui comptent : la régularité fait tout.', 'Les abonnements et les bits paient bien, dès que tu es Affilié·e.', 'Le soir, c’est l’heure de pointe des lives.'] },
   spotify: { name: 'Spotify', emoji: '🎧', fmts: ['podcast', 'clip'], main: 'podcast', shortName: 'extrait', fans: 'abonnés',
-    tips: ['Tes sons rapportent à chaque écoute (environ 2 € les 1 000), via ton distributeur.', 'Les podcasts vivent surtout des sponsors lus à l’antenne.', 'Les sorties du vendredi et les playlists font tout.'] },
+    tips: ['Tes sons rapportent à chaque écoute (environ 2 € les 1 000), via ton distributeur.', 'Les podcasts vivent surtout des sponsors lus à l’antenne.', 'Les sorties du vendredi et les playlists font tout.'] },
 };
 // In worlds where these brands make no sense, the same mechanics under the world's own names.
 const WORLD_PF = {
@@ -139,7 +139,7 @@ const nfCents = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maxim
 function fmtMoney(g, n, cents) {
   const W = g && WORLD_MONEY[g.world.preset];
   const v = Math.abs(n) < 100 && cents !== false && Math.round(n) !== n ? nfCents.format(n) : nfMoney.format(Math.round(n));
-  return W ? `${v} ${Math.abs(n) >= 2 ? W.sym : W.one}` : `${v} €`;
+  return W ? `${v} ${Math.abs(n) >= 2 ? W.sym : W.one}` : `${v} €`;
 }
 const START_CASH = { anon: 0, rising: 3000, star: 60000 }; // 0.14: an unknown starts from nothing
 function newCareer(persona, st) {
@@ -231,7 +231,7 @@ function checkProgram(g, t) {
 const TIER_VIEWS = { top: 1.6, mid: 0.85, flop: 0.35 };
 // 0.21: what a release earns from ads depends on what the advertisers make of it (the AI judges it at its release):
 // green, every ad; yellow, limited ads; red, demonetized. And on what its topic is worth to them (adv, 1 to 5): from
-// about 0,60 € the 1 000 views (topics they avoid) to 11 € (the most sought after), ×1,5 at the end of the year.
+// about 0,60 € the 1 000 views (topics they avoid) to 11 € (the most sought after), ×1,5 at the end of the year.
 const ADV_RPM = [0, 0.6, 1.4, 2.8, 5, 11];
 const ADS_STATES = { vert: { k: 1, label: 'Toutes les pubs', tone: 'good', dot: '🟢' }, jaune: { k: 0.3, label: 'Pubs limitées', tone: 'warn', dot: '🟡' }, rouge: { k: 0, label: 'Démonétisée', tone: 'bad', dot: '🔴' } };
 const DECL = [['violence', 'Violence'], ['langage', 'Langage grossier'], ['sensible', 'Sujet sensible'], ['choc', 'Contenu choquant']];
@@ -356,7 +356,7 @@ function bookRelease(g, r, views, post, ads) {
   }
   return { rpm, money };
 }
-// The month is over (on the game clock): the platform pays what it owes, from 70 € on YouTube (AdSense threshold).
+// The month is over (on the game clock): the platform pays what it owes, from 70 € on YouTube (AdSense threshold).
 function checkPayout(g, t) {
   const c = g.career, key = monthKey(gameDate(t));
   if (c.estMonth && key <= c.estMonth) return false; // 0.27.4: a clock set back never pays a month twice (keys are « 2026-10 »)
@@ -366,7 +366,7 @@ function checkPayout(g, t) {
   if (total <= 0) return true;
   if (platformOf(g) === 'youtube' && total < 70) {
     c.owed = total;
-    addNotif(g, { k: 'money', text: `Revenus ${deMonth(month)} : ${fmtMoney(g, total)}. Sous le seuil de 70 €, YouTube garde ça pour le mois prochain.` });
+    addNotif(g, { k: 'money', text: `Revenus ${deMonth(month)} : ${fmtMoney(g, total)}. Sous le seuil de 70 €, YouTube garde ça pour le mois prochain.` });
   } else {
     c.owed = 0;
     earn(g, total, `Versement ${pfName(g, platformOf(g))} (${month})`, 'pay');
@@ -411,7 +411,7 @@ function refreshTrends(g, t = Date.now()) {
   for (const a of liveArcs(g, t)) if (a.tag && !g.trends.some((x) => x.name === a.tag)) { const tr = makeTrend(g, 'sujet', { name: a.tag, emoji: (ARC_KINDS[a.kind] || {}).emoji }); if (tr) { tr.at = a.at; tr.re = a.title; } }
   return n > 0;
 }
-// What riding a trend adds to a release's views (+80 % at its peak, almost nothing once it is worn out).
+// What riding a trend adds to a release's views (+80 % at its peak, almost nothing once it is worn out).
 function trendBoost(g, r, form, t) {
   let b = 0;
   const used = form && form.trend ? g.trends.find((x) => x.id === form.trend) : null;
@@ -430,15 +430,17 @@ const THUMBS = {
 
 /* ---------- sponsors: brands that pay, contracts that bind ---------- */
 const SECTORS = [
-  { id: 'boisson', emoji: '🥤', brands: ['Volta', 'Bulle Givrée', 'Zest & Cie'], products: ['sa boisson énergisante', 'son eau pétillante aromatisée', 'son thé glacé'] },
-  { id: 'tech', emoji: '🎧', brands: ['Pixelforge', 'Sonar', 'Nébula Tech'], products: ['son casque sans fil', 'sa nouvelle souris', 'son appli de montage'] },
-  { id: 'mode', emoji: '👟', brands: ['Maison Brume', 'Bitume', 'Atelier Ciel'], products: ['sa nouvelle paire de baskets', 'sa collection capsule', 'ses sweats éco-responsables'] },
-  { id: 'beaute', emoji: '💄', brands: ['Lueur', 'Peau Neuve', 'Rose Givrée'], products: ['son sérum hydratant', 'sa palette de maquillage', 'sa crème solaire'] },
-  { id: 'jeu', emoji: '🎮', brands: ['Studio Lanterne', 'Kraken Games', 'Pixel Ninja'], products: ['son nouveau jeu mobile', 'son jeu d’aventure', 'sa bêta fermée'] },
-  { id: 'food', emoji: '🍜', brands: ['Mangue Express', 'Bol d’Or', 'Croc’Midi'], products: ['son service de livraison', 'ses box repas', 'son nouveau snack'] },
-  { id: 'appli', emoji: '📱', brands: ['Parlo', 'Rythmo', 'Budgie'], products: ['son appli pour apprendre les langues', 'son appli de sport', 'son appli de budget'] },
-  { id: 'voyage', emoji: '🧳', brands: ['Escale', 'Train Bleu Voyages', 'Sac à Dos'], products: ['ses week-ends à petit prix', 'son nouveau sac de voyage'] },
+  { id: 'boisson', emoji: '🥤', label: 'boissons', brands: ['Volta', 'Bulle Givrée', 'Zest & Cie'], products: ['sa boisson énergisante', 'son eau pétillante aromatisée', 'son thé glacé'] },
+  { id: 'tech', emoji: '🎧', label: 'électronique', brands: ['Pixelforge', 'Sonar', 'Nébula Tech'], products: ['son casque sans fil', 'sa nouvelle souris', 'son appli de montage'] },
+  { id: 'mode', emoji: '👟', label: 'mode', brands: ['Maison Brume', 'Bitume', 'Atelier Ciel'], products: ['sa nouvelle paire de baskets', 'sa collection capsule', 'ses sweats éco-responsables'] },
+  { id: 'beaute', emoji: '💄', label: 'beauté', brands: ['Lueur', 'Peau Neuve', 'Rose Givrée'], products: ['son sérum hydratant', 'sa palette de maquillage', 'sa crème solaire'] },
+  { id: 'jeu', emoji: '🎮', label: 'jeux vidéo', brands: ['Studio Lanterne', 'Kraken Games', 'Pixel Ninja'], products: ['son nouveau jeu mobile', 'son jeu d’aventure', 'sa bêta fermée'] },
+  { id: 'food', emoji: '🍜', label: 'alimentation', brands: ['Mangue Express', 'Bol d’Or', 'Croc’Midi'], products: ['son service de livraison', 'ses box repas', 'son nouveau snack'] },
+  { id: 'appli', emoji: '📱', label: 'applis', brands: ['Parlo', 'Rythmo', 'Budgie'], products: ['son appli pour apprendre les langues', 'son appli de sport', 'son appli de budget'] },
+  { id: 'voyage', emoji: '🧳', label: 'voyage', brands: ['Escale', 'Train Bleu Voyages', 'Sac à Dos'], products: ['ses week-ends à petit prix', 'son nouveau sac de voyage'] },
 ];
+// 0.27.8: a sector as the player reads it (« 💄 beauté », not its id)
+const sectorWord = (id) => { const x = SECTORS.find((s) => s.id === id); return x ? `${x.emoji} ${x.label}` : String(id || ''); };
 // What French law forbids influencers to promote (or allows only for authorised providers).
 const BANNED = [
   { id: 'chirurgie', emoji: '💉', brands: ['Clinique Éclat', 'Lift & Glow'], products: ['ses injections « lèvres parfaites »', 'sa rhinoplastie à prix cassé'], law: 'la chirurgie et les actes esthétiques' },
@@ -507,7 +509,7 @@ const giftName = (g, X) => gearName(g, X.kind, X.t);
 const giftLine = (g, X) => `${giftName(g, X)} (${TIER_LABELS[X.t].toLowerCase()}, valeur ${fmtMoney(g, X.value)})`;
 const DEAL_OPEN = ['offer', 'signed'];
 // 0.19.1: what a brand pays more to have no mention (an offer made that way, or changed in the talk), and the range of
-// a fee it can agree to: with the mention, from 70 % of its first price to its max; without, half as much again.
+// a fee it can agree to: with the mention, from 70 % of its first price to its max; without, half as much again.
 const SHADY_K0 = 1.5, SHADY_K = 1.6;
 function dealBounds(d) {
   if (!d.fee0) return { lo: Math.min(30, d.max), cap: d.max }; // products offered: some cash on top, up to the brand's max
@@ -620,7 +622,7 @@ function makeOffer(g, o = {}) {
   const at = later() + 1200;
   addIncomingDM(g, contact, pitch, at, { max: 400 });
   dmCard(g, contact, { sys: 'deal', deal: deal.id }, at + 400);
-  addNotif(g, { k: 'money', c: contact.id, at, text: `${deal.emoji} ${brand} te propose un partenariat${deal.fee ? ` : ${fmtMoney(g, deal.fee)}` : deal.gift ? ` : ${giftName(g, deal.gift)} offert` : deal.costs ? '' : ` : payé en produits (≈ ${fmtMoney(g, deal.value)}), pas en argent`}.` });
+  addNotif(g, { k: 'money', c: contact.id, at, text: `${deal.emoji} ${brand} te propose un partenariat${deal.fee ? ` : ${fmtMoney(g, deal.fee)}` : deal.gift ? ` : ${giftName(g, deal.gift)} offert` : deal.costs ? '' : ` : payé en produits (≈ ${fmtMoney(g, deal.value)}), pas en argent`}.` });
   const agc = ag && g.chars[ag.c];
   if (via === 'agent' && agc) addIncomingDM(g, agc, pick([`J’ai trouvé un partenariat pour toi : ${brand} ! Leur proposition est dans tes messages 😉`, `Bonne nouvelle : ${brand} veut bosser avec toi, je leur ai donné ton contact. Regarde leur offre !`]), at + 2500, { max: 300 });
   agentReview(g, deal); // the agent reads what the others sent (and warns, if they see something)
@@ -633,7 +635,7 @@ function trimDeals(g, max = 24) {
   while (g.deals.length > max) { const k = g.deals.findIndex((d) => !dealPending(d)); if (k < 0) break; g.deals.splice(k, 1); }
 }
 const dealWhat = (g, d) => (d.what === 'short' ? PF(g).shortName : d.what);
-// 0.27.4: the down payment is negotiated too: 30 % at the signature from 500 by default, or what the brand agreed to in
+// 0.27.4: the down payment is negotiated too: 30 % at the signature from 500 by default, or what the brand agreed to in
 // the DM (before, a brand could say yes there: the contract stayed the same and nothing came). A brand that never pays
 // never pays one either.
 const NO_UPFRONT = ['impaye', 'frais'];
@@ -649,15 +651,15 @@ function readUpfront(v, d) {
   const money = !/%/.test(s) && (/[€$£]|\beur|[ée]cus?\b|cr[ée]dits?\b/i.test(s) || x > 100);
   if (money && !(d.fee > 0)) return null;
   const pct = money ? (100 * x) / d.fee : x > 0 && x < 1 && !/%/.test(s) ? x * 100 : x; // (0.4: a share, written as one)
-  return clamp(Math.round(pct * 100) / 100, 0, 100); // (0.27.6: « 300 € » stays 300 €, not a rounded percentage)
+  return clamp(Math.round(pct * 100) / 100, 0, 100); // (0.27.6: « 300 € » stays 300 €, not a rounded percentage)
 }
-const upLine = (g, d) => (!(d.fee > 0) || d.payLate ? '' : d.upfront > 0 ? `, acompte de ${fmtMoney(g, d.upfront)} (${upShown(d)} %) ${d.state === 'offer' ? 'à la signature' : 'déjà versé'}`
+const upLine = (g, d) => (!(d.fee > 0) || d.payLate ? '' : d.upfront > 0 ? `, acompte de ${fmtMoney(g, d.upfront)} (${upShown(d)} %) ${d.state === 'offer' ? 'à la signature' : 'déjà versé'}`
   : d.state === 'offer' ? ', sans acompte (tout est payé à la livraison)' : '');
 // What a contract gives besides money: products (0.27.6: on top of a fee too; a contract with a fee signed before never
 // sent them).
 const dealGoods = (d) => !d.gift && d.value > 0 && (!d.fee || !d.signedAt || !!d.goodsSent);
 function dealSummary(g, d) {
-  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
+  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
 }
 // The agent's cut on what the brands pay.
 function agentCut(g, amount, brand) {
@@ -702,7 +704,7 @@ function signDeal(g, d, o = {}) {
   const t = Date.now();
   Object.assign(d, { state: d.scam === 'frais' ? 'waiting' : 'signed', signedAt: t, due: t + d.days * DAY_MS }); // (0.27.6: a gift that will never come looks like any signed contract)
   const c = g.chars[d.contact];
-  if (d.upfront && d.scam !== 'brief') { earn(g, d.upfront, `Acompte ${d.brand} (${upShown(d)} %)`, 'deal'); d.upCut = agentCut(g, d.upfront, d.brand); } // (0.27.6: a fake contract pays nothing)
+  if (d.upfront && d.scam !== 'brief') { earn(g, d.upfront, `Acompte ${d.brand} (${upShown(d)} %)`, 'deal'); d.upCut = agentCut(g, d.upfront, d.brand); } // (0.27.6: a fake contract pays nothing)
   if (d.gift) sendGift(g, d); // 0.21
   else if (d.value > 0 && d.state === 'signed') { invAdd(g, { kind: 'goods', name: d.product.replace(/^(?:ses|son|sa|leurs?)\s+/i, ''), emoji: d.emoji, value: d.value, cond: 'neuf', from: { how: 'marque', brand: d.brand, deal: d.id, c: d.contact } }); d.goodsSent = true; } // 0.26: the products, sent at the signature (0.27.6: with money on top too)
   if (clash) exclusiveBreach(g, clash, d);
@@ -775,7 +777,7 @@ function applyDealLine(g, c, o) {
   const up = readUpfront(o.upfront, d);
   if (up !== null && d.fee > 0 && !NO_UPFRONT.includes(d.scam) && !c.ghost) {
     if (!signed) {
-      if (up !== upPctOf(d)) { d.upPct = up; d.upfront = upfrontOf(d); said.push(d.upfront ? `acompte de ${upShown(d)} % à la signature (${fmtMoney(g, d.upfront)})` : 'sans acompte, tout à la livraison'); }
+      if (up !== upPctOf(d)) { d.upPct = up; d.upfront = upfrontOf(d); said.push(d.upfront ? `acompte de ${upShown(d)} % à la signature (${fmtMoney(g, d.upfront)})` : 'sans acompte, tout à la livraison'); }
     } else {
       const nu = Math.round((d.fee * up) / 100), extra = nu - (d.upfront || 0);
       if (extra > 0) {
@@ -783,7 +785,7 @@ function applyDealLine(g, c, o) {
         d.upfront = nu;
         earn(g, extra, `Acompte ${d.brand} (complément)`, 'deal');
         d.upCut = (d.upCut || 0) + agentCut(g, extra, d.brand);
-        said.push(`acompte porté à ${upShown(d)} % (+${fmtMoney(g, extra)} versés tout de suite)`);
+        said.push(`acompte porté à ${upShown(d)} % (+${fmtMoney(g, extra)} versés tout de suite)`);
       }
     }
   }
@@ -802,14 +804,14 @@ function deliverDeal(g, d, post, mention, perf) {
   const rest = paid ? Math.max(0, d.fee - d.upfront) : 0;
   if (rest) { earn(g, rest, `Partenariat ${d.brand}`, 'deal'); agentCut(g, rest, d.brand); }
   repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
-  if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
+  if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
   const c = g.chars[d.contact];
   if (c) applyRel(g, c, d.shady && mention ? -5 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : 'contente du partenariat', later() + 3000, 10);
   // the law: no mention, or a forbidden product, can be spotted later (a report, a check)
   const p = d.banned ? 0.8 : !mention ? 0.45 : 0;
   if (p && Math.random() < p) d.check = Date.now() + randi(8, 60) * 3600000;
-  const fw = perf && perf.fit ? ` Placement ${FIT_WORDS[perf.fit]} : ${perf.fit > 0 ? '+' : '−'}${fitPct(perf.fit)} % de vues.` : ''; // 0.21
-  const inKind = !d.fee && paid ? (d.gift ? ` : payé en matos (${giftName(g, d.gift)}), pas en argent` : d.value ? ` : payé en produits (≈ ${fmtMoney(g, d.value)}), pas en argent` : '') : ''; // 0.22.3: said, not guessed
+  const fw = perf && perf.fit ? ` Placement ${FIT_WORDS[perf.fit]} : ${perf.fit > 0 ? '+' : '−'}${fitPct(perf.fit)} % de vues.` : ''; // 0.21
+  const inKind = !d.fee && paid ? (d.gift ? ` : payé en matos (${giftName(g, d.gift)}), pas en argent` : d.value ? ` : payé en produits (≈ ${fmtMoney(g, d.value)}), pas en argent` : '') : ''; // 0.22.3: said, not guessed
   addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? ` : paiement prévu dans ${d.payLate} jours` : inKind}.${fw}` });
   if (!mention) secretFromDeal(g, d); // 0.18: a hidden ad is a secret now (the brand's contact knows)
   dealDelivered(g, d); // 0.18: the one who got the spot on it
@@ -875,19 +877,19 @@ function sanction(g, d) {
 /* ---------- the team: people the player hires (and pays) ---------- */
 const STAFF_ROLES = {
   monteur: { emoji: '🎬', m: 'Monteur vidéo', f: 'Monteuse vidéo', x: 'Monteur·se vidéo', pay: 'video', rates: [50, 150, 350, 900], fmts: ['vidéo', 'short', 'clip'],
-    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, et un format court tiré de chaque vidéo longue.', fx: (p) => `+${8 * p} % de temps au tournage · +${8 * p} % de vues · un format court en bonus` },
+    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, et un format court tiré de chaque vidéo longue.', fx: (p) => `+${8 * p} % de temps au tournage · +${8 * p} % de vues · un format court en bonus` },
   miniature: { emoji: '🖼️', m: 'Graphiste', f: 'Graphiste', x: 'Graphiste', pay: 'video', rates: [20, 60, 150, 400], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
-    desc: 'Tes miniatures et tes visuels donnent envie de cliquer.', fx: (p) => `+${7 * p} % de vues sur chaque sortie` },
+    desc: 'Tes miniatures et tes visuels donnent envie de cliquer.', fx: (p) => `+${7 * p} % de vues sur chaque sortie` },
   scenariste: { emoji: '✍️', m: 'Scénariste', f: 'Scénariste', x: 'Scénariste', pay: 'video', rates: [60, 180, 450, 1100], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
-    desc: 'Prépare le fond de tes contenus : des indices pendant tes tournages.', fx: (p) => `${p} ${plural(p, 'indice', 'indices')} par tournage · +${4 * p} % de temps` },
+    desc: 'Prépare le fond de tes contenus : des indices pendant tes tournages.', fx: (p) => `${p} ${plural(p, 'indice', 'indices')} par tournage · +${4 * p} % de temps` },
   cm: { emoji: '💬', m: 'Community manager', f: 'Community manager', x: 'Community manager', pay: 'week', rates: [120, 300, 650, 1400],
-    desc: 'Gère tes commentaires : moins de casse quand ça tourne mal, et les rumeurs repérées plus tôt.', fx: (p) => `−${12 * p} % d’abonnés perdus quand ça tourne mal · rumeurs moins fortes` },
+    desc: 'Gère tes commentaires : moins de casse quand ça tourne mal, et les rumeurs repérées plus tôt.', fx: (p) => `−${12 * p} % d’abonnés perdus quand ça tourne mal · rumeurs moins fortes` },
   agent: { emoji: '🤝', m: 'Agent', f: 'Agente', x: 'Agent·e', pay: 'cut', rates: [10, 15, 18, 20],
-    desc: 'Te trouve des marques, négocie pour toi et lit les offres avant toi (les arnaques aussi), contre une commission sur chaque contrat. Plus son niveau est haut, plus les contrats qu’il ou elle sait gérer sont gros.', fx: (p) => `offres plus fréquentes · +${5 * p} % sur les contrats · contrats jusqu’à ${p >= 4 ? 'toutes tailles' : fmtPlain(AGENT_CEIL[p - 1]) + ' €'}` },
+    desc: 'Te trouve des marques, négocie pour toi et lit les offres avant toi (les arnaques aussi), contre une commission sur chaque contrat. Plus son niveau est haut, plus les contrats qu’il ou elle sait gérer sont gros.', fx: (p) => `offres plus fréquentes · +${5 * p} % sur les contrats · contrats jusqu’à ${p >= 4 ? 'toutes tailles' : fmtPlain(AGENT_CEIL[p - 1]) + ' €'}` },
   rp: { emoji: '📣', m: 'Attaché de presse', f: 'Attachée de presse', x: 'Attaché·e de presse', pay: 'week', rates: [200, 500, 1100, 2500],
-    desc: 'Les médias parlent de toi : tes sorties mieux couvertes, tes bad buzz plus courts.', fx: (p) => `+${4 * p} % de vues · bad buzz −${15 * p} %` },
+    desc: 'Les médias parlent de toi : tes sorties mieux couvertes, tes bad buzz plus courts.', fx: (p) => `+${4 * p} % de vues · bad buzz −${15 * p} %` },
   avocat: { emoji: '⚖️', m: 'Avocat', f: 'Avocate', x: 'Avocat·e', pay: 'case', rates: [300, 800, 2000, 5000],
-    desc: 'Mises en demeure contre les rumeurs et la diffamation, défense en cas d’amende.', fx: (p) => `${Math.min(95, 45 + 15 * p)} % de chances de faire retirer une rumeur · amendes −${20 * p} %` },
+    desc: 'Mises en demeure contre les rumeurs et la diffamation, défense en cas d’amende.', fx: (p) => `${Math.min(95, 45 + 15 * p)} % de chances de faire retirer une rumeur · amendes −${20 * p} %` },
 };
 const STAFF_TIERS = [
   { m: 'Débutant', f: 'Débutante', x: 'Débutant·e', years: [1, 2] },
@@ -899,7 +901,7 @@ const roleName = (role, gd) => { const R = STAFF_ROLES[role]; return R ? gx(gd, 
 const tierName = (tier, gd) => { const T = STAFF_TIERS[tier] || STAFF_TIERS[0]; return gx(gd, T.m, T.f, T.x); };
 const hasStaff = (g, role) => (g.staff || []).find((m) => m.role === role && g.chars[m.c]) || null;
 const staffPower = (g, role) => { const m = hasStaff(g, role); return m && !(STAFF_ROLES[role].pay === 'week' && m.unpaid) ? m.tier + 1 : 0; };
-const payWord = (g, m) => { const R = STAFF_ROLES[m.role]; return R.pay === 'cut' ? `${m.rate} % des contrats` : R.pay === 'week' ? `${fmtMoney(g, m.rate)} / semaine` : R.pay === 'case' ? `${fmtMoney(g, m.rate)} par dossier` : `${fmtMoney(g, m.rate)} par sortie`; };
+const payWord = (g, m) => { const R = STAFF_ROLES[m.role]; return R.pay === 'cut' ? `${m.rate} % des contrats` : R.pay === 'week' ? `${fmtMoney(g, m.rate)} / semaine` : R.pay === 'case' ? `${fmtMoney(g, m.rate)} par dossier` : `${fmtMoney(g, m.rate)} par sortie`; };
 // What the team adds (crew: the per-release roles really paid for this release).
 function staffMult(g, what, fmt, crew) {
   const p = (role) => (STAFF_ROLES[role].pay === 'video' ? (crew ? (crew.includes(role) ? staffPower(g, role) : 0) : 0) : staffPower(g, role));
@@ -1029,8 +1031,9 @@ const seriesOn = (g) => !!(g.series && g.series.state === 'on');
 function seriesMult(g) {
   const s = g.series;
   if (!s || s.state !== 'on') return 1;
-  return Math.min(s.hard ? 4 : 3, 1 + (s.hard ? 0.35 : 0.2) * (s.streak || 0));
+  return seriesMultAt(s, s.streak);
 }
+const seriesMultAt = (s, streak) => Math.min(s.hard ? 4 : 3, 1 + (s.hard ? 0.35 : 0.2) * (streak || 0)); // (0.27.8: what the next episode will get)
 // The next time the clock shows hh:mm (at least 20 minutes from now), as a real timestamp.
 function nextAt(hour, min, t = Date.now(), minGap = 60000) { // 0.22: « 21 h » at 20:52 is in 8 minutes, not tomorrow
   const now = gameDate(t), at = new Date(now.getTime());
@@ -1091,7 +1094,7 @@ function seriesEpisode(g, r, tier) {
   else { s.streak++; s.best = Math.max(s.best, s.streak); }
   if (s.ep >= s.days) { endSeries(g, s); return; }
   const nx = scheduleEpisode(g, s, Math.max(nextAt(s.hour, s.min), r.due + DAY_MS - 5 * 60000));
-  addNotif(g, { k: 'release', text: `Épisode ${s.ep}/${s.days} ${tier === 'flop' ? 'raté : ta série retombe à zéro' : `réussi : série de ${s.streak} (×${String(Math.round(seriesMult(g) * 100) / 100).replace('.', ',')} sur le prochain)`}. Prochain ${fmtWhen(nx.due)}.` });
+  addNotif(g, { k: 'release', text: `Épisode ${s.ep}/${s.days} ${tier === 'flop' ? 'raté : ton bonus de défi retombe à ×1' : `publié : ${s.streak} d’affilée (bonus ×${String(Math.round(seriesMult(g) * 100) / 100).replace('.', ',')} sur le prochain)`}. Prochain ${fmtWhen(nx.due)}.` });
 }
 function seriesMissed(g, r) {
   const s = g.series;
@@ -1103,7 +1106,7 @@ function seriesMissed(g, r) {
   if (s.hard || s.ep >= s.days) { endSeries(g, s); return; }
   scheduleEpisode(g, s, nextAt(s.hour, s.min));
   const dr = repMove(g, { cred: -10, pro: -5 }, `épisode ${s.ep} de ton défi manqué`);
-  addNotif(g, { k: 'delay', text: `Épisode ${s.ep}/${s.days} manqué : ta série retombe à zéro, ${repWord(dr)}. On commence à se moquer.` });
+  addNotif(g, { k: 'delay', text: `Épisode ${s.ep}/${s.days} manqué : ton bonus de défi retombe à ×1, ${repWord(dr)}. On commence à se moquer.` });
 }
 // The verdict: rewards, a flop (« bide »), or a bad buzz when it went really wrong.
 function endSeries(g, s, quit) {
@@ -1155,7 +1158,7 @@ function endSeries(g, s, quit) {
 const CONFLICT = ['nemesis', 'rival', 'froid', 'ex'];
 const allies = (g) => mains(g).filter((c) => c.rel >= 60 && !CONFLICT.includes(c.vibe));
 const enemies = (g) => mains(g).filter((c) => c.vibe === 'nemesis' || c.rel <= -50);
-// Allies share and defend: each one adds reach (+5 %, up to +25 %).
+// Allies share and defend: each one adds reach (+5 %, up to +25 %).
 const allyBoost = (g) => Math.min(0.25, 0.05 * allies(g).length);
 const liveRumor = (g) => (g.rumors || []).find((x) => x.state === 'live') || null;
 // Who could start a false rumor now (an enemy, a rumor at a time, three hours between two).
@@ -1513,9 +1516,9 @@ function dmCareerCtx(g, c) {
     if (d && d.resold) out.push(resoldLine(g, d)); // 0.26: its gift, put on sale
     if (d && (d.scam || c.ghost)) out.push(scamCtx(g, d, c)); // 0.20: the secret it never admits
     if (d && d.hard && d.state === 'offer') out.push(HARD_CTX(g, d, c)); // a big contract: no mercy
-    out.push(`Chiffres réels du joueur : ${fmtPlain(g.stats.followers)} abonnés sur ${pfName(g, platformOf(g))}, ≈ ${fmtPlain(Math.round(expectedViews(g, d ? d.what : PF(g).main)))} vues par contenu, réputation ${rep1000(g.stats.reputation)}/1000.`);
+    out.push(`Chiffres réels du joueur : ${fmtPlain(g.stats.followers)} abonnés sur ${pfName(g, platformOf(g))}, ≈ ${fmtPlain(Math.round(expectedViews(g, d ? d.what : PF(g).main)))} vues par contenu, réputation ${rep1000(g.stats.reputation)}/1000.`);
   } else if (c.kind === 'cand' && c.cand) {
-    out.push(`${c.name} postule pour devenir ${roleName(c.cand.role, c.g).toLowerCase()} du joueur : ${tierName(c.cand.tier, c.g).toLowerCase()}, ${c.cand.years} ans d’expérience (${c.cand.pitch}). Tarif demandé : ${payWord(g, c.cand)}. ${gx(c.g, 'Il', 'Elle', 'Iel')} veut le poste, répond aux questions sur son travail, et peut baisser un peu son prix si on négocie bien (pas plus de 20 %).`);
+    out.push(`${c.name} postule pour devenir ${roleName(c.cand.role, c.g).toLowerCase()} du joueur : ${tierName(c.cand.tier, c.g).toLowerCase()}, ${c.cand.years} ans d’expérience (${c.cand.pitch}). Tarif demandé : ${payWord(g, c.cand)}. ${gx(c.g, 'Il', 'Elle', 'Iel')} veut le poste, répond aux questions sur son travail, et peut baisser un peu son prix si on négocie bien (pas plus de 20 %).`);
   } else if (c.kind === 'staff') {
     const m = g.staff.find((x) => x.c === c.id);
     if (m) out.push(`${c.name} travaille pour le joueur : ${roleName(m.role, c.g).toLowerCase()} (${tierName(m.tier, c.g).toLowerCase()}), ${payWord(g, m)}, depuis ${fmtDur(Date.now() - m.since)}${m.unpaid ? ', et attend d’être payé·e' : ''}. Franc·he, donne son avis de pro sur les contenus du joueur, a son caractère, peut demander une augmentation, et peut démissionner si on le ou la traite mal.`);
@@ -1527,7 +1530,7 @@ function dmCareerCtx(g, c) {
 function dmCareerLines(g, c) {
   const out = [];
   const d = g.deals.find((x) => x.contact === c.id && x.state === 'offer') || g.deals.find((x) => x.contact === c.id && x.state === 'signed');
-  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
+  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
   if (c.kind === 'cand' && c.cand && STAFF_ROLES[c.cand.role].pay !== 'cut') out.push(`- Si ${c.name} accepte de baisser son tarif : {"t":"rate","rate":${c.cand.rate}} (entre ${Math.round(c.cand.rate * 0.8)} et ${c.cand.rate}).`);
   if (c.kind === 'staff') out.push(`- Seulement si ${c.name} démissionne pour de bon (le joueur l’a vraiment mal traité·e) : {"t":"quit"}.`);
   return out;

@@ -9,12 +9,14 @@ const seasonEmoji = (d) => { const m = d.getMonth(); return m === 11 || m <= 1 ?
 const fmtCafes = (x) => (x === Infinity ? '∞' : fmtPlain(Math.floor(x + 1e-9)));
 
 /* ---------- the strip under the top bar: the game clock, the moment, the money ---------- */
+// 0.27.8: what the ads pay this month, against the year’s average (« Pubs +10 % », not « ×1,1 »)
+const adWord = (k) => { const p = Math.round((k - 1) * 100); return p ? `Pubs ${p > 0 ? '+' : '−'}${Math.abs(p)} %` : 'Pubs normales'; };
 function StatusStrip({ g, now }) {
   const ck = fmtGameClock(now), d = ck.d, m = calMoment(d), c = g.career;
   return html`<div class="status-strip">
     <button class="clock-btn" onClick=${openWatch} aria-label=${`Il est ${ck.time}, ${ck.day}. Avancer le temps`} title="Avancer le temps"><${Icon} n="clock" s=${15} /><b>${ck.time}</b><span>${ck.day}</span><${Icon} n="ffwd" s=${13} /></button>
     ${standLv(g) ? html`<${StandChip} g=${g} />` : m ? html`<span class="cal-chip" title=${cap1(m.E.mood)}>${m.E.emoji} ${cap1(calWord(m))}</span>`
-      : html`<span class="cal-chip quiet" title=${cap1(SEASON_WORD(d))}>${seasonEmoji(d)} Pubs ×${fmtDec(adSeason(d))}</span>`}
+      : html`<span class="cal-chip quiet" title=${cap1(SEASON_WORD(d))}>${seasonEmoji(d)} ${adWord(adSeason(d))}</span>`}
     <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => { goTab('studio'); tapCash(); }} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoney(g, c.cash, false)}</b></button>
   </div>`;
 }
@@ -97,7 +99,7 @@ function WatchCard({ g, close }) {
     <div class="watch-presets">${WATCH_PRESETS.map(([v, lb]) => { const m = v === 'soir' ? minsUntil(20) : v === 'matin' ? minsUntil(9) : v; return html`<button key=${lb} type="button" class=${'chip-btn' + (m === mins ? ' on' : '')} disabled=${m > maxMins} onClick=${() => set(m)}>${lb}</button>`; })}</div>
     ${stops.length ? html`<div class="paths">${stops.slice(0, 2).map((x) => html`<button key=${x.label} class="path" onClick=${() => go(Math.ceil((x.at - Date.now()) / 60000), x.due)}><b>${x.short}</b><span>${fmtGameAt(x.at)} · le temps ne peut pas aller plus loin</span></button>`)}</div>` : null}
     ${nowDate ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> ${(g.chars[nowDate.c] || { name: '…' }).name.split(' ')[0]} t’attend en ce moment : si tu avances trop, tu lui poses un lapin.</p>` : null}
-    <p class="muted watch-note">Le réseau vit pendant que tu avances${narrate ? ` : ${AI_NAME} raconte ce qui s’est passé (≈ ${costLabel(g, 'skip')} ☕)` : ''}. Tes cafés, eux, suivent la vraie heure.</p>
+    <p class="muted watch-note">Le réseau vit pendant que tu avances${narrate ? ` : ${AI_NAME} raconte ce qui s’est passé (≈ ${costLabel(g, 'skip')} ☕)` : ''}. Tes cafés, eux, suivent la vraie heure.</p>
     <button class="btn btn-hot" onClick=${() => go(mins)}><${Icon} n="ffwd" s=${16} /> Avancer de ${fmtSpan(mins)}</button>
     <button class="btn btn-ghost" onClick=${close}>Annuler</button>
   </div>`;
@@ -118,8 +120,8 @@ function BudgetCard({ g, m, close }) {
     <div class="budget-big"><span aria-hidden="true">☕</span><b>${unlimited(g) ? '∞' : fmtCafes(left)}</b>${unlimited(g) ? null : html`<small>/ ${fmtPlain(budgetMax(g))}</small>`}</div>
     ${out ? html`<p><b>Ton budget du jour est épuisé.</b> L’IA se met en pause pour ne pas manger tout ton abonnement ${AI_NAME}. Tu peux toujours lire ton fil et gérer ton studio.</p>`
       : m && m.blocked ? html`<p><b>Pas assez de cafés pour cette action.</b> Elle coûte environ ${costLabel(g, 'post')} ☕ et il t’en reste ${fmtCafes(left)}.</p>` : null}
-    <p class="muted">Aujourd’hui : ${fmtDec(b.used, 1)} ☕ utilisés ≈ ${fmtPlain(budgetTokens(b.chars))} tokens de ton abonnement ${AI_NAME}. ${unlimited(g) ? 'Pas de limite réglée : le jeu compte, mais ne t’arrête jamais.' : `Le budget revient à minuit (dans ${fmtDur(e.nextIn)}).`}</p>
-    <p class="muted" style="font-size:13px">1 café ≈ 4 500 tokens. Un post qui fait réagir tout le monde ≈ ${costLabel(g, 'post')} ☕, un message privé ≈ ${costLabel(g, 'dm')} ☕. C’est une estimation : ni Claude ni ChatGPT ne disent à une appli ce qu’il te reste vraiment.</p>
+    <p class="muted">Aujourd’hui : ${fmtDec(b.used, 1)} ☕ utilisés ≈ ${fmtPlain(budgetTokens(b.chars))} tokens de ton abonnement ${AI_NAME}. ${unlimited(g) ? 'Pas de limite réglée : le jeu compte, mais ne t’arrête jamais.' : `Le budget revient à minuit (dans ${fmtDur(e.nextIn)}).`}</p>
+    <p class="muted" style="font-size:13px">1 café ≈ 4 500 tokens. Un post qui fait réagir tout le monde ≈ ${costLabel(g, 'post')} ☕, un message privé ≈ ${costLabel(g, 'dm')} ☕. C’est une estimation : ni Claude ni ChatGPT ne disent à une appli ce qu’il te reste vraiment.</p>
     <${CafeUses} g=${g} />
     ${!unlimited(g) ? html`<button class="btn btn-hot" onClick=${() => { addExtraCafes(g, 10); toast('+10 cafés pour aujourd’hui.', 'good'); close(); }}><${Icon} n="coffee" s=${16} /> +10 cafés juste pour aujourd’hui</button>` : null}
     <button class="btn btn-ghost" onClick=${() => { close(); openLayer({ t: 'settings' }); }}><${Icon} n="gear" s=${16} /> Régler mon budget</button>
@@ -132,7 +134,7 @@ function BudgetPicker({ g }) {
   return html`<div class="field">
     <span class="lbl">Budget IA par jour (les cafés)</span>
     <${BudgetTiers} value=${b.daily} lv=${levelOf(g)} vol=${volIdOf(g)} set=${(k) => { b.daily = k; b.warned = false; update(); try { localStorage.setItem('hype:budget', String(k)); } catch (e) { /* the next game starts at the default */ } }} />
-    <small>${(BUDGETS.find((x) => x.n === b.daily) || BUDGETS[2]).desc} Aujourd’hui : ${fmtDec(b.used, 1)} ☕ ≈ ${fmtPlain(budgetTokens(b.chars))} tokens.</small>
+    <small>${(BUDGETS.find((x) => x.n === b.daily) || BUDGETS[2]).desc} Aujourd’hui : ${fmtDec(b.used, 1)} ☕ ≈ ${fmtPlain(budgetTokens(b.chars))} tokens.</small>
     <small class="plan-advice">${PLAN_ADVICE}</small>
     <${CafeUses} g=${g} />
   </div>`;
@@ -161,7 +163,7 @@ const hourCost = (o) => hourCafes(o.intensity, COMMENTS[commentsOf(null, o)].vol
 function IntensityTiers({ value, set, comments, live }) {
   const I = INTENSITY[value] || INTENSITY.normal;
   return html`<div class="tier-grid int-grid" role="radiogroup" aria-label="Intensité du jeu">${INTENSITY_IDS.map((k) => { const X = INTENSITY[k], on = value === k; return html`<button type="button" key=${k} role="radio" aria-checked=${on ? 'true' : 'false'} class=${'tier' + (on ? ' on' : '')} onClick=${() => set(k)}>
-    <b>${X.emoji} ${X.label}</b><span>≈ ${Math.round(hourCost(on ? { intensity: k, comments, live } : { intensity: k }))} ☕ / heure</span>
+    <b>${X.emoji} ${X.label}</b><span>≈ ${Math.round(hourCost(on ? { intensity: k, comments, live } : { intensity: k }))} ☕ / heure</span>
   </button>`; })}</div>
   <small>${I.desc}</small>`;
 }
@@ -176,12 +178,12 @@ function IntensitySettings({ lv, comments, live, set }) {
     <div class="int-set">
       <span class="lbl">💬 Les commentaires</span>
       <${Seg} items=${COMMENT_IDS.map((k) => [k, COMMENTS[k].label])} value=${cm} onPick=${(k) => set('comments', k)} label="Les commentaires" />
-      <small>${COMMENTS[cm].desc}${cm !== 'peu' ? ` ≈ +${plus(hour({ comments: cm }), hour({ comments: 'peu' }))} ☕ / heure par rapport à « Peu ».` : ''}</small>
+      <small>${COMMENTS[cm].desc}${cm !== 'peu' ? ` ≈ +${plus(hour({ comments: cm }), hour({ comments: 'peu' }))} ☕ / heure par rapport à « Peu ».` : ''}</small>
     </div>
     ${HOST ? html`<div class="int-set">
       <span class="lbl">🌍 Le réseau vit tout seul</span>
       <${Seg} items=${LIVE_IDS.map((k) => [k, LIVE[k].label])} value=${lv2} onPick=${(k) => set('live', k)} label="Le réseau vit tout seul" />
-      <small>${LIVE[lv2].desc}${lv2 !== 'off' ? ` ≈ +${plus(hour({ live: lv2 }), hour({ live: 'off' }))} ☕ / heure. Il se met en pause dès que Hype n’est plus devant toi ou que tu ne touches plus à rien depuis 3 minutes, et repart quand tu reviens.` : ''}</small>
+      <small>${LIVE[lv2].desc}${lv2 !== 'off' ? ` ≈ +${plus(hour({ live: lv2 }), hour({ live: 'off' }))} ☕ / heure. Il se met en pause dès que Hype n’est plus devant toi ou que tu ne touches plus à rien depuis 3 minutes, et repart quand tu reviens.` : ''}</small>
     </div>` : null}
   </div>`;
 }
@@ -208,15 +210,16 @@ function ZoomPicker() {
     <span class="lbl">Taille de l’affichage</span>
     <div class="row zoom-pick">
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(z.zoom - 0.1)} aria-label="Plus petit">A−</button>
-      <b class="mono">${Math.round(z.zoom * 100)} %</b>
+      <b class="mono">${Math.round(z.zoom * 100)} %</b>
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(z.zoom + 0.1)} aria-label="Plus grand">A+</button>
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set('auto')} disabled=${z.auto}>Taille auto</button>
     </div>
     <small>Aussi avec Ctrl + molette, Ctrl + et Ctrl −. Ctrl 0 revient à la taille auto, adaptée à ton écran.</small>
   </div>`;
 }
-function SettingsLayer({ g, i }) {
-  const P = g.player;
+function SettingsLayer({ g, i, l }) {
+  const P = g.player, car = useRef(null);
+  useEffect(() => { if (l && l.focus === 'carriere' && car.current) car.current.scrollIntoView({ block: 'start' }); }, []); // (0.27.8: « Changer de plateforme » lands on it)
   const pickPlatform = (k) => {
     if (k === platformOf(g)) return;
     askConfirm({ title: `Passer sur ${pfName(g, k)} ?`, text: `Ta monétisation repart de zéro sur ${pfName(g, k)} (chaque plateforme a son programme). Tes abonnés te suivent.`, ok: 'Changer de plateforme',
@@ -260,7 +263,7 @@ function SettingsLayer({ g, i }) {
         <small>${(CHAOS[g.world.chaos == null ? 1 : g.world.chaos] || CHAOS[1]).desc}</small>
       </div>
     </section>
-    <section class="section">
+    <section class="section" ref=${car}>
       <div class="section-h"><h3>Ta carrière</h3><span>${nicheOf(g).label}</span></div>
       <div class="field">
         <span class="lbl">Ta plateforme principale</span>
@@ -387,7 +390,7 @@ function MenuRel({ g, c }) {
 }
 // 0.27.6: the mini-games on demand: a practice round that counts for nothing (the AI writes the ones it writes, the
 // others are made at once), or the next shoot's game imposed.
-const MENU_GAMES = [['tri', 'Trier'], ['ordre', 'Remettre dans l’ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Chat d’un live'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage']];
+const MENU_GAMES = [['tri', 'Tri'], ['ordre', 'Remise en ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Modération du chat'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage vertical']]; // (0.27.8: the names the games have everywhere)
 const PRACTICE_WHAT = { chat: 'live', mixage: 'podcast', cadrage: 'short' };
 function startPractice(g, kind, diffId) {
   if (S.busy.mg) { toast('Un mini-jeu est déjà en préparation.'); return false; }
@@ -411,7 +414,7 @@ function PracticeLayer({ g, i, now }) {
     const tier = tierOf(r.score), D = diffOf(r.diff);
     body = html`<div class="mg-intro practice-end">
       <span class="eyebrow">Entraînement · ${(MENU_GAMES.find((x) => x[0] === r.kind) || [0, r.kind])[1]}</span>
-      <h3>${Math.round(r.score * 100)} % · ${tier === 'top' ? 'réussi 🎉' : tier === 'mid' ? 'moyen' : 'raté'}</h3>
+      <h3>${pctOf(r.score)} % · ${tier === 'top' ? 'réussi 🎉' : tier === 'mid' ? 'moyen' : 'raté'}</h3>
       <span class="chip">${D.emoji} ${D.label}</span>
       <p class="muted">Rien ne compte dans ta partie : ni vues, ni argent, ni réputation.</p>
       <div class="row"><button class="btn btn-hot" onClick=${() => startPractice(g, r.kind, r.diff)}><${Icon} n="refresh" s=${16} /> Rejouer</button><button class="btn btn-ghost" onClick=${closeLayer}>Fermer</button></div>
@@ -419,7 +422,7 @@ function PracticeLayer({ g, i, now }) {
   } else if (!r.game && r.aiFail && !S.busy.mg) body = html`<div class="mg-intro practice-end"><h3>${AI_NAME} n’a pas répondu</h3><p class="muted">Ce mini-jeu est écrit par ${AI_NAME} (le budget IA du jour est peut-être épuisé). Réessaie, ou choisis un jeu d’adresse.</p>
       <div class="row"><button class="btn btn-hot" onClick=${() => startPractice(g, r.kind, r.diff)}><${Icon} n="refresh" s=${16} /> Réessayer</button><button class="btn btn-ghost" onClick=${closeLayer}>Fermer</button></div></div>`;
   else if (!r.game) body = html`<div class="mg-play mg-wait"><${Typing} /><p class="muted">${AI_NAME} écrit ton mini-jeu…</p></div>`;
-  else body = html`<${ShootPlay} r=${r} now=${now} outcomes="Entraînement : rien ne compte dans ta partie." icon="play" onScore=${(sc) => { r.score = Math.round(clamp(num(sc, 0), 0, 1) * 1000) / 1000; update(); }} />`;
+  else body = html`<${ShootPlay} r=${r} now=${now} outcomes=${`Entraînement : rien ne compte dans ta partie. Réussi à ${TIER_STEPS[0]}, moyen de ${TIER_STEPS[1]}.`} icon="play" onScore=${(sc) => { r.score = Math.round(clamp(num(sc, 0), 0, 1) * 1000) / 1000; update(); }} />`;
   return html`<${LayerShell} i=${i} title="🎮 Entraînement">${body}<//>`;
 }
 function MenuGames({ g }) {
@@ -433,7 +436,7 @@ function MenuGames({ g }) {
     <div class="field"><span class="lbl">La difficulté</span><div class="tr-chips">${DIFFS.map((d) => html`<button type="button" key=${d.id} disabled=${d.real && kind !== 'quiz'} class=${'chip-btn' + (diff === d.id ? ' on' : '')} onClick=${() => pickD(d.id)}>${d.emoji} ${d.label}</button>`)}</div>
       ${diffOf(diff).real ? html`<small class="muted">Cauchemar, c’est le quiz de vraies questions, rien d’autre.</small>` : null}</div>
     <div class="row">
-      <button class="btn btn-hot btn-sm" disabled=${!!S.busy.mg} onClick=${() => startPractice(g, kind, diff)}><${Icon} n="play" s=${15} /> Jouer maintenant${ai ? ` · ≈ ${costLabel(g, 'shoot')} ☕` : ''}</button>
+      <button class="btn btn-hot btn-sm" disabled=${!!S.busy.mg} onClick=${() => startPractice(g, kind, diff)}><${Icon} n="play" s=${15} /> Jouer maintenant${ai ? ` · ≈ ${costLabel(g, 'shoot')} ☕` : ''}</button>
       <button class=${'btn btn-sm ' + (next === kind ? 'btn-hot' : 'btn-ghost')} onClick=${() => { if (g.mgNext === kind) { delete g.mgNext; toast('Le prochain tournage tire son mini-jeu au sort.'); } else { g.mgNext = kind; toast(`Ton prochain tournage : ${(MENU_GAMES.find((x) => x[0] === kind) || [0, kind])[1]}.`, 'good'); } update(); }}>${next === kind ? '✓ Imposé au prochain tournage' : 'Imposer au prochain tournage'}</button>
     </div>
     <small class="muted">« Jouer maintenant » : un entraînement, rien ne compte dans ta partie${ai ? ` (ce mini-jeu est écrit par ${AI_NAME} sur ton sujet du moment)` : ''}. ${next ? `Imposé au prochain tournage : ${(MENU_GAMES.find((x) => x[0] === next) || [0, next])[1]} (sauf en Cauchemar).` : 'Sinon, le prochain tournage tire son mini-jeu au sort.'}</small>
@@ -524,7 +527,7 @@ function StudioTab({ g, now }) {
     <div class=${'studio-head pf-' + pf}>
       <span class="pf-badge" aria-hidden="true">${P.emoji}</span>
       <div><b>${pfName(g, pf)}</b><span>${fmtN(g.stats.followers)} ${P.fans} · ${nicheOf(g).label}</span></div>
-      <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'settings' })}><${Icon} n="gear" s=${15} /> Changer</button>
+      <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'settings', focus: 'carriere' })}><${Icon} n="gear" s=${15} /> Changer de plateforme</button>
     </div>
     <section class="section">
       <div class="section-h"><h3>Argent</h3><span>${fmtMoney(g, c.earned)} gagnés depuis le début</span></div>
@@ -532,7 +535,7 @@ function StudioTab({ g, now }) {
         <div><small>En banque</small><b class=${c.cash < 0 ? 'neg' : ''}>${fmtMoney(g, c.cash)}</b></div>
         <div><small>Revenus ${deMonth(MONTHS[d.getMonth()])} (estimés)</small><b>${fmtMoney(g, c.est + c.owed)}</b></div>
       </div>
-      <p class="muted money-note">${c.est + c.owed > 0 ? (pf === 'youtube' && c.est + c.owed < 70 ? `Versés début ${nextMonth} dès 70 € cumulés (le seuil de paiement de YouTube).` : `Versés début ${nextMonth}.`) : prog && !monetized(g) ? 'Tes contenus ne rapportent pas encore : rejoins le programme de ta plateforme, ou signe avec des marques.' : !prog ? `Sur ${pfName(g, pf)}, pas de partage des revenus pubs : tu gagnes ta vie avec les marques${pf === 'spotify' ? ' et les écoutes de tes sons' : ''}.` : 'Publie : chaque sortie rapporte selon ses vues.'}</p>
+      <p class="muted money-note">${c.est + c.owed > 0 ? (pf === 'youtube' && c.est + c.owed < 70 ? `Versés début ${nextMonth} dès 70 € cumulés (le seuil de paiement de YouTube).` : `Versés début ${nextMonth}.`) : prog && !monetized(g) ? 'Tes contenus ne rapportent pas encore : rejoins le programme de ta plateforme, ou signe avec des marques.' : !prog ? `Sur ${pfName(g, pf)}, pas de partage des revenus pubs : tu gagnes ta vie avec les marques${pf === 'spotify' ? ' et les écoutes de tes sons' : ''}.` : 'Publie : chaque sortie rapporte selon ses vues.'}</p>
       <div class="season-line"><span>${seasonEmoji(d)}</span><span>${cap1(SEASON_WORD(d))}. Pubs ×${fmtDec(adSeason(d))}, marques ×${fmtDec(sponsorSeason(d))}.</span></div>
       ${c.ledger.length ? html`<details class="ledger"><summary>Historique</summary><ul>${c.ledger.slice(-12).reverse().map((x, k) => html`<li key=${k}><span>${x.label}</span><b class=${x.amount < 0 ? 'neg' : x.kind === 'est' ? 'est' : 'pos'}>${x.amount > 0 ? '+' : x.amount < 0 ? '−' : ''}${fmtMoney(g, Math.abs(x.amount))}${x.kind === 'est' ? ' (estimé)' : ''}</b></li>`)}</ul></details>` : null}
     </section>
@@ -544,14 +547,14 @@ function StudioTab({ g, now }) {
         ${c.prog.state === 'review' ? html`<p class="muted">Réponse ${fmtWhen(c.prog.until, now)}.</p>`
           : c.prog.state === 'refused' && now < (c.prog.retry || 0) ? html`<p class="muted">Tu pourras retenter ${fmtWhen(c.prog.retry, now)}.</p>`
             : html`<button class="btn btn-hot btn-sm" disabled=${!prog.ok} onClick=${() => { if (applyProgram(g)) update(); }}>${prog.review ? 'Postuler' : 'Rejoindre'}</button>`}`
-        : html`<p class="muted">${susp ? `Plus aucune pub sur tes contenus : ${STRIKE_MAX} avertissements en ${STRIKE_DAYS} jours. Retour des pubs ${fmtWhen(c.demonet.until, now)}.` : pf === 'youtube' ? `Ce que rapporte une vidéo dépend de son sujet et de ce qu’en pensent les annonceurs : de moins d’1 € à 11 € les 1 000 vues, ×${fmtDec(adSeason(d))} avec la saison. Les Shorts, quelques centimes.` : pf === 'tiktok' ? 'Tes vidéos de plus d’une minute rapportent environ 0,40 € pour 1 000 vues qualifiées, moins si les annonceurs boudent le sujet.' : 'Tes lives rapportent : abonnements, bits et pubs.'}${strikes && !susp ? ` Avertissements : ${strikes}/${STRIKE_MAX} sur ${STRIKE_DAYS} jours.` : ''}</p>`}
+        : html`<p class="muted">${susp ? `Plus aucune pub sur tes contenus : ${STRIKE_MAX} avertissements en ${STRIKE_DAYS} jours. Retour des pubs ${fmtWhen(c.demonet.until, now)}.` : pf === 'youtube' ? `Ce que rapporte une vidéo dépend de son sujet et de ce qu’en pensent les annonceurs : de moins d’1 € à 11 € les 1 000 vues, ×${fmtDec(adSeason(d))} avec la saison. Les Shorts, quelques centimes.` : pf === 'tiktok' ? 'Tes vidéos de plus d’une minute rapportent environ 0,40 € pour 1 000 vues qualifiées, moins si les annonceurs boudent le sujet.' : 'Tes lives rapportent : abonnements, bits et pubs.'}${strikes && !susp ? ` Avertissements : ${strikes}/${STRIKE_MAX} sur ${STRIKE_DAYS} jours.` : ''}</p>`}
     </section>` : null}
     <${CommuSection} g=${g} now=${now} />
     <${BoutiqueSection} g=${g} now=${now} />
     <${JobsSection} g=${g} now=${now} />
     <section class="section">
       <div class="section-h"><h3>Tendances sur ${pfName(g, pf)}</h3><span>Surfe dessus pour faire des vues</span></div>
-      ${tr.length ? html`<div class="trend-list">${tr.slice(0, 6).map((x) => { const h = trendHeat(x, now); return html`<div class="trend-row" key=${x.id}><span class="tr-emo" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${TREND_KINDS[x.kind].label} · ${heatWord(h)}</small></div><span class="heat" style=${'--p:' + Math.round(h * 100) + '%'} aria-label=${'Popularité ' + Math.round(h * 100) + ' %'}><i></i></span></div>`; })}</div>`
+      ${tr.length ? html`<div class="trend-list">${tr.slice(0, 6).map((x) => { const h = trendHeat(x, now); return html`<div class="trend-row" key=${x.id}><span class="tr-emo" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${TREND_KINDS[x.kind].label} · ${heatWord(h)}</small></div><span class="heat" style=${'--p:' + Math.round(h * 100) + '%'} aria-label=${'Popularité ' + Math.round(h * 100) + ' %'}><i></i></span></div>`; })}</div>`
         : html`<p class="muted">Rien ne monte pour l’instant. Actualise ton fil : les tendances vont et viennent.</p>`}
       <ul class="tips">${P.tips.map((t, k) => html`<li key=${k}>${t}</li>`)}</ul>
     </section>
@@ -566,7 +569,7 @@ function StudioTab({ g, now }) {
       ${g.staff.map((m) => { const p = g.chars[m.c]; if (!p) return null; const R = STAFF_ROLES[m.role]; return html`<div class="staff-row" key=${m.id}>
         <${Avatar} who=${author(g, 'c:' + p.id)} size=${44} onClick=${() => openDM(p.id)} />
         <div class="mid"><b>${p.name}</b><span>${R.emoji} ${roleName(m.role, p.g)} · ${tierName(m.tier, p.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ' · pas payé·e !' : ''}</span><small>${R.fx(m.tier + 1)}</small></div>
-        <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${p.name.split(' ')[0]} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
+        <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)} aria-label=${'Écrire à ' + p.name.split(' ')[0]} title=${'Écrire à ' + p.name.split(' ')[0]}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${p.name.split(' ')[0]} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
       </div>`; })}
       <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'recruit' })}><${Icon} n="userplus" s=${15} /> Recruter</button>
     </section>
@@ -586,15 +589,15 @@ function StudioTab({ g, now }) {
     <section class="section" style="border-bottom:0">
       <details class="howto"><summary>Comment ça marche, en vrai ?</summary>
         <ul>
-          <li><b>YouTube</b> : le Programme Partenaire s’ouvre à 1 000 abonnés et 4 000 heures de visionnage public sur 12 mois (ou 10 millions de vues Shorts sur 90 jours). Tu touches 55 % des pubs de tes vidéos, 45 % sur les Shorts. Le paiement arrive le mois suivant, dès 70 €.</li>
+          <li><b>YouTube</b> : le Programme Partenaire s’ouvre à 1 000 abonnés et 4 000 heures de visionnage public sur 12 mois (ou 10 millions de vues Shorts sur 90 jours). Tu touches 55 % des pubs de tes vidéos, 45 % sur les Shorts. Le paiement arrive le mois suivant, dès 70 €.</li>
           <li><b>Selon le sujet</b>, 1 000 vues rapportent de moins d’un euro (gaming, divertissement) à plusieurs euros (finance, tech). Les Shorts rapportent quelques centimes.</li>
           <li><b>Adaptée aux annonceurs</b> : une vidéo violente, vulgaire ou choquante n’a que des pubs limitées, ou plus du tout (démonétisée). Tu déclares toi-même ce qu’elle contient avant de la publier ; un contenu caché qui se voit vaut un avertissement. Tu peux demander un réexamen.</li>
-          <li><b>La saison</b> : les annonceurs paient le plus en fin d’année (Black Friday, Noël), souvent 50 % de plus qu’au premier trimestre. En janvier, ça s’effondre.</li>
-          <li><b>TikTok</b> : le programme de récompenses s’ouvre à 10 000 abonnés et 100 000 vues sur 30 jours, pour des vidéos de plus d’une minute (environ 0,40 à 1 € les 1 000 vues).</li>
-          <li><b>Instagram</b> ne reverse pas ses pubs : ce sont les marques qui paient (en gros 10 € pour 1 000 abonnés par post sponsorisé).</li>
+          <li><b>La saison</b> : les annonceurs paient le plus en fin d’année (Black Friday, Noël), souvent 50 % de plus qu’au premier trimestre. En janvier, ça s’effondre.</li>
+          <li><b>TikTok</b> : le programme de récompenses s’ouvre à 10 000 abonnés et 100 000 vues sur 30 jours, pour des vidéos de plus d’une minute (environ 0,40 à 1 € les 1 000 vues).</li>
+          <li><b>Instagram</b> ne reverse pas ses pubs : ce sont les marques qui paient (en gros 10 € pour 1 000 abonnés par post sponsorisé).</li>
           <li><b>Twitch</b> : Affilié à 50 followers, 500 minutes de live sur 7 jours différents et 3 spectateurs en moyenne.</li>
-          <li><b>Les marques</b> paient selon les vues attendues (souvent 10 à 40 € les 1 000 vues). La loi française impose la mention « Publicité » ou « Collaboration commerciale », visible tout le contenu, et interdit certaines promos (chirurgie esthétique, puffs, pronostics de paris…). Jusqu’à 2 ans de prison et 300 000 € d’amende dans les pires cas.</li>
-          <li><b>Freelances</b> : un monteur débutant facture autour de 35 à 70 € la journée, un confirmé autour de 100 €, un senior 140 € et plus. Les stars du métier coûtent bien plus.</li>
+          <li><b>Les marques</b> paient selon les vues attendues (souvent 10 à 40 € les 1 000 vues). La loi française impose la mention « Publicité » ou « Collaboration commerciale », visible tout le contenu, et interdit certaines promos (chirurgie esthétique, puffs, pronostics de paris…). Jusqu’à 2 ans de prison et 300 000 € d’amende dans les pires cas.</li>
+          <li><b>Freelances</b> : un monteur débutant facture autour de 35 à 70 € la journée, un confirmé autour de 100 €, un senior 140 € et plus. Les stars du métier coûtent bien plus.</li>
         </ul>
         <small class="muted">Des ordres de grandeur réels (2026), simplifiés pour le jeu.</small>
       </details>
@@ -611,17 +614,19 @@ function trySign(g, d) {
 function dealPayNote(g, d) {
   const was = d.fee && d.fee0 && d.fee !== d.fee0 ? `au départ ${fmtMoney(g, d.fee0)}` : '';
   const more = d.gift ? `${d.fee ? `+ ${GEAR[d.gift.kind].emoji} ${giftName(g, d.gift)} · ` : 'matos offert · '}${TIER_LABELS[d.gift.t].toLowerCase()} · valeur ${fmtMoney(g, d.gift.value)}`
-    : dealGoods(d) ? (d.fee ? `+ ≈ ${fmtMoney(g, d.value)} en produits` : `≈ ${fmtMoney(g, d.value)} en produits · pas d’argent`) : '';
+    : dealGoods(d) ? (d.fee ? `+ ≈ ${fmtMoney(g, d.value)} en produits` : `≈ ${fmtMoney(g, d.value)} en produits · pas d’argent`) : '';
   const t = [was && `(${was})`, more].filter(Boolean).join(' ');
   return t ? html`<em>${t}</em>` : null;
 }
 const DEAL_STATES = { offer: 'Proposition', signed: 'Signé', done: 'Livré ✓', broken: 'Rompu', expired: 'Expiré', declined: 'Refusé', withdrawn: 'Offre retirée', waiting: 'Signé', scammed: 'Arnaque' };
+// 0.27.8: a signed sponsor, as a chip (the quote, the upload): with a deposit, what is left to come when it is out
+const dealLeft = (g, d) => (!d.fee ? '' : d.upfront ? ` · reste ${fmtMoney(g, d.fee - d.upfront)} à la sortie` : ` · ${fmtMoney(g, d.fee)}`);
 // A brand's proposal (in DMs and in the Studio): what it pays, what it asks, what the law says.
 function DealCard({ g, d, now, inDM }) {
   if (!d) return null;
   const c = g.chars[d.contact];
   const left = d.state === 'offer' ? d.until - now : d.state === 'signed' ? d.due - now : 0;
-  const nego = () => { const ask = niceRound(d.fee * 1.25 || 100); S.drafts.dm[d.contact] = d.fee ? `Merci pour la proposition ! Vu mes ≈ ${fmtN(Math.round(expectedViews(g, d.what)))} vues par ${dealWhat(g, d)}, je serais plutôt sur ${fmtMoney(g, ask)}. On peut en parler ?` : d.gift ? 'Merci, le matos m’intéresse ! Vous pourriez ajouter un petit budget pour le temps de tournage ?' : 'Merci ! Plutôt qu’en produits, vous auriez un budget pour ce partenariat ?'; if (!inDM) openDM(d.contact); else update(false); };
+  const nego = () => { const ask = niceRound(d.fee * 1.25 || 100); S.drafts.dm[d.contact] = d.fee ? `Merci pour la proposition ! Vu mes ≈ ${fmtN(Math.round(expectedViews(g, d.what)))} vues par ${dealWhat(g, d)}, je serais plutôt sur ${fmtMoney(g, ask)}. On peut en parler ?` : d.gift ? 'Merci, le matos m’intéresse ! Vous pourriez ajouter un petit budget pour le temps de tournage ?' : 'Merci ! Plutôt qu’en produits, vous auriez un budget pour ce partenariat ?'; if (!inDM) openDM(d.contact); else update(false); };
   return html`<div class=${'deal-card st-' + d.state}>
     <div class="dl-head"><span class="dl-emo" aria-hidden="true">${d.emoji}</span><div><b>${d.brand}</b><span>${cap1(d.product)}</span></div><span class="dl-state">${DEAL_STATES[d.state] || ''}</span></div>
     <div class="dl-terms">
@@ -636,13 +641,13 @@ function DealCard({ g, d, now, inDM }) {
       ${d.clause ? html`<li>${d.clause.text}</li>` : null}
       <li>Clause de moralité : en cas de scandale, la marque peut rompre le contrat.</li>
       ${d.brief ? html`<li>Le contrat et le brief se téléchargent ici : <span class="dl-file">${d.brief}</span></li>` : null}
-      ${hasStaff(g, 'agent') && d.fee ? html`<li>Ton agent prend ${hasStaff(g, 'agent').rate} % de commission.</li>` : null}
+      ${hasStaff(g, 'agent') && d.fee ? html`<li>Ton agent prend ${hasStaff(g, 'agent').rate} % de commission.</li>` : null}
     </ul>
     <${DealExtra} g=${g} d=${d} />
     ${d.state === 'offer' ? html`<div class="row">
       <button class="btn btn-hot btn-sm" onClick=${() => trySign(g, d)}>${d.costs ? `Signer et payer ${fmtMoney(g, d.costs)}` : d.brief ? 'Télécharger et signer' : 'Signer'}</button>
-      <button class="btn btn-ghost btn-sm" onClick=${nego}>Négocier</button>
-      <button class="linkbtn quiet" onClick=${() => { declineDeal(g, d); update(); }}>Refuser</button>
+      <button class="btn btn-ghost btn-sm" onClick=${nego}>Négocier en message</button>
+      <button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Refuser l’offre de ${d.brand} ?`, text: 'Cette proposition sera perdue.', ok: 'Refuser', danger: true, run: () => { declineDeal(g, d); update(); } })}>Refuser</button>
       <small class="muted">${left > 0 ? `Offre valable ${fmtDur(left)}` : ''}</small>
     </div>` : d.state === 'signed' ? html`<p class="muted dl-note">À livrer ${fmtWhen(d.due, now)} : choisis ce sponsor au moment de publier ${d.what === 'vidéo' ? 'ta prochaine vidéo' : `ton prochain ${dealWhat(g, d)}`}.${d.gift && !d.giftSent ? ' Ton matos doit arriver dans les prochains jours.' : ''}</p>`
       : d.state === 'waiting' ? html`<p class="muted dl-note">${d.gift ? 'Ton matos' : 'Ton kit'} doit arriver dans les prochains jours.</p>` : null}
@@ -657,9 +662,9 @@ function PlanRow({ g, r, first, now }) {
     <div class="mid"><b>${cap1(nounOf(r))} « ${r.topic} »</b>
       <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · avec ${cc.name.split(' ')[0]}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
     <div class="acts">
-      ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Plus tôt</button>`)
+      ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>`)
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
-      ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="linkbtn quiet" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="linkbtn quiet" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+      ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
     </div>
   </div>`;
 }
@@ -677,13 +682,22 @@ function MoveLayer({ l, g, i, now }) {
     </div>
   <//>`;
 }
+// 0.27.8: what the challenge's three ends take, counted as endSeries counts (missed: an episode not published in time)
+function SeriesStakes({ days, hard }) {
+  const maxF = hard ? 0 : Math.floor(days / 4);
+  return html`<div class="se-stakes">
+    <span>🏆 <b>Réussi</b> (${maxF ? `aucun épisode manqué, au plus ${maxF > 1 ? maxF + ' ratés' : 'un raté'}` : 'aucun épisode raté ni manqué'}) : +${2 * days * (hard ? 2 : 1)} gemmes, une vague d’abonnés, et une marque te repère.</span>
+    ${hard ? null : html`<span>😬 <b>Pas tenu</b> (un épisode manqué, ou ${maxF > 1 ? `plus de ${maxF} ratés` : maxF ? 'plus d’un raté' : 'un raté'}) : un petit bide.</span>`}
+    <span>💥 <b>Raté en beauté</b> (${hard ? 'un seul épisode raté ou manqué' : 'la moitié des épisodes ratés ou manqués'}, ou le défi abandonné) : bad buzz.</span>
+  </div>`;
+}
 function SeriesCard({ g, s, now }) {
   const rl = plannedReleases(g).find((x) => x.series === s.id); // 0.27.4: not always the next one
   const dots = Array.from({ length: s.days }, (_, k) => s.results[k] || (k === s.ep && s.state === 'on' ? 'next' : 'todo'));
   return html`<div class=${'series-card st-' + s.state}>
     <div class="se-head"><span aria-hidden="true">${s.state === 'won' ? '🏆' : s.state === 'badbuzz' ? '💥' : s.state === 'bide' ? '😬' : '📅'}</span><div><b>Daily Upload · ${s.days} jours${s.hard ? ' · hardcore' : ''}</b><span>« ${s.theme} » · ${diffOf(s.diff).emoji} ${diffOf(s.diff).label}</span></div></div>
     <div class="se-dots" aria-label=${`${s.ep} épisodes sur ${s.days}`}>${dots.map((x, k) => html`<span key=${k} class=${'se-dot ' + x} title=${`Épisode ${k + 1}`}>${x === 'top' || x === 'mid' ? '✓' : x === 'flop' ? '✗' : x === 'missed' ? '–' : k + 1}</span>`)}</div>
-    ${s.state === 'on' ? html`<p class="se-line">Série en cours : <b>${s.streak}</b> · multiplicateur <b>×${fmtDec(seriesMult(g))}</b>${rl && rl.series === s.id ? ` · prochain épisode ${fmtWhen(rl.due, now)}` : ''}</p>
+    ${s.state === 'on' ? html`<p class="se-line">D’affilée : <b>${s.streak}</b> · bonus <b>×${fmtDec(seriesMult(g))}</b>${rl && rl.series === s.id ? ` · prochain épisode ${fmtWhen(rl.due, now)}` : ''}</p>
       <button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Abandonner le défi ?', text: 'Tout le monde le verra : c’est le bad buzz assuré.', ok: 'Abandonner', danger: true, run: () => { endSeries(g, s, true); update(); } })}>Abandonner le défi</button>`
       : html`<p class="se-line">${s.state === 'won' ? `Réussi ! +${s.reward.gems} gemmes, ${nAbonnes(s.reward.fol, true)}.` : s.state === 'badbuzz' ? `Raté : bad buzz (−${nAbonnes(s.reward.loss)}).` : `Pas tenu : un petit bide (−${nAbonnes(s.reward.loss)}).`}</p>`}
   </div>`;
@@ -707,10 +721,10 @@ function RecruitLayer({ g, now, i }) {
     <section class="section">
       <div class="section-h"><h3>${R.emoji} ${R.x}</h3><span>${R.pay === 'cut' ? 'à la commission' : R.pay === 'week' ? 'salaire par semaine' : R.pay === 'case' ? 'payé par dossier' : 'payé par sortie'}</span></div>
       <p class="muted">${R.desc}</p>
-      <div class="tier-prices">${STAFF_TIERS.map((T, k) => html`<span key=${k}><small>${T.x}</small><b>${R.pay === 'cut' ? R.rates[k] + ' %' : '≈ ' + fmtMoney(g, R.rates[k])}</b><em>${R.fx(k + 1)}</em></span>`)}</div>
+      <div class="tier-prices">${STAFF_TIERS.map((T, k) => html`<span key=${k}><small>${T.x}</small><b>${R.pay === 'cut' ? R.rates[k] + ' %' : '≈ ' + fmtMoney(g, R.rates[k])}</b><em>${R.fx(k + 1)}</em></span>`)}</div>
       <small class="muted">Plus la personne est expérimentée, plus elle coûte… et plus elle t’apporte.</small>
       ${cur ? html`<p class="notice"><${Icon} n="users" /><span>${g.chars[cur.c].name} occupe déjà ce poste. Sépare-toi de ${gx(g.chars[cur.c].g, 'lui', 'elle', 'iel')} dans le Studio pour en engager un autre.</span></p>`
-        : html`<button class="btn btn-hot btn-sm" onClick=${() => genCandidates(role)} disabled=${!!S.busy.cand}>${busy ? html`<${Typing} /> Les candidatures arrivent…` : html`<${Icon} n="search" s=${15} /> ${list.length ? 'D’autres candidats' : 'Voir des candidats'} · ≈ ${costLabel(g, 'cand')} ☕`}</button>`}
+        : html`<button class="btn btn-hot btn-sm" onClick=${() => genCandidates(role)} disabled=${!!S.busy.cand}>${busy ? html`<${Typing} /> Les candidatures arrivent…` : html`<${Icon} n="search" s=${15} /> ${list.length ? 'D’autres candidats' : 'Voir des candidats'} · ≈ ${costLabel(g, 'cand')} ☕`}</button>`}
     </section>
     ${list.map((c) => html`<div class="cand-card" key=${c.id}>
       <${Avatar} who=${author(g, 'c:' + c.id)} size=${52} onClick=${() => openDM(c.id)} />
@@ -764,10 +778,10 @@ function SeriesLayer({ l, g, i }) {
   };
   return html`<${LayerShell} i=${i} title=${single ? 'Programmer une sortie' : 'Défi Daily Upload'}>
     <div class="mg-setup">
-      ${single ? null : html`<p class="lede-sm">${days} jours de suite, ${what === 'live' ? 'un live' : `${what === 'vidéo' ? 'une' : 'un'} ${noun(what)}`} par jour à heure fixe. Chaque épisode réussi fait grimper ton multiplicateur (×${fmtDec(1 + step)}, ×${fmtDec(1 + 2 * step)}… jusqu’à ×${cap}) : vues, abonnés et argent. Pas de report possible.</p>`}
+      ${single ? null : html`<p class="lede-sm">${days} jours de suite, ${what === 'live' ? 'un live' : `${what === 'vidéo' ? 'une' : 'un'} ${noun(what)}`} par jour à heure fixe. Chaque épisode qui n’est pas raté (même moyen) fait grimper ton bonus de défi (×${fmtDec(1 + step)}, ×${fmtDec(1 + 2 * step)}… jusqu’à ×${cap}) : vues, abonnés et argent. Pas de report possible.</p>`}
       <div class="field"><span class="lbl">Format</span><${Seg} items=${P.fmts.map((f) => [f, cap1(noun(f)), !canMake(g, f).ok])} value=${what} onPick=${setWhat} label="Format" />
         ${P.fmts.filter((f) => !canMake(g, f).ok).map((f) => html`<small class="muted gear-why" key=${f}>${canMake(g, f).why}</small>`)}</div>
-      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><${Seg} items=${[[0, 'Prochaine fois'], [1, '+1 jour'], [2, '+2 jours'], [6, '+1 semaine']]} value=${day} onPick=${setDay} label="Jour" /></div>`
+      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><${Seg} items=${[[0, 'Au plus tôt'], [1, '+1 jour'], [2, '+2 jours'], [6, '+1 semaine']]} value=${day} onPick=${setDay} label="Jour" /></div>`
         : html`<div class="field"><span class="lbl">Durée du défi</span><${Seg} items=${SERIES_DAYS.map((n) => [n, n + ' jours'])} value=${days} onPick=${setDays} label="Durée" /></div>`}
       <div class="field"><span class="lbl">Heure de sortie</span>
         <div class="hour-pick">${[8, 12, 17, 18, 19, 20, 21, 22].map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
@@ -776,13 +790,16 @@ function SeriesLayer({ l, g, i }) {
       <div class="field"><label class="lbl" for="se-theme">${single ? 'Le sujet' : 'Le thème du défi'}</label>
         <input id="se-theme" class="input" maxlength="80" value=${theme} onInput=${(ev) => setTheme(ev.target.value)} placeholder=${single ? 'ex : je teste les potions du marché noir' : 'ex : une recette ratée par jour'} /></div>
       ${single ? null : html`<div class="field"><span class="lbl" id="se-diff">Difficulté des tournages</span>
-        <div class="diff-list compact" role="radiogroup" aria-labelledby="se-diff">${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}><span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b></span><span class="d-mult">gains ${fmtMult(d.mult)}</span></button>`)}</div></div>
-      <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le multiplicateur grimpe presque deux fois plus vite (jusqu’à ×4) et les récompenses doublent. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
-      <div class="se-stakes"><span>🏆 <b>Réussi</b> : +${2 * days * (hard ? 2 : 1)} gemmes, une vague d’abonnés, et une marque te repère.</span><span>😬 <b>Pas tenu</b> : un petit bide.</span><span>💥 <b>Raté en beauté</b> (la moitié des épisodes ratés ou manqués${hard ? ', ou un seul en hardcore' : ''}) : bad buzz.</span></div>`}
+        <small class="muted diff-note">Le chiffre multiplie les j’aime, les abonnés et l’XP de chaque épisode, sauf s’il est raté.</small>
+        <div class="diff-list compact" role="radiogroup" aria-labelledby="se-diff">${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}><span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b></span><span class="d-mult">${fmtMult(d.mult)}</span></button>`)}</div></div>
+      <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le bonus de défi grimpe presque deux fois plus vite (jusqu’à ×4) ; à la fin, deux fois plus de gemmes et +50 % d’abonnés et d’XP. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
+      <${SeriesStakes} days=${days} hard=${hard} />`}
       ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; update(false); } : null} />` : null}
+      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${fmtGameAt(nextAt(hour, 0) + (single ? day : 0) * DAY_MS)}</p>
       <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (total > 0 && total > g.career.cash)}>${needDevis && !dv
-        ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`)
+        ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`)
         : html`<${Icon} n="calendar" s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${single ? 'programmer' : 'lancer le défi'}` : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
+      ${!ok ? html`<small class="muted why-off">Écris d’abord ${single ? 'le sujet' : 'le thème du défi'}.</small>` : !planRoom(g) ? html`<small class="muted why-off">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : !single && seriesOn(g) ? html`<small class="muted why-off">Un défi est déjà en cours.</small>` : null}
       ${needDevis && !dv ? html`<small class="muted">Le devis dit ce qu’il faut acheter, louer ou payer pour ce contenu (jamais ce que tu as déjà). Il se paie pour programmer.</small>` : null}
     </div>
   <//>`;
@@ -845,23 +862,23 @@ function PublishForm({ g, r, now }) {
     <div class="up-head"><span aria-hidden="true">${P.emoji}</span><b>${kind === 'live' ? 'Lancer le live' : kind === 'wide' ? 'Mettre en ligne' : 'Publier'} sur ${pfName(g, pf)}</b></div>
     <div class="up-preview" aria-hidden="true">
       ${kind === 'wide' ? html`<div class="wide-prev">${f.thumbLook || f.thumbImg ? html`<div class="wp-thumb custom"><${ThumbArt} look=${f.thumbLook} img=${f.thumbImg} /><span class="vc-dur">${8 + (hashStr(r.topic) % 14)}:${String(hashStr(r.id) % 60).padStart(2, '0')}</span></div>` : html`<div class=${'wp-thumb th-' + f.thumb} style=${'--h:' + (hashStr(r.topic) % 360)}><span class="emo">${f.thumb === 'choc' ? '😱' : f.thumb === 'mystere' ? '❓' : W.emoji}</span>${f.thumb === 'choc' ? html`<i class="th-text">${str(f.title, 28).toUpperCase()}</i>` : f.thumb === 'mystere' ? html`<i class="th-q">???</i>` : null}<span class="vc-dur">${8 + (hashStr(r.topic) % 14)}:${String(hashStr(r.id) % 60).padStart(2, '0')}</span></div>`}
-          <div class="wp-meta"><${Avatar} who=${author(g, 'p')} size=${32} /><div><b>${f.title || 'Sans titre'}</b><span>${g.player.name} · ≈ ${fmtN(lo)} vues · à l’instant</span></div></div></div>`
+          <div class="wp-meta"><${Avatar} who=${author(g, 'p')} size=${32} /><div><b>${f.title || 'Sans titre'}</b><span>${g.player.name} · ≈ ${fmtN(lo)} vues · à l’instant</span></div></div></div>`
       : kind === 'vert' ? html`<div class="vert-prev" style=${'--h:' + (hashStr(r.topic) % 360)}><span class="emo">${W.emoji}</span>${f.hook ? html`<b class="vp-hook">${f.hook}</b>` : null}
           <div class="vp-rail"><span>♥</span><span>💬</span><span>↗</span></div>
           <div class="vp-foot"><b>@${g.player.handle}</b><span>${str(f.caption, 70)}</span><span>♫ ${sound || 'son original'}</span></div></div>`
-      : kind === 'live' ? html`<div class="live-prev" style=${'--h:' + (hashStr(r.topic) % 360)}><span class="live-badge">● EN DIRECT</span><span class="emo">${W.emoji}</span><b>${f.title || r.topic}</b><span>≈ ${fmtN(Math.max(1, Math.round(lo * 0.25)))} spectateurs en même temps</span></div>`
+      : kind === 'live' ? html`<div class="live-prev" style=${'--h:' + (hashStr(r.topic) % 360)}><span class="live-badge">● EN DIRECT</span><span class="emo">${W.emoji}</span><b>${f.title || r.topic}</b><span>≈ ${fmtN(Math.max(1, Math.round(lo * 0.25)))} spectateurs en même temps</span></div>`
       : html`<div class="audio-prev"><span class="ap-cover" style=${'--h:' + (hashStr(r.topic) % 360)}>${W.emoji}</span><div><b>${f.title || r.topic}</b><span>${g.player.name}</span><span class="ap-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></div>`}
     </div>
     ${kind !== 'vert' ? html`<div class="field"><label class="lbl" for="up-title">Titre</label><input id="up-title" class="input" maxlength="100" value=${f.title} onInput=${(ev) => set('title', ev.target.value)} /></div>` : null}
-    ${kind === 'wide' && T0 ? html`<div class="field"><span class="lbl">Miniature</span><div class="th-chosen"><${ThumbArt} look=${T0.look} img=${T0.img} small=${true} /><div><b>${thumbWord(T0)}</b><small>+${Math.round(T0.ctr * 100)} % de clics${T0.choc ? ' · si c’est raté, « putaclic »' : ''}</small>${T0.kind !== 'staff' ? html`<button type="button" class="linkbtn" onClick=${() => { r.thumb = null; update(); }}>Changer</button>` : null}</div></div></div>` : null}
-    ${kind === 'vert' ? html`<div class="field"><label class="lbl" for="up-hook">L’accroche (les 2 premières secondes)</label><input id="up-hook" class="input" maxlength="60" value=${f.hook} onInput=${(ev) => set('hook', ev.target.value)} placeholder="ex : Personne ne m’a cru. Alors j’ai filmé." /><small>Une vraie accroche retient les gens : +12 % de vues.</small></div>
+    ${kind === 'wide' && T0 ? html`<div class="field"><span class="lbl">Miniature</span><div class="th-chosen"><${ThumbArt} look=${T0.look} img=${T0.img} small=${true} /><div><b>${thumbWord(T0)}</b><small>+${Math.round(T0.ctr * 100)} % de vues${T0.choc ? ' · si c’est raté, « putaclic »' : ''}</small>${T0.kind !== 'staff' ? html`<button type="button" class="linkbtn" onClick=${() => { r.thumb = null; update(); }}>Changer</button>` : null}</div></div></div>` : null}
+    ${kind === 'vert' ? html`<div class="field"><label class="lbl" for="up-hook">L’accroche (les 2 premières secondes)</label><input id="up-hook" class="input" maxlength="60" value=${f.hook} onInput=${(ev) => set('hook', ev.target.value)} placeholder="ex : Personne ne m’a cru. Alors j’ai filmé." /><small>Une vraie accroche retient les gens : +12 % de vues.</small></div>
       <div class="field"><span class="lbl">${pf === 'instagram' ? 'Audio tendance' : 'Son tendance'}</span>${trendChips(sounds, 'trend', 'Son original')}</div>
       ${tags.length ? html`<div class="field"><span class="lbl">Défi / hashtag</span>${trendChips(tags, 'trend2', 'Aucun')}</div>` : null}` : null}
     ${kind !== 'vert' && topics.length ? html`<div class="field"><span class="lbl">Surfer sur une tendance</span>${trendChips(topics, 'trend', 'Aucune')}</div>` : null}
     ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>Seul·e</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${c.name.split(' ')[0]}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
     ${deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsor</span>
-      <div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.deal ? ' on' : '')} onClick=${() => set('deal', '')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (f.deal === d.id ? ' on' : '')} onClick=${() => set('deal', d.id, { mention: !d.shady })}>${d.emoji} ${d.brand}${d.fee ? ` · ${fmtMoney(g, d.fee - d.upfront)}` : ''}</button>`)}</div>
-      <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
+      <div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.deal ? ' on' : '')} onClick=${() => set('deal', '')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (f.deal === d.id ? ' on' : '')} onClick=${() => set('deal', d.id, { mention: !d.shady })}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div>
+      <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
       ${dl ? html`<label class=${'mention-toggle' + (f.mention ? '' : ' off')}><input type="checkbox" checked=${f.mention} onChange=${(ev) => set('mention', ev.target.checked)} /><span><b>Mention « Collaboration commerciale »</b><small>${f.mention ? (dl.shady ? 'Ton contrat dit sans. Tu la mets quand même ?' : 'Visible tout le long du contenu.') : dl.shady ? 'Comme le demande ton contrat.' : 'Le contenu ne dira pas qu’il est sponsorisé.'}</small></span></label>` : null}
     </div>` : null}
     ${declOn(g, r.what) ? html`<div class="field up-decl"><span class="lbl">Pour les annonceurs : ce que contient ${laW(r)}</span>
@@ -869,10 +886,10 @@ function PublishForm({ g, r, now }) {
       <small>${f.decl.length ? 'Déclaré : des pubs limitées, sans avertissement.' : 'Rien de coché : toutes les pubs, si c’est vrai. Un contenu caché qui se voit : démonétisé, et un avertissement.'}</small></div>` : null}
     ${mbOK && kind !== 'live' && mb.perks.includes('avant') ? html`<label class=${'mention-toggle up-memb' + (f.membAvant ? '' : ' off')}><input type="checkbox" checked=${f.membAvant} onChange=${(ev) => set('membAvant', ev.target.checked)} /><span><b>👑 En avant-première pour tes membres</b><small>${f.membAvant ? 'Tes membres la voient 48 h avant tout le monde : ta promesse du mois est tenue.' : 'Tu as promis une avant-première par mois à tes membres.'}</small></span></label>` : null}
     ${mbOK && kind === 'live' && mb.perks.includes('live') ? html`<label class=${'mention-toggle up-memb' + (f.membLive ? '' : ' off')}><input type="checkbox" checked=${f.membLive} onChange=${(ev) => set('membLive', ev.target.checked)} /><span><b>👑 Réservé à tes membres</b><small>${f.membLive ? 'Seuls tes membres le voient : bien moins de spectateurs, mais un vrai moment avec eux.' : 'Tu as promis un live réservé par mois à tes membres.'}</small></span></label>` : null}
-    <div class="up-est"><span>≈ ${fmtN(lo)} à ${fmtN(hi)} ${unit}</span><span>${cap1(audienceWord(aud))}${g.boosts.push ? ' · mise en avant ×2' : ''}${r.series ? ` · série ×${fmtDec(seriesMult(g))}` : ''}${(r.crew || []).length ? ' · ton équipe a bossé dessus' : ''}</span></div>
+    <div class="up-est"><span>≈ ${fmtN(lo)} à ${fmtN(hi)} ${unit}</span><span>${cap1(audienceWord(aud))}${g.boosts.push ? ' · mise en avant ×2' : ''}${r.series ? ` · bonus de défi ×${fmtDec(seriesMult(g))}` : ''}${(r.crew || []).length ? ' · ton équipe a bossé dessus' : ''}</span></div>
     <label class="lbl" for="rl-cap">Ton post d’annonce sur le réseau</label>
     <textarea id="rl-cap" class="input" maxlength="280" rows="2" value=${f.caption} onInput=${(ev) => set('caption', ev.target.value)}></textarea>
-    <button class="btn btn-hot" onClick=${() => publishRelease(r, f.caption, f)} disabled=${!!S.busy.act || !canAfford(g, 'post')}>${kind === 'live' ? 'Lancer le live' : 'Publier ' + laW(r)} · ≈ ${costLabel(g, 'post')} <${Icon} n="coffee" s=${15} /></button>
+    <button class="btn btn-hot" onClick=${() => publishRelease(r, f.caption, f)} disabled=${!!S.busy.act || !canAfford(g, 'post')}>${kind === 'live' ? 'Lancer le live' : 'Publier ' + laW(r)} · ≈ ${costLabel(g, 'post')} <${Icon} n="coffee" s=${15} /></button>
     ${!canAfford(g, 'post') ? html`<small class="muted">Ton budget IA du jour est épuisé. <button class="linkbtn" onClick=${budgetBlocked}>Options</button></small>` : null}
   </div>`;
 }
@@ -883,11 +900,11 @@ function PlatformVideo({ g, p, now }) {
   const views = Math.round((v.views || 0) * k);
   const h = hashStr(v.topic || '');
   const unit = kind === 'audio' ? 'écoutes' : kind === 'live' ? 'spectateurs' : 'vues';
-  const tierChip = mine && v.tier ? html`<span class=${'chip ' + (v.tier === 'top' ? 'good' : v.tier === 'flop' ? 'bad' : '')}>${RELEASE_TIERS[v.tier].label} · ${Math.round((v.score || 0) * 100)} %${v.diff ? ' · ' + diffOf(v.diff).emoji + ' ' + diffOf(v.diff).label : ''}${v.ep ? ` · épisode ${v.ep}` : ''}</span>` : null;
-  const money = mine && v.views ? html`${v.money ? html`<span class="chip money">💶 ≈ ${fmtMoney(g, v.money * k)}</span>` : null}${v.extra ? html`<span class="chip">✂️ + un format court : ${fmtN(v.extra.views * k)} vues</span>` : null}` : null;
+  const tierChip = mine && v.tier ? html`<span class=${'chip ' + (v.tier === 'top' ? 'good' : v.tier === 'flop' ? 'bad' : '')}>${RELEASE_TIERS[v.tier].label} · ${pctOf(v.score)} %${v.diff ? ' · ' + diffOf(v.diff).emoji + ' ' + diffOf(v.diff).label : ''}${v.ep ? ` · épisode ${v.ep}` : ''}</span>` : null;
+  const money = mine && v.views ? html`${v.money ? html`<span class="chip money">💶 ≈ ${fmtMoney(g, v.money * k)}</span>` : null}${v.extra ? html`<span class="chip">✂️ + un format court : ${fmtN(v.extra.views * k)} vues</span>` : null}` : null;
   const sp = v.sponsor ? html`<span class=${'sp-tag' + (v.sponsor.mention ? '' : ' hidden-ad')}>${v.sponsor.mention ? `Collaboration commerciale · ${v.sponsor.brand}` : `${v.sponsor.emoji} ${v.sponsor.brand}`}</span>` : null;
   const F = mine && v.sponsor && v.sponsor.fit ? v.sponsor.fit : 0; // 0.21: the placement, logical with the topic or not
-  const fitChip = F ? html`<span class=${'chip fit-chip ' + (F > 0 ? 'good' : 'warn')}>Placement ${FIT_WORDS[F]} · ${F > 0 ? '+' : '−'}${fitPct(F)} % de vues</span>` : null;
+  const fitChip = F ? html`<span class=${'chip fit-chip ' + (F > 0 ? 'good' : 'warn')}>Placement ${FIT_WORDS[F]} · ${F > 0 ? '+' : '−'}${fitPct(F)} % de vues</span>` : null;
   const mbChip = v.memb ? html`<span class="chip memb-chip">👑 ${v.memb === 'live' ? 'Réservé aux membres' : 'Avant-première membres'}</span>` : null; // 0.22
   const tr = v.trend ? html`<span class="tr-tag">${v.trend.emoji} ${v.trend.name}</span>` : null;
   const dons = mine && v.donTotal ? html`<${DonsBlock} g=${g} p=${p} />` : null; // 0.21: the donations of a live

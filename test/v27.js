@@ -114,7 +114,7 @@ async function newGame(page, identity) {
   check('the quote knows what the player has: the inventory (not what is on sale or sold) and the brand signed for this kind of content are in the prompt; what covers a need is « Déjà là, rien à payer » (the brand’s box repas, used up by the shoot; a meal of the brand, but never what it does not make), never on the bill, even when the AI lists it',
     dv1.stock.includes('[i1] Plaid à carreaux (un cadeau)') && dv1.stock.includes('[i2] Box repas (envoyé par Croc’Midi)') && !/sweat|lampe/i.test(dv1.stock) && /Croc’Midi \(ses box repas\)/.test(dv1.deals) && dv1.rule
       && dv1.items.join('|') === 'nappe à carreaux rouges' && dv1.total === 15 && dv1.have.length === 2 && dv1.have[0][0] === 'Box repas' && dv1.have[0][2] === 'conso' && /fourni par Croc’Midi/.test(dv1.have[1][1])
-      && /Déjà là, rien à payer/.test(dv1.card) && /utilisé pour le tournage/.test(dv1.card) && /15 €/.test(dv1.card), dv1);
+      && /Déjà là, rien à payer/.test(dv1.card) && /utilisé pour le tournage/.test(dv1.card) && /15\s€/.test(dv1.card), dv1);
   await page.locator('.layer .btn-hot', { hasText: 'Payer' }).click();
   await sleep(500);
   const dv2 = await G(page, (ids) => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const out = { box: !!H.invItem(g, ids.box), plaid: !!H.invItem(g, ids.plaid), notif: (g.notifs.filter((n) => /tu utilises ce que tu avais/.test(n.text)).pop() || {}).text || '', have: r && r.devis && r.devis.have.length, cash: g.career.cash }; if (r) r.state = 'dropped'; window.__mockDevis = null; H.S.devis = null; H.S.devisBy = {}; H.closeLayer(); return out; }, setup);

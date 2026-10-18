@@ -5,6 +5,39 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.8 — 19 octobre 2026 (build 27008)
+
+**Des consignes plus claires partout : ce qu’il faut pour réussir un mini-jeu, comment il compte tes points, et une question avant chaque action définitive.**
+
+### ✨ Nouveautés
+
+- **🎯 Les seuils, enfin dits** : chaque mini-jeu annonce ce qu’il faut pour réussir (75 % et plus), pour un résultat moyen (40 à 74 %), et en dessous c’est raté. Les rendez-vous aussi. Le score affiché est arrondi vers le bas : 74,6 % s’affiche 74 %, jamais 75 % sous « moyen ».
+- **✂️ La coupe au rythme expliquée** : 1 point pile dans la zone, ½ point juste à côté, 0 si tu ne coupes pas en deux allers-retours, et la barre d’espace marche aussi. Les intros ne disent plus qu’une seule coupe ratée gâche tout : ton score, c’est la moyenne de tes coupes.
+- **🔢 Des compteurs qui disent vrai** : la modération du chat compte les messages toxiques supprimés et les fans supprimés par erreur (ne rien supprimer, c’est raté). Le recadrage affiche la note du plan, celle qui compte.
+- **📈 La difficulté** : le chiffre de chaque niveau multiplie les j’aime, les abonnés et l’XP de ta sortie (sauf si le tournage est raté), et il s’affiche seul : « ×1,6 ». Pour un rendez-vous, il multiplie la relation et l’XP. Les descriptions de Facile, Légendaire et Mythique sont corrigées.
+- **🎬 Le montage peut encore sauver** : après un tournage raté, le jeu dit si un bon montage peut le rattraper (jusqu’à +15 points). « Monter vite, sans soin » devient « Passer le montage (−6 points) », et l’écran dit comment ton montage fait bouger le score.
+- **📖 Le temps de lire** : l’explication après une réponse reste à l’écran le temps de la lire (jusqu’à 4 secondes, chrono arrêté), et la liste des bonnes réponses, à la fin, la reprend.
+- **📅 Le défi Daily Upload** : ce qu’il faut pour le réussir selon sa durée, ce que veulent dire « Pas tenu » et « Raté en beauté », et ce que le mode hardcore rapporte vraiment (deux fois plus de gemmes, +50 % d’abonnés et d’XP). Un épisode moyen fait aussi grimper ton **bonus de défi** (le mot « série » disparaît).
+- **🗓️ La date de sortie** : « Programmer une sortie » affiche le jour et l’heure exacts, et « Prochaine fois » devient « Au plus tôt ».
+- **⏳ Après le délai** : la carte d’une sortie en retard dit ce qui se passe une fois le délai passé. « Sortir plus tôt », « Repousser » et « Abandonner » sont les mêmes boutons sur la carte et dans le Programme.
+- **🎞️ Les commandes de montage** : chaque difficulté dit à partir de quel score c’est « bon » et sous lequel c’est « raté », et ce qu’un raté te coûte. Le Studio explique comment décrocher ta première commande.
+- **❓ Une question avant de trancher** : refuser une offre, fermer tes adhésions ou faire un gros achat (plus de 1 000 €, ou plus de la moitié de ton argent) demande confirmation. La demande en fiançailles se fait en deux touchers.
+- **🔒 Les boutons grisés disent pourquoi** : « Avancer » quand une sortie attend, le devis tant que le sujet manque, « En faire une vidéo » quand 6 sorties sont déjà prévues, « Démarcher une marque » avant 800 abonnés.
+- **🏷️ Des libellés plus clairs** : « Négocier en message », « Changer de plateforme » (qui t’emmène au bon endroit des réglages), « Réparer (1 à 3 jours) » et « Réparer tout de suite », « Revendre sur Occaz », « Voir l’annonce », les secteurs des marques en toutes lettres, « Pubs +10 % » au lieu de « ×1,1 ».
+- **💶 Les sponsors avec acompte** : « Volta · reste 350 € à la sortie », au lieu d’un montant qui semblait baisser entre le devis et la publication.
+- **📦 L’inventaire** affiche ce que chaque objet se revend, plutôt que son prix neuf.
+
+### 🛠️ Corrections
+
+- **🎮 Un nom par mini-jeu**, le même partout. Le mini-jeu des podcasts ne s’appelle plus « Le mixage » comme un autre : c’est « La chasse aux blancs ». La fenêtre d’un tournage dit « tiktok », « reel » ou « short » selon ta plateforme.
+- **🧠 La mémoire** : la règle dit enfin qu’une erreur arrête la manche.
+- **💌 Ta commu** : elle dit que tes abonnés t’écrivent à partir de 300 abonnés. Dans les adhésions, « Badge et emojis » est marqué « toujours inclus », et une hausse de prix prévient qu’elle fait partir des membres.
+- **✏️ Les petits textes** : « € » et « % » ne partent plus seuls à la ligne, « % de vues » partout pour les miniatures, pas de majuscule après « Paiement : », un nom pour le bouton 💬 de ton équipe, et le petit texte du thème sombre est plus lisible.
+
+### 💡 Bon à savoir
+
+- Un mini-jeu lancé ne s’arrête plus : l’écran d’intro le dit, et le bouton « Réduire » rappelle que le chrono continue.
+
 ## 0.27.7 — 18 octobre 2026 (build 27007)
 
 **Des fenêtres qui se déplacent, se redimensionnent et se rangent, et des noms pour tes sauvegardes et tes parties.**

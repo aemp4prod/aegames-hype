@@ -12,9 +12,9 @@ const needsEdit = (r) => !!r && r.what !== 'live';
 const needsThumb = (r) => !!r && r.what === 'vidéo';
 const EDIT_INTRO = {
   vidéo: 'Au montage, chaque coupe pile dans le temps fort rend ta vidéo plus nerveuse. Un montage soigné rattrape un tournage moyen ; un montage bâclé gâche un bon tournage.',
-  short: 'Un format court, c’est du rythme : coupe pile au bon moment, sinon on scrolle.',
-  clip: 'Le clip vit sur le beat : chaque coupe doit tomber pile dessus.',
-  podcast: 'Au mixage, chaque coupe doit tomber dans le blanc : une bourde qui reste, et ça s’entend.',
+  short: 'Un format court, c’est du rythme : plus tes coupes tombent pile, plus on reste jusqu’au bout.',
+  clip: 'Le clip vit sur le beat : plus tes coupes tombent dessus, mieux il sonne.',
+  podcast: 'Coupe pile dans les blancs : plus tu en attrapes, plus l’épisode est fluide.',
 };
 const RUSHES = {
   vidéo: { good: ['Le moment fort, en gros plan', 'L’explication face caméra', 'Le plan large qui pose le décor', 'La réaction à chaud', 'La chute, au bon moment', 'Le détail qui fait rire', 'La conclusion qui donne envie de revenir'],
@@ -63,7 +63,7 @@ function makeEdit(r, g) {
   const m = makeMontage(r, D);
   m.items = m.items.slice(0, Math.max(4, m.items.length - 2));
   if (E && E.w !== 1) m.items = m.items.map((x) => widenZone(x, E.w));
-  return Object.assign(m, { edit: true, title: r.what === 'podcast' ? 'Le mixage' : 'Le montage', intro: EDIT_INTRO[r.what] || EDIT_INTRO.vidéo, timeK: E ? E.time : 1 });
+  return Object.assign(m, { edit: true, title: r.what === 'podcast' ? 'La chasse aux blancs' : 'Le montage', intro: EDIT_INTRO[r.what] || EDIT_INTRO.vidéo, timeK: E ? E.time : 1 }); // (0.27.8: « Le mixage » is another game)
 }
 // The edit is done (by the player, quickly, or by the editor): the video's score moves.
 function applyEdit(g, r, m, by) {
@@ -81,8 +81,8 @@ function editWord(r) {
   const e = r.edit, d = Math.round((r.played.score - e.s0) * 100);
   const delta = d ? ` (${d > 0 ? '+' : '−'}${Math.abs(d)} ${Math.abs(d) > 1 ? 'points' : 'point'})` : '';
   if (e.by === 'vite') return `Montage bâclé${delta}`;
-  if (e.by === 'staff') return `Montage par ${e.who || 'ton équipe'} : ${Math.round(e.m * 100)} %${delta}`;
-  return `Ton montage : ${Math.round(e.m * 100)} %${delta}`;
+  if (e.by === 'staff') return `Montage par ${e.who || 'ton équipe'} : ${Math.round(e.m * 100)} %${delta}`;
+  return `Ton montage : ${Math.round(e.m * 100)} %${delta}`;
 }
 
 /* ---------- the thumbnail ---------- */
@@ -243,14 +243,14 @@ function EditStep({ g, r, now }) {
   const onDone = (m) => { applyEdit(g, r, m, 'me'); scheduleSave(); update(); };
   if (phase === 'intro') {
     return html`<div class="mg-intro studio-step edit-step">
-      <span class="eyebrow">Le montage</span>
+      <span class="eyebrow">Montage · ${MG_LABEL[game.kind] || MG_LABEL.montage}</span>
       <h3>${game.title}</h3>
       <p>${game.intro}</p>
       ${r.crashes ? html`<p class="date-late"><${Icon} n="wrench" s=${15} /> Ton dernier montage a été perdu dans un plantage : à refaire.</p>` : null}
-      <p class="muted">${game.kind === 'tri' ? 'Garde ou coupe chaque plan, avant la fin du chrono.' : game.rule || `Touche « ${game.verb || 'Couper'} » quand le curseur passe dans la zone : ${game.items.length} coupes.`} Ton score de montage fait bouger celui de ${laW(r)} (jusqu’à 15 points, dans un sens ou dans l’autre).</p>
+      <p class="muted">${game.kind === 'tri' ? 'Garde ou coupe chaque plan, avant la fin du chrono.' : game.rule || cutRule(game.verb, game.items.length, false)} Ton score de montage s’ajoute à celui du tournage : 50 % ne change rien, 100 % donne +15 points, 0 % en retire 15.</p>
       <div class="row ss-actions">
         <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n="scissors" s=${16} /> Monter</button>
-        <button class="btn btn-ghost" onClick=${() => { applyEdit(g, r, 0.3, 'vite'); scheduleSave(); update(); }}>Monter vite, sans soin</button>
+        <button class="btn btn-ghost" onClick=${() => { applyEdit(g, r, 0.3, 'vite'); scheduleSave(); update(); }}>Passer le montage (−${Math.round((0.5 - 0.3) * EDIT_SWING * 100)} points)</button>
       </div>
     </div>`;
   }
@@ -298,19 +298,19 @@ function ThumbStep({ g, r, onDone }) {
       <button type="button" role="tab" aria-selected=${tab === 'draw' ? 'true' : 'false'} class=${tab === 'draw' ? 'on' : ''} onClick=${() => setTab('draw')}>Dessiner</button>
     </div>
     ${tab === 'compose' ? html`<div class="th-compose">
-      <div class="field"><span class="lbl">Modèles</span><div class="thumb-pick">${Object.keys(PRESET_CTR).map((k) => html`<button type="button" key=${k} class=${'thumb-opt' + (preset === k ? ' on' : '')} onClick=${() => setLook(presetLook(k, r))}><${ThumbArt} look=${presetLook(k, r)} small=${true} /><b>${THUMBS[k].label}</b><small>+${Math.round(PRESET_CTR[k] * 100)} % de clics${THUMBS[k].risk ? ' · si c’est raté, « putaclic »' : ''}</small></button>`)}</div></div>
+      <div class="field"><span class="lbl">Modèles</span><div class="thumb-pick">${Object.keys(PRESET_CTR).map((k) => html`<button type="button" key=${k} class=${'thumb-opt' + (preset === k ? ' on' : '')} onClick=${() => setLook(presetLook(k, r))}><${ThumbArt} look=${presetLook(k, r)} small=${true} /><b>${THUMBS[k].label}</b><small>+${Math.round(PRESET_CTR[k] * 100)} % de vues${THUMBS[k].risk ? ' · si c’est raté, « putaclic »' : ''}</small></button>`)}</div></div>
       <div class="field"><span class="lbl">Le fond</span><div class="th-swatches">${Object.keys(THUMB_BGS).map((k) => html`<button key=${k} type="button" class=${'th-sw' + (look.bg === k ? ' on' : '')} style=${'--c:' + THUMB_BGS[k]} aria-label=${THUMB_BG_NAMES[k]} aria-pressed=${look.bg === k ? 'true' : 'false'} onClick=${() => set('bg', k)}></button>`)}</div></div>
       <div class="field"><span class="lbl">La tête</span><div class="tr-chips">${[W.emoji, ...THUMB_FACES].map((x) => html`<button key=${x} type="button" class=${'chip-btn th-face' + (look.emo === x ? ' on' : '')} onClick=${() => set('emo', x)}>${x}</button>`)}</div></div>
       <div class="field"><label class="lbl" for="th-text">Le texte</label>
         <input id="th-text" class="input" maxlength="28" value=${look.text} onInput=${(ev) => set('text', ev.target.value)} placeholder="2 à 4 mots, en gros" />
         <div class="tr-chips">${words.map((w) => html`<button key=${w} type="button" class="chip-btn" onClick=${() => set('text', w)}>${w}</button>`)}<button type="button" class="chip-btn" onClick=${() => set('text', '')}>Sans texte</button></div></div>
       <div class="field"><span class="lbl">Le détail</span><div class="tr-chips">${THUMB_DECOS.map(([k, l]) => html`<button key=${k} type="button" class=${'chip-btn' + (look.deco === k ? ' on' : '')} onClick=${() => set('deco', k)}>${l}</button>`)}</div></div>
-      <p class="th-est"><b>≈ +${Math.round(ctr * 100)} % de clics</b>${choc ? ' · accrocheur… mais si ta vidéo est ratée, on criera au putaclic' : ''}</p>
+      <p class="th-est"><b>≈ +${Math.round(ctr * 100)} % de vues</b>${choc ? ' · accrocheur… mais si ta vidéo est ratée, on criera au putaclic' : ''}</p>
       <button class="btn btn-hot th-ok" onClick=${useCompose}><${Icon} n="check" s=${16} /> Valider la miniature</button>
     </div>` : html`<div class="th-draw">
       <${SketchPad} onChange=${setSketch} />
       ${ai && ai.err ? html`<p class="notice"><span>${ai.err}</span></p>` : null}
-      ${sketch ? html`<p class="th-est"><b>≈ +${Math.round(drawnCtr(sketch) * 100)} % de clics</b> · fait main${canAiThumb(g) && !(ai && ai.err) ? ` · finalisée par l’IA : ≈ +${Math.round(AI_THUMB_CTR * 100)} %` : ''}</p>` : html`<p class="muted">Dessine au doigt ou à la souris : un visage, un objet, un gros mot-clé… Pas besoin d’être doué.</p>`}
+      ${sketch ? html`<p class="th-est"><b>≈ +${Math.round(drawnCtr(sketch) * 100)} % de vues</b> · fait main${canAiThumb(g) && !(ai && ai.err) ? ` · finalisée par l’IA : ≈ +${Math.round(AI_THUMB_CTR * 100)} %` : ''}</p>` : html`<p class="muted">Dessine au doigt ou à la souris : un visage, un objet, un gros mot-clé… Pas besoin d’être doué.</p>`}
       <div class="row ss-actions">
         <button class="btn btn-hot th-ok" onClick=${useSketch} disabled=${!sketch || (ai && ai.busy)}><${Icon} n="check" s=${16} /> Utiliser mon dessin</button>
         ${canAiThumb(g) && !(ai && ai.err) ? html`<button class="btn btn-ghost th-ai" onClick=${finishAi} disabled=${!sketch || (ai && ai.busy)}>${ai && ai.busy ? html`<${Typing} /> L’IA dessine… (30 s au plus)` : '✨ L’IA la finalise'}</button>` : null}
@@ -354,7 +354,7 @@ function RenderStep({ g, r }) {
     <span class="eyebrow">Le rendu</span>
     <p>${E.on === 'phone' ? 'Ton téléphone exporte la vidéo…' : 'Ton ordinateur calcule la vidéo…'}${E.ms >= 4000 ? ' Il rame un peu.' : ''}</p>
     <div class="render-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(p * 100)}><i style=${'width:' + Math.round(p * 100) + '%'}></i></div>
-    <small class="muted">${Math.round(p * 100)} %</small>
+    <small class="muted">${Math.round(p * 100)} %</small>
   </div>`;
 }
 // Where a release stands after its shoot: the edit, the render, the thumbnail, then the upload screen.

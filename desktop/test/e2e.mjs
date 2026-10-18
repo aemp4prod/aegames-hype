@@ -180,7 +180,7 @@ try {
   const z3 = await zf();
   const zp3 = JSON.parse(readFileSync(join(DATA, 'preferences.json'), 'utf8')).zoom;
   check('display size: « A+ » in the settings makes everything bigger and is kept; Ctrl + wheel bigger, Ctrl − smaller (AZERTY too); Ctrl 0 back to the size for this screen',
-    Math.abs(z0 - 1) < 0.01 && Math.abs(z1 - 1.1) < 0.01 && /110 %/.test(zl) && Math.abs(zp1 - 1.1) < 0.01 && Math.abs(zw - 1.2) < 0.01 && Math.abs(z2 - 1) < 0.01 && /100 %/.test(zl2) && Math.abs(z3 - 1) < 0.01 && zp3 === undefined,
+    Math.abs(z0 - 1) < 0.01 && Math.abs(z1 - 1.1) < 0.01 && /110\s%/.test(zl) && Math.abs(zp1 - 1.1) < 0.01 && Math.abs(zw - 1.2) < 0.01 && Math.abs(z2 - 1) < 0.01 && /100\s%/.test(zl2) && Math.abs(z3 - 1) < 0.01 && zp3 === undefined,
     { z0, z1, zl, zp1, zw, z2, zl2, z3, zp3 });
 
   // ---------- a model that refuses the reasoning option: asked again without it ----------

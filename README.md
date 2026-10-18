@@ -12,7 +12,7 @@ Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son pr
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.27.7 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.27.8 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -318,6 +318,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Ce que tu as tapé pour publier ou pour préparer un tournage revient même après avoir fermé la fenêtre.
 - **Les noms** (0.27.7) : tes sauvegardes (✏️ dans la fenêtre Sauvegardes, les automatiques aussi) et tes parties (sur
   l’écran d’accueil) prennent le nom que tu leur donnes.
+- **Les consignes** (0.27.8) : chaque mini-jeu dit ce qu’il faut pour réussir (75 % et plus) ou pour un résultat moyen
+  (40 à 74 %), comment il compte tes points (la coupe au rythme : 1 point dans la zone, ½ juste à côté), et que son chrono
+  ne s’arrête plus une fois lancé ; les compteurs affichent ce que compte le score. Le chiffre d’une difficulté multiplie
+  les j’aime, les abonnés et l’XP de la sortie. Refuser une offre, fermer tes adhésions, un gros achat ou une demande en
+  fiançailles demandent une confirmation, et un bouton grisé dit pourquoi.
 - **L’heure du jeu** : une date et une heure visibles, une montre pour avancer le temps de 5 minutes à une semaine.
 - **Les cafés** : ton budget IA du jour, réglable à chaque partie (Découverte, Léger, Normal, Intensif, Marathon, Sans
   limite), avec ce que chaque palier représente en posts et en messages, et lequel choisir selon ton abonnement (avec
@@ -360,7 +365,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.7.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.8.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

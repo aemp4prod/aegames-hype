@@ -77,11 +77,11 @@ async function newGame(page, identity) {
   await shot(page, 'menu-minigames');
   check('the menu in six tabs, one panel at a time (money first); the mini-games tab: the ten games, the seven levels, Cauchemar for the quiz only',
     tabs.join('|') === '💰Argent|⭐Réputation|🕐Temps|🎮Mini-jeux|💪Compétences|💞Relations' && /Argent \(/.test(first) && !/Le mini-jeu/.test(first)
-      && games.length === 10 && games.includes('Coupe au rythme') && games.includes('Recadrage') && diffs.length === 7 && diffs[6].off === false && /Cauchemar/.test(diffs[6].t), { tabs, games, diffs });
+      && games.length === 10 && games.includes('Coupe au rythme') && games.includes('Recadrage vertical') && games.includes('Modération du chat') && diffs.length === 7 && diffs[6].off === false && /Cauchemar/.test(diffs[6].t), { tabs, games, diffs });
   await page.locator('.layer .chip-btn', { hasText: 'Mémoire' }).click();
   const offC = await page.$$eval('.layer section.section .field:nth-child(2) .chip-btn', (els) => els[6].disabled);
   // ---------- a practice round: the chat of a live, in Mythique, played by a bot ----------
-  await page.locator('.layer .chip-btn', { hasText: 'Chat d’un live' }).click();
+  await page.locator('.layer .chip-btn', { hasText: 'Modération du chat' }).click();
   await page.locator('.layer .chip-btn', { hasText: 'Mythique' }).click();
   const before = await G(page, () => { const g = window.__hype.S.game; return { cash: g.career.cash, fol: g.stats.followers, rel: g.releases.length, rep: g.stats.reputation }; });
   await page.locator('.layer button', { hasText: 'Jouer maintenant' }).click();
@@ -96,7 +96,7 @@ async function newGame(page, identity) {
   await shot(page, 'practice-end');
   const after = await G(page, () => { const H = window.__hype, g = H.S.game; return { cash: g.career.cash, fol: g.stats.followers, rel: g.releases.length, rep: g.stats.reputation, score: H.S.practice && H.S.practice.score }; });
   check('« Jouer maintenant »: a practice round of the chosen game at the chosen level (the chat of a live, Mythique); its score at the end, and nothing changes in the game (money, followers, releases, reputation)',
-    offC === true && /Modère le chat/.test(intro) && /Mythique/.test(intro) && /Entraînement/.test(intro) && after.score >= 0.9 && /\d+ % · réussi/.test(end) && /Rejouer/.test(end)
+    offC === true && /Modère le chat/.test(intro) && /Mythique/.test(intro) && /Entraînement/.test(intro) && after.score >= 0.9 && /\d+\s% · réussi/.test(end) && /Rejouer/.test(end)
       && after.cash === before.cash && after.fol === before.fol && after.rel === before.rel && after.rep === before.rep, { intro: intro.slice(0, 160), end, before, after });
   // an AI-written one: the quiz, written then played
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.startPractice(H.S.game, 'quiz', 'expert'); });

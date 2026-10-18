@@ -112,7 +112,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     advice: (document.querySelector('form .plan-advice') || {}).textContent || '',
     switches: [...document.querySelectorAll('form .int-settings .int-set .lbl')].map((b) => b.textContent.trim()), // 0.23.1: the settings in four steps
   }));
-  const perHour = form.ints.map((t) => +((/≈ (\d+) ☕ \/ heure/.exec(t) || [])[1] || 0));
+  const perHour = form.ints.map((t) => +((/≈\s(\d+) ☕ \/ heure/.exec(t) || [])[1] || 0));
   await clickText(page, '.int-grid .tier', 'Ultime');
   await clickText(page, '.tier', 'Marathon');
   await page.locator('form .int-grid').scrollIntoViewIfNeeded();
@@ -122,8 +122,8 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('a new game: four intensities, each with what an hour of play costs (0.19: measured, from the cheapest to the dearest), the comments in four steps, six budget tiers worth so many posts or messages, and which one for which plan',
     form.ints.length === 4 && /Calme/.test(form.ints[0]) && /Ultime/.test(form.ints[3]) && perHour.every((n, k) => n > 0 && (!k || n > perHour[k - 1]))
     && form.switches.some((x) => /Les commentaires/.test(x)) && !form.switches.some((x) => /vit tout seul/.test(x))
-    && form.tiers.length === 6 && /Découverte/.test(form.tiers[0]) && /Marathon/.test(form.tiers[4]) && /Sans limite/.test(form.tiers[5]) && /≈ \d+ posts? ou \d+ messages?/.test(form.tiers[1])
-    && /ChatGPT Go ou Plus : Intensif ou Marathon/.test(form.advice) && /Le maximum/.test(hint.desc) && /≈ \d+ posts/.test(hint.marathon), { form, hint, perHour });
+    && form.tiers.length === 6 && /Découverte/.test(form.tiers[0]) && /Marathon/.test(form.tiers[4]) && /Sans limite/.test(form.tiers[5]) && /≈\s\d+ posts? ou \d+ messages?/.test(form.tiers[1])
+    && /ChatGPT Go ou Plus : Intensif ou Marathon/.test(form.advice) && /Le maximum/.test(hint.desc) && /≈\s\d+ posts/.test(hint.marathon), { form, hint, perHour });
   await page.check('#p18');
   await page.click('button[type=submit]');
   await page.waitForSelector('text=Qui sera ton premier abonné', { timeout: 20000 });

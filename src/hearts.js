@@ -820,8 +820,8 @@ const DATE_TIERS = { top: 'Réussi', mid: 'Mitigé', flop: 'Raté' };
 // The evening as text, to paste anywhere.
 function dateLogText(g, e) {
   const first = e.name.split(' ')[0], me = g.player.name.split(' ')[0];
-  const out = [`${(MEET[e.mk] || MEET.love).emoji} Rendez-vous avec ${e.name} : « ${e.what} »`, `${fmtDate(e.at)} · ${DATE_TIERS[e.tier] || ''} (${e.score} %)`, ''];
-  if (e.kind !== 'talk') out.push(`Joué en mini-jeu : ${e.score} %.`);
+  const out = [`${(MEET[e.mk] || MEET.love).emoji} Rendez-vous avec ${e.name} : « ${e.what} »`, `${fmtDate(e.at)} · ${DATE_TIERS[e.tier] || ''} (${e.score} %)`, ''];
+  if (e.kind !== 'talk') out.push(`Joué en mini-jeu : ${e.score} %.`);
   if (e.scene) out.push(`(${e.scene})`);
   for (const x of e.lines || []) {
     if (x.who === 'n') out.push(`(${x.text})`);
@@ -860,7 +860,7 @@ function DateLogLayer({ l, g, i }) {
     const first = e.name.split(' ')[0], M = MEET[e.mk] || MEET.love;
     const copy = async () => { const ok = await copyText(dateLogText(g, e)); toast(ok ? 'Le récit est copié : colle-le où tu veux.' : 'Impossible de copier ici.', ok ? 'good' : 'bad'); };
     return html`<${LayerShell} i=${i} title=${'Rendez-vous · ' + first} foot=${html`<button class="btn btn-hot" onClick=${copy}>Copier le récit</button>`}><div class="lpad">
-      <div class="dlog-head"><${Avatar} who=${author(g, 'c:' + e.c)} size=${44} /><div><b>${M.emoji} ${e.what}</b><small>${e.name} · ${fmtDate(e.at)}</small></div><span class=${'chip dlog-tier ' + e.tier}>${DATE_TIERS[e.tier] || ''} · ${e.score} %</span></div>
+      <div class="dlog-head"><${Avatar} who=${author(g, 'c:' + e.c)} size=${44} /><div><b>${M.emoji} ${e.what}</b><small>${e.name} · ${fmtDate(e.at)}</small></div><span class=${'chip dlog-tier ' + e.tier}>${DATE_TIERS[e.tier] || ''} · ${e.score} %</span></div>
       ${e.kind === 'talk' ? html`<div class="talk dlog-talk">
         ${e.scene ? html`<div class="talk-scene"><p>${e.scene}</p></div>` : null}
         <div class="talk-lines">${(e.lines || []).map((x, j) => (x.who === 'n' ? html`<p key=${j} class="talk-fade">${x.text}</p>`
@@ -869,7 +869,7 @@ function DateLogLayer({ l, g, i }) {
               : x.who === 'b' ? html`<div key=${j} class="talk-buy">${x.text}</div>`
                 : html`<div key=${j} class="talk-line me">${x.last ? html`<small class="dlog-last">Un dernier mot</small>` : null}<div class="bubble me">${x.text}</div></div>`))}</div>
         ${e.left ? html`<p class="talk-fade">Tu es parti·e avant la fin de la soirée.</p>` : null}
-      </div>` : html`<p class="muted dlog-game">Ce rendez-vous s’est joué en mini-jeu : ${e.score} %.</p>`}
+      </div>` : html`<p class="muted dlog-game">Ce rendez-vous s’est joué en mini-jeu : ${e.score} %.</p>`}
       ${e.recap ? html`<div class=${'dm-card ' + e.tier}><span class="evt-kind">${M.emoji} Le récit de la soirée</span><p>${e.recap}</p></div>` : null}
       ${e.morning ? html`<div class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${e.morning.where === 'p' ? 'chez toi' : 'chez ' + first}</span><p>${e.morning.text}</p></div>` : null}
     </div><//>`;
@@ -879,13 +879,14 @@ function DateLogLayer({ l, g, i }) {
     ${list.length ? html`<div class="dlog-list">${list.map((x) => html`<button key=${x.id} class="rel-row dlog-row" onClick=${() => openLayer({ t: 'datelog', id: x.id })}>
       <${Avatar} who=${author(g, 'c:' + x.c)} size=${40} />
       <div class="mid"><div><b>${x.name}</b></div><span class="dlog-what">${(MEET[x.mk] || MEET.love).emoji} ${x.what}</span><small>${fmtDate(x.at)}</small></div>
-      <span class=${'chip dlog-tier ' + x.tier}>${DATE_TIERS[x.tier] || ''} · ${x.score} %</span>
+      <span class=${'chip dlog-tier ' + x.tier}>${DATE_TIERS[x.tier] || ''} · ${x.score} %</span>
     </button>`)}</div>` : html`<div class="empty"><b>Pas encore de rendez-vous</b><span>Chaque soirée s’enregistre ici, pour la relire ou la montrer.</span></div>`}
     <p class="muted dlog-note">Pour toi seul·e : relis tes soirées, copie-les pour les montrer. Ce que les personnages ont pensé reste secret.</p>
   </div><//>`;
 }
 
 /* ---------- the screen of a date played for real ---------- */
+const GESTE_ASK = ['demande']; // (the gestures that commit the player for good)
 function DateTalk({ ev, g, now }) {
   const c = g.chars[ev.c], T = ev.talk, first = c.name.split(' ')[0];
   const [val, setVal] = useState('');
@@ -901,6 +902,10 @@ function DateTalk({ ev, g, now }) {
     if (ok === false && !geste) setVal(text);
   };
   const gestes = gestesFor(g, ev).filter((x) => !T.used.includes(x.id));
+  // 0.27.8: the proposal cannot be taken back: a first tap asks « Vraiment ? », a second one (within 3 s) does it
+  const [arm, setArm] = useState('');
+  useEffect(() => { if (!arm) return undefined; const k = setTimeout(() => setArm(''), 3000); return () => clearTimeout(k); }, [arm]);
+  const tapGeste = (x) => { if (GESTE_ASK.includes(x.id) && arm !== x.id) { setArm(x.id); return; } setArm(''); send(x.id); };
   const over = !!ev.played && !busy; // 0.16: the last words stay on screen; the player ends the evening
   const lastStage = !ev.played && !busy && T.turn >= T.max; // 0.22.3: a last word before they part
   const sendLast = async () => {
@@ -938,7 +943,7 @@ function DateTalk({ ev, g, now }) {
       <button class="btn btn-ghost btn-sm talk-bye" onClick=${() => lastWord(ev, '')}>Se dire au revoir</button>
     </div>` : null}
     ${!over && left > 0 && T.lines.length ? html`<div class="talk-foot">
-      ${gestes.length ? html`<div class="talk-gestes" role="group" aria-label="Oser un geste">${gestes.map((x) => html`<button key=${x.id} type="button" class="chip-btn" disabled=${busy} onClick=${() => send(x.id)}>${x.emoji} ${x.label}</button>`)}</div>` : null}
+      ${gestes.length ? html`<div class="talk-gestes" role="group" aria-label="Oser un geste">${gestes.map((x) => html`<button key=${x.id} type="button" class=${'chip-btn' + (arm === x.id ? ' armed' : '')} disabled=${busy} onClick=${() => tapGeste(x)}>${x.emoji} ${arm === x.id ? 'Vraiment ? Touche encore' : x.label}</button>`)}</div>` : null}
       <div class="reply-box">
         <textarea ref=${ref} rows="1" maxlength=${TALK_MAX} placeholder=${'Ta réponse à ' + first + '…'} value=${val} disabled=${busy}
           onInput=${(e) => { setVal(e.target.value); autosize(e.target); }}

@@ -31,12 +31,12 @@ function scamChance(g, via) {
 const DANGER = {
   boisson: ['sa boisson « énergie ×10 », sans limite de caféine', 'ses shots détox « qui nettoient le foie en 24 h »'],
   beaute: ['sa crème qui « éclaircit la peau en 3 jours »', 'son sérum « botox naturel, effet immédiat »'],
-  food: ['ses gélules brûle-graisses « −5 kg en une semaine »', 'son coupe-faim « 100 % naturel, zéro effet secondaire »'],
-  tech: ['sa batterie externe « charge ultra-rapide » à 9 €', 'son chargeur sans fil « universel » à petit prix'],
-  mode: ['ses lunettes de soleil à 4 €', 'ses lentilles de couleur sans ordonnance'],
+  food: ['ses gélules brûle-graisses « −5 kg en une semaine »', 'son coupe-faim « 100 % naturel, zéro effet secondaire »'],
+  tech: ['sa batterie externe « charge ultra-rapide » à 9 €', 'son chargeur sans fil « universel » à petit prix'],
+  mode: ['ses lunettes de soleil à 4 €', 'ses lentilles de couleur sans ordonnance'],
   jeu: ['son jeu mobile « gratuit » aux achats intégrés sans limite', 'ses jouets lumineux à piles « dès 3 ans »'],
   appli: ['son appli de prêts entre particuliers « sans justificatif »', 'son appli de régime à 600 calories par jour'],
-  voyage: ['ses séjours « tout compris » à prix cassé', 'ses billets d’avion « dernière minute » à 19 €'],
+  voyage: ['ses séjours « tout compris » à prix cassé', 'ses billets d’avion « dernière minute » à 19 €'],
 };
 const CLAUSES = [
   { kind: 'penal', text: (g, x) => `Exclusivité totale de 6 mois : ${fmtMoney(g, x.amount)} de pénalité pour tout autre partenariat, tous secteurs confondus.` },
@@ -82,13 +82,13 @@ function scamOffer(g, d, o) {
   else if (kind === 'brief') Object.assign(d, { brief: pick(['brief_campagne.zip', 'contrat_signature.zip', 'Brief_Collab_2026.zip']) });
   return { pitch: PITCH[kind] ? PITCH[kind](g, d) : '' };
 }
-// What the player sees of the terms (neutral: the same lines for every brand).
+// What the player sees of the terms (neutral: the same lines for every brand). (0.27.8: it follows « Paiement : », no capital)
 function payTerms(g, d) {
-  if (d.costs) return `Frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}`;
+  if (d.costs) return `frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}`;
   const goods = d.gift ? 'le matos, envoyé à la signature' : dealGoods(d) || !d.fee ? 'les produits, envoyés à la signature' : ''; // 0.21
-  if (!d.fee) return cap1(goods);
-  const cash = d.payLate ? `en une fois, ${d.payLate} jours après la publication` : d.upfront ? (upShown(d) >= 100 ? 'tout à la signature' : `${upShown(d)} % à la signature, le reste à la livraison`) : 'à la livraison'; // 0.27.4: what was agreed
-  return goods ? `${cap1(goods)} ; l’argent ${cash}` : cap1(cash); // (0.27.6: both, when there are both)
+  if (!d.fee) return goods;
+  const cash = d.payLate ? `en une fois, ${d.payLate} jours après la publication` : d.upfront ? (upShown(d) >= 100 ? 'tout à la signature' : `${upShown(d)} % à la signature, le reste à la livraison`) : 'à la livraison'; // 0.27.4: what was agreed
+  return goods ? `${goods} ; l’argent ${cash}` : cash; // (0.27.6: both, when there are both)
 }
 
 /* ---------- the agents: what they see, what they bring, how far they can go ---------- */
@@ -96,7 +96,7 @@ const AGENT_CEIL = [300, 1000, 2500, Infinity]; // the biggest contract each lev
 const dealSize = (fee) => (fee < AGENT_CEIL[0] ? 0 : fee < AGENT_CEIL[1] ? 1 : fee < AGENT_CEIL[2] ? 2 : 3);
 const AGENT_SEE = [0.45, 0.7, 0.9, 0.98];
 const AGENT_WARN = {
-  impaye: (d) => d.gift ? `J’ai regardé l’offre de ${d.brand} : du matos à ${fmtPlain(d.gift.value)} € pour une seule vidéo, par une boîte créée il y a quelques mois sans aucune collab derrière elle. Je le sens très mal : à mon avis, tu ne verras jamais le colis.` : `J’ai regardé l’offre de ${d.brand}. Pas d’acompte, paiement à ${d.payLate} jours, une boîte créée il y a quelques mois sans aucune collab derrière elle : je le sens très mal. À mon avis, ils ne paieront jamais.`,
+  impaye: (d) => d.gift ? `J’ai regardé l’offre de ${d.brand} : du matos à ${fmtPlain(d.gift.value)} € pour une seule vidéo, par une boîte créée il y a quelques mois sans aucune collab derrière elle. Je le sens très mal : à mon avis, tu ne verras jamais le colis.` : `J’ai regardé l’offre de ${d.brand}. Pas d’acompte, paiement à ${d.payLate} jours, une boîte créée il y a quelques mois sans aucune collab derrière elle : je le sens très mal. À mon avis, ils ne paieront jamais.`,
   frais: (d) => `${d.brand} te demande de PAYER pour être « ambassadeur » ? Non. Une marque sérieuse paie les créateurs, pas l’inverse. C’est une arnaque, je refuserais.`,
   dangereux: (d) => `Je ne mettrais pas ton nom sur ${d.product}. Des promesses impossibles, aucun label, une marque sortie de nulle part : si ça tourne mal, c’est toi qu’on accusera.`,
   nul: (d) => `Avant de signer avec ${d.brand}, regarde leurs avis clients : c’est une catastrophe. Tes abonnés vont acheter ce que tu recommandes… et te le reprocher.`,
@@ -244,7 +244,7 @@ function productFlop(g, d) {
 function imageAbuse(g, d) {
   const dr = repMove(g, { image: -8, cred: -3 }, `${d.brand} met ton visage dans une pub ringarde`);
   const t = Date.now();
-  addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `pourquoi @${g.player.handle} est dans une pub ${d.brand} en boucle sur toutes mes vidéos 😭 « jusqu’à −70 % » avec sa tête retouchée` }, t + 3000, t + 3000);
+  addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `pourquoi @${g.player.handle} est dans une pub ${d.brand} en boucle sur toutes mes vidéos 😭 « jusqu’à −70 % » avec sa tête retouchée` }, t + 3000, t + 3000);
   addNotif(g, { k: 'reldown', text: `📺 ${d.brand} utilise ton visage et ta voix dans des pubs partout (ton contrat le permet, sans limite de durée) : on se moque (${repWord(dr)}).` });
 }
 // The critic on the platform exposes the scam: names those who promoted it (or got fooled).
@@ -338,6 +338,6 @@ function brandRumorLine(g, c, text) {
 function DealExtra({ g, d }) {
   const m = hasStaff(g, 'agent'), ag = m && g.chars[m.c];
   return html`${d.info ? html`<details class="dl-sheet"><summary>La marque</summary><p>${sheetLine(g, d)}</p></details>` : null}
-    ${d.state === 'offer' && d.hard === 'agent' && ag && !d.tried ? html`<div class="dl-agent"><span>${STAFF_ROLES.agent.emoji} Ce contrat dépasse le niveau de ${ag.name.split(' ')[0]} (${tierName(m.tier, ag.g).toLowerCase()} : jusqu’à ${fmtMoney(g, AGENT_CEIL[m.tier])}). ${gx(ag.g, 'Il', 'Elle', 'Iel')} peut tenter de le négocier : ${Math.round((d.luck || 0) * 100)} % de chances de faire monter le prix, sinon la marque se retire.</span>
+    ${d.state === 'offer' && d.hard === 'agent' && ag && !d.tried ? html`<div class="dl-agent"><span>${STAFF_ROLES.agent.emoji} Ce contrat dépasse le niveau de ${ag.name.split(' ')[0]} (${tierName(m.tier, ag.g).toLowerCase()} : jusqu’à ${fmtMoney(g, AGENT_CEIL[m.tier])}). ${gx(ag.g, 'Il', 'Elle', 'Iel')} peut tenter de le négocier : ${Math.round((d.luck || 0) * 100)} % de chances de faire monter le prix, sinon la marque se retire.</span>
       <button class="btn btn-ghost btn-sm" onClick=${() => { agentGamble(g, d); update(); }}>Laisser ${ag.name.split(' ')[0]} négocier</button></div>` : null}`;
 }

@@ -114,7 +114,7 @@ async function newGame(page, identity) {
   check('practice: a post (3 to 5 XP for each skill it showed), a comment (1 or 2), a video (6 to 10, and creativity for the craft), a private message that landed (2 or 3, the skill it showed, charisma by default; nothing when it cooled), a date (a charm, a laugh, a gesture that worked); a tier reached says what it brings',
     prac.post.humour === 4 && prac.post.audace === 5 && prac.reply === 2 && prac.video.charisme === 10 && prac.video.creativite === 6
       && prac.dm.humour === 2 && prac.dm.charisme === 3 && prac.dm.audace === 0 && prac.talk.charisme === 2 && prac.talk.humour === 2 && prac.talk.audace === 3
-      && prac.lv === 10 && /💬 Charisme niveau 10 · Petites attentions : Cadeaux et sorties −10 %/.test(prac.notif) && prac.sk === 'charisme', prac);
+      && prac.lv === 10 && /💬 Charisme niveau 10 · Petites attentions : Cadeaux et sorties −10\s%/.test(prac.notif) && prac.sk === 'charisme', prac);
 
   // ---------- what the levels bring, in numbers (and nothing for the mini-games) ----------
   const fx = await G(page, () => {
@@ -150,7 +150,7 @@ async function newGame(page, identity) {
     Math.abs(fx.c10.gift - 0.1) < 1e-9 && Math.abs(fx.c10.rel - 0.1) < 1e-9 && Math.abs(fx.c10.trust - 0.1) < 1e-9 && fx.c10.free === 0
       && Math.abs(fx.h50.likeAll - 0.15) < 1e-9 && Math.abs(fx.h50.viralFun - 0.08) < 1e-9 && fx.h50.amuseRel === 2 && Math.abs(fx.h50.folLoss - 0.2) < 1e-9 && Math.abs(fx.h50.likeFun - 0.5) < 1e-9
       && Math.abs(fx.a50.haggle - 0.2) < 1e-9 && Math.abs(fx.a50.viral - 0.15) < 1e-9 && Math.abs(fx.cr50.views - 0.2) < 1e-9 && Math.abs(fx.cr50.jobFol - 0.3) < 1e-9
-      && fx.now.length === 3 && /relations montent 10 %/.test(fx.now[0]) && fx.relUp > 5.6 && fx.relUp < 6.4 && fx.relDown < -8.2 && fx.relDown > -8.8 && fx.mg.same, fx);
+      && fx.now.length === 3 && /relations montent 10\s%/.test(fx.now[0]) && fx.relUp > 5.6 && fx.relUp < 6.4 && fx.relDown < -8.2 && fx.relDown > -8.8 && fx.mg.same, fx);
 
   // ---------- the profile: each skill, its level, what it brings; its tree ----------
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.goTab('profile'); H.update(); });
@@ -165,7 +165,7 @@ async function newGame(page, identity) {
   await shot(page, 'skill-tree');
   const tree = await G(page, () => { const L = [...document.querySelectorAll('.layer')].pop(); return { head: (L.querySelector('.st-head') || {}).textContent || '', nodes: L.querySelectorAll('.st-path li').length, on: L.querySelectorAll('.st-path li.on').length, next: ((L.querySelector('.st-path li.next') || {}).textContent || ''), now: [...L.querySelectorAll('.st-now li')].map((x) => x.textContent), mg: /ne touche jamais aux mini-jeux/.test(L.textContent) }; });
   check('the profile: the four skills with their level and what they bring, in numbers; the tree of a skill: its ten tiers, the ones reached, the next with the XP it takes, what it gives now, and that it never touches the mini-games',
-    prof.length === 4 && prof[0].b === 'Charisme' && /Niv\. 10/.test(prof[0].lv) && /relations montent 10 % plus vite/.test(prof[0].small) && /niveau 15 : le geste offert/.test(prof[0].small)
+    prof.length === 4 && prof[0].b === 'Charisme' && /Niv\. 10/.test(prof[0].lv) && /relations montent 10\s% plus vite/.test(prof[0].small) && /niveau 15 : le geste offert/.test(prof[0].small)
       && /Charisme · niveau 10/.test(tree.head) && tree.nodes === 10 && tree.on === 2 && /Niveau 15 · Le geste offert/.test(tree.next) && /Encore \d+ XP/.test(tree.next) && tree.now.length === 3 && tree.mg, { prof, tree });
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.update(); });
 
@@ -190,7 +190,7 @@ async function newGame(page, identity) {
     const n1 = window.__prompts.length;
     await H.sendDM(t.id, 'tu les as reçues ?');
     const p2 = window.__prompts.slice(n1).find((x) => x.includes('CONVERSATION PRIVÉE')) || '';
-    out.read = /\[Le joueur paie un bouquet de roses rouges \(36 €\)\]/.test(p2);
+    out.read = /\[Le joueur paie un bouquet de roses rouges \(36\s€\)\]/.test(p2);
     out.noLine = !p2.includes('{"t":"buy"'); // nothing bought in this one: not a word of it
     H.S.stack = []; H.openDM(t.id); H.update();
     return out;
@@ -199,7 +199,7 @@ async function newGame(page, identity) {
   await shot(page, 'dm-roses');
   const dmCard = await G(page, () => (document.querySelector('.layer .buy-card') || {}).textContent || '');
   check('roses sent in private: the AI is asked whether something is bought and what it really costs (the player’s money said), the game charges it (40 € → 36 € with charisma 10), the receipt follows the message, they remember the gift, and the AI reads it next time; a message that buys nothing asks nothing',
-    dm.line && dm.cash === 464 && dm.card && dm.ledger === -36 && dm.mem && dm.read && dm.noLine && /Un bouquet de roses rouges : 36 € au lieu de 40 € \(charisme −10 %\)/.test(dmCard), { dm, dmCard });
+    dm.line && dm.cash === 464 && dm.card && dm.ledger === -36 && dm.mem && dm.read && dm.noLine && /Un bouquet de roses rouges : 36\s€ au lieu de 40\s€ \(charisme −10\s%\)/.test(dmCard), { dm, dmCard });
 
   // ---------- offered by the house (charisma 15), a card refused, boldness when buying for oneself ----------
   const more = await G(page, async () => {
@@ -219,7 +219,7 @@ async function newGame(page, identity) {
     g.career.cash = 1000;
     g.stats.skillXp.audace = H.SKILL_CUM[10]; H.ensureSkills(g);
     const r4 = H.applyBuy(g, t, { what: 'un trépied', kind: 'pro', price: '80 €' }, 'dm');
-    out.haggle = r4.paid === 72 && /audace −10 %/.test(H.buyLabel(g, r4));
+    out.haggle = r4.paid === 72 && /audace −10\s%/.test(H.buyLabel(g, r4));
     out.none = H.applyBuy(g, t, { what: 'rien', kind: 'cadeau', price: 0 }, 'dm') === null;
     out.re = ['je t’offre un verre', 'je paie l’addition', '/me lui offre des fleure', 'je t’invite au resto', 'on se voit demain ?', 'je pense à toi'].map(H.buyTalk);
     return out;
@@ -271,7 +271,7 @@ async function newGame(page, identity) {
   const talkUi = await G(page, () => [...document.querySelectorAll('.layer .talk-buy')].map((x) => x.textContent));
   check('at a date, « Payer l’addition » costs its real price (90 € → 81 € with charisma 10), roses offered in the player’s own words too; the receipt sits after the gesture, the AI reads what was paid; without a price from the AI, the usual bill (60 € → 54 €)',
     date.line && date.cash1 === 319 && date.line1 && /^cpbc/.test(date.order) && date.cash2 === 287.5 && date.transcript.length === 2 && date.fallback && date.fallback.price === 60 && date.fallback.paid === 54 && date.cash3 === 233.5
-      && talkUi.length === 2 && /L’addition du dîner : 81 €/.test(talkUi[0]), { date, talkUi });
+      && talkUi.length === 2 && /L’addition du dîner : 81\s€/.test(talkUi[0]), { date, talkUi });
 
   // ---------- the date's log keeps it; humour and boldness in private ----------
   const tail = await G(page, async () => {
@@ -279,7 +279,7 @@ async function newGame(page, identity) {
     const ev = g.events.find((e) => e.id === 'evBuy');
     ev.played = { score: 0.8, tier: 'top', at: Date.now(), kind: 'talk', diff: 'facile' };
     const e = H.logDate(g, ev, g.chars[ev.c], 'Une belle soirée.');
-    out.log = e && e.lines.some((x) => x.who === 'b' && /L’addition du dîner/.test(x.text)) && /L’addition du dîner : 81 €/.test(H.dateLogText(g, e));
+    out.log = e && e.lines.some((x) => x.who === 'b' && /L’addition du dîner/.test(x.text)) && /L’addition du dîner : 81\s€/.test(H.dateLogText(g, e));
     g.events = g.events.filter((x) => x.id !== 'evBuy');
     // a funny message that lands (humour 5: +1 of relation on top), the skill it showed practised
     const t = H.charByHandle(g, 'leandre.aube');

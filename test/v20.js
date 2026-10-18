@@ -236,7 +236,7 @@ async function newGame(page, identity) {
   await page.locator('.layer button', { hasText: 'Lancer le tournage' }).click();
   await sleep(500);
   await G(page, (id) => { const H = window.__hype, g = H.S.game; H.finishShoot(g.releases.find((x) => x.id === id), 0.7); window.__rnd = Math.random; Math.random = () => 0.01; }, ed.id);
-  await page.locator('.layer button', { hasText: 'Monter vite' }).click();
+  await page.locator('.layer button', { hasText: 'Passer le montage' }).click();
   await sleep(1200);
   await shot(page, 'render');
   const rd1 = await G(page, () => ({ render: !!document.querySelector('.render-step'), text: (document.querySelector('.render-step') || {}).textContent || '' }));
@@ -246,7 +246,7 @@ async function newGame(page, identity) {
   await shot(page, 'crash');
   // the pro software: the auto-save keeps it
   await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash += 100; H.subscribe(g, 'montage'); window.__rnd = Math.random; Math.random = () => 0.01; H.update(); });
-  await page.locator('.layer button', { hasText: 'Monter vite' }).click();
+  await page.locator('.layer button', { hasText: 'Passer le montage' }).click();
   await sleep(6500);
   await G(page, () => { Math.random = window.__rnd; });
   const rd3 = await G(page, (id) => { const r = window.__hype.S.game.releases.find((x) => x.id === id); return { edit: !!r.edit, render: r.render, step: !!document.querySelector('.upload, .thumb-step') }; }, ed.id);
@@ -283,7 +283,7 @@ async function newGame(page, identity) {
   await sleep(400);
   const dv2 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const out = { cash: g.career.cash, owned: g.gear.owned.map((x) => x.name), r: r && { what: r.what, total: r.devis && r.devis.total } }; if (r) r.state = 'dropped'; return out; });
   check('programming asks for the quote first (what this content takes, never the gear); paid, it programs; what is kept joins what the player owns',
-    /Demander le devis/.test(ask) && /jeu de cartes magiques/.test(dv1.card) && /75 €/.test(dv1.card) && /Payer 75 € et programmer/.test(dv1.btn) && dv1.prompt.includes('Son matériel de tournage') && dv1.prompt.includes('ne le rachète jamais')
+    /Demander le devis/.test(ask) && /jeu de cartes magiques/.test(dv1.card) && /75\s€/.test(dv1.card) && /Payer 75\s€ et programmer/.test(dv1.btn) && dv1.prompt.includes('Son matériel de tournage') && dv1.prompt.includes('ne le rachète jamais')
     && dv2.cash === 925 && dv2.owned.includes('le jeu de cartes magiques') && dv2.r && dv2.r.total === 75, { ask, card: dv1.card.slice(0, 160), btn: dv1.btn, dv2 });
   const own = await G(page, async () => { const H = window.__hype, g = H.S.game; H.S.devis = null; H.S.devisBy = {}; const dv = await H.genDevis({ what: 'vidéo', topic: 'je refais une partie du jeu de cartes' }); const p = window.__prompts.filter((x) => x.includes('## TÂCHE : LE DEVIS')).pop(); return { items: dv.items.map((x) => x.item), total: H.devisTotal(dv), inPrompt: p.includes('le jeu de cartes magiques') }; });
   check('…a second quote never buys again what the player owns (dropped even if the AI forgets)', own.items.length === 1 && own.items[0] === 'snacks pour le tournage' && own.total === 15 && own.inPrompt, own);
@@ -304,7 +304,7 @@ async function newGame(page, identity) {
   await shot(page, 'devis-paid-shoot');
   const an3 = await G(page, (id) => { const H = window.__hype, g = H.S.game, r = g.releases.find((x) => x.id === id); const out = { total: r.devis && r.devis.total, cash: g.career.cash, launch: [...document.querySelectorAll('.layer .btn-hot')].some((b) => /Lancer le tournage/.test(b.textContent) && !b.disabled), ro: document.querySelector('#rl-topic').readOnly }; r.state = 'dropped'; H.closeLayer(); window.__mockDevis = null; return out; }, an);
   check('a content announced on the network: the quote comes at its shoot; too expensive, nothing to shoot (no make-do version); paid, the shoot opens and the topic is the one paid for',
-    /Avant de tourner/.test(an1.step) && !an1.launch && /Il te manque 240 €/.test(an2.miss) && an2.off && an3.total === 340 && an3.cash === 660 && an3.launch && an3.ro, { an1, an2, an3 });
+    /Avant de tourner/.test(an1.step) && !an1.launch && /Il te manque 240\s€/.test(an2.miss) && an2.off && an3.total === 340 && an3.cash === 660 && an3.launch && an3.ro, { an1, an2, an3 });
 
   // ---------- the scams: nothing says it ----------
   const sc = await G(page, () => {

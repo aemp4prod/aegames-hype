@@ -114,8 +114,8 @@ function CommuSection({ g, now }) {
     ${qs.length ? html`<div class="fan-qs">${qs.map((c) => html`<div class="fan-q" key=${c.id}>
       <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} onClick=${() => openDM(c.id)} />
       <div class="mid"><b>${c.name}</b><span>« ${str(c.fan.text, 120)} »</span>
-        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button>${fanPlanned(g, c) ? html`<span class="chip">📅 Vidéo prévue</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button>`}</div></div>
-    </div>`)}</div>` : html`<p class="muted">Pas de question d’abonné en attente. Elles arrivent en message privé, quand ton fil bouge.</p>`}
+        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button>${fanPlanned(g, c) ? html`<span class="chip">📅 Vidéo prévue</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button>${planRoom(g) ? null : html`<small class="muted">${MAX_PLANNED} sorties déjà prévues</small>`}`}</div></div>
+    </div>`)}</div>` : html`<p class="muted">${g.stats.followers < 300 ? 'Tes abonnés t’écriront à partir de 300 abonnés.' : 'Pas de question d’abonné en attente. Elles arrivent en message privé, quand ton fil bouge.'}</p>`}
     ${regs.length ? html`<p class="commu-regs">💛 Tes habitués : ${regs.slice(-8).map((c) => c.name.split(' ')[0]).join(', ')}</p>` : null}
     <${MembBlock} g=${g} />
     ${log.length ? html`<details class="ledger"><summary>Ce qui a bougé</summary><ul>${log.map((x, k) => html`<li key=${k}><span>${x.why}</span><b class=${x.d < 0 ? 'neg' : 'pos'}>${x.d > 0 ? '+' : '−'}${fmtDec(Math.abs(x.d))}</b></li>`)}</ul></details>` : null}
@@ -129,7 +129,7 @@ const DON_SHARE = { youtube: 0.7, twitch: 0.5, tiktok: 0.5, instagram: 0.8 };
 const donOK = (g) => !!DON_SHARE[platformOf(g)] && g.stats.followers >= 500 && !demonetized(g);
 // The line the AI may write during a live: donors and their messages (the game sets the amounts).
 const DON_LINE = '- Puis 2 à 4 lignes de dons envoyés pendant le live par des abonnés (souvent ses habitués) : {"t":"don","by":"handle","text":"le message qui accompagne le don, ≤ 100 caractères"} (le montant, c’est le jeu qui le fixe).';
-// About 100 € per 1 000 viewers at the same time for a lukewarm community, two to three times more when it is warm;
+// About 100 € per 1 000 viewers at the same time for a lukewarm community, two to three times more when it is warm;
 // each regular there gives a little more.
 function donTotal(g, views) {
   if (!donOK(g)) return 0;
@@ -151,7 +151,7 @@ function liveDonations(g, post, views, dons) {
   post.video.donTotal = total;
   post.video.donNet = net;
   g.career.est += net;
-  ledger(g, `Dons du live « ${str(post.video.topic, 30)} » (${Math.round((DON_SHARE[platformOf(g)] || 0.5) * 100)} % pour toi)`, net, 'est');
+  ledger(g, `Dons du live « ${str(post.video.topic, 30)} » (${Math.round((DON_SHARE[platformOf(g)] || 0.5) * 100)} % pour toi)`, net, 'est');
   addNotif(g, { k: 'money', p: post.id, text: `💝 Ton live a reçu ${fmtMoney(g, total)} de dons (${fmtMoney(g, net)} pour toi, versés avec tes revenus du mois).` });
   return net;
 }
@@ -193,7 +193,7 @@ function membCan(g) {
   if (M.prog && !monetized(g)) return { ok: false, why: demonetized(g) ? 'Pubs coupées pour avertissements : les adhésions sont suspendues aussi.' : 'Les adhésions s’ouvrent avec le Programme Partenaire.' };
   return { ok: true, M };
 }
-// How many would join: about 0,2 % of the audience for a lukewarm community at 4,99 €, more when it is warm, cheaper or
+// How many would join: about 0,2 % of the audience for a lukewarm community at 4,99 €, more when it is warm, cheaper or
 // offers more; fewer after a broken promise. The regulars join first.
 function membTarget(g) {
   const m = membOf(g);
@@ -219,7 +219,7 @@ function openMemb(g, price, perks, t = Date.now()) {
   }
   g.career.memb = { on: true, price, perks: P, members: Math.min(fanRegulars(g).length, 40), at: t, paidKey: monthKey(gameDate(t)), monthAt: t, done: {}, day: gameDay(t), unmet: false };
   warmMove(g, 1, `tu ouvres les ${membName(g)}`, t);
-  addTrigger(g, `Le joueur ouvre des ${membName(g)} ${membPaid(g)} à ${fmtDec(price)} € par mois (${P.map((k) => MEMB_PERKS.find((x) => x[0] === k)[1].toLowerCase()).join(', ')}) : ses fans en parlent, certains adhèrent, d’autres trouvent que c’est pour l’argent.`);
+  addTrigger(g, `Le joueur ouvre des ${membName(g)} ${membPaid(g)} à ${fmtDec(price)} € par mois (${P.map((k) => MEMB_PERKS.find((x) => x[0] === k)[1].toLowerCase()).join(', ')}) : ses fans en parlent, certains adhèrent, d’autres trouvent que c’est pour l’argent.`);
   return true;
 }
 function closeMemb(g, t = Date.now()) {
@@ -281,7 +281,7 @@ function membCtx(g) {
   const m = membOf(g);
   if (!m || !m.on || !m.members) return '';
   const promised = (m.perks || []).filter((k) => k !== 'badge').map((k) => MEMB_PERKS.find((x) => x[0] === k)[1].toLowerCase());
-  return ` ; ${fmtN(m.members)} membres payants (${membName(g)} à ${fmtDec(m.price)} € par mois${promised.length ? `, promis : ${promised.join(', ')}` : ''})`;
+  return ` ; ${fmtN(m.members)} membres payants (${membName(g)} à ${fmtDec(m.price)} € par mois${promised.length ? `, promis : ${promised.join(', ')}` : ''})`;
 }
 // In « Ta commu »: open them, or follow them.
 function MembBlock({ g }) {
@@ -291,19 +291,20 @@ function MembBlock({ g }) {
   const N = cap1(membName(g));
   if (on && !ed) {
     return html`<div class="memb on">
-      <div class="memb-h"><b>👑 ${fmtN(m.members)} ${plural(m.members, 'membre', 'membres')}</b><span>${fmtDec(m.price)} € par mois · ≈ ${fmtMoney(g, membNet(g, m))} par mois pour toi</span></div>
+      <div class="memb-h"><b>👑 ${fmtN(m.members)} ${plural(m.members, 'membre', 'membres')}</b><span>${fmtDec(m.price)} € par mois · ≈ ${fmtMoney(g, membNet(g, m))} par mois pour toi</span></div>
       ${!can.ok ? html`<p class="muted">${can.why}</p>` : null}
       <ul class="memb-perks">${m.perks.map((k) => { const P = MEMB_PERKS.find((x) => x[0] === k), ok = k === 'badge' || (m.done || {})[k] >= m.monthAt; return html`<li key=${k} class=${ok ? 'ok' : 'todo'}><span>${ok ? '✓' : '○'}</span> ${P[1]}${P[2] ? html` <small>${ok ? '· fait ce mois-ci' : '· ' + P[2]}</small>` : null}</li>`; })}</ul>
-      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => setEd({ price: m.price, perks: m.perks.slice() })}>Modifier</button><button class="linkbtn" onClick=${() => { if (closeMemb(g)) update(); }}>Fermer les ${membName(g)}</button></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => setEd({ price: m.price, perks: m.perks.slice() })}>Modifier</button><button class="linkbtn" onClick=${() => askConfirm({ title: `Fermer les ${membName(g)} ?`, text: `${m.members ? `${m.members > 1 ? `Tes ${fmtN(m.members)} membres arrêtent` : 'Ton membre arrête'} de payer` : 'Plus personne ne pourra adhérer'}, et ta commu le prendra mal.`, ok: 'Fermer', danger: true, run: () => { if (closeMemb(g)) update(); } })}>Fermer les ${membName(g)}</button></div>
     </div>`;
   }
   const E = ed || { price: 4.99, perks: ['badge', 'avant'] };
   const set = (patch) => setEd(Object.assign({}, E, patch));
   return html`<div class="memb">
     <b>👑 ${N} ${membPaid(g)}</b>
-    <p class="muted">Tes fans paient chaque mois pour ce que tu leur promets ; ${pfName(g, platformOf(g))} garde ${Math.round((1 - membShare(g)) * 100)} %.</p>
-    <div class="tr-chips">${MEMB_PRICES.map((p) => html`<button type="button" key=${p} class=${'chip-btn' + (E.price === p ? ' on' : '')} onClick=${() => set({ price: p })}>${fmtDec(p)} € par mois</button>`)}</div>
-    <div class="tr-chips">${MEMB_PERKS.map(([k, label, note]) => html`<button type="button" key=${k} class=${'chip-btn' + (E.perks.includes(k) ? ' on' : '')} disabled=${k === 'badge'} onClick=${() => set({ perks: E.perks.includes(k) ? E.perks.filter((x) => x !== k) : E.perks.concat([k]) })}>${label}${note ? ` (${note})` : ''}</button>`)}</div>
+    <p class="muted">Tes fans paient chaque mois pour ce que tu leur promets ; ${pfName(g, platformOf(g))} garde ${Math.round((1 - membShare(g)) * 100)} %.</p>
+    <div class="tr-chips">${MEMB_PRICES.map((p) => html`<button type="button" key=${p} class=${'chip-btn' + (E.price === p ? ' on' : '')} onClick=${() => set({ price: p })}>${fmtDec(p)} € par mois</button>`)}</div>
+    <div class="tr-chips">${MEMB_PERKS.map(([k, label, note]) => html`<button type="button" key=${k} class=${'chip-btn' + (E.perks.includes(k) ? ' on' : '')} disabled=${k === 'badge'} onClick=${() => set({ perks: E.perks.includes(k) ? E.perks.filter((x) => x !== k) : E.perks.concat([k]) })}>${label}${k === 'badge' ? ' (toujours inclus)' : note ? ` (${note})` : ''}</button>`)}</div>
+    ${on && m.members && E.price > m.price ? html`<small class="muted memb-warn">Une hausse fait partir environ un membre sur cinq.</small>` : null}
     <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => { if (openMemb(g, E.price, E.perks)) { setEd(null); update(); } }}>${on ? 'Enregistrer' : `Ouvrir les ${membName(g)}`}</button>${ed && on ? html`<button class="btn btn-ghost btn-sm" onClick=${() => setEd(null)}>Annuler</button>` : null}</div>
   </div>`;
 }

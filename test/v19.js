@@ -81,7 +81,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   const form2 = await G(page, () => ({ sw: window.__sets('form'), ultime: ([...document.querySelectorAll('form .int-grid .tier')].find((b) => /Ultime/.test(b.textContent)) || {}).textContent }));
   await page.locator('form .int-settings').scrollIntoViewIfNeeded();
   await shot(page, 'new-game-switch');
-  const n = (t) => +((/≈ (\d+) ☕ \/ heure/.exec(t || '') || [])[1] || 0);
+  const n = (t) => +((/≈\s(\d+) ☕ \/ heure/.exec(t || '') || [])[1] || 0);
   check('a new game: each level says what an hour of play costs, from Calme to Ultime; the comments in four steps (no « réseau tout seul » in a browser): Ultime sets them to « Énorme », and « Normal » costs less',
     form0.tiers.length === 4 && form0.tiers.map(n).every((x, k, a) => x > 0 && (!k || x > a[k - 1])) && form0.sw.length === 1 && /Les commentaires/.test(form0.sw[0].lbl) && form0.sw[0].on === 'Normal'
     && form0.sw[0].opts.join('|') === 'Peu|Normal|Beaucoup|Énorme' && form1.sw[0].on === 'Énorme' && /se chargent tout seuls/.test(form1.sw[0].small)

@@ -130,7 +130,7 @@ async function dragBy(page, sel, dx, dy) {
     H.openLayer({ t: 'minigame', id: 'evW' });
     return true;
   });
-  await page.waitForSelector('.layer .layer-head');
+  await page.waitForFunction(() => { const h = document.querySelectorAll('.layer .layer-head h2'); return h.length === 1 && /^Rendez-vous/.test(h[0].textContent); }, null, { timeout: 8000 }); // (0.27.8: not the window drawn before it)
   const dmin = await G(page, () => ({ min: !!document.querySelector('.layer .win-min'), float: !!document.querySelector('.layer .win-float') }));
   await page.click('.layer .win-float');
   await sleep(250);

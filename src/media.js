@@ -181,7 +181,7 @@ function PicsBox() {
       <span><b>Les persos voient ces images</b><small>Images générées par IA uniquement (ton perso IA), jamais de photos de vraies personnes : elles sont envoyées à ${AI_NAME}${pics.length > S.vision ? ` (les ${S.vision} premières)` : ''}.</small></span>
     </label>` : null}
     <small class="muted">${!pics.length ? 'Tes photos (ou celles de ton perso IA) restent sur cet appareil : les persos ne lisent que ta description.'
-      : see ? diapo + `Les persos voient tes images : ta description devient facultative. ≈ +${String(Math.max(0.1, Math.round(seeCafes(Math.min(S.vision, pics.length)) * 10) / 10)).replace('.', ',')} café.`
+      : see ? diapo + `Les persos voient tes images : ta description devient facultative. ≈ +${String(Math.max(0.1, Math.round(seeCafes(Math.min(S.vision, pics.length)) * 10) / 10)).replace('.', ',')} café.`
         : diapo + 'Tes photos restent sur cet appareil : les persos ne lisent que ta description.'}</small>
   </div>`;
 }
