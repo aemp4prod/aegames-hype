@@ -303,15 +303,18 @@ async function newGame(page, identity) {
     H.S.stack = []; H.S.modals = [];
     g.stats.xp = 90;
     const id = H.SKILL_IDS[1]; g.stats.skillXp[id] = H.SKILL_CUM[H.skillLevel(g, id)] + 3; window.__skillUntouched = [id, g.stats.skillXp[id]];
-    H.S.menuTab = 'argent'; H.openMenu();
+    H.S.menuSel = {}; H.openMenu();
   });
-  await page.waitForSelector('.layer .menu-num input');
-  await page.locator('.layer .menu-num input').first().fill('4321');
-  await page.locator('.layer .btn-hot', { hasText: 'Appliquer' }).click();
-  await page.locator('.layer .menu-tab', { hasText: 'Compétences' }).click();
-  await page.waitForSelector('.layer .menu-grid input');
-  await page.locator('.layer .menu-grid input').first().fill('7');
-  await page.locator('.layer .btn-hot', { hasText: 'Appliquer' }).click();
+  await page.waitForSelector('.layer .trainer');
+  // (0.27.9: the trainer menu: each line applies on its own)
+  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .tr-edit'); await page.fill('.layer .tr-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
+  await page.keyboard.press('Enter');
+  await typeIn('4321');
+  await page.keyboard.press('Backspace');
+  for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /Compétences/.test((document.querySelector('.layer .tr-sub') || {}).textContent || ''));
+  await typeIn('7');
   const mn = await G(page, () => {
     const H = window.__hype, g = H.S.game, [id, xp] = window.__skillUntouched, out = { cash: g.career.cash, xp: g.stats.xp, skill0: H.skillLevel(g, H.SKILL_IDS[0]), untouched: g.stats.skillXp[id] === xp };
     // the clock: the day counters follow (a month of merch orders in a second, before)
@@ -326,7 +329,7 @@ async function newGame(page, identity) {
     H.S.stack = [];
     return out;
   });
-  check('the hidden menu: « Appliquer » sets only what was changed (money changed, XP kept; one skill changed, the others keep their progress); a clock skip plays no skipped day; a tie set to −100 unfollows',
+  check('the hidden menu: a line sets only itself (money changed, XP kept; one skill changed, the others keep their progress); a clock skip plays no skipped day; a tie set to −100 unfollows',
     mn.cash === 4321 && mn.xp === 90 && mn.skill0 === 7 && mn.untouched && mn.day && mn.unfollow, mn);
 
   // ---------- the mini-games ----------

@@ -1684,7 +1684,7 @@ function finishAct(ctx) {
     }
   } finally { holdUntil = 0; }
   // A toast only when the result is not on screen.
-  const onScreen = ctx.kind === 'post' ? S.tab === 'feed' && !layerCovers() : S.stack.some((l) => l.t === 'thread' && l.id === ctx.target.id);
+  const onScreen = ctx.kind === 'post' ? S.tab === 'feed' && !layerCovers() : S.stack.concat(S.os || []).some((l) => l.t === 'thread' && l.id === ctx.target.id);
   if (S.game === g && !onScreen && item.res && item.res.fol) {
     toast(`${nAbonnes(item.res.fol, true)}${item.res.verdict ? ' · ' + item.res.verdict : ''}`, item.res.fol > 0 ? 'good' : 'bad', null, item.res.revealAt + 300);
   }

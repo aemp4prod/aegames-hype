@@ -7,6 +7,9 @@ const ICONS = {
   minus: '<path d="M5 12h14"/>', // 0.27.7: the windows
   detach: '<path d="M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4"/><rect width="10" height="7" x="12" y="13" rx="2"/>',
   dock: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/>',
+  popout: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>', // 0.27.9: out of the game, and back
+  popin: '<path d="M20 4 12 12"/><path d="M12 6v6h6"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+  maxi: '<rect width="16" height="16" x="4" y="4" rx="2"/>',
   cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   wifi: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
@@ -207,6 +210,8 @@ function openLayer(l) {
   if (top && top.t === l.t && top.id === l.id) return;
   const docked = S.dock.find((x) => x.t === l.t && x.id === l.id); // 0.27.7: put aside: it comes back as it was left
   if (docked) { unminLayer(docked); return; }
+  const out = (S.os || []).find((x) => x.t === l.t && x.id === l.id); // 0.27.9: out of the game: that window comes to the front
+  if (out) { try { HOST.winCtl(out.os.name, 'front').catch(() => {}); } catch (e) { /* (closing) */ } if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now(); update(false); return; }
   l.key = uid('l');
   S.stack.push(l);
   if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
@@ -214,6 +219,8 @@ function openLayer(l) {
 }
 const resetComposeExtras = () => Object.assign(S.drafts, { photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [] });
 function closeLayer() {
+  const o = osActive(); // 0.27.9: a close asked from a window out of the game closes that one
+  if (o) { osClose(o); return; }
   const l = S.stack.pop();
   if (l && l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
   if (l && l.t === 'compose') resetComposeExtras();
@@ -237,7 +244,10 @@ function closeAllLayers() {
    resizes, but stays in front, blocks the rest, and is never put aside. On a phone: put aside only. ---------- */
 const WinCtx = createContext(null);
 const WIN_MIN_W = 320, WIN_MIN_H = 240;
-const winWide = () => typeof window !== 'undefined' && window.innerWidth >= 900;
+const winWide = () => typeof window !== 'undefined' && window.innerWidth >= 720; // (0.27.9: from a small laptop or a zoomed app on, not only big screens)
+let winWas = winWide(); // (0.27.9: the game window resized across the line: the windows' buttons follow)
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => { const w = winWide(); if (w !== winWas) { winWas = w; update(false); } });
+const WIN_BAR = 44; // (0.27.9: a floating window goes anywhere, as long as its bar, which moves it, stays on the screen)
 function winStore() {
   if (!S.win) { let w = null; try { w = JSON.parse(lsGet('hype:win') || 'null'); } catch (e) { w = null; } S.win = w && typeof w === 'object' ? w : {}; }
   return S.win;
@@ -258,7 +268,7 @@ function winRect(t, own) {
   const W = own || winStore()[t] || {}, vw = window.innerWidth, vh = window.innerHeight;
   const w = clamp(Math.round(W.w || Math.min(600, vw - 80)), WIN_MIN_W, Math.max(WIN_MIN_W, vw - 16));
   const h = clamp(Math.round(W.h || Math.min(760, vh - 60)), WIN_MIN_H, Math.max(WIN_MIN_H, vh - 16));
-  const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), 120 - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - h)); // (its bottom, and its corner, stay on the screen)
+  const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), 120 - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - WIN_BAR));
   return { x, y, w, h, float: !!W.float };
 }
 function minLayer(l) {
@@ -288,9 +298,117 @@ function closeDocked(l) {
 // A floating window clicked under another one comes to the front.
 function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack.length - 1) { S.stack.splice(k, 1); S.stack.push(l); update(false); } }
 // Closes the windows that match, open or put aside.
-function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); }
-const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn);
+function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
+const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
 const WIN_EMOJI = { compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+/* ---------- 0.27.9: out of the game (the PC app): a window becomes a real window of the system, without its frame (Hype's
+   own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
+   document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
+   shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
+const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit'];
+const osWinOK = (l) => !!(HOST && HOST.winCtl && l && OS_KINDS.includes(l.t) && typeof window !== 'undefined' && typeof window.open === 'function');
+// Where it opens: where this kind was last left, or beside the game (over its right side when the screen has no room).
+function osOpenRect(l) {
+  const st = (winStore()[l.t] || {}).os;
+  if (st && st.w > 0 && st.h > 0) return st;
+  const w = 480, h = Math.round(clamp(window.outerHeight - 80, 480, 760)), sc = window.screen || {};
+  let x = window.screenX + window.outerWidth + 8;
+  if (x + w > (sc.availLeft || 0) + (sc.availWidth || 1920)) x = window.screenX + Math.max(20, window.outerWidth - w - 40);
+  return { x: Math.round(x), y: Math.round(window.screenY + 40), w, h };
+}
+// The game's look on a window out of it (the theme, the text size: what the page sets on <html> and <body>).
+function osLook(d) {
+  const src = document.documentElement, dst = d.documentElement;
+  for (const a of Array.from(src.attributes)) if (dst.getAttribute(a.name) !== a.value) dst.setAttribute(a.name, a.value);
+  for (const a of Array.from(dst.attributes)) if (!src.hasAttribute(a.name)) dst.removeAttribute(a.name);
+  const cls = (document.body.className + ' os-win').trim();
+  if (d.body && d.body.className !== cls) d.body.className = cls;
+  const st = src.getAttribute('style');
+  if (st !== dst.getAttribute('style')) { if (st == null) dst.removeAttribute('style'); else dst.setAttribute('style', st); }
+}
+function osDoc(w) {
+  const d = w.document;
+  d.open();
+  d.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Hype</title></head><body><div id="os-root"></div></body></html>');
+  d.close();
+  for (const el of Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))) { const c = d.importNode(el, true); if (c.tagName === 'LINK') c.href = el.href; d.head.appendChild(c); }
+  osLook(d);
+  return d.getElementById('os-root');
+}
+function popOut(l) {
+  if (!osWinOK(l) || l.os) return false;
+  const name = 'hypewin-' + uid('w').replace(/[^a-z0-9]/gi, '').slice(0, 30), r = osOpenRect(l);
+  let w = null, root = null;
+  try { w = window.open('', name, `popup=1,left=${r.x},top=${r.y},width=${r.w},height=${r.h}`); } catch (e) { w = null; }
+  if (!w) return false;
+  try { root = osDoc(w); } catch (e) { try { w.close(); } catch (e2) { /* (already gone) */ } return false; }
+  S.stack = S.stack.filter((x) => x !== l);
+  S.dock = S.dock.filter((x) => x !== l);
+  Object.assign(l, { min: false, win: null, os: { name, w, root } });
+  (S.os || (S.os = [])).push(l);
+  w.addEventListener('pagehide', () => osGone(l));
+  for (const ev of ['pointerdown', 'keydown', 'wheel']) w.addEventListener(ev, () => { S.lastInputAt = Date.now(); }, { passive: true, capture: true }); // (the player is here: playing in that window)
+  update();
+  return true;
+}
+// Its window closed (its ✕, or the system's): closed in the game too. « Remettre dans le jeu »: a window of the game again.
+function osGone(l) {
+  const o = l.os;
+  if (!o) return;
+  try { winSet(l.t, { os: { x: o.w.screenX, y: o.w.screenY, w: o.w.outerWidth, h: o.w.outerHeight } }); } catch (e) { /* (closing) */ }
+  try { render(null, o.root); } catch (e) { /* (its document is gone) */ }
+  S.os = (S.os || []).filter((x) => x !== l);
+  l.os = null;
+  if (o.back) { l.back = true; S.stack.push(l); }
+  else if (!o.quiet) { // (quiet: closed by the game, which has done what closing does)
+    if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
+    if (l.t === 'compose') resetComposeExtras();
+  }
+  update();
+}
+// A game entered or left: its windows out of the game close at once, and touch no game (theirs is gone).
+function osDropAll() {
+  const list = S.os || [];
+  S.os = [];
+  for (const l of list) {
+    const o = l.os;
+    l.os = null;
+    if (!o) continue;
+    try { winSet(l.t, { os: { x: o.w.screenX, y: o.w.screenY, w: o.w.outerWidth, h: o.w.outerHeight } }); } catch (e) { /* (closing) */ }
+    try { render(null, o.root); } catch (e) { /* (its document is gone) */ }
+    try { o.w.close(); } catch (e) { /* (already gone) */ }
+  }
+}
+// An element by its id, in the game or in a window out of it (a reply box, a field to fill: they may be over there).
+function byId(id) {
+  const el = document.getElementById(id);
+  if (el) return el;
+  for (const l of S.os || []) { try { const x = l.os && l.os.w.document.getElementById(id); if (x) return x; } catch (e) { /* (closing) */ } }
+  return null;
+}
+function osClose(l, back) { if (!l || !l.os) return; l.os.back = !!back; try { l.os.w.close(); } catch (e) { osGone(l); } }
+const osCloseAll = () => { for (const l of (S.os || []).slice()) osClose(l); };
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pagehide', () => osCloseAll()); // (the game reloaded or closed: they go with it)
+// The window a click came from (the game's own close calls do not know it): the one whose page holds what the event
+// touched. (The game's handlers live in this page: the event being handled is this page's « window.event », even when
+// what was clicked is over there.)
+function osActive() {
+  if (OS_ASK.l && OS_ASK.l.os) return OS_ASK.l;
+  let d = null;
+  try { const ev = window.event; d = ev && ev.target ? ev.target.ownerDocument || null : null; } catch (e) { d = null; }
+  if (!d || d === document) return null;
+  return (S.os || []).find((x) => { try { return !!(x.os && x.os.w && x.os.w.document === d); } catch (e) { return false; } }) || null;
+}
+function OsWindows({ g, now }) {
+  useLayoutEffect(() => {
+    for (const l of S.os || []) {
+      if (!l.os || !l.os.root) continue;
+      try { osLook(l.os.w.document); render(html`<${WinCtx.Provider} value=${l}><${Layer} l=${l} i=${0} g=${g} now=${now} /><//>`, l.os.root); l.os.w.document.title = (l.title ? l.title + ' · ' : '') + 'Hype'; } catch (e) { /* (closing) */ }
+    }
+  });
+  useEffect(() => () => osCloseAll(), []); // (out of the game: they close with it)
+  return null;
+}
 function Dock() {
   if (!S.dock.length) return null;
   return html`<div class="win-dock" role="toolbar" aria-label="Fenêtres réduites">${S.dock.map((l) => html`<span class="win-chip" key=${l.key}>
@@ -344,6 +462,8 @@ function openCompose(opts = {}) {
 }
 function openAuthor(au) { if (au.kind === 'player') goTab('profile'); else if (au.id) openChar(au.id); else if (au.handle) openLayer({ t: 'npc', id: au.handle }); }
 function topDMId() { const l = S.stack[S.stack.length - 1]; return l && l.t === 'dm' ? l.id : null; }
+// The conversations the player has before the eyes: the one on top, those out of the game (0.27.9).
+function dmsShown() { const ids = (S.os || []).filter((l) => l.t === 'dm').map((l) => l.id), top = topDMId(); if (top) ids.push(top); return ids; }
 function goFeedTop() {
   if (S.tab !== 'feed') { if (VIEW_EL.current) SCROLL[S.tab] = VIEW_EL.current.scrollTop; S.tab = 'feed'; }
   SCROLL.feed = 0;
@@ -359,7 +479,7 @@ function scrollFeedTop() {
 }
 function tabBadge(g, id, now) {
   if (id === 'notifs' && S.tab !== 'notifs') return unreadNotifs(g, now);
-  if (id === 'dms') return unreadDMs(g, now, topDMId());
+  if (id === 'dms') return unreadDMs(g, now, dmsShown());
   if (id === 'profile') return g.stats.skillPoints;
   if (id === 'studio') return g.deals.filter((d) => d.state === 'offer').length + (programOf(g) && programOf(g).ok && g.career.prog.state === 'none' ? 1 : 0);
   return 0;
@@ -408,6 +528,7 @@ async function openGame(id) {
 }
 function enterGame(g, restore = {}) {
   const t = Date.now();
+  osDropAll();
   g.ready = true;
   syncEnergy(g);
   Object.assign(S, {
@@ -432,6 +553,7 @@ function enterGame(g, restore = {}) {
 function leaveGame() {
   const g = S.game;
   if (g) g.lastSeenAt = Date.now();
+  osDropAll();
   Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   update(false);
@@ -439,6 +561,7 @@ function leaveGame() {
 }
 async function removeGame(g) {
   const id = g.id;
+  osDropAll();
   Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   deletedIds.add(id); // nothing may write it back while its flows end
@@ -521,8 +644,8 @@ function toastBottom() {
   return Math.max(12, Math.round(window.innerHeight - bar.getBoundingClientRect().top + 10));
 }
 function Toasts({ now }) {
-  const dmOpen = S.phase === 'game' ? topDMId() : null;
-  const list = S.toasts.filter((t) => t.from <= now && t.until > now && !(dmOpen && t.action && t.action.dm === dmOpen)).slice(-2); // no « X t’a écrit » over X’s conversation
+  const shown = S.phase === 'game' ? dmsShown() : [];
+  const list = S.toasts.filter((t) => t.from <= now && t.until > now && !(t.action && t.action.dm && shown.includes(t.action.dm))).slice(-2); // no « X t’a écrit » over X’s conversation
   if (!list.length) return null;
   const b = toastBottom();
   return html`<div class="toasts" role="status" aria-live="polite" style=${b == null ? undefined : 'bottom:' + b + 'px'}>${list.map((t) => html`<div key=${t.id} class=${'toast ' + t.kind} onClick=${() => { t.until = 0; update(false); }}>
@@ -981,6 +1104,7 @@ function Game({ g, now }) {
     </main>
     <${Side} g=${g} now=${now} />
     ${S.dock.concat(S.stack).map((l, i) => html`<${WinCtx.Provider} key=${l.key} value=${l}><${Layer} l=${l} i=${i} g=${g} now=${now} /><//>`)}
+    <${OsWindows} g=${g} now=${now} />
     <${Dock} />
     ${modal ? html`<${Modal} key=${modal.id} m=${modal} g=${g} />` : null}
   </div>`;
@@ -1189,7 +1313,7 @@ function PostRow({ g, p, now, repost }) {
 function replyToReply(p, r) {
   S.replyTo[p.id] = r.id;
   update(false);
-  setTimeout(() => { const el = document.getElementById('reply-' + p.id); if (el) el.focus(); }, 40);
+  setTimeout(() => { const el = byId('reply-' + p.id); if (el) el.focus(); }, 40);
 }
 function ReplyRow({ g, p, r, now, depth, parent }) {
   const au = author(g, r.a);
@@ -1587,7 +1711,7 @@ function EventCard({ evt }) {
 }
 // 0.27.8: one name per game, the same everywhere (the shoot, the edit, the practice menu)
 const MG_LABEL = { tri: 'Tri', ordre: 'Remise en ordre', quiz: 'Quiz', vf: 'Vrai ou faux', intrus: 'Trouve l’intrus', montage: 'Coupe au rythme', memoire: 'Mémoire', chat: 'Modération du chat', mixage: 'Mixage', cadrage: 'Recadrage vertical' };
-const MG_PER = { tri: 5000, ordre: 9000, quiz: 15000, vf: 4000, intrus: 12000 }; // per item at « Difficile » (per round for the quiz and the odd one out)
+const MG_PER = { tri: 5000, ordre: 9000, quiz: 15000, vf: 4000, intrus: 12000 }; // per item at « Moyen » (time ×1 since 0.27.9; per round for the quiz and the odd one out)
 const PER_ROUND = { quiz: true, intrus: true };
 const mgTime = (kind, n, D) => Math.round((PER_ROUND[kind] ? MG_PER[kind] : (MG_PER[kind] || 0) * n) * D.time);
 // 0.27.4: then two more seconds for each answer (each item, each question or series), whatever helps or slows the player
@@ -1598,7 +1722,8 @@ const mgExtra = (kind, n) => MG_EXTRA * (PER_ROUND[kind] ? 1 : n);
    between two buttons, longer among four answers, in between to place a step); never less than before.
    Measured with simulated players (an average reader at about 20 characters a second, a quick one at 32): Mythique is
    very hard for the first and fine for the second; Cauchemar keeps its own clock. */
-const MG_PACE = { facile: [8, 3.5], moyen: [10, 3], difficile: [12.5, 2.6], expert: [15, 2.2], legende: [17.5, 1.9], mythique: [20, 1.6] }; // [characters a second, seconds to decide]
+// 0.27.9: a notch harder, as DIFFS: Légendaire reads at Mythique's old pace, and Mythique past the average reader.
+const MG_PACE = { facile: [10, 3], moyen: [12.5, 2.6], difficile: [15, 2.2], expert: [17.5, 1.9], legende: [20, 1.6], mythique: [22.5, 1.4] }; // [characters a second, seconds to decide]
 const MG_DECIDE = { tri: 0.38, vf: 0.38, ordre: 0.6 }; // (of the seconds to decide: two buttons, placing a step; four answers: all of it, and one more)
 const mgChars = (it) => String((it && it.text) || '').length + (it && Array.isArray(it.a) ? it.a.reduce((n, x) => n + String(x == null ? '' : x).length, 0) : 0);
 function mgRead(kind, items, D, k) {
@@ -1641,7 +1766,7 @@ function ownKeys(lay) {
   const tok = {};
   KEY_OWNERS.push(tok);
   // (0.27.7: its own window on top, when it knows it: windows put aside and brought back no longer go by the order they opened)
-  return { mine: (e) => !typingIn(e) && (lay ? S.stack[S.stack.length - 1] === lay : KEY_OWNERS[KEY_OWNERS.length - 1] === tok && topIsGame()), drop: () => { const k = KEY_OWNERS.indexOf(tok); if (k >= 0) KEY_OWNERS.splice(k, 1); } };
+  return { mine: (e) => !typingIn(e) && (lay && lay.os ? true : lay ? S.stack[S.stack.length - 1] === lay : KEY_OWNERS[KEY_OWNERS.length - 1] === tok && topIsGame()), drop: () => { const k = KEY_OWNERS.indexOf(tok); if (k >= 0) KEY_OWNERS.splice(k, 1); } }; // (0.27.9: a window out of the game gets the keys typed in it)
 }
 // Steps never placed count as wrong among themselves (0.27.6: in the order they were dealt, a game left alone could win).
 const leftWorst = (pool) => pool.slice().sort((a, b) => b - a);
@@ -2132,10 +2257,27 @@ function MiniGameLayer({ l, g, now, i }) {
 function LayerShell({ i, title, head, foot, children, onBack, dark }) {
   const l = useContext(WinCtx), panel = useRef(null);
   if (l && typeof title === 'string' && title) l.title = title; // (the dock shows it)
+  if (l && l.os) { // 0.27.9: a window out of the game: the whole window, Hype's bar on top (it moves the window), the system's frame gone
+    const ctl = (act) => { try { HOST.winCtl(l.os.name, act); } catch (e) { /* (closing) */ } };
+    return html`<div class="os-shell"><section ref=${panel} class=${'layer-panel os-panel' + (dark ? ' dark' : '')} role="dialog" aria-label=${title}>
+      <header class="layer-head hypebar os-bar" onDblClick=${(e) => { if (!e.target.closest('button, a, input, .who')) ctl('max'); }}>
+        ${onBack ? html`<button class="iconbtn" onClick=${onBack} aria-label="Retour"><${Icon} n="back" /></button>` : html`<span class="hb-logo" aria-hidden="true">hype</span>`}${head || html`<h2>${title}</h2>`}
+        <span class="os-grab" aria-hidden="true"></span>
+        <span class="win-btns">
+          <button type="button" class="win-btn win-in" onClick=${() => osClose(l, true)} aria-label="Remettre dans le jeu" title="Remettre dans le jeu"><${Icon} n="popin" s=${17} /></button>
+          <button type="button" class="win-btn win-min" onClick=${() => ctl('min')} aria-label="Réduire la fenêtre" title="Réduire"><${Icon} n="minus" s=${18} /></button>
+          <button type="button" class="win-btn win-max" onClick=${() => ctl('max')} aria-label="Agrandir la fenêtre" title="Agrandir"><${Icon} n="maxi" s=${15} /></button>
+          <button type="button" class="win-btn win-close" onClick=${() => osClose(l)} aria-label="Fermer la fenêtre" title="Fermer"><${Icon} n="x" s=${18} /></button>
+        </span>
+      </header>
+      <div class="layer-body">${children}</div>
+      ${foot ? html`<footer class="layer-foot">${foot}</footer>` : null}
+    </section></div>`;
+  }
   const wide = !!l && winWide(), modal = winModal(l), R = wide ? winOf(l) : null, float = !!(R && R.float);
   // 0.27.7: the title bar moves the window (it floats from the first move); the corner resizes it
   const drag = (e, mode) => {
-    if (!wide || e.button > 0 || (mode === 'move' && e.target.closest('button, a, input, textarea, select, [contenteditable="true"]'))) return;
+    if (!wide || e.button > 0 || (mode === 'move' && e.target.closest('.win-btn, .iconbtn, a[href], input, textarea, select, [contenteditable="true"]'))) return; // (0.27.9: a name or an avatar in the bar moves it too; a tap on it still opens)
     const el = panel.current;
     if (!el) return;
     const r0 = el.getBoundingClientRect(), p0 = { x: e.clientX, y: e.clientY };
@@ -2152,8 +2294,12 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
         document.body.classList.add('win-dragging');
       }
       const vw = window.innerWidth, vh = window.innerHeight;
-      if (mode === 'move') { cur.x = clamp(base.x + dx, 120 - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - base.h)); }
-      else { cur.w = clamp(base.w + dx, WIN_MIN_W, vw - base.x - 8); cur.h = clamp(base.h + dy, WIN_MIN_H, vh - base.y - 8); }
+      if (mode === 'move') { cur.x = clamp(base.x + dx, 120 - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - WIN_BAR)); }
+      else { // (0.27.9: by any edge, like a real window: right, left, bottom, the corners)
+        if (mode.includes('e')) cur.w = clamp(base.w + dx, WIN_MIN_W, Math.max(WIN_MIN_W, vw - base.x - 4));
+        if (mode.includes('w')) { const w = clamp(base.w - dx, WIN_MIN_W, Math.max(WIN_MIN_W, base.x + base.w)); cur.x = base.x + base.w - w; cur.w = w; }
+        if (mode.includes('s')) cur.h = clamp(base.h + dy, WIN_MIN_H, Math.max(WIN_MIN_H, vh - base.y - 4));
+      }
       Object.assign(el.style, { left: cur.x + 'px', top: cur.y + 'px', width: cur.w + 'px', height: cur.h + 'px' });
     };
     const up = () => {
@@ -2161,7 +2307,12 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       document.body.classList.remove('win-dragging');
-      if (live) { l.win = { float: true, x: Math.round(cur.x), y: Math.round(cur.y), w: Math.round(cur.w), h: Math.round(cur.h) }; winSet(l.t, l.win); update(false); } // (this one, and the next of its kind)
+      if (live) {
+        l.win = { float: true, x: Math.round(cur.x), y: Math.round(cur.y), w: Math.round(cur.w), h: Math.round(cur.h) }; winSet(l.t, l.win); update(false); // (this one, and the next of its kind)
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); }; // (the click a drag ends with opens nothing)
+        window.addEventListener('click', swallow, true);
+        setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+      }
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -2177,16 +2328,18 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
   return html`<div class=${cls} style=${'z-index:' + (20 + (i || 0))} aria-hidden=${l && l.min ? 'true' : undefined} onClick=${(e) => { if (!float && e.target === e.currentTarget) closeLayer(); }}>
     <section ref=${panel} class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal=${float && !modal ? 'false' : 'true'} aria-label=${title}
       style=${float ? `left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px` : ''} onPointerDown=${float && l ? () => raiseLayer(l) : undefined}>
-      <header class=${'layer-head' + (wide ? ' movable' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : undefined}>
-        <button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>${head || html`<h2>${title}</h2>`}
+      <header class=${'layer-head' + (wide ? ' movable' : '') + (float ? ' hypebar' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : undefined}>
+        ${float && !onBack ? html`<span class="hb-logo" aria-hidden="true">hype</span>` : html`<button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>`}${head || html`<h2>${title}</h2>`}
         ${l ? html`<span class="win-btns">
           ${modal ? null : html`<button type="button" class="win-btn win-min" onClick=${() => minLayer(l)} aria-label="Réduire la fenêtre" title=${l && MG_LAYERS.includes(l.t) ? 'Réduire (le chrono continue)' : 'Réduire (tout ce que tu as rempli est gardé)'}><${Icon} n="minus" s=${18} /></button>`}
           ${wide ? html`<button type="button" class="win-btn win-float" onClick=${toggleFloat} aria-label=${float ? 'Remettre la fenêtre au centre' : 'Détacher la fenêtre'} title=${float ? 'Remettre au centre' : 'Détacher : la déplacer et la redimensionner'}><${Icon} n=${float ? 'dock' : 'detach'} s=${18} /></button>` : null}
+          ${osWinOK(l) && !modal ? html`<button type="button" class="win-btn win-out" onClick=${() => popOut(l)} aria-label="Sortir la fenêtre du jeu" title="Sortir du jeu : une vraie fenêtre, à poser où tu veux (même sur un autre écran)"><${Icon} n="popout" s=${17} /></button>` : null}
+          ${float ? html`<button type="button" class="win-btn win-close" onClick=${() => { raiseLayer(l); closeLayer(); }} aria-label="Fermer la fenêtre" title="Fermer"><${Icon} n="x" s=${18} /></button>` : null}
         </span>` : null}
       </header>
       <div class="layer-body">${children}</div>
       ${foot ? html`<footer class="layer-foot">${foot}</footer>` : null}
-      ${float ? html`<span class="win-grip" onPointerDown=${(e) => drag(e, 'size')} aria-hidden="true" title="Redimensionner"></span>` : null}
+      ${float ? html`${['e', 'w', 's', 'sw'].map((m) => html`<span key=${m} class=${'win-edge ' + m} onPointerDown=${(e) => drag(e, m)} aria-hidden="true"></span>`)}<span class="win-grip" onPointerDown=${(e) => drag(e, 'se')} aria-hidden="true" title="Redimensionner"></span>` : null}
     </section>
   </div>`;
 }
@@ -2242,7 +2395,7 @@ function mentionPicks(g, q, n = 5) {
 function useMentions(g, ref, val, setVal, max = 280) {
   const [st, setSt] = useState({ sel: 0, off: -1 });
   const el = ref.current;
-  const at = el && typeof document !== 'undefined' && document.activeElement === el ? mentionAt(val, el.selectionStart) : null;
+  const at = el && el.ownerDocument && el.ownerDocument.activeElement === el ? mentionAt(val, el.selectionStart) : null; // (its own page: a window out of the game too)
   const list = at && st.off !== at.from ? mentionPicks(g, at.q) : [];
   const sel = Math.min(st.sel, Math.max(0, list.length - 1));
   const pick = (c) => {
@@ -2346,7 +2499,7 @@ function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
     for (const r of replies) if (r.a === 'p' && (!lastMine || r.at > lastMine.at)) lastMine = r;
     const follow = lastMine && Date.now() - lastMine.at < 90000 && (newest === lastMine || newest.to === lastMine.id);
     if (follow) {
-      const node = document.getElementById('r-' + newest.id);
+      const node = byId('r-' + newest.id);
       if (node) node.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else if (el.scrollTop > 0 && el.scrollHeight - el.scrollTop - el.clientHeight < 240) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
@@ -2369,7 +2522,7 @@ function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
       ${p.a === 'p' ? html`<${PostResult} p=${p} g=${g} now=${now} />` : null}
       ${eventsAt(g, (x) => x.p === p.id && !x.r).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} />`)}
       <div class="post-time-full">${fmtDate(p.ts)}${canDelete ? html` · <button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Supprimer ce post ?', text: 'Il disparaîtra de ton profil… mais quelqu’un a peut-être déjà fait une capture.', ok: 'Supprimer', danger: true, run: () => { closeLayer(); deletePost(g, p); } })}>Supprimer</button>` : null}</div>
-      <${PostActions} p=${p} now=${now} onReply=${() => { const el = document.getElementById('reply-' + p.id); if (el) el.focus(); }} />
+      <${PostActions} p=${p} now=${now} onReply=${() => { const el = byId('reply-' + p.id); if (el) el.focus(); }} />
     </article>
     ${rows.map(({ r, depth, parent }) => html`<${ReplyRow} key=${r.id} g=${g} p=${p} r=${r} now=${now} depth=${depth} parent=${parent} />`)}
     ${writing ? html`<div class="writing"><${Typing} /> Ça écrit…</div>` : null}
@@ -2679,7 +2832,7 @@ function ComposeLayer({ g, now, i }) {
   const setFake = (patch) => {
     S.drafts.fake = patch === null ? null : Object.assign({ kind: 'dm', desc: '' }, S.drafts.fake, patch);
     force((x) => x + 1);
-    if (patch && !('desc' in patch)) setTimeout(() => { const el = document.getElementById('fake-desc'); if (el) el.focus(); }, 40);
+    if (patch && !('desc' in patch)) setTimeout(() => { const el = byId('fake-desc'); if (el) el.focus(); }, 40);
   };
   const pickIdea = (t) => { S.drafts.post = t; force((x) => x + 1); if (ref.current) ref.current.focus(); };
   const mn = useMentions(g, ref, val, (v) => { S.drafts.post = v; force((x) => x + 1); });
@@ -2688,7 +2841,7 @@ function ComposeLayer({ g, now, i }) {
   const [left, cancel, arm] = useAutoSend('post', val, can, publish);
   const title = accuse ? `Bad buzz contre ${target.name}` : rumor ? 'Démentir la rumeur' : secAns ? STANCES[secAns.stance].title : conf ? 'Avouer un secret' : apology ? 'Excuses publiques' : drop ? 'Lancer ton merch' : pfp ? 'Nouvelle photo de profil' : quote ? 'Citer un post' : 'Nouveau post';
   const unMode = (k) => { S.drafts[k] = null; force((x) => x + 1); };
-  const addPhoto = () => { S.drafts.photo = ''; force((x) => x + 1); setTimeout(() => { const el = document.getElementById('photo-desc'); if (el) el.focus(); }, 40); };
+  const addPhoto = () => { S.drafts.photo = ''; force((x) => x + 1); setTimeout(() => { const el = byId('photo-desc'); if (el) el.focus(); }, 40); };
   return html`<${LayerShell} i=${i} title=${title}
     head=${html`<h2>${title}</h2><button class=${'btn btn-sm ' + (accuse ? 'btn-danger-solid' : 'btn-hot')} onClick=${publish} disabled=${!can}>${accuse ? 'Accuser' : rumor ? 'Démentir' : secAns ? STANCES[secAns.stance].btn : conf ? 'Avouer' : drop ? 'Lancer' : 'Publier'} · ≈ ${cost} <${Icon} n="coffee" s=${15} /></button>`}>
     ${low ? html`<${LowBanner} g=${g} now=${now} compose=${true} />` : null}
@@ -3006,8 +3159,9 @@ let lastSlow = 0, lastQuestTick = 0, lastNeglect = 0;
 // the window minimized) or nothing was touched for 3 minutes (a click, a key, the wheel): it comes back with them.
 const AUTO_IDLE_MS = 3 * 60000;
 function livePause(t = Date.now()) {
-  const focus = window.__hypeFocus != null ? !!window.__hypeFocus : typeof document.hasFocus !== 'function' || document.hasFocus(); // (__hypeFocus: the tests)
-  if (document.visibilityState !== 'visible' || !focus) return 'away';
+  const out = (S.os || []).some((l) => { try { return l.os.w.document.hasFocus(); } catch (e) { return false; } }); // (0.27.9: playing in a window out of the game)
+  const focus = window.__hypeFocus != null ? !!window.__hypeFocus : typeof document.hasFocus !== 'function' || document.hasFocus() || out; // (__hypeFocus: the tests)
+  if ((document.visibilityState !== 'visible' && !out) || !focus) return 'away';
   return t - (S.lastInputAt || 0) >= AUTO_IDLE_MS ? 'idle' : null;
 }
 const autoLiveDue = (g, t) => !!(HOST && g && g.ready && g.opts && autoLiveOn(g) && !livePause(t)
@@ -3020,11 +3174,11 @@ function tick() {
   let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
   const g = S.game;
   if (S.phase === 'game' && g) {
-    const dmOpen = topDMId();
+    const shown = dmsShown(); // (0.27.9: a conversation out of the game is being read too)
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
     const playing = topIsGame(); // (0.27.6: a practice round, a commissioned edit too)
     for (const n of playing ? [] : g.notifs) {
-      if (n.at > S.lastToastAt && n.at <= t && n.k in TOAST_KINDS && !((n.k === 'dm' || n.k === 'seen') && n.c === dmOpen)) {
+      if (n.at > S.lastToastAt && n.at <= t && n.k in TOAST_KINDS && !((n.k === 'dm' || n.k === 'seen') && shown.includes(n.c))) {
         const cId = n.c;
         const tg = n.k === 'trend' ? n.tg : null;
         const sk = n.k === 'skill' ? n.sk : null;
@@ -3033,7 +3187,7 @@ function tick() {
     }
     // answers that arrive in a conversation the player has left
     for (const id in playing ? {} : g.dms) {
-      if (id === dmOpen) continue;
+      if (shown.includes(id)) continue;
       const msgs = g.dms[id].msgs;
       for (let k = msgs.length - 1; k >= Math.max(0, msgs.length - 4); k--) {
         const m = msgs[k];
@@ -3069,7 +3223,7 @@ function tick() {
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
     if (g.stats.cancelled && t - (g.apologyAt || 0) < APOLOGY_COOLDOWN) fast = true;
-    const n = unreadNotifs(g, t) + unreadDMs(g, t, dmOpen);
+    const n = unreadNotifs(g, t) + unreadDMs(g, t, shown);
     const title = n ? `(${n}) Hype` : 'Hype';
     if (document.title !== title) document.title = title;
   } else if (document.title !== 'Hype') document.title = 'Hype';
@@ -3166,7 +3320,7 @@ if (window.__HYPE_TEST__) {
     repMove, repTry, repShift, repFloor, repSet, repAtLeast, rep1000, repLabel, repCtx, ensureRep, REP_PILLARS, REP_TIERS, actRepPlan, INTENSITY, intensityOf,
     BUDGETS, budgetHint, PLAN_ADVICE, promptWave, postWaves, promptMore, moreReplies, moreDue, linkReply, autoLiveDue, setIntensity, postponePlan, DROP_PLAN, computeOutcome, openPost,
     // 0.10.2: a mini-game's progress kept with it; saves and exports never carry one half played
-    mgKeep, runOver, settleRuns, dropUnplayed, snapshotOf, addRelease, finishShoot, openLayer, closeLayer, loadSave,
+    mgKeep, runOver, settleRuns, dropUnplayed, snapshotOf, addRelease, finishShoot, openLayer, closeLayer, loadSave, enterGame,
     // 0.11: hearts, pace, cools, dares, dates played for real
     COEURS, heartOf, isDefi, normCoeur, guessCoeur, ensureHearts, amiOf, heartScale, noticed, paceCheck, tooFast, paceNeed, paceFrom, nextLove, startCool, endCool,
     bumpInsist, escalate, confide, startInquiry, resolveInquiry, dirtOn, tickHearts, loveMove, moveGap, startDare, heartBeforeDM, heartAfterDM, winDare,
@@ -3211,7 +3365,7 @@ if (window.__HYPE_TEST__) {
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
     plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
     openMenu, menuKey, menuApply, menuOn, menuNum, tapCash, MENU_CODE, checkPayout, billGear, // 0.27.4: the hidden menu
-    startPractice, MENU_GAMES, MENU_TABS, // 0.27.6: the menu's mini-games
+    startPractice, MENU_GAMES, menuLines, menuNudge, menuVal, MENU_TITLES, // 0.27.6: the menu’s mini-games (0.27.9: the trainer menu)
     // 0.20: the gear, the connection, the subscriptions, the start
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,

@@ -166,7 +166,7 @@ async function monter(page) { await dismiss(page); await page.locator('.layer .j
   await shot(page, 'job-setup');
   check('the order: six levels, each with what it takes and the best it allows; what the client expects (a small creator, a favour: « bon »), the level that gets there offered first',
     s1.opts.length === 6 && s1.opts[0][0] === 'Facile' && s1.opts[5][0] === 'Mythique' && s1.opts[0][2] === 'au mieux bon' && s1.opts[1][2] === 'au mieux très bon' && s1.opts[2][2] === 'au mieux excellent'
-      && s1.opts[3][2] === 'légendaire' && /6 coupes, zone étroite, rapide · bon dès 50\s%, raté sous 35\s% · légendaire dès 90\s%/.test(s1.opts[3][1]) && /attend un montage au moins bon/.test(s1.expect) && s1.on === 'Facile' && /au mieux « bon »/.test(s1.note), s1);
+      && s1.opts[3][2] === 'légendaire' && /7 coupes, zone minuscule, très rapide · bon dès 50\s%, raté sous 35\s% · légendaire dès 90\s%/.test(s1.opts[3][1]) && /attend un montage au moins bon/.test(s1.expect) && s1.on === 'Facile' && /au mieux « bon »/.test(s1.note), s1);
   await pickDiff(page, 'Expert');
   const s1b = await setupView(page);
   await monter(page);
@@ -175,8 +175,8 @@ async function monter(page) { await dismiss(page); await page.locator('.layer .j
   await sleep(300);
   const r1 = await G(page, (id) => { const H = window.__hype, g = H.S.game, j = H.jobOf(g, id), L = [...document.querySelectorAll('.layer')].pop(); return { m: j.m, q: j.q, diff: j.diff, last: g.jobDiff, cls: L.querySelector('.job-ready').className, text: L.querySelector('.job-ready').textContent }; }, o1);
   await shot(page, 'job-legendary');
-  check('picked « Expert » (6 cuts, a legendary montage possible), played without a miss: « Montage : légendaire », better than they expected; the level is remembered',
-    s1b.on === 'Expert' && /Dès 90\s%, le montage est légendaire/.test(s1b.note) && n1 === 6 && r1.m === 1 && r1.diff === 'expert' && r1.q === 1 && r1.last === 'expert' && /tier-legende/.test(r1.cls)
+  check('picked « Expert » (7 cuts since 0.27.9, a legendary montage possible), played without a miss: « Montage : légendaire », better than they expected; the level is remembered',
+    s1b.on === 'Expert' && /Dès 90\s%, le montage est légendaire/.test(s1b.note) && n1 === 7 && r1.m === 1 && r1.diff === 'expert' && r1.q === 1 && r1.last === 'expert' && /tier-legende/.test(r1.cls)
       && /Montage : légendaire · 100\s% en 🔥 Expert/.test(r1.text) && /Mieux que ce que Théo attendait \(bon\)/.test(r1.text), Object.assign({ n1, on: s1b.on }, r1));
   const p0 = await G(page, () => window.__prompts.length);
   await dismiss(page);

@@ -312,7 +312,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('each answer is judged against who the player has been with them (the AI is told what they said in private and in public, and to test their memory); a gesture at the right moment; no score while it lasts; leaving and coming back keeps the evening',
     /Cohérence : le joueur est-il le même qu’en privé et en public/.test(tp1) && /Leurs derniers messages privés|Ils ne se sont presque rien écrit en privé/.test(tp1) && /"t":"judge"/.test(tp1) && (/vérifie si le joueur se souvient/.test(tp2) || !/Leurs derniers messages privés/.test(tp2))
     && /Tu tentes d’embrasser Nox/.test(mid.geste) && !mid.gestes.some((t) => /bisou/.test(t)) && !mid.score && mid.dots === 3 && back >= 7, { mid, back });
-  const expScore = (1 + 0.75 + 1 * 1.5 + 0.15 + 1) / 5.5 - 0.03 * ['facile', 'moyen', 'difficile'].indexOf(res.played.diff);
+  const expScore = (1 + 0.75 + 1 * 1.5 + 0.15 + 1) / 5.5 - 0.03 * (['facile', 'moyen', 'difficile'].indexOf(res.played.diff) + 1); // (0.27.9: each level a notch harder)
   check('the evening’s score comes from their reactions (a gesture weighs more; « mets charme » counts as odd whatever the AI said; the exigence of the date weighs); a kiss at the right moment opens the way',
     res.played && res.played.kind === 'talk' && Math.abs(res.played.score - expScore) < 0.01 && res.reacts.join() === 'charme,amuse,charme:bisou,gene,charme' && res.dareWon === true, { res, expScore });
   await clickText(page, '.layer .mg-result button', 'Voir comment');

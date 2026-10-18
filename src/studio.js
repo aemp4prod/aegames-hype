@@ -302,7 +302,7 @@ const cashTaps = { n: 0, at: 0 };
 function openMenu() {
   if (S.phase !== 'game' || !S.game) { toast('Ouvre une partie pour le mode menu.'); return; }
   if (!menuOn()) { lsSet('hype:menu', '1'); toast('🛠️ Mode menu débloqué. Tu le retrouves aussi dans les Réglages.', 'good'); }
-  if (!S.stack.some((l) => l.t === 'cheat')) openLayer({ t: 'cheat' });
+  if (!S.stack.some((l) => l.t === 'cheat')) { if (!(S.os || []).some((l) => l.t === 'cheat')) S.menuPath = []; openLayer({ t: 'cheat' }); } // (0.27.9: back at the top, on the line left there; out of the game, it comes to the front as it is)
 }
 function menuKey(e) {
   const el = e && e.target, tag = el && el.tagName;
@@ -379,15 +379,6 @@ function menuApply(g, o) {
 const pad2 = (x) => String(x).padStart(2, '0');
 const dateField = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const timeField = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-function MenuRel({ g, c }) {
-  const [v, setV] = useState(c.rel);
-  return html`<div class="menu-rel">
-    <${Avatar} who=${author(g, 'c:' + c.id)} size=${32} />
-    <div class="mid"><b>${c.name}</b><span>${relLabel(v, c.g, c.vibe)} · ${v > 0 ? '+' : ''}${v}</span>
-      <input type="range" min="-100" max="100" step="1" value=${v} aria-label=${'Relation avec ' + c.name}
-        onInput=${(ev) => setV(+ev.target.value)} onChange=${(ev) => { menuApply(g, { rel: { [c.id]: ev.target.value } }); update(); }} /></div>
-  </div>`;
-}
 // 0.27.6: the mini-games on demand: a practice round that counts for nothing (the AI writes the ones it writes, the
 // others are made at once), or the next shoot's game imposed.
 const MENU_GAMES = [['tri', 'Tri'], ['ordre', 'Remise en ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Modération du chat'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage vertical']]; // (0.27.8: the names the games have everywhere)
@@ -425,90 +416,172 @@ function PracticeLayer({ g, i, now }) {
   else body = html`<${ShootPlay} r=${r} now=${now} outcomes=${`Entraînement : rien ne compte dans ta partie. Réussi à ${TIER_STEPS[0]}, moyen de ${TIER_STEPS[1]}.`} icon="play" onScore=${(sc) => { r.score = Math.round(clamp(num(sc, 0), 0, 1) * 1000) / 1000; update(); }} />`;
   return html`<${LayerShell} i=${i} title="🎮 Entraînement">${body}<//>`;
 }
-function MenuGames({ g }) {
-  const [kind, setKind] = useState(() => S.menuGame || 'quiz');
-  const [diff, setDiff] = useState(() => S.menuDiff || 'mythique');
-  const pickK = (k) => { S.menuGame = k; setKind(k); if (diffOf(diff).real && k !== 'quiz') { S.menuDiff = 'mythique'; setDiff('mythique'); } };
-  const pickD = (d) => { S.menuDiff = d; setDiff(d); };
-  const ai = MG_KINDS_AI.includes(kind), next = g.mgNext;
-  return html`<section class="section">
-    <div class="field"><span class="lbl">Le mini-jeu</span><div class="tr-chips">${MENU_GAMES.map(([k, l]) => html`<button type="button" key=${k} class=${'chip-btn' + (kind === k ? ' on' : '')} onClick=${() => pickK(k)}>${l}</button>`)}</div></div>
-    <div class="field"><span class="lbl">La difficulté</span><div class="tr-chips">${DIFFS.map((d) => html`<button type="button" key=${d.id} disabled=${d.real && kind !== 'quiz'} class=${'chip-btn' + (diff === d.id ? ' on' : '')} onClick=${() => pickD(d.id)}>${d.emoji} ${d.label}</button>`)}</div>
-      ${diffOf(diff).real ? html`<small class="muted">Cauchemar, c’est le quiz de vraies questions, rien d’autre.</small>` : null}</div>
-    <div class="row">
-      <button class="btn btn-hot btn-sm" disabled=${!!S.busy.mg} onClick=${() => startPractice(g, kind, diff)}><${Icon} n="play" s=${15} /> Jouer maintenant${ai ? ` · ≈ ${costLabel(g, 'shoot')} ☕` : ''}</button>
-      <button class=${'btn btn-sm ' + (next === kind ? 'btn-hot' : 'btn-ghost')} onClick=${() => { if (g.mgNext === kind) { delete g.mgNext; toast('Le prochain tournage tire son mini-jeu au sort.'); } else { g.mgNext = kind; toast(`Ton prochain tournage : ${(MENU_GAMES.find((x) => x[0] === kind) || [0, kind])[1]}.`, 'good'); } update(); }}>${next === kind ? '✓ Imposé au prochain tournage' : 'Imposer au prochain tournage'}</button>
-    </div>
-    <small class="muted">« Jouer maintenant » : un entraînement, rien ne compte dans ta partie${ai ? ` (ce mini-jeu est écrit par ${AI_NAME} sur ton sujet du moment)` : ''}. ${next ? `Imposé au prochain tournage : ${(MENU_GAMES.find((x) => x[0] === next) || [0, next])[1]} (sauf en Cauchemar).` : 'Sinon, le prochain tournage tire son mini-jeu au sort.'}</small>
-  </section>`;
-}
-const MENU_TABS = [['argent', '💰', 'Argent'], ['rep', '⭐', 'Réputation'], ['temps', '🕐', 'Temps'], ['jeux', '🎮', 'Mini-jeux'], ['skills', '💪', 'Compétences'], ['liens', '💞', 'Relations']];
-function ModeMenuLayer({ g, i, now }) {
-  const s = g.stats, c = g.career, P = ensureRep(s), d0 = gameDate(now);
-  const [tab, setTab0] = useState(() => S.menuTab || 'argent');
-  const setTab = (t) => { S.menuTab = t; setTab0(t); };
-  const [v, setV] = useState(() => ({
-    cash: String(Math.round(c.cash * 100) / 100), followers: String(s.followers), gems: String(s.gems), level: String(s.level),
-    rep: Object.fromEntries(REP_IDS.map((k) => [k, String(rep1000(P[k]))])),
-    skills: Object.fromEntries(SKILL_IDS.map((id) => [id, String(skillLevel(g, id))])),
-    date: dateField(d0), time: timeField(d0),
-  }));
-  const [base, setBase] = useState(() => v); // 0.27.6: what the fields showed: only what the player changed is applied
-  const set = (k, x) => setV((o) => Object.assign({}, o, { [k]: x }));
-  const setIn = (grp, k, x) => setV((o) => Object.assign({}, o, { [grp]: Object.assign({}, o[grp], { [k]: x }) }));
-  const changed = (keys, grp) => { const o = {}, a = grp ? v[grp] : v, b = grp ? base[grp] : base; for (const k of keys) if (String(a[k]).trim() !== String(b[k]).trim()) o[k] = a[k]; return o; };
-  const apply = (o, msg) => {
-    const empty = !Object.keys(o).length || (o.rep && !Object.keys(o.rep).length) || (o.skills && !Object.keys(o.skills).length);
-    if (empty) { toast('Rien n’a changé.'); return; }
-    menuApply(g, o); setBase(v); toast(msg, 'good'); saveNow(); update();
-  };
-  const num2 = (k, label, hint) => html`<label class="menu-num"><span>${label}</span><input class="input" inputmode="decimal" value=${v[k]} onInput=${(ev) => set(k, ev.target.value)} />${hint ? html`<small>${hint}</small>` : null}</label>`;
-  const at = new Date(`${v.date}T${v.time || '00:00'}`).getTime();
-  const people = mains(g).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+/* ---------- 0.27.9: the menu, the way a game trainer shows it: a banner, one column, submenus ----------
+   ↑ ↓ choose a line, Entrée (or →) opens a submenu or does what the line says, ← → change a value, Retour arrière or Échap
+   go back up. A click or a tap does the same (‹ › on a value; a value tapped again opens a field to type it). Everything
+   applies at once, and nobody in the game hears about it. */
+// The steps of a value: bigger numbers move by bigger steps (3 000 → 4 000, 250 000 → 350 000).
+const menuStep = (x) => { const a = Math.abs(x); return a < 1000 ? 100 : a < 10000 ? 1000 : a < 100000 ? 10000 : a < 1000000 ? 100000 : 1000000; };
+const menuFolStep = (x) => (x < 100 ? 10 : menuStep(x));
+// The lines of a menu, by its path: [] is the top; each line is one of
+//   { k: 'sub', id, emoji, label, desc }            → opens a submenu
+//   { k: 'act', label, desc, run, off }             → does something
+//   { k: 'num', label, desc, get, set, step, fmt, min, max } → ‹ value ›, ← → by step, Entrée to type it
+//   { k: 'pick', label, desc, opts: [[v, label]], get, set }  → ‹ choice ›
+//   { k: 'tog', label, desc, get, set }              → ‹ Oui / Non ›
+function menuLines(g, path, now) {
+  const s = g.stats, c = g.career, P = ensureRep(s);
   const sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : '€';
-  const panel = {
-    argent: () => html`<section class="section">
-      <div class="menu-grid">${num2('cash', `Argent (${sym})`, `Maintenant : ${fmtMoney(g, c.cash)}`)}${num2('followers', 'Abonnés')}${num2('gems', 'Gemmes')}${num2('level', 'Niveau', 'Monter fait arriver les persos du niveau')}</div>
-      <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => apply(changed(['cash', 'followers', 'gems', 'level']), 'C’est fait.')}>Appliquer</button>
-        <button class="btn btn-ghost btn-sm" onClick=${() => { if (g.stats.followers < 800) toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); else { const d = makeOffer(g, {}); toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); update(); } }}>Faire venir une marque</button></div>
-    </section>`,
-    rep: () => html`<section class="section">
-      <div class="section-h"><h3>Sur 1000</h3><span>${rep1000(s.reputation)}/1000 · ${repLabel(s.reputation)}</span></div>
-      <div class="menu-grid">${REP_IDS.map((k) => html`<label class="menu-num" key=${k}><span>${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}</span><input class="input" inputmode="numeric" value=${v.rep[k]} onInput=${(ev) => setIn('rep', k, ev.target.value)} /></label>`)}</div>
-      <div class="row">
-        <button class="btn btn-hot btn-sm" onClick=${() => apply({ rep: changed(REP_IDS, 'rep') }, 'Réputation changée.')}>Appliquer</button>
-        ${playerBadBuzz(g, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { g.pbb = null; toast('Bad buzz terminé.', 'good'); update(); }}>Arrêter le bad buzz</button>` : null}
-      </div>
-    </section>`,
-    temps: () => html`<section class="section">
-      <div class="section-h"><h3>L’horloge du jeu</h3><span>${cap1(d0.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${timeField(d0)}</span></div>
-      <div class="menu-grid">
-        <label class="menu-num"><span>Date</span><input class="input" type="date" value=${v.date} onInput=${(ev) => set('date', ev.target.value)} /></label>
-        <label class="menu-num"><span>Heure</span><input class="input" type="time" value=${v.time} onInput=${(ev) => set('time', ev.target.value)} /></label>
-      </div>
-      <div class="row">
-        <button class="btn btn-hot btn-sm" disabled=${!Number.isFinite(at)} onClick=${() => apply({ at }, `Il est ${v.time.replace(':', ' h ')} dans le jeu.`)}>Appliquer</button>
-        <button class="btn btn-ghost btn-sm" onClick=${() => { const d = new Date(); set('date', dateField(d)); set('time', timeField(d)); }}>Heure de ton PC</button>
-      </div>
-      <small class="muted">Seule l’horloge bouge : rien ne se passe pendant le temps sauté. Passer à un nouveau mois déclenche une fois ce qui tombe en fin de mois (paie, factures) ; revenir en arrière ne déclenche rien. Pour faire passer le temps pour de vrai, utilise « Avancer ».</small>
-    </section>`,
-    jeux: () => html`<${MenuGames} g=${g} />`,
-    skills: () => html`<section class="section">
-      <div class="section-h"><h3>Sur ${SKILL_MAX}</h3></div>
-      <div class="menu-grid">${SKILL_IDS.map((id) => html`<label class="menu-num" key=${id}><span>${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}</span><input class="input" inputmode="numeric" value=${v.skills[id]} onInput=${(ev) => setIn('skills', id, ev.target.value)} /></label>`)}</div>
-      <button class="btn btn-hot btn-sm" onClick=${() => apply({ skills: changed(SKILL_IDS, 'skills') }, 'Compétences changées.')}>Appliquer</button>
-    </section>`,
-    liens: () => html`<section class="section">
-      ${people.length ? html`<div class="section-h"><h3>De −100 à +100</h3></div><div class="menu-rels">${people.map((p) => html`<${MenuRel} key=${p.id} g=${g} c=${p} />`)}</div>` : html`<p class="muted">Personne dans ton monde pour l’instant.</p>`}
-    </section>`,
+  const top = path[0];
+  if (!top) {
+    return [
+      { k: 'sub', id: 'argent', emoji: '💰', label: 'Argent et abonnés', desc: 'Ton argent, tes abonnés, tes gemmes, ton niveau, et une marque qui t’écrit.' },
+      { k: 'sub', id: 'rep', emoji: '⭐', label: 'Réputation', desc: 'Les quatre piliers de ta réputation, sur 1000.' },
+      { k: 'sub', id: 'temps', emoji: '🕐', label: 'Temps', desc: 'L’horloge du jeu : seule l’heure bouge, rien ne se passe pendant le temps sauté.' },
+      { k: 'sub', id: 'jeux', emoji: '🎮', label: 'Mini-jeux', desc: 'T’entraîner à n’importe quel mini-jeu, ou imposer celui du prochain tournage.' },
+      { k: 'sub', id: 'skills', emoji: '💪', label: 'Compétences', desc: `Tes quatre compétences, de 0 à ${SKILL_MAX}.` },
+      { k: 'sub', id: 'liens', emoji: '💞', label: 'Relations', desc: 'Ta relation avec chaque personnage, de −100 à +100.' },
+      { k: 'act', emoji: '🙈', label: 'Masquer le mode menu', desc: 'Il disparaît des Réglages ; le code le rouvre.', run: () => { lsSet('hype:menu', '0'); closeLayer(); toast('Mode menu masqué : le code le rouvre.'); } },
+    ];
+  }
+  if (top === 'argent') {
+    return [
+      { k: 'num', label: `Argent (${sym})`, desc: `Maintenant : ${fmtMoney(g, c.cash)}. ← → par paliers, Entrée pour taper un montant.`, get: () => c.cash, set: (x) => menuApply(g, { cash: x }), step: menuStep, fmt: (x) => fmtMoney(g, x, false) },
+      { k: 'num', label: 'Abonnés', desc: 'Tes abonnés : les paliers et les marques suivent.', get: () => s.followers, set: (x) => menuApply(g, { followers: x }), step: menuFolStep, fmt: fmtN, min: 0 },
+      { k: 'num', label: 'Gemmes', desc: 'Tes gemmes.', get: () => s.gems, set: (x) => menuApply(g, { gems: x }), step: () => 10, fmt: fmtN, min: 0 },
+      { k: 'num', label: 'Niveau', desc: 'Monter fait arriver les personnages du niveau ; descendre ne les retire pas.', get: () => s.level, set: (x) => menuApply(g, { level: x }), step: () => 1, min: 1, max: 300 },
+      { k: 'act', label: 'Faire venir une marque', desc: 'Une marque t’écrit en privé tout de suite (dès 800 abonnés, deux offres ouvertes au plus).',
+        run: () => { if (s.followers < 800) { toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); return; } const d = makeOffer(g, {}); toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); } },
+    ];
+  }
+  if (top === 'rep') {
+    return REP_IDS.map((k) => ({ k: 'num', label: `${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}`, desc: `Sur 1000. Ta réputation : ${rep1000(s.reputation)}/1000 (${repLabel(s.reputation)}).`,
+      get: () => rep1000(P[k]), set: (x) => menuApply(g, { rep: { [k]: x } }), step: () => 25, min: 0, max: 1000 }))
+      .concat(playerBadBuzz(g, now) ? [{ k: 'act', label: 'Arrêter le bad buzz', desc: 'Ton bad buzz s’arrête tout de suite.', run: () => { g.pbb = null; toast('Bad buzz terminé.', 'good'); } }] : []);
+  }
+  if (top === 'temps') {
+    const at = () => gameDate(Date.now()).getTime(), move = (ms) => menuApply(g, { at: at() + ms });
+    return [
+      { k: 'num', label: 'Jour', desc: '← → : un jour de plus ou de moins. Seule l’horloge bouge ; un nouveau mois déclenche une fois la paie et les factures.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * DAY_MS), fmt: () => cap1(gameDate(Date.now()).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })) },
+      { k: 'num', label: 'Heure', desc: '← → : un quart d’heure de plus ou de moins.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * 15 * 60000), fmt: () => timeField(gameDate(Date.now())) },
+      { k: 'act', label: 'Revenir à l’heure de ton PC', desc: 'L’horloge du jeu reprend l’heure de ton ordinateur.', run: () => { menuClock(g, Date.now()); toast('Le jeu est à l’heure de ton PC.', 'good'); } },
+    ];
+  }
+  if (top === 'jeux') {
+    const kind = S.menuGame || 'quiz', diff = S.menuDiff || 'mythique', ai = MG_KINDS_AI.includes(kind);
+    return [
+      { k: 'pick', label: 'Mini-jeu', desc: ai ? `Écrit par ${AI_NAME} sur ton sujet du moment.` : 'Un jeu d’adresse, sans l’IA.', opts: MENU_GAMES, get: () => kind, set: (k) => { S.menuGame = k; if (diffOf(S.menuDiff || 'mythique').real && k !== 'quiz') S.menuDiff = 'mythique'; } },
+      { k: 'pick', label: 'Difficulté', desc: 'Cauchemar, c’est le quiz de vraies questions, rien d’autre.', opts: DIFFS.filter((d) => !d.real || kind === 'quiz').map((d) => [d.id, `${d.emoji} ${d.label}`]), get: () => diff, set: (d) => { S.menuDiff = d; } },
+      { k: 'act', label: 'Jouer maintenant', desc: `Un entraînement : rien ne compte dans ta partie${ai ? ` (≈ ${costLabel(g, 'shoot')} ☕)` : ''}.`, off: !!S.busy.mg, run: () => startPractice(g, kind, diff) },
+      { k: 'tog', label: 'Imposer au tournage', desc: g.mgNext ? `Le prochain tournage aura : ${(MENU_GAMES.find((x) => x[0] === g.mgNext) || [0, g.mgNext])[1]} (sauf en Cauchemar).` : 'Oui : le prochain tournage aura ce mini-jeu. Non : il le tire au sort.',
+        get: () => g.mgNext === kind, set: (on) => { if (on) g.mgNext = kind; else delete g.mgNext; } },
+    ];
+  }
+  if (top === 'skills') {
+    return SKILL_IDS.map((id) => ({ k: 'num', label: `${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}`, desc: `De 0 à ${SKILL_MAX}.`, get: () => skillLevel(g, id), set: (x) => menuApply(g, { skills: { [id]: x } }), step: () => 1, min: 0, max: SKILL_MAX }));
+  }
+  if (top === 'liens') {
+    const people = mains(g).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    if (!people.length) return [{ k: 'act', label: 'Personne pour l’instant', desc: 'Personne dans ton monde pour l’instant.', off: true, run: () => {} }];
+    return people.map((p) => ({ k: 'num', label: p.name, desc: `${relLabel(p.rel, p.g, p.vibe)} · de −100 à +100.`, get: () => p.rel, set: (x) => menuApply(g, { rel: { [p.id]: x } }), step: () => 5, min: -100, max: 100, fmt: (x) => (x > 0 ? '+' : '') + x }));
+  }
+  return [];
+}
+
+// The value a line shows.
+const menuVal = (L) => (L.k === 'tog' ? (L.get() ? 'Oui' : 'Non') : L.k === 'pick' ? ((L.opts.find((o) => o[0] === L.get()) || L.opts[0] || [0, ''])[1]) : L.fmt ? L.fmt(L.get()) : fmtN(num(L.get(), 0)));
+// ← → on a line: a value moves by its step (bigger numbers by bigger steps), a choice turns, a switch flips.
+function menuNudge(L, dir) {
+  if (!L || L.off) return false;
+  if (L.k === 'num') {
+    if (L.nudge) { L.nudge(dir); return true; }
+    const x = num(L.get(), 0), st = L.step ? L.step(dir > 0 ? x : x - 1) : 1;
+    let y = Math.round((x + dir * st) / st) * st; // (on the grid of its step: 3 450 → 4 000, not 4 450)
+    if (dir > 0 && y <= x) y = x + st;
+    if (dir < 0 && y >= x) y = x - st;
+    y = clamp(y, L.min != null ? L.min : -1e12, L.max != null ? L.max : 1e12);
+    if (y === x) return false;
+    L.set(y);
+    return true;
+  }
+  if (L.k === 'pick') { const n = L.opts.length, ix = Math.max(0, L.opts.findIndex((o) => o[0] === L.get())); L.set(L.opts[(ix + dir + n) % n][0]); return true; }
+  if (L.k === 'tog') { L.set(!L.get()); return true; }
+  return false;
+}
+const MENU_TITLES = { argent: 'Argent et abonnés', rep: 'Réputation', temps: 'Temps', jeux: 'Mini-jeux', skills: 'Compétences', liens: 'Relations' };
+// Where the menu stands, read at the moment of a key or a tap (a key held down fires faster than the screen redraws).
+function menuAt(g) {
+  const path = Array.isArray(S.menuPath) ? S.menuPath : (S.menuPath = []);
+  const where = path.join('/') || '/', sels = S.menuSel || (S.menuSel = {});
+  const lines = menuLines(g, path, Date.now());
+  return { path, where, sels, lines, sel: clamp(sels[where] || 0, 0, Math.max(0, lines.length - 1)) };
+}
+function ModeMenuLayer({ g, i, now }) {
+  const lay = useContext(WinCtx), keys = useRef(null), list = useRef(null), field = useRef(null);
+  if (!keys.current) keys.current = ownKeys(lay);
+  const [, setV] = useState(0);
+  const redraw = () => setV((x) => x + 1);
+  const [edit, setEdit] = useState(null); // { ix, text }: a value being typed
+  const M = menuAt(g), { path, where, lines, sel } = M;
+  const changed = () => { scheduleSave(); update(); };
+  const choose = (n) => { const m = menuAt(g); if (!m.lines.length) return; m.sels[m.where] = (n + m.lines.length) % m.lines.length; setEdit(null); redraw(); };
+  const back = () => { const m = menuAt(g); setEdit(null); if (m.path.length) { S.menuPath = m.path.slice(0, -1); redraw(); } else closeLayer(); };
+  const nudge = (L, dir) => { if (menuNudge(L, dir)) changed(); else redraw(); };
+  const act = (L, n) => {
+    const m = menuAt(g);
+    if (n != null) m.sels[m.where] = n;
+    if (!L || L.off) { redraw(); return; }
+    if (L.k === 'sub') { S.menuPath = m.path.concat(L.id); m.sels[S.menuPath.join('/')] = 0; redraw(); } // (a submenu opens on its first line)
+    else if (L.k === 'act') { L.run(); changed(); }
+    else if (L.k === 'num' && !L.nudge) setEdit({ ix: n != null ? n : m.sel, text: String(Math.round(num(L.get(), 0) * 100) / 100).replace('.', ',') });
+    else nudge(L, 1);
   };
-  return html`<${LayerShell} i=${i} title="🛠️ Mode menu">
-    <nav class="menu-tabs" role="tablist" aria-label="Mode menu">${MENU_TABS.map(([k, e, l]) => html`<button type="button" key=${k} role="tab" aria-selected=${tab === k ? 'true' : 'false'} class=${'menu-tab' + (tab === k ? ' on' : '')} onClick=${() => setTab(k)}><span aria-hidden="true">${e}</span>${l}</button>`)}</nav>
-    ${(panel[tab] || panel.argent)()}
-    <section class="section" style="border-bottom:0">
-      <p class="muted">Les réglages cachés de ta partie : ça s’applique tout de suite, et personne dans le jeu n’en saura rien.</p>
-      <button class="linkbtn quiet" onClick=${() => { lsSet('hype:menu', '0'); closeLayer(); toast('Mode menu masqué : le code le rouvre.'); update(); }}>Masquer le mode menu</button>
-    </section>
+  const typed = () => {
+    const m = menuAt(g), L = edit && m.lines[edit.ix], x = menuNum(edit && edit.text);
+    setEdit(null);
+    if (!L || x === null) return;
+    L.set(clamp(x, L.min != null ? L.min : -1e12, L.max != null ? L.max : 1e12));
+    changed();
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!keys.current.mine(e)) return; // (a field being typed in, another window on top)
+      const m = menuAt(g), L = m.lines[m.sel];
+      if (e.key === 'ArrowDown') choose(m.sel + 1);
+      else if (e.key === 'ArrowUp') choose(m.sel - 1);
+      else if (e.key === 'ArrowRight') { if (L && L.k === 'sub') act(L); else nudge(L, 1); }
+      else if (e.key === 'ArrowLeft') { if (L && L.k !== 'sub' && L.k !== 'act') nudge(L, -1); else back(); }
+      else if (e.key === 'Enter' || e.key === ' ') act(L);
+      else if (e.key === 'Backspace' || e.key === 'Escape') back();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const tw = (lay && lay.os && lay.os.w) || window; // (0.27.9: out of the game, the keys of its own window)
+    tw.addEventListener('keydown', onKey, true);
+    return () => { tw.removeEventListener('keydown', onKey, true); keys.current.drop(); };
+  }, []);
+  useLayoutEffect(() => { const el = list.current && list.current.children[sel]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); });
+  useEffect(() => { if (edit && field.current) { field.current.focus(); field.current.select(); } }, [edit && edit.ix]);
+  const L0 = lines[sel];
+  return html`<${LayerShell} i=${i} title="🛠️ Mode menu" onBack=${back}>
+    <div class="trainer">
+      <div class="tr-banner" aria-hidden="true"><b>hype</b><span>mode menu</span></div>
+      <div class="tr-sub"><span>${path.length ? MENU_TITLES[path[0]] || '' : 'Menu principal'}</span><span class="mono">${lines.length ? sel + 1 : 0}/${lines.length}</span></div>
+      <div class="tr-list" role="menu" aria-label=${path.length ? MENU_TITLES[path[0]] : 'Mode menu'} ref=${list}>
+        ${lines.map((L, n) => html`<div key=${where + ':' + n} role="menuitem" tabindex="-1" aria-disabled=${L.off ? 'true' : undefined} class=${'tr-line' + (n === sel ? ' on' : '') + (L.off ? ' off' : '')}
+          onClick=${() => (n === sel || L.k === 'sub' || L.k === 'act' ? act(L, n) : choose(n))}>
+          <span class="tr-lbl">${L.emoji ? html`<span class="tr-emo" aria-hidden="true">${L.emoji}</span>` : null}${L.label}</span>
+          ${L.k === 'sub' ? html`<span class="tr-go" aria-hidden="true">›</span>`
+            : L.k === 'act' ? null
+            : edit && edit.ix === n ? html`<input ref=${field} class="tr-edit" inputmode="decimal" aria-label=${L.label} value=${edit.text} onClick=${(e) => e.stopPropagation()}
+                onInput=${(e) => setEdit({ ix: n, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); typed(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEdit(null); } }} onBlur=${() => setEdit(null)} />`
+            : html`<span class="tr-val"><button type="button" class="tr-arr" tabindex="-1" aria-label=${'Moins : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, -1); }}>‹</button><b>${menuVal(L)}</b><button type="button" class="tr-arr" tabindex="-1" aria-label=${'Plus : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, 1); }}>›</button></span>`}
+        </div>`)}
+      </div>
+      <p class="tr-desc">${L0 ? L0.desc || '' : ''}</p>
+      <p class="tr-keys">↑ ↓ choisir · ← → changer · Entrée valider · ⌫ retour</p>
+    </div>
   <//>`;
 }
 

@@ -30,7 +30,7 @@ const RUSH_WHY = { good: 'un bon plan : il reste', bad: 'au montage, ça part' }
 // The rushes to sort (when the shoot was the rhythm game already): good takes to keep, failed ones to cut.
 function makeRushes(r, D) {
   const R = RUSHES[r.what] || RUSHES.vidéo, ix = diffIx(D);
-  const nBad = ix >= 3 ? 3 : 2, nGood = 4 + (ix >= 4 ? 1 : 0);
+  const nBad = ix >= 2 ? 3 : 2, nGood = 4 + (ix >= 3 ? 1 : 0); // (0.27.9: a notch harder, as DIFFS)
   const topic = str(r.topic, 40);
   const good = shuffle(R.good.slice()).slice(0, nGood).map((t) => ({ text: t, good: true, why: RUSH_WHY.good }));
   good[0] = { text: `« ${topic} » : le plan qui résume tout`, good: true, why: RUSH_WHY.good };

@@ -100,9 +100,9 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
       grade: !!H.ROUND_MAKERS.etalonnage || H.ARCADE_KINDS.includes('etalonnage'),
     };
   });
-  check('the new rounds get harder: the chat (14 messages every 1,6 s → 20 every 1,25 s at Expert since 0.27.6, traps that look rude but are fans), the mix (2 tracks → 3, a narrower band, faster drift), the frame (narrower, faster); no more grading',
-    gen.chat[0] === 14 && gen.chat[1] === 1600 && gen.chat[2] === 20 && gen.chat[3] === 1250 && gen.chat[4] === 6 && gen.chat[5] === 8 && gen.chat[6] && gen.chat[7]
-      && gen.mix[0] === 2 && gen.mix[1] === 3 && gen.mix[2] && gen.mix[3] && gen.frame[0] && gen.frame[1] && !gen.grade, gen);
+  check('the new rounds get harder: the chat (16 messages every 1,45 s → 24 every 1,2 s at Expert since 0.27.9, a notch harder; traps that look rude but are fans), the mix (2 tracks → 4, a narrower band, faster drift), the frame (narrower, faster); no more grading',
+    gen.chat[0] === 16 && gen.chat[1] === 1450 && gen.chat[2] === 24 && gen.chat[3] === 1200 && gen.chat[4] === 7 && gen.chat[5] === 10 && gen.chat[6] && gen.chat[7]
+      && gen.mix[0] === 2 && gen.mix[1] === 4 && gen.mix[2] && gen.mix[3] && gen.frame[0] && gen.frame[1] && !gen.grade, gen);
 
   // ---------- in the rotation by format, and at the edit (never the shoot's own game) ----------
   const rot = await G(page, () => {

@@ -33,7 +33,7 @@ const JOB_TIERS = [
 const JOB_FLOP = 0.35; // under it: a flop on their channel, half the money agreed
 const JOB_K = { facile: 0.62, moyen: 0.76, difficile: 0.88, expert: 1, legende: 1.08, mythique: 1.16 };
 const JOB_DIFFS = DIFFS.filter((d) => JOB_K[d.id]); // (« Cauchemar » asks real questions: a quiz, not a cut)
-const JOB_DIFF_TXT = { facile: 'grande zone, curseur lent', moyen: 'le rythme tranquille', difficile: 'zone plus étroite, plus rapide', expert: 'zone étroite, rapide', legende: 'zone minuscule, très rapide', mythique: 'des réflexes de pro' };
+const JOB_DIFF_TXT = { facile: 'le rythme tranquille', moyen: 'zone plus étroite, plus rapide', difficile: 'zone étroite, rapide', expert: 'zone minuscule, très rapide', legende: 'des réflexes de pro', mythique: 'des réflexes surhumains' }; // (0.27.9: a notch harder, as DIFFS)
 const jobTier = (q) => JOB_TIERS.find((t) => q >= t.min);
 const jobQual = (q) => jobTier(q).label;
 const tierRank = (t) => JOB_TIERS.length - 1 - JOB_TIERS.indexOf(t); // raté 0 … légendaire 5

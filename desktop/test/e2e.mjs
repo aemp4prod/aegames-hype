@@ -183,6 +183,93 @@ try {
     Math.abs(z0 - 1) < 0.01 && Math.abs(z1 - 1.1) < 0.01 && /110\s%/.test(zl) && Math.abs(zp1 - 1.1) < 0.01 && Math.abs(zw - 1.2) < 0.01 && Math.abs(z2 - 1) < 0.01 && /100\s%/.test(zl2) && Math.abs(z3 - 1) < 0.01 && zp3 === undefined,
     { z0, z1, zl, zp1, zw, z2, zl2, z3, zp3 });
 
+  // ---------- 0.27.9: a window out of the game: a real window without the system's frame, Hype's bar, live on the game ----------
+  await dismiss(page);
+  await closeLayers(page);
+  const cid = await G(page, () => { const H = window.__hype, c = H.mains(H.S.game)[0]; H.openDM(c.id); return c.id; });
+  await page.waitForSelector('.layer .win-out', { timeout: 10000 });
+  const [kid] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.click('.layer .win-out')]);
+  await kid.waitForSelector('.os-bar .hb-logo', { timeout: 15000 });
+  await sleep(500);
+  const wins1 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+  const out1 = await G(page, (id) => { const H = window.__hype; return { os: (H.S.os || []).map((l) => l.t + ':' + l.id), inGame: H.S.stack.some((l) => l.t === 'dm' && l.id === id) }; }, cid);
+  const box = await kid.$('.layer-foot textarea, .reply-box textarea, textarea');
+  if (box) await box.fill('coucou depuis ma fenêtre');
+  await sleep(300);
+  const draft = await G(page, (id) => (window.__hype.S.drafts.dm || {})[id] || '', cid);
+  const kidUi = await kid.evaluate(() => ({ title: document.title, btns: [...document.querySelectorAll('.os-bar .win-btn')].map((b) => b.getAttribute('aria-label')), styled: getComputedStyle(document.querySelector('.os-bar')).backgroundImage.includes('gradient') }));
+  await kid.screenshot({ path: join(OUT, 'os-window.png') });
+  const gone = kid.waitForEvent('close', { timeout: 15000 });
+  await kid.click('.os-bar .win-in').catch(() => {}); // (the window closes under the click: its end may not be seen)
+  await gone;
+  await sleep(500);
+  const back1 = await G(page, (id) => { const H = window.__hype; return { os: (H.S.os || []).length, inGame: H.S.stack.some((l) => l.t === 'dm' && l.id === id), text: (document.querySelector('.layer:not(.min) textarea') || {}).value || '' }; }, cid);
+  const wins2 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+  const [kid2] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.click('.layer .win-out')]);
+  await kid2.waitForSelector('.os-bar .win-close', { timeout: 15000 });
+  await G(page, (id) => window.__hype.openDM(id), cid); // (already out of the game: that window comes to the front, no second one)
+  await sleep(300);
+  const twice = await G(page, (id) => { const H = window.__hype; return { os: (H.S.os || []).length, inGame: H.S.stack.some((l) => l.t === 'dm' && l.id === id) }; }, cid);
+  const gone2 = kid2.waitForEvent('close', { timeout: 15000 });
+  await kid2.click('.os-bar .win-close').catch(() => {});
+  await gone2;
+  await sleep(400);
+  const shut = await G(page, (id) => { const H = window.__hype; return { os: (H.S.os || []).length, open: H.S.stack.some((l) => l.t === 'dm' && l.id === id) }; }, cid);
+  check('« Sortir du jeu »: the conversation becomes a real window (no system frame, Hype’s bar: back in the game, reduce, enlarge, close), live on the game (what is typed there is the game’s draft); « Remettre dans le jeu » brings it back as it was; its ✕ closes it',
+    wins1 === 2 && out1.os.length === 1 && !out1.inGame && /coucou depuis ma fenêtre/.test(draft) && kidUi.btns.length === 4 && kidUi.styled && /Hype/.test(kidUi.title)
+      && back1.os === 0 && back1.inGame && /coucou depuis ma fenêtre/.test(back1.text) && wins2 === 1 && twice.os === 1 && !twice.inGame && shut.os === 0 && !shut.open, { wins1, out1, draft, kidUi, back1, wins2, twice, shut });
+  // a save loaded (the game entered again): its windows out of the game close with the game they showed
+  await G(page, (id) => window.__hype.openDM(id), cid);
+  await page.waitForSelector('.layer .win-out', { timeout: 10000 });
+  const [kid3] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.click('.layer .win-out')]);
+  await kid3.waitForSelector('.os-bar .hb-logo', { timeout: 15000 });
+  const gone3 = kid3.waitForEvent('close', { timeout: 15000 });
+  await G(page, () => { const H = window.__hype; H.enterGame(H.S.game, { tab: 'feed', hot: true }); });
+  await gone3;
+  await sleep(400);
+  const reload = await G(page, () => ({ os: (window.__hype.S.os || []).length, stack: window.__hype.S.stack.length }));
+  const wins3 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+  check('a save loaded: the windows out of the game close with the game they showed', reload.os === 0 && reload.stack === 0 && wins3 === 1, { reload, wins3 });
+  // the post being written, out of the game: « Publier » there publishes it, and its window closes
+  await compose(page);
+  await page.waitForSelector('.layer .win-out', { timeout: 10000 });
+  const [kid4] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.click('.layer .win-out')]);
+  await kid4.waitForSelector('#compose', { timeout: 15000 });
+  const mine0 = await G(page, () => window.__hype.S.game.posts.filter((x) => x.a === 'p').length);
+  await kid4.focus('#compose');
+  await kid4.keyboard.type('@za');
+  await sleep(500);
+  const ment = await kid4.evaluate(() => [...document.querySelectorAll('.mention-list [role=option] .mo-h')].map((x) => x.textContent));
+  await kid4.fill('#compose', 'écrit dans ma fenêtre à part');
+  await sleep(300);
+  const gone4 = kid4.waitForEvent('close', { timeout: 15000 });
+  await kid4.locator('.layer-head button', { hasText: 'Publier' }).first().click().catch(() => {});
+  await gone4;
+  await sleep(1000);
+  await idle(page);
+  await sleep(1000);
+  await dismiss(page);
+  const pub = await G(page, () => { const H = window.__hype, mine = H.S.game.posts.filter((x) => x.a === 'p'); return { n: mine.length, text: (mine.find((x) => /fenêtre à part/.test(x.text)) || {}).text, os: (H.S.os || []).length, compose: H.S.stack.some((l) => l.t === 'compose') }; });
+  const wins4 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+  check('the post being written, out of the game: « @ » suggests who to mention there; « Publier » there publishes it, and its window closes', ment.includes('@zara.vey') && pub.n === mine0 + 1 && /écrit dans ma fenêtre à part/.test(pub.text || '') && pub.os === 0 && !pub.compose && wins4 === 1, { ment, mine0, pub, wins4 });
+  // a question asked from a window out of the game (deleting that post): answered in the game's window, it closes that window, not the game's
+  const pid = await G(page, () => { const p = window.__hype.S.game.posts.find((x) => x.a === 'p' && /fenêtre à part/.test(x.text)); return p ? p.id : null; });
+  await G(page, (id) => { const H = window.__hype; H.openLayer({ t: 'settings' }); H.openPost(id); }, pid);
+  await page.waitForSelector('.layer .win-out', { timeout: 10000 });
+  const [kid5] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.locator('.layer .win-out').last().click()]);
+  await kid5.waitForSelector('.os-bar', { timeout: 15000 });
+  await kid5.locator('button', { hasText: 'Supprimer' }).first().click();
+  await page.waitForSelector('.modal .modal-title', { timeout: 10000 });
+  await sleep(600);
+  const gone5 = kid5.waitForEvent('close', { timeout: 15000 });
+  await page.locator('.modal .btn', { hasText: 'Supprimer' }).first().click();
+  await gone5;
+  await sleep(500);
+  const asked = await G(page, (id) => { const H = window.__hype; return { deleted: !H.S.game.posts.some((x) => x.id === id), os: (H.S.os || []).length, stack: H.S.stack.map((l) => l.t) }; }, pid);
+  check('a question asked from a window out of the game is answered in the game; what it closes is that window', !!pid && asked.deleted && asked.os === 0 && asked.stack.join(',') === 'settings', { pid, asked });
+  await closeLayers(page);
+  await closeLayers(page);
+
   // ---------- a model that refuses the reasoning option: asked again without it ----------
   await main(app, () => globalThis.__hypeFake.failNext({ code: 'invalid_request', status: 400, param: 'reasoning.effort', message: 'unsupported' }));
   const n0 = await main(app, () => globalThis.__hypeFake.calls.length);

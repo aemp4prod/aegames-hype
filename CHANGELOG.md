@@ -5,6 +5,24 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.9 — 19 octobre 2026 (build 27009)
+
+**De vraies fenêtres : dans l’appli PC, une fenêtre sort du jeu pour aller où tu veux, même sur un autre écran, avec la barre de Hype à la place de celle de Windows. Et des mini-jeux un cran plus durs.**
+
+### ✨ Nouveautés
+
+- **🪟 Sortir une fenêtre du jeu** (appli PC) : un nouveau bouton dans sa barre en fait une vraie fenêtre, à poser où tu veux, même sur un deuxième écran. Pas de cadre Windows : la barre est celle de Hype, avec « Remettre dans le jeu », Réduire, Agrandir (un double-clic sur la barre aussi) et Fermer. C’est toujours ta partie : ce que tu y tapes reste ton brouillon, une conversation ouverte là-bas compte comme lue (pas de « … t’a écrit » pour elle), la taille de l’affichage (Ctrl + molette) la suit, et « Remettre dans le jeu » la ramène telle quelle. Les conversations, les posts, les profils, la publication, la programmation d’une sortie, l’inventaire, la boutique de matos, le recrutement et les réglages peuvent sortir ; un rendez-vous, un tournage ou un mini-jeu restent dans le jeu. Chaque type de fenêtre retient sa place, et elles se ferment avec ta partie (ou quand tu charges une sauvegarde).
+- **🏷️ La barre de Hype** : une fenêtre détachée dans le jeu porte le logo de Hype et ses boutons Réduire, Remettre au centre et Fermer (✕).
+- **↕️ Où tu veux** : une fenêtre détachée descend jusqu’à ne plus montrer que sa barre (avant, une grande fenêtre bougeait à peine), et elle se redimensionne par ses bords gauche, droit et bas et par ses deux coins du bas, plus seulement par un coin.
+- **👆 Attraper par le nom** : le nom et l’avatar en haut d’une conversation déplacent aussi la fenêtre, et la lâcher n’ouvre plus le profil.
+- **💻 Dès 720 pixels de large** (un petit portable, une appli zoomée), les fenêtres se détachent, plus seulement à partir de 900.
+
+### 🎮 Les mini-jeux, un cran plus durs
+
+- **Chaque niveau prend la difficulté de celui du dessus** : Légendaire se joue comme l’ancien Mythique, Expert comme l’ancien Légendaire, Difficile comme l’ancien Expert, Moyen comme l’ancien Difficile et Facile comme l’ancien Moyen. Le chrono, le nombre de questions ou de coupes, les pièges des questions, la coupe au rythme, le chat, le mixage, le recadrage, la mémoire, le tri des rushes et les rendez-vous suivent.
+- **Mythique va plus loin** : moins de temps encore, un élément de plus et des pièges impitoyables.
+- Ce que rapporte chaque niveau ne change pas (Mythique : ×4,4), et Cauchemar, le quiz de vraies questions, reste tel quel.
+
 ## 0.27.8 — 19 octobre 2026 (build 27008)
 
 **Des consignes plus claires partout : ce qu’il faut pour réussir un mini-jeu, comment il compte tes points, et une question avant chaque action définitive.**

@@ -1581,20 +1581,6 @@ body.win-dragging, body.win-dragging * { cursor: grabbing !important; user-selec
 .plan-row .acts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .move-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 /* 0.27.4: the hidden menu */
-.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
-.menu-num { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.menu-num > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.menu-num > small { font-size: 12px; color: var(--ink-3); }
-.menu-num .input { width: 100%; min-width: 0; }
-.menu-rels { display: flex; flex-direction: column; gap: 10px; }
-.menu-rel { display: flex; gap: 10px; align-items: center; }
-.menu-rel .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.menu-rel .mid span { font-size: 13px; color: var(--ink-2); }
-.menu-rel input[type=range] { width: 100%; accent-color: var(--hot); }
-.menu-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; } /* 0.27.6: one panel at a time */
-.menu-tabs::-webkit-scrollbar { display: none; }
-.menu-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; white-space: nowrap; }
-.menu-tab.on { border-color: var(--hot); background: var(--hot); color: #fff; }
 .practice-end .row { justify-content: center; gap: 10px; }
 .video-card { margin-top: 10px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
 .vc-screen { position: relative; aspect-ratio: 16 / 9; max-height: 280px; width: 100%; display: grid; place-items: center; background: radial-gradient(circle at 72% 28%, #4a2d63, transparent 62%), linear-gradient(160deg, #15121d, #2c1b34); }
@@ -2858,3 +2844,53 @@ svg.watch:active { cursor: grabbing; }
 .memb-warn { display: block; margin: 2px 0 6px; }
 .mg-fix li small { display: block; color: var(--ink-3); font-size: 13px; line-height: 1.35; }
 .talk-gestes .chip-btn.armed { border-color: var(--hot); color: var(--hot-t); background: var(--hover); font-weight: 600; }
+/* 0.27.9: the menu, as a game trainer draws it: a banner, a bar, one column, the line chosen in white */
+.trainer { display: flex; flex-direction: column; max-width: 460px; margin: 0 auto; padding: 12px 12px 16px; }
+.tr-banner { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 84px; border-radius: 10px 10px 0 0; overflow: hidden;
+  background: radial-gradient(120% 140% at 15% 0%, #ff7bbd 0%, var(--hot) 38%, #7a1145 100%); color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+.tr-banner b { font-family: var(--f-display, inherit); font-size: 38px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
+.tr-banner span { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.9; }
+.tr-sub { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #000; color: #f6eef2; font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.tr-list { display: flex; flex-direction: column; max-height: min(56vh, 520px); overflow-y: auto; background: rgba(12, 9, 11, 0.86); }
+.tr-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; padding: 0 12px; color: #f6eef2; cursor: pointer; user-select: none; font-size: 15px; }
+.tr-line + .tr-line { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+.tr-line:hover { background: rgba(255, 255, 255, 0.08); }
+.tr-line.on { background: #f6eef2; color: #110c0f; }
+.tr-line.off { opacity: 0.45; cursor: default; }
+.tr-lbl { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-emo { width: 20px; text-align: center; }
+.tr-go { font-size: 22px; line-height: 1; opacity: 0.7; }
+.tr-val { display: flex; align-items: center; gap: 2px; font-family: var(--f-mono); font-size: 14px; white-space: nowrap; }
+.tr-val b { min-width: 60px; text-align: center; font-weight: 700; }
+.tr-arr { width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.tr-arr:hover { background: rgba(127, 127, 127, 0.18); }
+.tr-edit { width: 130px; height: 30px; border: 2px solid var(--hot); border-radius: 6px; padding: 0 8px; font-family: var(--f-mono); font-size: 14px; text-align: right; background: #fff; color: #110c0f; }
+.tr-desc { margin: 0; min-height: 44px; padding: 10px 12px; background: rgba(0, 0, 0, 0.9); color: #e6d9df; font-size: 13px; line-height: 1.4; border-top: 3px solid var(--hot); border-radius: 0 0 10px 10px; }
+.tr-keys { margin: 8px 0 0; text-align: center; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.04em; }
+@media (hover: none) { .tr-keys { display: none; } }
+/* 0.27.9: a floating window wears Hype's own bar (not a copy of the system's), and resizes by any edge */
+.layer-head.hypebar { min-height: 44px; padding: 0 6px 0 10px; gap: 8px; border-bottom: 0; background: linear-gradient(100deg, var(--hot) 0%, #c4166f 58%, #8f1453 100%); color: #fff; }
+.layer-head.hypebar h2 { font-size: 15px; color: #fff; }
+.layer-head.hypebar .iconbtn { color: #fff; }
+.layer-head.hypebar .iconbtn:hover { background: rgba(255, 255, 255, 0.18); }
+.layer-head.hypebar .who b { color: #fff; }
+.layer-head.hypebar .who span { color: rgba(255, 255, 255, 0.84); }
+.layer-head.hypebar .win-btn { width: 32px; height: 32px; border-radius: 9px; color: rgba(255, 255, 255, 0.92); }
+.layer-head.hypebar .win-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.layer-head.hypebar .win-close:hover { background: #fff; color: var(--hot); }
+.hb-logo { flex: none; font-family: var(--f-display); font-weight: 800; font-size: 14px; letter-spacing: -0.03em; line-height: 1; padding: 5px 9px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); color: #fff; }
+.win-edge { position: absolute; z-index: 3; touch-action: none; }
+.win-edge.e { top: 44px; right: 0; bottom: 20px; width: 7px; cursor: ew-resize; }
+.win-edge.w { top: 44px; left: 0; bottom: 14px; width: 7px; cursor: ew-resize; }
+.win-edge.s { left: 14px; right: 20px; bottom: 0; height: 7px; cursor: ns-resize; }
+.win-edge.sw { left: 0; bottom: 0; width: 14px; height: 14px; cursor: nesw-resize; }
+.win-grip { z-index: 3; }
+/* 0.27.9: a window out of the game (the PC app): the whole system window, Hype's bar moves it */
+body.os-win { overflow: hidden; }
+.os-shell { position: fixed; inset: 0; display: flex; }
+.os-panel { flex: 1; max-width: none; height: 100%; border-radius: 0; padding-top: 0; padding-bottom: 0; animation: none; }
+.os-bar { -webkit-app-region: drag; user-select: none; }
+.os-bar button, .os-bar a, .os-bar input, .os-bar .who { -webkit-app-region: no-drag; }
+.os-grab { flex: 1 1 auto; align-self: stretch; min-width: 12px; }
+.os-bar h2 { margin-right: 0; }
+.os-bar .who { margin-right: 0; flex: 0 1 auto; }

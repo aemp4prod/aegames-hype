@@ -21,6 +21,13 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'hype', privileges: { standard: 
 if (!app.requestSingleInstanceLock()) app.exit(0);
 
 let win = null;
+// 0.27.9: the windows the player takes out of the game: real windows of the system, without its frame (the game draws
+// Hype's own bar in them), moved anywhere, a second screen too. The game page fills them from inside (same game, same
+// state): they load nothing and run nothing of their own, and they close with the game.
+const kids = new Map();
+const KID_NAME = /^hypewin-[a-z0-9]{1,40}$/i;
+const kidOptions = () => ({ frame: false, show: true, minWidth: 340, minHeight: 280, autoHideMenuBar: true, title: 'Hype', icon: join(ROOT, 'build', 'icon.png'), backgroundColor: '#0f0d12',
+  webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: process.platform !== 'linux', zoomFactor: win ? win.webContents.getZoomFactor() : 1 } });
 const store = new GameStore(join(app.getPath('userData'), 'parties'));
 const PREFS_FILE = join(app.getPath('userData'), 'preferences.json');
 
@@ -120,6 +127,7 @@ function applyZoom(z, keep = true) {
   if (!win) return;
   const v = clampZoom(z);
   win.webContents.setZoomFactor(v);
+  for (const k of kids.values()) if (!k.isDestroyed()) k.webContents.setZoomFactor(v); // (0.27.9: the windows out of the game follow)
   if (keep) { prefs.zoom = v; clearTimeout(zoomTimer); zoomTimer = setTimeout(() => { savePrefs({ zoom: v }).catch(() => {}); }, 300); }
   win.webContents.send('hype:zoom', { zoom: v, auto: savedZoom() === null });
 }
@@ -129,6 +137,17 @@ function resetZoom() {
   savePrefs({ zoom: null }).catch(() => {});
   applyZoom(autoZoom(), false);
 }
+// Ctrl + wheel, Ctrl +, Ctrl −, Ctrl 0: in the game and in its windows out of it (0.27.9), the same size for all.
+const zoomWheel = (event, dir) => { if (win) applyZoom(win.webContents.getZoomFactor() + (dir === 'in' ? 0.1 : -0.1)); };
+function zoomKeys(event, input) {
+  if (!win || input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
+  const k = input.key, c = input.code;
+  if (k === '+' || k === '=' || c === 'Equal' || c === 'NumpadAdd') { event.preventDefault(); applyZoom(win.webContents.getZoomFactor() + 0.1); }
+  else if (k === '-' || c === 'Minus' || c === 'NumpadSubtract') { event.preventDefault(); applyZoom(win.webContents.getZoomFactor() - 0.1); }
+  else if (k === '0' || c === 'Digit0' || c === 'Numpad0') { event.preventDefault(); resetZoom(); }
+}
+// While a window is out of the game, the game keeps its pace even minimized (it is the one that draws that window).
+const kidsChanged = () => { if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling(kids.size === 0); };
 function createWindow() {
   const z0 = savedZoom() || autoZoom(), wa = screen.getPrimaryDisplay().workAreaSize, big = Math.max(1, z0);
   win = new BrowserWindow({
@@ -139,15 +158,22 @@ function createWindow() {
     webPreferences: { preload: join(ROOT, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: process.platform !== 'linux', additionalArguments: TEST ? ['--hype-test'] : [], zoomFactor: z0 },
   });
   win.webContents.on('did-finish-load', () => applyZoom(savedZoom() || autoZoom(), false));
-  win.webContents.on('zoom-changed', (event, dir) => applyZoom(win.webContents.getZoomFactor() + (dir === 'in' ? 0.1 : -0.1)));
-  win.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
-    const k = input.key, c = input.code;
-    if (k === '+' || k === '=' || c === 'Equal' || c === 'NumpadAdd') { event.preventDefault(); applyZoom(win.webContents.getZoomFactor() + 0.1); }
-    else if (k === '-' || c === 'Minus' || c === 'NumpadSubtract') { event.preventDefault(); applyZoom(win.webContents.getZoomFactor() - 0.1); }
-    else if (k === '0' || c === 'Digit0' || c === 'Numpad0') { event.preventDefault(); resetZoom(); }
+  win.webContents.on('zoom-changed', zoomWheel);
+  win.webContents.on('before-input-event', zoomKeys);
+  // 0.27.9: only the game's own windows (an empty page it fills itself, named by the game); nothing else ever opens
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => (KID_NAME.test(frameName || '') && (!url || url === 'about:blank') ? { action: 'allow', overrideBrowserWindowOptions: kidOptions() } : { action: 'deny' }));
+  win.webContents.on('did-create-window', (kid, { frameName }) => {
+    kids.set(frameName, kid);
+    kid.setMenuBarVisibility(false);
+    kid.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    kid.webContents.on('will-navigate', (event) => event.preventDefault());
+    kid.webContents.setZoomFactor(win.webContents.getZoomFactor());
+    kid.webContents.on('zoom-changed', zoomWheel);
+    kid.webContents.on('before-input-event', zoomKeys);
+    kidsChanged();
+    kid.on('closed', () => { if (kids.get(frameName) === kid) kids.delete(frameName); kidsChanged(); });
   });
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.on('close', () => { for (const k of kids.values()) if (!k.isDestroyed()) k.destroy(); kids.clear(); });
   win.webContents.on('will-navigate', (event, url) => { if (!url.startsWith(ORIGIN + '/')) event.preventDefault(); });
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => { win = null; });
@@ -180,6 +206,18 @@ function registerIpc() {
     return ai.image({ id: req.id, prompt: req.prompt, sketch });
   });
   handle('hype:ai-cancel', async (event, id) => { ai.cancel(String(id)); return ok(true); });
+  // 0.27.9: Hype's bar in a window out of the game: reduce, enlarge, close, bring to the front, back to the game
+  handle('hype:win', async (event, name, act) => {
+    const kid = kids.get(String(name));
+    if (act === 'game') { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } return ok(true); }
+    if (!kid || kid.isDestroyed()) return ok(false);
+    if (act === 'min') kid.minimize();
+    else if (act === 'max') { if (kid.isMaximized()) kid.unmaximize(); else kid.maximize(); }
+    else if (act === 'close') kid.close();
+    else if (act === 'front') { if (kid.isMinimized()) kid.restore(); kid.show(); kid.focus(); }
+    else return ok(false);
+    return ok(true);
+  });
 
   handle('hype:store-get', async (event, path) => ok(await store.get(path)));
   handle('hype:store-set', async (event, path, body) => { await store.set(path, body); return ok(true); });

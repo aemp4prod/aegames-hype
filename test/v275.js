@@ -99,8 +99,8 @@ async function newGame(page, identity) {
   });
   check('every AI-written game: never less time than in 0.27.4, whatever the length and the level',
     ck.floor, ck);
-  check('Mythique: a long question (110 characters and four answers of 30) gets about 14 s, a short one less; ten long statements more than ten short; Cauchemar keeps its clock (14 s); help (a scriptwriter, a prompter) adds to all of it; the ladder goes down level after level',
-    ck.long >= 13500 && ck.long <= 14700 && ck.short < ck.long && ck.short >= ck.old.quiz && ck.vfLong > ck.vfShort && ck.vfShort >= ck.old.vf && ck.cauchemar.every((v) => v === ck.cauchemarOld) && ck.cauchemarOld === 14000
+  check('Mythique: a long question (110 characters and four answers of 30) gets about 12,6 s (14 before 0.27.9, a notch harder), a short one less; ten long statements more than ten short; Cauchemar keeps its clock (14 s); help (a scriptwriter, a prompter) adds to all of it; the ladder goes down level after level',
+    ck.long >= 12000 && ck.long <= 13200 && ck.short < ck.long && ck.short >= ck.old.quiz && ck.vfLong > ck.vfShort && ck.vfShort >= ck.old.vf && ck.cauchemar.every((v) => v === ck.cauchemarOld) && ck.cauchemarOld === 14000
       && ck.helped > ck.long && ck.down, ck);
 
   // ---------- on screen: a quiz in Mythique, each question its clock ----------
@@ -163,8 +163,8 @@ async function newGame(page, identity) {
     const H = window.__hype, D = (id) => H.DIFFS.find((d) => d.id === id), r = { what: 'podcast' };
     return ['moyen', 'expert', 'legende', 'mythique'].map((id) => { const m = H.makeMix(r, D(id)); return [m.tracks.length, m.band, m.drift]; });
   });
-  check('the mix: from Expert on, a wider band and a calmer drift (Mythique: 0,16 and 0,22, four tracks)',
-    JSON.stringify(mix) === JSON.stringify([[2, 0.26, 0.13], [3, 0.2, 0.18], [4, 0.18, 0.2], [4, 0.16, 0.22]]), mix);
+  check('the mix: a wider band and a calmer drift than before 0.27.5, each level a notch harder since 0.27.9 (Légendaire: 0,16 and 0,22; Mythique: 0,15 and 0,23, four tracks)',
+    JSON.stringify(mix) === JSON.stringify([[3, 0.22, 0.16], [4, 0.18, 0.2], [4, 0.16, 0.22], [4, 0.15, 0.23]]), mix);
 
   await browser.close();
   console.log('ERRORS', errors.length ? '\n' + errors.join('\n') : 'none');

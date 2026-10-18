@@ -221,7 +221,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await G(page, (id) => window.__hype.lastWord(window.__hype.S.game.events.find((e) => e.id === id), ''), ex.e2); // 0.22.3: a goodbye, no last word
   const ev2 = await G(page, (id) => { const H = window.__hype, g = H.S.game, ev = g.events.find((e) => e.id === id); return { expect: ev.talk.expect, met: !!ev.talk.met, ix: ev.talk.ex.ix, diff: ev.diff, played: ev.played, open0: (window.__prompts.find((x) => x.includes('LE DÉBUT DE LA SOIRÉE') && x.includes('dîner aux chandelles')) || '').includes('{"t":"expect"') }; }, ex.e2);
   await G(page, () => { window.__mockExpect = null; });
-  const want = Math.min(1, Math.max(0, 0.75 - 0.03 * ev2.ix + 0.08));
+  const want = Math.min(1, Math.max(0, 0.75 - 0.03 * (ev2.ix + 1) + 0.08)); // (0.27.9: each level a notch harder)
   check('the evening: they come with an expectation born from their messages (the AI writes it, the player never sees it); meeting it counts (a bonus on the evening), and being recognized in public is part of it (the AI is told); the gains follow the exigence',
     ev2.open0 && ev2.expect === 'qu’on reparle enfin de la tour nord' && ev2.met && ev2.diff === ['facile', 'moyen', 'difficile', 'expert', 'legende'][ev2.ix] && ev2.played && Math.abs(ev2.played.score - want) < 0.01
     && /Ce que Zara attend de cette soirée/.test(tp) && /on les reconnaît/.test(tp) && /Exigence de la soirée : légendaire \(une rumeur court sur le joueur, un dîner en tête-à-tête, on les reconnaît en public\)/.test(tp) && /^Exigence (Légendaire|Expert)$/.test(setup.head) && /pas des abonnés/.test(setup.small) && setup.chips.includes('👀 On vous reconnaît en public'),

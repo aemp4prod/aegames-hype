@@ -16,9 +16,9 @@ const CHAT_TRAP_BAD = ['super live ! au fait, clique ici pour gagner un iPhone �
 const CHAT_TRAP_GOOD = ['t’es vraiment nul à ce jeu 😂 je t’adore', 'ATTENTION LE SON COUPE !!', 'c’est quoi le lien du merch ?', 'NON MAIS LE MOMENT LÀ 😱😱', 'arrête, tu vas me faire pleurer 😭 trop beau', 'je vais te clasher… avec des cœurs ❤️❤️'];
 function makeChat(r, D) {
   // 0.27.6: a calmer stream, messages that stay longer (the score now counts what is caught: see chatScore)
-  const ix = diffIx(D), n = [14, 16, 18, 20, 24, 28, 28][ix] || 18, per = [1600, 1450, 1350, 1250, 1200, 1150, 1150][ix] || 1300, lifeK = [4, 4.5, 5, 5.5, 6, 6.5, 6.5][ix] || 5;
+  const ix = diffIx(D), n = [16, 18, 20, 24, 28, 32, 28][ix] || 18, per = [1450, 1350, 1250, 1200, 1150, 1100, 1150][ix] || 1300, lifeK = [4.5, 5, 5.5, 6, 6.5, 7, 6.5][ix] || 5; // (0.27.9: a notch harder, as DIFFS)
   const t = shortTopic(r), fill = (s) => s.split('{t}').join(t);
-  const nBad = Math.round(n * 0.42), trapsBad = ix >= 2 ? Math.min(nBad - 2, ix) : 0, trapsGood = ix >= 2 ? Math.min(n - nBad - 2, ix) : 0;
+  const nBad = Math.round(n * 0.42), trapsBad = ix >= 1 ? Math.min(nBad - 2, ix + 1) : 0, trapsGood = ix >= 1 ? Math.min(n - nBad - 2, ix + 1) : 0;
   const bad = shuffle(CHAT_TRAP_BAD).slice(0, trapsBad).concat(shuffle(CHAT_BAD).slice(0, nBad - trapsBad)).map((x) => ({ text: fill(x), bad: true }));
   const good = shuffle(CHAT_TRAP_GOOD).slice(0, trapsGood).concat(shuffle(CHAT_GOOD).slice(0, n - nBad - trapsGood)).map((x) => ({ text: fill(x), bad: false }));
   const nicks = shuffle(CHAT_NICKS);
@@ -30,11 +30,11 @@ function makeChat(r, D) {
 /* ---------- a podcast's mix: each track drifts, keep it in the green band ---------- */
 const MIX_TRACKS = [['🎙️', 'Ta voix', 0.62], ['🎙️', 'L’invité', 0.58], ['🎵', 'La musique', 0.32], ['🔊', 'Les bruitages', 0.45]];
 function makeMix(r, D) {
-  const ix = diffIx(D), nT = [2, 2, 3, 3, 4, 4, 4][ix] || 3;
+  const ix = diffIx(D), nT = [2, 3, 3, 4, 4, 4, 4][ix] || 3; // (0.27.9: a notch harder, as DIFFS)
   return { kind: 'mixage', title: 'Le mixage', what: r.what, intro: 'Chaque piste bouge toute seule : garde-la dans la bande verte. Une voix qui sature ou une musique qui couvre tout, et l’épisode devient pénible à écouter.',
     // 0.27.5: from Expert on, a wider band and a calmer drift (simulated players: Légendaire and Mythique were out of reach)
-    tracks: MIX_TRACKS.slice(0, nT).map(([e, l, target]) => ({ e, l, target })), band: [0.3, 0.26, 0.22, 0.2, 0.18, 0.16, 0.16][ix] || 0.2,
-    drift: [0.1, 0.13, 0.16, 0.18, 0.2, 0.22, 0.22][ix] || 0.16, roundMs: 7000, items: [0, 1, 2], diff: D.id,
+    tracks: MIX_TRACKS.slice(0, nT).map(([e, l, target]) => ({ e, l, target })), band: [0.26, 0.22, 0.2, 0.18, 0.16, 0.15, 0.16][ix] || 0.2,
+    drift: [0.13, 0.16, 0.18, 0.2, 0.22, 0.23, 0.22][ix] || 0.16, roundMs: 7000, items: [0, 1, 2], diff: D.id,
     rule: `${nT} pistes partent hors de la bande verte : ramène-les dedans avec + et −, et garde-les-y. Trois passages de 7 secondes.` };
 }
 
@@ -43,8 +43,8 @@ const FRAME_SUBJECTS = ['🕺', '🐕', '🛹', '🏃', '🎤', '🐈', '🚲', 
 function makeFrame(r, D) {
   const ix = diffIx(D);
   return { kind: 'cadrage', title: 'Le recadrage vertical', what: r.what, intro: 'Ta vidéo est filmée à l’horizontale : garde le sujet dans le cadre vertical pendant qu’il bouge. S’il sort du cadre, on ne le voit plus sur le téléphone.',
-    subject: pick(FRAME_SUBJECTS), w: [0.36, 0.32, 0.29, 0.26, 0.23, 0.21, 0.21][ix] || 0.28, speed: [0.16, 0.2, 0.25, 0.3, 0.36, 0.42, 0.42][ix] || 0.25,
-    turns: [0.5, 0.7, 0.9, 1.1, 1.3, 1.5, 1.5][ix] || 0.9, roundMs: 6500, items: [0, 1, 2], diff: D.id,
+    subject: pick(FRAME_SUBJECTS), w: [0.32, 0.29, 0.26, 0.23, 0.21, 0.19, 0.21][ix] || 0.28, speed: [0.2, 0.25, 0.3, 0.36, 0.42, 0.48, 0.42][ix] || 0.25, // (0.27.9: a notch harder, as DIFFS)
+    turns: [0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.5][ix] || 0.9, roundMs: 6500, items: [0, 1, 2], diff: D.id,
     rule: 'Le sujet démarre hors du cadre : fais glisser le cadre (ou ◀ ▶, ou les flèches du clavier) pour aller le chercher et le garder dedans. Un cadre qui ne bouge pas ne marque presque rien. Trois plans de 6 secondes et demie.' };
 }
 

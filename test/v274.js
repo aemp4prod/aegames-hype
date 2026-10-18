@@ -276,8 +276,8 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     return { grading: Object.keys(seen).some((k) => /etalonnage/.test(k)), videoKinds: Object.keys(seen).filter((k) => k.startsWith('vidéo:')).length, edits: [...edits].sort().join(),
       vf: t('vf', 10, 'mythique'), quiz: t('quiz', 4, 'mythique'), tri: t('tri', 9, 'mythique'), ordre: t('ordre', 8, 'mythique'), intrus: t('intrus', 4, 'mythique'), facileQuiz: t('quiz', 3, 'facile'), extra: H.MG_EXTRA };
   });
-  check('the colour grading never comes any more (shoot or edit); a video draws among 7 mini-games; every answer has two more seconds, even in Mythique (a true-or-false statement 1,7 → 3,7 s, a quiz question 6,3 → 8,3 s)',
-    !mg.grading && mg.videoKinds === 7 && mg.edits === 'montage,tri' && mg.extra === 2000 && mg.vf === 16800 + 20000 && mg.quiz === 6300 + 2000 && mg.tri === 18900 + 18000 && mg.ordre === 30240 + 16000 && mg.intrus === 5040 + 2000 && mg.facileQuiz === 30000 + 2000, mg);
+  check('the colour grading never comes any more (shoot or edit); a video draws among 7 mini-games; every answer has two more seconds, even in Mythique (0.27.9, a notch harder: a true-or-false statement 1,32 → 3,32 s, a quiz question 4,95 → 6,95 s)',
+    !mg.grading && mg.videoKinds === 7 && mg.edits === 'montage,tri' && mg.extra === 2000 && mg.vf === 13200 + 20000 && mg.quiz === 4950 + 2000 && mg.tri === 14850 + 18000 && mg.ordre === 23760 + 16000 && mg.intrus === 3960 + 2000 && mg.facileQuiz === 21000 + 2000, mg);
   await G(page, () => { const H = window.__hype, g = H.S.game; for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped'; H.update(); });
   const vfId = await G(page, () => {
     const H = window.__hype, g = H.S.game;
@@ -306,21 +306,23 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   await press(['ArrowUp', 'ArrowDown', 'b', 'a']);
   const wrong = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'cheat'));
   await press(CODE);
-  await page.waitForSelector('.layer .menu-grid', { timeout: 5000 });
+  await page.waitForSelector('.layer .trainer', { timeout: 5000 });
   const m0 = await G(page, () => ({ on: window.__hype.menuOn(), ls: localStorage.getItem('hype:menu'), title: document.querySelector('.layer .layer-head h2').textContent, text: document.querySelector('.layer').textContent }));
   await shot(page, 'menu-open');
   check('the Konami code opens the hidden menu (typed in a text field, or wrong, nothing); it stays unlocked',
-    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🛠️ Mode menu' && /Argent/.test(m0.text) && /Réputation/.test(m0.text) && /Temps/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text) && /Abonnés/.test(m0.text), { inField, wrong, title: m0.title });
+    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🛠️ Mode menu' && /Argent/.test(m0.text) && /Réputation/.test(m0.text) && /Temps/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text) && /abonnés/.test(m0.text), { inField, wrong, title: m0.title });
   await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); }); // (what the game had to say meanwhile)
   await dismiss(page);
-  await page.locator('.layer .menu-num', { hasText: 'Argent' }).locator('input').fill('50 000');
-  await page.locator('.layer .menu-num', { hasText: 'Abonnés' }).locator('input').fill('123456');
-  await page.locator('.layer .menu-num', { hasText: 'Gemmes' }).locator('input').fill('999');
+  // (0.27.9: the trainer menu: « Argent et abonnés », then each line typed: Entrée opens its field, Entrée sets it)
+  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .tr-edit'); await page.fill('.layer .tr-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /Argent et abonnés/.test((document.querySelector('.layer .tr-sub') || {}).textContent || ''));
+  await typeIn('50 000');
+  await page.keyboard.press('ArrowDown'); await typeIn('123456');
+  await page.keyboard.press('ArrowDown'); await typeIn('999');
   const lv0 = await G(page, () => { const H = window.__hype, g = H.S.game; return { level: g.stats.level, unlocked: H.mains(g).length, locked: H.mains(g, false).length - H.mains(g).length }; });
-  await page.locator('.layer .menu-num', { hasText: 'Niveau' }).locator('input').fill(String(lv0.level + 2));
-  await dismiss(page);
-  await page.locator('.layer section.section', { hasText: 'Abonnés' }).locator('button', { hasText: 'Appliquer' }).click(); // (0.27.6: the money tab)
-  await sleep(400);
+  await page.keyboard.press('ArrowDown'); await typeIn(String(lv0.level + 2));
+  await sleep(300);
   const m1 = await G(page, () => { const H = window.__hype, g = H.S.game; return { cash: g.career.cash, fol: g.stats.followers, gems: g.stats.gems, level: g.stats.level, xp: g.stats.xp, unlocked: H.mains(g).length }; });
   check('money, followers, gems and level set from the menu (« 50 000 » is 50 000); a higher level brings the characters it unlocks',
     m1.cash === 50000 && m1.fol === 123456 && m1.gems === 999 && m1.level === lv0.level + 2 && m1.xp === 0 && m1.unlocked === lv0.unlocked + Math.min(2, lv0.locked), { m1, lv0 });
@@ -367,7 +369,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   for (let k = 0; k < 7; k++) { await page.click('.cash-chip'); await sleep(60); }
   await sleep(300);
   const taps = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'cheat'));
-  await page.locator('.layer button', { hasText: 'Masquer le mode menu' }).click();
+  await page.locator('.layer .tr-line', { hasText: 'Masquer le mode menu' }).click();
   await sleep(300);
   const hidden = await G(page, () => ({ on: window.__hype.menuOn(), open: window.__hype.S.stack.some((l) => l.t === 'cheat') }));
   check('once unlocked, the menu is in the settings; 7 quick taps on the money open it too (on a phone); « Masquer » hides it again',

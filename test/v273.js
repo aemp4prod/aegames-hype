@@ -127,12 +127,12 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     const H = window.__hype, g = H.S.game, r = { what: 'vidéo', topic: 'Les secrets du chaudron disparu', diff: 'mythique', crew: [] };
     const vf = H.promptMiniGame(g, r, 'vf'), free = H.promptMiniGame(g, r, null), real = H.promptMiniGame(g, Object.assign({}, r, { diff: 'cauchemar' }), 'quiz');
     return {
-      vf: vf.includes('Le format de ce mini-jeu est imposé : « vrai ou faux » ("vf")') && vf.includes('{"t":"game","kind":"vf"') && vf.includes('- Puis 10 lignes {"t":"vf"') && !vf.includes('"t":"q"') && !vf.includes('Choisis le format'),
-      free: free.includes('Choisis le format le plus adapté au sujet') && free.includes('- Si "quiz" : 7 lignes'),
+      vf: vf.includes('Le format de ce mini-jeu est imposé : « vrai ou faux » ("vf")') && vf.includes('{"t":"game","kind":"vf"') && vf.includes('- Puis 11 lignes {"t":"vf"') && !vf.includes('"t":"q"') && !vf.includes('Choisis le format'),
+      free: free.includes('Choisis le format le plus adapté au sujet') && free.includes('- Si "quiz" : 8 lignes'),
       real: real.includes('NIVEAU CAUCHEMAR') && real.includes('{"t":"game","kind":"quiz"') && !real.includes('imposé'),
     };
   });
-  check('the AI is told the format (here « vrai ou faux », 10 statements at Mythique) and only that one; left free (tests), the old choice; Cauchemar unchanged', pr.vf && pr.free && pr.real, pr);
+  check('the AI is told the format (here « vrai ou faux », 11 statements at Mythique since 0.27.9) and only that one; left free (tests), the old choice; Cauchemar unchanged', pr.vf && pr.free && pr.real, pr);
 
   // ---------- end to end: the shoot is the imposed game ----------
   for (const [k, n] of [['ordre', 5], ['intrus', 3], ['quiz', 4]]) {

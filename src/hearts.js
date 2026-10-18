@@ -716,8 +716,8 @@ function talkScore(g, ev) {
   let w = 0, s = 0;
   for (const x of T.reacts) { w += x.w; s += REACT_V[x.r] * x.w; }
   const D = diffOf(ev.diff || fameDiff(c));
-  if (T.ex) return clamp((w ? s / w : 0.45) - 0.03 * diffIx(D) + (T.expect ? (T.met ? EXPECT_BONUS : -EXPECT_MISS) : 0), 0, 1); // 0.16 (their heart is in the exigence already)
-  return clamp((w ? s / w : 0.45) - 0.03 * diffIx(D) - (isDefi(c) ? 0.06 : 0), 0, 1);
+  if (T.ex) return clamp((w ? s / w : 0.45) - 0.03 * (diffIx(D) + 1) + (T.expect ? (T.met ? EXPECT_BONUS : -EXPECT_MISS) : 0), 0, 1); // 0.16 (their heart is in the exigence already)
+  return clamp((w ? s / w : 0.45) - 0.03 * (diffIx(D) + 1) - (isDefi(c) ? 0.06 : 0), 0, 1); // (0.27.9: a notch harder, as DIFFS)
 }
 function finishTalk(g, ev) {
   const c = g.chars[ev.c], T = ev.talk;

@@ -1,5 +1,6 @@
-// 0.27.6 end to end, in Chromium against the built hype.html with the mocked Claude runtime: the hidden menu, in tabs.
-// - six tabs (money, reputation, time, mini-games, skills, ties), one panel at a time, the last one remembered;
+// 0.27.6 end to end, in Chromium against the built hype.html with the mocked Claude runtime: the hidden menu.
+// 0.27.9: the way a game trainer shows it: a banner, one column, submenus (money, reputation, time, mini-games, skills,
+//   ties), driven by the keyboard (↑ ↓ ← → Entrée Retour) or by taps, every change applied at once;
 // - the mini-games: any of the ten at any level, played now for practice (nothing counts in the game), or imposed on the
 //   next shoot (once); Cauchemar is the real quiz only.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> node test/v276.js
@@ -64,27 +65,36 @@ async function newGame(page, identity) {
   const { page } = await newPage(browser);
   await newGame(page, 'Une créatrice qui touche à tout');
   await G(page, () => { window.__hypeNoGearEvent = true; window.__hypeEasyGear = true; const g = window.__hype.S.game; g.career.cash = 1234; });
+  const key = async (k, n = 1) => { for (let j = 0; j < n; j++) { await page.keyboard.press(k); await sleep(60); } await sleep(120); };
+  const menu = () => G(page, () => { const on = document.querySelector('.layer .tr-line.on'); return { sub: (document.querySelector('.layer .tr-sub') || {}).textContent || '', lines: [...document.querySelectorAll('.layer .tr-line')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()), on: on ? on.textContent.replace(/\s+/g, ' ').trim() : '', desc: (document.querySelector('.layer .tr-desc') || {}).textContent || '' }; });
 
-  // ---------- the tabs ----------
+  // ---------- the menu: a banner, one column, submenus, the keyboard ----------
   await G(page, () => window.__hype.openMenu());
-  await page.waitForSelector('.layer .menu-tabs');
-  const tabs = await page.$$eval('.layer .menu-tab', (els) => els.map((e) => e.textContent.trim()));
-  const first = await page.textContent('.layer .layer-panel');
-  await page.locator('.layer .menu-tab', { hasText: 'Mini-jeux' }).click();
-  await page.waitForSelector('.layer .tr-chips');
-  const games = await page.$$eval('.layer section.section .field:first-child .chip-btn', (els) => els.map((e) => e.textContent.trim()));
-  const diffs = await page.$$eval('.layer section.section .field:nth-child(2) .chip-btn', (els) => els.map((e) => ({ t: e.textContent.trim(), off: e.disabled })));
+  await page.waitForSelector('.layer .trainer');
+  await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); });
+  await dismiss(page);
+  const root = await menu();
+  const banner = await G(page, () => (document.querySelector('.layer .tr-banner') || {}).textContent || '');
+  await shot(page, 'menu-root');
+  await key('ArrowDown', 3);
+  const atGames = await menu();
+  await key('Enter');
+  const games = await menu();
+  const opts = await G(page, () => { const H = window.__hype, g = H.S.game, L = H.menuLines(g, ['jeux']); return { kinds: L[0].opts.map((o) => o[1]), quiz: L[1].opts.length }; });
   await shot(page, 'menu-minigames');
-  check('the menu in six tabs, one panel at a time (money first); the mini-games tab: the ten games, the seven levels, Cauchemar for the quiz only',
-    tabs.join('|') === '💰Argent|⭐Réputation|🕐Temps|🎮Mini-jeux|💪Compétences|💞Relations' && /Argent \(/.test(first) && !/Le mini-jeu/.test(first)
-      && games.length === 10 && games.includes('Coupe au rythme') && games.includes('Recadrage vertical') && games.includes('Modération du chat') && diffs.length === 7 && diffs[6].off === false && /Cauchemar/.test(diffs[6].t), { tabs, games, diffs });
-  await page.locator('.layer .chip-btn', { hasText: 'Mémoire' }).click();
-  const offC = await page.$$eval('.layer section.section .field:nth-child(2) .chip-btn', (els) => els[6].disabled);
+  check('the menu as a game trainer draws it: a banner, « Menu principal » and the line number, six submenus and « Masquer »; ↓ moves the highlighted line, Entrée opens « Mini-jeux »: the game, the level, play now, impose',
+    /hype/i.test(banner) && /mode menu/i.test(banner) && /Menu principal\s*1\/7/.test(root.sub) && root.lines.length === 7 && /^💰 ?Argent et abonnés/.test(root.lines[0]) && /Masquer le mode menu/.test(root.lines[6])
+      && /Mini-jeux/.test(atGames.on) && /Mini-jeux\s*1\/4/.test(games.sub) && /^Mini-jeu/.test(games.lines[0]) && /^Difficulté/.test(games.lines[1]) && /^Jouer maintenant/.test(games.lines[2]) && /^Imposer au tournage/.test(games.lines[3])
+      && opts.kinds.length === 10 && opts.kinds.includes('Coupe au rythme') && opts.kinds.includes('Recadrage vertical') && opts.quiz === 7, { root, atGames, games, opts });
+
   // ---------- a practice round: the chat of a live, in Mythique, played by a bot ----------
-  await page.locator('.layer .chip-btn', { hasText: 'Modération du chat' }).click();
-  await page.locator('.layer .chip-btn', { hasText: 'Mythique' }).click();
+  for (let k = 0; k < 12 && !/Modération du chat/.test((await menu()).on); k++) await key('ArrowRight');
+  const offC = await G(page, () => { const H = window.__hype; return H.menuLines(H.S.game, ['jeux'])[1].opts.length; });
+  await key('ArrowDown');
+  for (let k = 0; k < 8 && !/Mythique/.test((await menu()).on); k++) await key('ArrowRight');
   const before = await G(page, () => { const g = window.__hype.S.game; return { cash: g.career.cash, fol: g.stats.followers, rel: g.releases.length, rep: g.stats.reputation }; });
-  await page.locator('.layer button', { hasText: 'Jouer maintenant' }).click();
+  await key('ArrowDown');
+  await key('Enter');
   await page.waitForSelector('.layer .mg-intro', { timeout: 8000 });
   const intro = await page.textContent('.layer .mg-intro');
   await page.locator('.layer .mg-intro button', { hasText: 'parti' }).click();
@@ -95,8 +105,8 @@ async function newGame(page, identity) {
   const end = await page.textContent('.layer .practice-end');
   await shot(page, 'practice-end');
   const after = await G(page, () => { const H = window.__hype, g = H.S.game; return { cash: g.career.cash, fol: g.stats.followers, rel: g.releases.length, rep: g.stats.reputation, score: H.S.practice && H.S.practice.score }; });
-  check('« Jouer maintenant »: a practice round of the chosen game at the chosen level (the chat of a live, Mythique); its score at the end, and nothing changes in the game (money, followers, releases, reputation)',
-    offC === true && /Modère le chat/.test(intro) && /Mythique/.test(intro) && /Entraînement/.test(intro) && after.score >= 0.9 && /\d+\s% · réussi/.test(end) && /Rejouer/.test(end)
+  check('« Jouer maintenant »: a practice round of the chosen game at the chosen level (the chat of a live, Mythique; no Cauchemar for it); its score at the end, and nothing changes in the game (money, followers, releases, reputation)',
+    offC === 6 && /Modère le chat/.test(intro) && /Mythique/.test(intro) && /Entraînement/.test(intro) && after.score >= 0.9 && /\d+\s% · réussi/.test(end) && /Rejouer/.test(end)
       && after.cash === before.cash && after.fol === before.fol && after.rel === before.rel && after.rep === before.rep, { intro: intro.slice(0, 160), end, before, after });
   // an AI-written one: the quiz, written then played
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.startPractice(H.S.game, 'quiz', 'expert'); });
@@ -115,10 +125,13 @@ async function newGame(page, identity) {
 
   // ---------- imposed on the next shoot, once ----------
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.openMenu(); });
-  await page.waitForSelector('.layer .menu-tabs');
-  const remembered = await page.$eval('.layer .menu-tab.on', (e) => e.textContent.trim());
-  await page.locator('.layer .chip-btn', { hasText: 'Mémoire' }).click();
-  await page.locator('.layer button', { hasText: 'Imposer au prochain tournage' }).click();
+  await page.waitForSelector('.layer .trainer');
+  const remembered = (await menu()).on;
+  await key('Enter');
+  for (let k = 0; k < 12 && !/Mémoire/.test((await menu()).on); k++) await key('ArrowRight');
+  await key('ArrowDown', 3);
+  await key('Enter');
+  const tog = (await menu()).on;
   const imp = await G(page, () => {
     const H = window.__hype, g = H.S.game, out = { set: g.mgNext };
     for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped';
@@ -130,7 +143,7 @@ async function newGame(page, identity) {
     out.next = H.pickShootKind(g, r2) !== undefined && !g.mgNext;
     return out;
   });
-  check('« Imposer au prochain tournage »: the menu remembers its tab; the next shoot gets that game (the memory), once, then the draw again', remembered === '🎮Mini-jeux' && imp.set === 'memoire' && imp.kind === 'memoire' && imp.after === null && imp.next, Object.assign({ remembered }, imp));
+  check('« Imposer au tournage »: the menu opens where it was left (the line « Mini-jeux »); « Oui » on the line, and the next shoot gets that game (the memory), once, then the draw again', /Mini-jeux/.test(remembered) && /Imposer au tournage.*Oui/.test(tog) && imp.set === 'memoire' && imp.kind === 'memoire' && imp.after === null && imp.next, Object.assign({ remembered }, imp));
 
   await browser.close();
   console.log('ERRORS', errors.length ? '\n' + errors.join('\n') : 'none');

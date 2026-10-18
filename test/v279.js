@@ -95,9 +95,9 @@ async function newGame(page, identity) {
   const head = await G(page, () => ({ title: (document.querySelector('.layer .layer-head h2') || {}).textContent, min: (document.querySelector('.layer .win-min') || { title: '' }).title }));
   await shot(page, 'intro-cut');
   check('a score next to its tier is rounded down (74,6 % reads 74, never 75 under « moyen »)', t1.p.join(',') === '74,75,29,40,39,100', t1.p);
-  check('the cut on the beat says how it scores (5 cuts; 1 point in the zone, ½ just beside, 0 when missed; Espace works), what « réussi », « moyen » and « raté » take, that the clock never stops; its name, its window on TikTok, its « Réduire »',
+  check('the cut on the beat says how it scores (6 cuts at Difficile since 0.27.9; 1 point in the zone, ½ just beside, 0 when missed; Espace works), what « réussi », « moyen » and « raté » take, that the clock never stops; its name, its window on TikTok, its « Réduire »',
     /Coupe au rythme/.test(intro) && /La coupe parfaite/.test(intro) && /plus tes coupes tombent pile/.test(intro) && !/Une seule de travers/.test(intro)
-      && /5 coupes\. Le curseur va et vient : touche « Couper » \(ou Espace\)/.test(intro) && /Dedans : 1 point ; juste à côté : ½ point ; rien après deux allers-retours : 0 point\./.test(intro)
+      && /6 coupes\. Le curseur va et vient : touche « Couper » \(ou Espace\)/.test(intro) && /Dedans : 1 point ; juste à côté : ½ point ; rien après deux allers-retours : 0 point\./.test(intro)
       && /Réussi \(75\s% et plus\) : le tiktok cartonne\. Moyen \(40 à 74\s%\) : il marche moyen\. Raté \(moins de 40\s%\) : flop\./.test(intro)
       && /le chrono ne s’arrête plus, même si tu fermes ou réduis la fenêtre/.test(intro) && /Difficile · bonus ×1,6/.test(intro) && !/gains/.test(intro)
       && t1.noun === 'tiktok' && head.title === 'Tournage · tiktok' && head.min === 'Réduire (le chrono continue)', { intro: intro.slice(0, 600), head });
@@ -165,9 +165,9 @@ async function newGame(page, identity) {
   await sleep(200);
   const why5 = await G(page, () => ({ off: document.querySelector('.layer .mg-setup > .btn-hot').disabled, why: (document.querySelector('.layer .mg-setup .why-off') || {}).textContent }));
   await shot(page, 'setup');
-  check('the difficulty: what its number multiplies (likes, followers and XP, not on a flop), « ×1,6 » alone; Facile no longer « deux fois plus de temps », Légendaire « très dur », Mythique « le plus rapide »; a topic too short says why « Lancer » waits',
+  check('the difficulty: what its number multiplies (likes, followers and XP, not on a flop), « ×1,6 » alone; Facile « le rythme tranquille » (0.27.9: a notch harder), Légendaire « extrêmement dur », Mythique « le plus rapide »; a topic too short says why « Lancer » waits',
     /multiplie les j’aime, les abonnés et l’XP de ta sortie, sauf si le tournage est raté/.test(setup.note) && setup.mults.join(' ') === '×0,6 ×1 ×1,6 ×2,3 ×3,2 ×4,4 ×6'
-      && setup.descs[0] === 'Plus de temps, pièges évidents' && /^Très dur\. Réussi, c’est viral à coup sûr/.test(setup.descs[4]) && /^Le plus rapide\. Réussi, c’est viral à coup sûr/.test(setup.descs[5])
+      && setup.descs[0] === 'Le rythme tranquille, des pièges plausibles' && /^Extrêmement dur\. Réussi, c’est viral à coup sûr/.test(setup.descs[4]) && /^Le plus rapide\. Réussi, c’est viral à coup sûr/.test(setup.descs[5])
       && why5.off && why5.why === 'Écris d’abord le sujet.', { setup, why5 });
 
   // ---------- 6. an answer's explanation stays long enough to be read, and the answers keep it ----------
@@ -296,7 +296,7 @@ async function newGame(page, identity) {
   await shot(page, 'job');
   check('a client order: each difficulty says from what score it is « bon » and under which it is « raté » (Facile: 81 and 57); the rule of the cut; what a « raté » costs; « Dès 84 %, le montage est légendaire »; before any order, the Studio says how one comes',
     t10.j && /bon dès 81\s%, raté sous 57\s%/.test(jobRows[0]) && /bon dès 66\s%, raté sous 47\s%/.test(jobRows[1]) && /légendaire dès 84\s%/.test(jobRows[4])
-      && /^4 coupes\. Le curseur va et vient/.test(jobNote) && new RegExp(`Raté : sa vidéo fait un flop et ${t10.first} ne paie que la moitié\\.`).test(jobNote) && /Dès 84\s%, le montage est légendaire\./.test(jobNote2)
+      && /^5 coupes\. Le curseur va et vient/.test(jobNote) && new RegExp(`Raté : sa vidéo fait un flop et ${t10.first} ne paie que la moitié\\.`).test(jobNote) && /Dès 84\s%, le montage est légendaire\./.test(jobNote2)
       && /Propose en message à un créateur de monter sa vidéo ou de faire sa miniature/.test(jobsEmpty), { jobRows, jobNote, jobNote2, jobsEmpty });
   await G(page, () => { const H = window.__hype, g = H.S.game; g.jobs = []; H.S.stack = []; H.update(); });
 

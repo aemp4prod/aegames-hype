@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.8';
+const APP_VERSION = '0.27.9';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -427,7 +427,13 @@ function queueModal(m) {
   update(false);
 }
 function queueModalFor(g, m) { if (S.game === g) queueModal(m); }
-function askConfirm(m) { queueModal(Object.assign({ t: 'confirm' }, m, { at: Date.now() })); }
+const OS_ASK = { l: null }; // 0.27.9: the window out of the game whose question is being answered (in the game's window)
+function askConfirm(m) {
+  const o = typeof osActive === 'function' ? osActive() : null; // 0.27.9: asked from a window out of the game: the question is in the game's window, brought to the front
+  const run = o && typeof m.run === 'function' ? () => { OS_ASK.l = o; try { return m.run(); } finally { OS_ASK.l = null; } } : m.run; // (what it closes is that window)
+  queueModal(Object.assign({ t: 'confirm' }, m, { run, at: Date.now() }));
+  if (o && HOST && HOST.winCtl) HOST.winCtl(o.os.name, 'game').catch(() => {});
+}
 
 /* ---------- flow tagging: what a stream adds can be withdrawn ---------- */
 let SRC = null; // id of the flow whose stream callback is running (set by aiStream)
@@ -1280,13 +1286,17 @@ const PROD_STEPS = { // the shoot when Claude cannot write one: the production s
   podcast: ['Choisir le sujet', 'Préparer les questions', 'Enregistrer l’épisode', 'Couper les blancs', 'Publier l’épisode'],
 };
 // Shoot difficulty: less time, more items and finer traps, for bigger rewards.
+// 0.27.9: every level one notch harder: each one plays as the one above it did (Légendaire as Mythique, Expert as
+// Légendaire… Facile as Moyen; the old Facile is gone), and Mythique goes further still. What a level pays (mult,
+// viral) stays with its name; Cauchemar does not move. (The skill rounds' tables moved the same way: makeMontage,
+// makeMemoire, makeChat, makeMix, makeFrame, makeRushes, and a date's score.)
 const DIFFS = [
-  { id: 'facile', emoji: '😌', label: 'Facile', time: 2, items: -1, opts: 3, mult: 0.6, traps: 'pièges évidents, faciles à repérer', desc: 'Plus de temps, pièges évidents' },
-  { id: 'moyen', emoji: '🙂', label: 'Moyen', time: 1.4, items: 0, opts: 3, mult: 1, traps: 'pièges plausibles', desc: 'Le rythme tranquille' },
-  { id: 'difficile', emoji: '😤', label: 'Difficile', time: 1, items: 0, opts: 3, mult: 1.6, traps: 'pièges subtils', desc: 'Moins de temps, pièges plus fins' },
-  { id: 'expert', emoji: '🔥', label: 'Expert', time: 0.75, items: 1, opts: 4, mult: 2.3, traps: 'pièges très subtils, réponses très proches les unes des autres', desc: 'Encore moins de temps, plus de choses à gérer' },
-  { id: 'legende', emoji: '💀', label: 'Légendaire', time: 0.55, items: 2, opts: 4, mult: 3.2, viral: true, traps: 'pièges diaboliques : tout semble vrai, un seul détail fait la différence', desc: 'Très dur. Réussi, c’est viral à coup sûr' },
-  { id: 'mythique', emoji: '🌌', label: 'Mythique', time: 0.42, items: 3, opts: 4, mult: 4.4, viral: true, traps: 'pièges vicieux : les mauvaises réponses ont l’air plus vraies que la bonne', desc: 'Le plus rapide. Réussi, c’est viral à coup sûr' },
+  { id: 'facile', emoji: '😌', label: 'Facile', time: 1.4, items: 0, opts: 3, mult: 0.6, traps: 'pièges plausibles', desc: 'Le rythme tranquille, des pièges plausibles' },
+  { id: 'moyen', emoji: '🙂', label: 'Moyen', time: 1, items: 0, opts: 3, mult: 1, traps: 'pièges subtils', desc: 'Moins de temps, pièges plus fins' },
+  { id: 'difficile', emoji: '😤', label: 'Difficile', time: 0.75, items: 1, opts: 4, mult: 1.6, traps: 'pièges très subtils, réponses très proches les unes des autres', desc: 'Encore moins de temps, plus de choses à gérer' },
+  { id: 'expert', emoji: '🔥', label: 'Expert', time: 0.55, items: 2, opts: 4, mult: 2.3, traps: 'pièges diaboliques : tout semble vrai, un seul détail fait la différence', desc: 'Très dur : peu de temps, des pièges diaboliques' },
+  { id: 'legende', emoji: '💀', label: 'Légendaire', time: 0.42, items: 3, opts: 4, mult: 3.2, viral: true, traps: 'pièges vicieux : les mauvaises réponses ont l’air plus vraies que la bonne', desc: 'Extrêmement dur. Réussi, c’est viral à coup sûr' },
+  { id: 'mythique', emoji: '🌌', label: 'Mythique', time: 0.33, items: 4, opts: 4, mult: 4.4, viral: true, traps: 'pièges impitoyables : chaque mauvaise réponse est plus convaincante que la bonne, un seul mot fait la différence', desc: 'Le plus rapide. Réussi, c’est viral à coup sûr' },
   // the very last: real questions on the real subject (a game, a film, a sport…), no mercy
   { id: 'cauchemar', emoji: '👹', label: 'Cauchemar', time: 0.8, items: 2, opts: 4, mult: 6, viral: true, real: true, traps: 'de vraies questions de connaisseur, sans aucune pitié', desc: 'Le tout dernier : de VRAIES questions pointues sur ton sujet. Seuls les vrais experts survivent' },
 ];
@@ -1306,10 +1316,10 @@ const MONTAGE = {
   podcast: { title: 'La chasse aux blancs', verb: 'Couper', intro: 'Coupe pile dans les blancs : plus tu en attrapes, plus l’épisode est fluide.' },
 };
 function makeMontage(r, D) {
-  const ix = diffIx(D), w = [0.3, 0.22, 0.16, 0.12, 0.09, 0.08, 0.08][ix];
+  const ix = diffIx(D), w = [0.22, 0.16, 0.12, 0.09, 0.08, 0.07, 0.08][ix]; // (0.27.9: a notch harder, as DIFFS)
   const M = MONTAGE[r.what] || MONTAGE.vidéo;
   const items = Array.from({ length: mgCount('montage', D) }, () => { const z0 = rand(0.06, 0.94 - w); return { z0: Math.round(z0 * 1000) / 1000, z1: Math.round((z0 + w) * 1000) / 1000 }; });
-  return { kind: 'montage', title: M.title, verb: M.verb, what: r.what, intro: M.intro, items, speed: [2200, 1800, 1500, 1250, 1050, 950, 950][ix], diff: D.id };
+  return { kind: 'montage', title: M.title, verb: M.verb, what: r.what, intro: M.intro, items, speed: [1800, 1500, 1250, 1050, 950, 870, 950][ix], diff: D.id };
 }
 const MEM_SYMBOLS = {
   vidéo: ['🎬', '🎥', '💡', '🎤', '📱', '✂️', '🔥', '⭐', '🎞️', '📢'],
@@ -1319,10 +1329,10 @@ const MEM_SYMBOLS = {
   podcast: ['🎙️', '🎧', '💬', '☕', '📻', '🔊', '⭐', '📝', '🤔', '💡'],
 };
 function makeMemoire(r, D) {
-  const ix = diffIx(D), len = 3 + (ix >= 3 ? 1 : 0) + (ix >= 5 ? 1 : 0);
+  const ix = diffIx(D), len = 3 + (ix >= 2 ? 1 : 0) + (ix >= 4 ? 1 : 0); // (0.27.9: a notch harder, as DIFFS)
   const pool = MEM_SYMBOLS[r.what] || MEM_SYMBOLS.vidéo;
   const seqOf = (n) => { const seq = []; while (seq.length < n) { const x = pick(pool); if (x !== seq[seq.length - 1]) seq.push(x); } return seq; }; // never twice in a row
-  return { kind: 'memoire', title: 'Retiens ton script', what: r.what, intro: 'Ton script tient en quelques images clés : oublie-en une en plein tournage, et ça se verra.', items: [0, 1, 2].map((k) => ({ seq: seqOf(len + k) })), pool, per: [1000, 850, 750, 650, 560, 480, 480][ix], diff: D.id };
+  return { kind: 'memoire', title: 'Retiens ton script', what: r.what, intro: 'Ton script tient en quelques images clés : oublie-en une en plein tournage, et ça se verra.', items: [0, 1, 2].map((k) => ({ seq: seqOf(len + k) })), pool, per: [850, 750, 650, 560, 480, 420, 480][ix], diff: D.id };
 }
 const tierOf = (score) => (score >= 0.75 ? 'top' : score >= 0.4 ? 'mid' : 'flop');
 // 0.27.8: a score shown next to its tier, rounded down: 74,6 % reads « 74 % » (moyen), never « 75 % »
@@ -2645,7 +2655,8 @@ function unreadDM(g, id, now) {
 }
 function unreadDMs(g, now, exceptId) {
   let n = 0;
-  for (const id in g.dms) if (id !== exceptId && unreadDM(g, id, now) > 0) n++;
+  const skip = Array.isArray(exceptId) ? exceptId : [exceptId]; // (0.27.9: several can be on screen, out of the game)
+  for (const id in g.dms) if (!skip.includes(id) && unreadDM(g, id, now) > 0) n++;
   return n;
 }
 function trends(g, now) {

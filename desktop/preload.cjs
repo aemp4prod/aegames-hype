@@ -54,4 +54,6 @@ contextBridge.exposeInMainWorld('hypeHost', {
   openUsage: () => ipcRenderer.invoke('hype:open-usage'),
   saveFile: (name, text, kind) => ipcRenderer.invoke('hype:file-save', String(name), String(text), kind === 'pack' ? 'pack' : 'game').then((r) => r === true),
   openFile: (kind) => ipcRenderer.invoke('hype:file-open', kind === 'pack' ? 'pack' : 'game').then((r) => (r && typeof r.text === 'string' ? r : null)),
+  // 0.27.9: a window out of the game: 'min', 'max', 'close', 'front'; 'game' brings the game's own window to the front
+  winCtl: (name, act) => ipcRenderer.invoke('hype:win', String(name), String(act)).then(unwrap),
 });
