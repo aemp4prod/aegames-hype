@@ -483,7 +483,7 @@ function billGear(g, t) {
   const G = g.gear;
   if (!G) return false;
   const key = monthKey(gameDate(t));
-  if (G.bill === key) return false;
+  if (G.bill && key <= G.bill) return false; // 0.27.4: a clock set back bills no month twice
   const month = monthOfKey(key); // the month that starts (the first one was paid at signup, pro rata)
   G.bill = key;
   if (easyGear()) return false;

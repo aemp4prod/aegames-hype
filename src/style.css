@@ -1506,6 +1506,27 @@ p { margin: 0; }
 .release-card.due .rl-mid b { color: var(--hot-t); }
 .rl-mid > span { color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
 .rl-mid .row { margin-top: 6px; gap: 8px; flex-wrap: wrap; }
+.rl-more { align-self: flex-start; margin-top: 4px; font-size: 13px; color: var(--ink-2); text-align: left; overflow-wrap: anywhere; } /* 0.27.4: the releases planned after it */
+.plan-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.plan-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.plan-row.due { background: var(--hot-soft); border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); }
+.plan-row .pl-emo { font-size: 22px; line-height: 1.2; }
+.plan-row .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.plan-row .mid b { font-size: 14.5px; overflow-wrap: anywhere; }
+.plan-row .mid span { font-size: 13px; color: var(--ink-2); }
+.plan-row .acts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.move-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 0.27.4: the hidden menu */
+.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.menu-num { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.menu-num > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.menu-num > small { font-size: 12px; color: var(--ink-3); }
+.menu-num .input { width: 100%; min-width: 0; }
+.menu-rels { display: flex; flex-direction: column; gap: 10px; }
+.menu-rel { display: flex; gap: 10px; align-items: center; }
+.menu-rel .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.menu-rel .mid span { font-size: 13px; color: var(--ink-2); }
+.menu-rel input[type=range] { width: 100%; accent-color: var(--hot); }
 .video-card { margin-top: 10px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
 .vc-screen { position: relative; aspect-ratio: 16 / 9; max-height: 280px; width: 100%; display: grid; place-items: center; background: radial-gradient(circle at 72% 28%, #4a2d63, transparent 62%), linear-gradient(160deg, #15121d, #2c1b34); }
 .vc-emo { grid-area: 1 / 1; font-size: clamp(56px, 16vw, 92px); opacity: 0.5; filter: blur(0.5px); }
@@ -2688,18 +2709,6 @@ svg.watch:active { cursor: grabbing; }
 .frame-btns { gap: 10px; justify-content: center; }
 .frame-btns .btn { min-width: 96px; font-size: 18px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .frame-btns .btn.on { border-color: var(--hot); background: var(--hot-soft); color: var(--hot-t); }
-.grade-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.grade-shot { position: relative; margin: 0; display: flex; flex-direction: column; gap: 4px; }
-.grade-img { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; }
-.grade-img .g-sky { position: absolute; inset: 0 0 45% 0; }
-.grade-img .g-sun { position: absolute; width: 22%; aspect-ratio: 1; border-radius: 50%; top: 12%; right: 14%; }
-.grade-img .g-ground { position: absolute; inset: 55% 0 0 0; }
-.grade-img .g-emo { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); font-size: 30px; }
-.grade-veil { position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 4 / 3; border-radius: 10px; mix-blend-mode: soft-light; pointer-events: none; }
-.grade-shot figcaption { font-size: 12px; color: var(--ink-3); text-align: center; }
-.grade-sliders { display: flex; flex-direction: column; gap: 8px; }
-.grade-sl { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13.5px; font-weight: 600; }
-.grade-sl input { width: 100%; accent-color: var(--hot); }
 /* 0.25.1: the new profile photo, shown off or not */
 .prof-av { position: relative; display: inline-flex; flex: none; }
 .prof-cam { position: absolute; right: -2px; bottom: 2px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; padding: 0; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18); cursor: pointer; }

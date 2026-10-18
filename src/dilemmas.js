@@ -198,7 +198,7 @@ function applyShady(g, c) {
   d.shady = true;
   d.fee = niceRound(d.fee * 1.6);
   d.max = Math.max(d.fee, Math.round(d.max * 1.6));
-  d.upfront = d.fee >= 500 ? Math.round(d.fee * 0.3) : 0;
+  d.upfront = upfrontOf(d);
   dmCard(g, c, { sys: 'deal', deal: d.id, upd: true }, later() + 2500);
   addNotif(g, { k: 'money', c: c.id, text: `${d.brand} te propose ${fmtMoney(g, d.fee)}… sans la mention « Collaboration commerciale ».` });
   keepDilemma(g, { id: uid('di'), k: 'pub', deal: d.id, by: c.id, at: Date.now(), state: 'done' });

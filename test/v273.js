@@ -114,13 +114,13 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     return out;
   });
   const even = (d, n) => Object.values(d.share).every((x) => Math.abs(x - 100 / n) < 2.2);
-  check('at the shoot of a video, Mythique or Facile alike: the 8 mini-games 12,5 % each (sort, order, quiz, true or false, odd one out, the cut on the beat, the memory, the grading), never the same twice in a row',
-    dist.video.kinds === 'etalonnage,intrus,memoire,montage,ordre,quiz,tri,vf' && even(dist.video, 8) && even(dist.videoEasy, 8) && dist.video.twice === 0, { video: dist.video, easy: dist.videoEasy });
-  check('each format its own skill round, the same chance for all: the reframing for a short, the chat for a live, the mix for a podcast, the grading for a clip',
+  check('at the shoot of a video, Mythique or Facile alike: the 7 mini-games about 14 % each (sort, order, quiz, true or false, odd one out, the cut on the beat, the memory; 0.27.4: no more grading), never the same twice in a row',
+    dist.video.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && even(dist.video, 7) && even(dist.videoEasy, 7) && dist.video.twice === 0, { video: dist.video, easy: dist.videoEasy });
+  check('each format its own skill round, the same chance for all: the reframing for a short, the chat for a live, the mix for a podcast; a clip has the seven of a video',
     /cadrage/.test(dist.short.kinds) && !/chat|mixage|etalonnage/.test(dist.short.kinds) && even(dist.short, 8) && /chat/.test(dist.live.kinds) && even(dist.live, 8)
-      && /mixage/.test(dist.podcast.kinds) && even(dist.podcast, 8) && /etalonnage/.test(dist.clip.kinds) && even(dist.clip, 8), { short: dist.short, live: dist.live, podcast: dist.podcast, clip: dist.clip });
-  check('with an editor in the team: no cut on the beat for the player, the 7 others alike (about 14 %); « Cauchemar » stays the real quiz',
-    dist.editor.kinds === 'etalonnage,intrus,memoire,ordre,quiz,tri,vf' && even(dist.editor, 7) && dist.nightmare, { editor: dist.editor, nightmare: dist.nightmare });
+      && /mixage/.test(dist.podcast.kinds) && even(dist.podcast, 8) && dist.clip.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && even(dist.clip, 7), { short: dist.short, live: dist.live, podcast: dist.podcast, clip: dist.clip });
+  check('with an editor in the team: no cut on the beat for the player, the 6 others alike (about 17 %); « Cauchemar » stays the real quiz',
+    dist.editor.kinds === 'intrus,memoire,ordre,quiz,tri,vf' && even(dist.editor, 6) && dist.nightmare, { editor: dist.editor, nightmare: dist.nightmare });
 
   // ---------- the format is imposed on the AI ----------
   const pr = await G(page, () => {

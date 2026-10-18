@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.3';
+const APP_VERSION = '0.27.4';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -271,7 +271,7 @@ const drawYoungAge = () => { const r = Math.random(); return r < 0.35 ? randi(18
 // The ten characters of a new world: their ages and maturities, decided before the AI writes them.
 function drawCastAges(n = 10) {
   const out = Array.from({ length: n }, drawYoungAge);
-  const r = Math.random(), olds = r < 0.5 ? 0 : r < 0.85 ? 1 : 2; // one game out of two: one or two older people
+  const r = Math.random(), olds = window.__HYPE_TEST__ && window.__castOlds != null ? window.__castOlds : r < 0.5 ? 0 : r < 0.85 ? 1 : 2; // one game out of two: one or two older people (a test may ask for none)
   const slots = [...out.keys()].sort(() => Math.random() - 0.5).slice(0, olds);
   for (const k of slots) out[k] = randi(35, 55);
   return out.map((age) => ({ age, matu: drawMatu(age) }));
@@ -502,6 +502,10 @@ function migrate(g) {
   if (!Array.isArray(g.clues)) g.clues = [];
   if (!Array.isArray(g.fakes)) g.fakes = [];
   if (!Array.isArray(g.releases)) g.releases = [];
+  for (const r of g.releases) { // 0.27.4: the grading is gone: one drawn and not played yet is drawn again
+    if (r && r.state === 'scheduled' && r.game && r.game.kind === 'etalonnage' && !r.played) r.game = null;
+    if (r && r.state === 'scheduled' && r.editGame && r.editGame.kind === 'etalonnage' && !r.edit) r.editGame = null;
+  }
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
   if (!Array.isArray(g.arcs)) g.arcs = [];
@@ -1282,6 +1286,7 @@ const DIFFS = [
   { id: 'cauchemar', emoji: '👹', label: 'Cauchemar', time: 0.8, items: 2, opts: 4, mult: 6, viral: true, real: true, traps: 'de vraies questions de connaisseur, sans aucune pitié', desc: 'Le tout dernier : de VRAIES questions pointues sur ton sujet. Seuls les vrais experts survivent' },
 ];
 const diffOf = (id) => DIFFS.find((d) => d.id === id) || DIFFS[1];
+const MG_EXTRA = 2000; // 0.27.4: two more seconds for each answer, at every difficulty (it was impossible at the top)
 const fmtMult = (m) => '×' + String(m).replace('.', ',');
 const MG_BASE_N = { tri: 6, ordre: 5, quiz: 4, vf: 7, intrus: 4, montage: 5 }; // items at « Moyen » and « Difficile »
 const mgCount = (kind, d) => Math.max(kind === 'quiz' || kind === 'intrus' ? 3 : 4, (MG_BASE_N[kind] || 5) + d.items);
@@ -1396,10 +1401,44 @@ const PLOT_HINT = { // any world
   clip: 'ex : un clip tourné de nuit sur un toit, le refrain repris en chœur par mes potes',
   podcast: 'ex : je reçois une invitée qui raconte la pire soirée de sa vie',
 };
-const activeRelease = (g) => (g.releases || []).find((r) => r.state === 'scheduled') || null;
+// 0.27.4: several releases can be planned at once; the soonest is the one on the clock (shot, published, or given up
+// first). Before 0.27.4, one at a time.
+const MAX_PLANNED = 6;
+const plannedReleases = (g) => (g.releases || []).filter((r) => r.state === 'scheduled').sort((a, b) => a.due - b.due || a.at - b.at);
+const activeRelease = (g) => plannedReleases(g)[0] || null;
+const planRoom = (g) => plannedReleases(g).length < MAX_PLANNED;
+// The old ones go (never one still planned).
+function trimReleases(g, max = 10 + MAX_PLANNED) {
+  while (g.releases.length > max) { const k = g.releases.findIndex((r) => r.state !== 'scheduled'); if (k < 0) break; g.releases.splice(k, 1); }
+}
+// 0.27.4: brought forward, at no cost (the public simply gets it sooner); a shoot not played yet stays as it is.
+function advanceRelease(g, r, due) {
+  const t = Date.now();
+  if (!r || r.state !== 'scheduled' || !(due < r.due - 30000)) return false;
+  r.due = Math.max(t, Math.round(due));
+  r.dueSaid = false;
+  const when = r.due - t < 60000 ? 'maintenant' : fmtWhen(r.due, t);
+  addNotif(g, { k: 'release', text: `⏩ ${cap1(ta(r))} « ${str(r.topic, 60)} » sort plus tôt : ${when}.` });
+  addTrigger(g, `Le joueur avance la sortie de ${sa(r)} « ${str(r.topic, 60)} » : ${when === 'maintenant' ? 'elle arrive tout de suite' : `elle sort ${when}`}. Bonne surprise pour ceux qui l’attendaient.`, r.c || null);
+  return true;
+}
+// The earlier times offered (the hours of the day planner, and soon), up to the planned one.
+function advanceChoices(g, r, now = Date.now()) {
+  const out = [{ at: now, label: 'Maintenant' }];
+  const ok = (at) => at > now + 10 * 60000 && at < r.due - 5 * 60000 && !out.some((o) => Math.abs(o.at - at) < 20 * 60000);
+  for (const m of [30, 60, 120, 180]) { const at = now + m * 60000; if (ok(at)) out.push({ at, label: m < 60 ? `Dans ${m} min` : `Dans ${m / 60} h` }); }
+  for (let dd = 0; dd <= 7; dd++) {
+    for (const h of [8, 12, 17, 18, 19, 20, 21, 22]) {
+      const x = gameDate(now); x.setDate(x.getDate() + dd); x.setHours(h, 0, 0, 0);
+      const at = x.getTime() - clockOff();
+      if (ok(at)) out.push({ at, label: `${dd === 0 ? (h >= 18 ? 'Ce soir' : 'Aujourd’hui') : dd === 1 ? 'Demain' : cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }))} ${h} h`, peak: audienceAt(gameDate(at)) >= 1.2 });
+    }
+  }
+  return out.sort((a, b) => a.at - b.at).slice(0, 18);
+}
 // said: the player's own message that announced it (the topic stays theirs).
 function addRelease(g, o, post, said) {
-  if (activeRelease(g)) return null;
+  if (!planRoom(g)) return null;
   const topic = str(o.topic, 100);
   if (!topic) return null;
   const mins = int(o.in, 1, 1440, 60);
@@ -1409,6 +1448,10 @@ function addRelease(g, o, post, said) {
   if (!PF(g).fmts.includes(what)) what = PF(g).main; // a « vidéo » on TikTok is a tiktok
   const asked = what;
   what = makeableWhat(g, what); // 0.20: no computer, no long video: the announcement becomes what the player can make
+  // 0.27.4: another post about a release already planned is not a second one (the planned one gets the announcement)
+  const due = t + mins * 60000, day = (x) => gameDate(x).toDateString();
+  const same = plannedReleases(g).find((x) => Math.abs(x.due - due) < 90 * 60000 || (x.what === what && day(x.due) === day(due)));
+  if (same) { if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); } return null; }
   const r = {
     id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: post ? post.id : null, at: t, due: t + mins * 60000, state: 'scheduled', delays: 0, tries: 0,
     c: target && isMain(target) && target.unlocked ? target.id : null, game: null, played: null,
@@ -1416,7 +1459,7 @@ function addRelease(g, o, post, said) {
   };
   if (!g.releases) g.releases = [];
   g.releases.push(r);
-  if (g.releases.length > 10) g.releases.splice(0, g.releases.length - 10);
+  trimReleases(g);
   addNotif(g, { k: 'release', p: r.post, text: `Compte à rebours lancé : ${ta(r)} « ${topic} » sort dans ${fmtLeft(mins * 60000)}.${asked !== what ? ` (${asked === 'vidéo' ? 'Pas de quoi monter une vidéo longue' : asked === 'live' ? 'Pas de connexion pour un live' : 'Pas le matos'} : ce sera ${unW(r)}.)` : ''}` });
   addTrigger(g, `Le joueur a annoncé ${unW(r)} dans ${fmtDur(mins * 60000)} : « ${str(topic, 80)} ». Le public l’attend : certains font monter la hype, d’autres doutent.`);
   return r;
@@ -1731,7 +1774,7 @@ const COLLAB_RE = /\bcollab\b|\ben duo\b|(tourner|filmer|faire|enregistrer|cr[é
 const collabWhat = (s) => (/\blive\b/i.test(s) ? 'live' : /short|reel|tiktok/i.test(s) ? 'short' : /podcast/i.test(s) ? 'podcast' : /\bclip\b/i.test(s) ? 'clip' : 'vidéo');
 const COLLAB_REPLIES = [(w) => `trop bien ! on tourne ${w} alors 🎬`, (w) => `yes ! ${w}, je ramène mes idées`, (w) => `parfait, ${w} : ça va être énorme`];
 function acceptCollab(g, iv, c, quiet) {
-  if (activeRelease(g)) return null; // something is already planned: they meet to talk it over instead
+  if (!planRoom(g)) return null; // the programme is full: they meet to talk it over instead
   // 0.22: made with what the player has: no computer for a long video, so a vertical one on the phone (never a refusal)
   const asked = normWhat(collabWhat(iv.what));
   let what = PF(g).fmts.includes(asked) ? asked : PF(g).main;

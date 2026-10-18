@@ -3,7 +3,7 @@
 // - moderating a live's chat (remove the insults, scams and spam, keep the fans; traps from « Difficile » on);
 // - mixing a podcast (keep each track in the green band);
 // - reframing a horizontal video for a phone (keep the subject in the vertical frame);
-// - grading a video's colors (match the reference shot);
+// (0.27.4: the fourth, grading a video's colors, is gone: far too hard);
 // in the shoot's rotation by format, and at the edit step (never the shoot's own game); harder with the difficulty.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> node test/v25.js
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
@@ -93,18 +93,16 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     const c1 = H.makeChat(r, D('facile')), c4 = H.makeChat(r, D('expert'));
     const m1 = H.makeMix(r, D('facile')), m4 = H.makeMix(r, D('expert'));
     const f1 = H.makeFrame(r, D('facile')), f4 = H.makeFrame(r, D('expert'));
-    const e1 = H.makeGrade(r, D('facile')), e4 = H.makeGrade(r, D('expert'));
     const bad = (c) => c.items.filter((x) => x.bad).length;
     return {
       chat: [c1.items.length, c1.per, c4.items.length, c4.per, bad(c1), bad(c4), c4.items.some((x) => /je t’adore|ATTENTION|merch|😱|pleurer|cœurs/.test(x.text) && !x.bad), c1.items.every((x) => x.who && x.text)],
       mix: [m1.tracks.length, m4.tracks.length, m1.band > m4.band, m1.drift < m4.drift], frame: [f1.w > f4.w, f1.speed < f4.speed],
-      grade: [e1.keys.length, e4.keys.length, e1.d1 > e4.d1 && e1.d0 > e4.d0, e1.per > e4.per, e1.items.every((it) => e1.keys.every((k) => Math.abs(it.start[k] - it.target[k]) >= 0.29))],
-      perfect: H.gradeScore(e1, e1.items[0], e1.items[0].target), start: Math.max(...e4.items.map((it) => H.gradeScore(e4, it, it.start))), // (0.27: judged on the picture)
+      grade: !!H.ROUND_MAKERS.etalonnage || H.ARCADE_KINDS.includes('etalonnage'),
     };
   });
-  check('the new rounds get harder: the chat (14 messages every 1,5 s → 20 every 0,95 s at Expert, traps that look rude but are fans), the mix (2 tracks → 3, a narrower band, faster drift), the frame (narrower, faster), the grading (3 settings → 4, tighter, less time; a perfect match scores 1, the start far less)',
+  check('the new rounds get harder: the chat (14 messages every 1,5 s → 20 every 0,95 s at Expert, traps that look rude but are fans), the mix (2 tracks → 3, a narrower band, faster drift), the frame (narrower, faster); no more grading',
     gen.chat[0] === 14 && gen.chat[1] === 1500 && gen.chat[2] === 20 && gen.chat[3] === 950 && gen.chat[4] === 6 && gen.chat[5] === 8 && gen.chat[6] && gen.chat[7]
-      && gen.mix[0] === 2 && gen.mix[1] === 3 && gen.mix[2] && gen.mix[3] && gen.frame[0] && gen.frame[1] && gen.grade[0] === 3 && gen.grade[1] === 4 && gen.grade[2] && gen.grade[3] && gen.grade[4] && gen.perfect === 1 && gen.start < 0.5, gen);
+      && gen.mix[0] === 2 && gen.mix[1] === 3 && gen.mix[2] && gen.mix[3] && gen.frame[0] && gen.frame[1] && !gen.grade, gen);
 
   // ---------- in the rotation by format, and at the edit (never the shoot's own game) ----------
   const rot = await G(page, () => {
@@ -115,7 +113,7 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
       for (let i = 0; i < 400; i++) { g.mgRecent = []; const k = H.pickShootKind(g, r); seen[w + ':' + k] = (seen[w + ':' + k] || 0) + 1; } // (0.27.3: every game of the format alike)
     }
     const edits = {};
-    for (const [w, shotK] of [['vidéo', 'quiz'], ['vidéo', 'etalonnage'], ['short', 'cadrage'], ['podcast', 'quiz'], ['clip', 'montage']]) {
+    for (const [w, shotK] of [['vidéo', 'quiz'], ['vidéo', 'montage'], ['short', 'cadrage'], ['podcast', 'quiz'], ['clip', 'montage']]) {
       const ks = new Set();
       for (let i = 0; i < 60; i++) { const r = { what: w, topic: 'test', diff: 'moyen', played: { kind: shotK, diff: 'moyen', score: 0.6, tier: 'mid' } }; ks.add(H.makeEdit(r, g).kind); }
       edits[w + '<' + shotK] = [...ks].sort().join(',');
@@ -123,9 +121,9 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     S.mgForce = f;
     return { seen, edits };
   });
-  check('the shoot’s rotation by format: the chat for a live, the reframing for a short, the mix for a podcast, the grading for a video (with the cut and the memory); the edit rotates too, never the shoot’s own game',
-    rot.seen['live:chat'] > 20 && !rot.seen['live:cadrage'] && rot.seen['short:cadrage'] > 20 && rot.seen['podcast:mixage'] > 20 && rot.seen['vidéo:etalonnage'] > 20 && !rot.seen['vidéo:chat']
-      && rot.edits['vidéo<quiz'] === 'etalonnage,montage,tri' && rot.edits['vidéo<etalonnage'] === 'montage,tri' && rot.edits['short<cadrage'] === 'montage,tri' && rot.edits['podcast<quiz'] === 'mixage,montage,tri' && rot.edits['clip<montage'] === 'etalonnage', rot);
+  check('the shoot’s rotation by format: the chat for a live, the reframing for a short, the mix for a podcast, the cut and the memory for a video (no more grading); the edit rotates too, never the shoot’s own game',
+    rot.seen['live:chat'] > 20 && !rot.seen['live:cadrage'] && rot.seen['short:cadrage'] > 20 && rot.seen['podcast:mixage'] > 20 && rot.seen['vidéo:memoire'] > 20 && !rot.seen['vidéo:etalonnage'] && !rot.seen['vidéo:chat']
+      && rot.edits['vidéo<quiz'] === 'montage,tri' && rot.edits['vidéo<montage'] === 'tri' && rot.edits['short<cadrage'] === 'montage,tri' && rot.edits['podcast<quiz'] === 'mixage,montage,tri' && rot.edits['clip<montage'] === 'tri', rot);
 
   // ---------- the chat of a live: the bad ones removed, the fans kept ----------
   const chatId = await shootRound(page, 'live', 'chat', 'facile');
@@ -187,61 +185,44 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
   check('a short reframed for the phone: the frame dragged onto the subject keeps it in; left alone at Expert, it gets out of the frame',
     fr && fr.what === 'short' && fr.kind === 'cadrage' && fr.score >= 0.85 && fr2 && fr2.score < fr.score, { fr, fr2 });
 
-  // ---------- the grading of a video: the settings matched to the reference ----------
-  const grId = await shootRound(page, 'vidéo', 'etalonnage', 'moyen');
-  await page.locator('.layer .mg-intro button', { hasText: 'parti' }).click();
-  for (let k = 0; k < 3; k++) {
-    await page.waitForFunction((j) => { const el = document.querySelector('.layer .grade-play .mg-top .mono'); return el && el.textContent.startsWith((j + 1) + '/') && !document.querySelector('.layer .grade-play .btn-hot').disabled; }, k, { timeout: 8000 });
-    if (k === 1) await shot(page, 'grade-start');
-    await G(page, ([id, j]) => {
-      const r = window.__hype.S.game.releases.find((x) => x.id === id), t = r.game.items[j].target;
-      for (const inp of document.querySelectorAll('.layer .grade-sl input')) { inp.value = String(Math.round(t[inp.dataset.k] * 100)); inp.dispatchEvent(new Event('input', { bubbles: true })); }
-    }, [grId, k]);
-    await sleep(150);
-    if (k === 1) await shot(page, 'grade-matched');
-    await page.click('.layer .grade-play .btn-hot');
-  }
-  await page.waitForSelector('.layer .mg-result', { timeout: 10000 });
-  const gr = await played(page, grId);
-  check('a video graded: each of the three shots matched to the reference (temperature, light, saturation), validated: a perfect round', gr && gr.what === 'vidéo' && gr.kind === 'etalonnage' && gr.score === 1, gr);
-
-  // ---------- at the edit step: the grading after a quiz shoot; leaving mid-way loses the shot under way ----------
+  // ---------- at the edit step: the reframing after a quiz shoot; leaving mid-way loses the round under way ----------
   const ed = await G(page, () => {
     const H = window.__hype, g = H.S.game;
     for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped';
-    g.career.platform = 'youtube'; window.__hypeEasyGear = true;
-    const r = H.scheduleRelease(g, { what: 'vidéo', topic: 'le grand classement des potions', due: Date.now() + 60000 });
+    g.career.platform = 'tiktok'; window.__hypeEasyGear = true;
+    const r = H.scheduleRelease(g, { what: 'short', topic: 'le grand classement des potions', due: Date.now() + 60000 });
     window.__hypeEasyGear = false;
     r.due = Date.now() - 1000; r.devis = { total: 0, items: [], topic: r.topic, at: Date.now() };
     r.played = { tier: 'mid', score: 0.6, diff: 'moyen', kind: 'quiz', at: Date.now() };
-    H.S.editForce = 'etalonnage';
+    H.S.editForce = 'cadrage';
     H.S.stack = []; H.openLayer({ t: 'minigame', id: r.id }); H.update();
     return r.id;
   });
-  await page.waitForSelector('.layer .edit-step h3:has-text("L’étalonnage")', { timeout: 8000 }); // (not the edit step of the release before, still on screen for an instant)
+  await page.waitForSelector('.layer .edit-step h3:has-text("Le recadrage vertical")', { timeout: 8000 }); // (not the edit step of the release before, still on screen for an instant)
   const edIntro = await page.textContent('.layer .edit-step');
   await page.locator('.layer .edit-step button', { hasText: /^ *Monter$/ }).click();
-  await page.waitForSelector('.layer .grade-play', { timeout: 5000 });
-  // leave during the first shot, come back: that shot is lost, the game goes on with the second
+  await page.waitForSelector('.layer .frame-stage', { timeout: 5000 });
+  // leave during the first round, come back: that round is lost, the game goes on with the second
+  await sleep(800);
   await page.click('.layer-head .iconbtn');
   await sleep(300);
   await G(page, (id) => { const H = window.__hype; H.openLayer({ t: 'minigame', id }); H.update(); }, ed);
-  await page.waitForSelector('.layer .grade-play', { timeout: 5000 });
-  const resumed = await page.textContent('.layer .grade-play .mg-top .mono');
-  for (let k = 1; k < 3; k++) {
-    await page.waitForFunction((j) => { const el = document.querySelector('.layer .grade-play .mg-top .mono'); return el && el.textContent.startsWith((j + 1) + '/') && !document.querySelector('.layer .grade-play .btn-hot').disabled; }, k, { timeout: 8000 });
-    await G(page, ([id, j]) => {
-      const r = window.__hype.S.game.releases.find((x) => x.id === id), t = r.editGame.items[j].target;
-      for (const inp of document.querySelectorAll('.layer .grade-sl input')) { inp.value = String(Math.round(t[inp.dataset.k] * 100)); inp.dispatchEvent(new Event('input', { bubbles: true })); }
-    }, [ed, k]);
-    await sleep(120);
-    await page.click('.layer .grade-play .btn-hot');
-  }
-  await page.waitForFunction((id) => !!window.__hype.S.game.releases.find((x) => x.id === id).edit, ed, { timeout: 10000 });
+  await page.waitForSelector('.layer .frame-stage', { timeout: 5000 });
+  const resumed = await page.textContent('.layer .frame-play .mg-top .mono');
+  await G(page, () => {
+    window.__frBot = setInterval(() => {
+      const st = document.querySelector('.layer .frame-stage'), su = document.querySelector('.layer .frame-subj');
+      if (!st || !su) return;
+      const b = st.getBoundingClientRect(), r = su.getBoundingClientRect(), x = r.left + r.width / 2;
+      st.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: b.top + 10, bubbles: true, pointerId: 7, buttons: 1 }));
+    }, 40);
+  });
+  await page.waitForFunction((id) => !!window.__hype.S.game.releases.find((x) => x.id === id).edit, ed, { timeout: 30000 });
+  await G(page, () => clearInterval(window.__frBot));
   const edr = await G(page, (id) => { const r = window.__hype.S.game.releases.find((x) => x.id === id); return { m: r.edit.m, score: r.played.score }; }, ed);
   await G(page, () => { window.__hype.S.editForce = null; window.__hype.S.mgForce = null; });
-  check('at the edit step, the grading (after a quiz shoot): leaving mid-shot loses that shot (2 of 3 left), the rest played perfectly: the edit at 67 %, the video’s score moved by it (0,6 → 0,65)',
-    /L’étalonnage/.test(edIntro) && /15 points/.test(edIntro) && /^2\/3/.test(resumed) && Math.abs(edr.m - 2 / 3) < 0.01 && Math.abs(edr.score - 0.65) < 0.01, { edIntro: edIntro.slice(0, 120), resumed, edr });
+  check('at the edit step, the reframing (after a quiz shoot): leaving mid-round loses that round (2 of 3 left), the rest played well: the edit near 2/3, the video’s score moved by it',
+    /Le recadrage vertical/.test(edIntro) && /15 points/.test(edIntro) && /^2\/3/.test(resumed) && edr.m > 0.55 && edr.m <= 2 / 3 + 0.01 && Math.abs(edr.score - (0.6 + (edr.m - 0.5) * 0.3)) < 0.01, { edIntro: edIntro.slice(0, 120), resumed, edr });
 
   const calls = await G(page, () => window.__prompts.filter((p) => /mixage|recadrage|étalonnage|Modère le chat/.test(p)).length);
   check('none of these rounds asks the AI anything', calls === 0, calls);

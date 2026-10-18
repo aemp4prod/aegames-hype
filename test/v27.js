@@ -1,6 +1,6 @@
 // 0.27 end to end, in Chromium against the built hype.html with the mocked Claude runtime.
-// - the grading (étalonnage) is judged on the picture: two grades that look the same score the same, whatever the
-//   sliders say; after a shot, what was off the most, in words; thresholds tighter with the difficulty;
+// - the grading (étalonnage), judged on the picture in 0.27, is gone in 0.27.4 (far too hard): what is checked now is that
+//   it never comes back, even from a game drawn before the update;
 // - the quote knows the inventory and the brands signed: what covers a need is « already there » (not paid), what the
 //   shoot uses up leaves the inventory when the quote is settled; what is on sale or sold is not offered;
 // - Jasmine's 86 new photos, in 25 series, every tag kept as written (up to 20, up to 32 characters);
@@ -61,85 +61,23 @@ async function newGame(page, identity) {
   await sleep(1500);
   await dismiss(page);
 }
-// In the page: a grade that looks like the reference (under the « perfect » threshold) while its sliders are as far from
-// it as can be found on a grid — what the eye matches without knowing the numbers.
-const TWIN = `(function twin(H, game, it) {
-  const steps = [-0.3, -0.24, -0.18, -0.12, -0.06, 0, 0.06, 0.12, 0.18, 0.24, 0.3], K = game.keys, cl = (x) => Math.max(-1, Math.min(1, x));
-  let best = null;
-  const walk = (k, v, far) => {
-    if (k === K.length) { const de = H.gradeDE(it.scene, it.target, v); if (de <= game.d0 && (!best || far > best.far)) best = { v: Object.assign({}, v), far, de }; return; }
-    for (const s of steps) { v[K[k]] = cl(Math.round((it.target[K[k]] + s) * 100) / 100); walk(k + 1, v, far + Math.abs(v[K[k]] - it.target[K[k]]) / K.length); }
-  };
-  walk(0, Object.assign({}, it.target), 0);
-  return best;
-})`;
-
 (async () => {
   const browser = await chromium.launch();
   const { page } = await newPage(browser);
   await newGame(page, 'Créatrice food et gaming');
   await G(page, () => { const g = window.__hype.S.game; g.career.cash = 5000; g.stats.followers = 20000; window.__hypeEasyGear = false; });
 
-  // ---------- the grading, judged on the picture ----------
-  const gr = await G(page, (twinSrc) => {
-    const H = window.__hype, twin = eval(twinSrc), D = (id) => H.DIFFS.find((d) => d.id === id), r = { what: 'vidéo', topic: 'les potions de Lumen' };
-    const games = ['moyen', 'expert', 'mythique'].map((id) => H.makeGrade(r, D(id)));
-    const [e2, e4, e6] = games, out = { d: games.map((e) => [e.d0, e.d1]), per: games.map((e) => e.per), keys: games.map((e) => e.keys.length), twins: [] };
-    for (const it of e2.items) {
-      const t = twin(H, e2, it);
-      out.twins.push(t && { far: Math.round(t.far * 100) / 100, de: Math.round(t.de * 10) / 10, score: H.gradeScore(e2, it, t.v), old: Math.max(0, Math.round((1 - t.far / 0.45) * 100) / 100) });
-    }
-    const it = e2.items[0];
-    out.perfect = H.gradeScore(e2, it, it.target);
-    out.start = Math.max(...e4.items.map((x) => H.gradeScore(e4, x, x.start)));
-    const warm = Object.assign({}, it.target, { temp: Math.max(-1, Math.min(1, it.target.temp + (it.target.temp > 0.3 ? -0.5 : 0.5))) });
-    out.hint = H.gradeHint(e2, it, warm);
-    out.hintWant = warm.temp > it.target.temp ? 'trop chaud' : 'trop froid';
-    out.warmScore = H.gradeScore(e2, it, warm);
-    // a grade begun before the 0.27 (its old tolerance) is still judged, as strictly
-    out.legacy = H.gradeScore({ keys: e2.keys, tol: 0.45 }, it, it.target);
-    return out;
-  }, TWIN);
-  check('the grading is judged on the picture: a grade that looks the same as the reference scores 100 % even with sliders far from it (the 0.26 formula gave less), a perfect match 1, an untouched shot little, tighter thresholds and the 4th slider with the difficulty',
-    gr.perfect === 1 && gr.twins.every((t) => t && t.score === 1 && t.far >= 0.05) && gr.twins.some((t) => t.old < 0.8) && gr.start < 0.5
-      && gr.d[0][1] > gr.d[1][1] && gr.d[1][1] > gr.d[2][1] && gr.d[0][0] > gr.d[2][0] && gr.keys.join() === '3,4,4' && gr.per[0] >= gr.per[2] && gr.legacy === 1, gr);
-  check('after a shot that is off, the game says what was off the most, in words (« trop chaud », « un peu trop sombre »…)', gr.hint === gr.hintWant && gr.warmScore < 0.85, { hint: gr.hint, want: gr.hintWant, score: gr.warmScore });
-
-  // on screen, at the edit step: the twins validated, one shot left warm
-  const ed = await G(page, () => {
+  // ---------- 0.27.4: the grading is gone (far too hard); one drawn before the update is drawn again ----------
+  const gone = await G(page, () => {
     const H = window.__hype, g = H.S.game;
-    g.career.platform = 'youtube'; window.__hypeEasyGear = true;
-    const r = H.scheduleRelease(g, { what: 'vidéo', topic: 'le grand classement des potions', due: Date.now() + 60000 });
-    window.__hypeEasyGear = false;
-    r.due = Date.now() - 1000; r.devis = { total: 0, items: [], topic: r.topic, at: Date.now() };
-    r.played = { tier: 'mid', score: 0.6, diff: 'moyen', kind: 'quiz', at: Date.now() };
-    H.S.editForce = 'etalonnage';
-    H.S.stack = []; H.openLayer({ t: 'minigame', id: r.id }); H.update();
-    return r.id;
+    const r = { id: 'rl_legacy', what: 'vidéo', topic: 'avant la mise à jour', state: 'scheduled', due: Date.now() + 3600000, at: Date.now(), delays: 0, tries: 0, game: { kind: 'etalonnage', items: [{}, {}, {}] }, editGame: null, played: null };
+    const r2 = { id: 'rl_legacy2', what: 'clip', topic: 'monté avant', state: 'scheduled', due: Date.now() + 7200000, at: Date.now(), delays: 0, tries: 0, game: null, played: { kind: 'quiz', score: 0.6, tier: 'mid', diff: 'moyen' }, editGame: { kind: 'etalonnage', items: [{}, {}, {}] } };
+    const m = H.migrate(H.cloneJSON(Object.assign({}, g, { releases: [r, r2] })));
+    const a = m.releases.find((x) => x.id === 'rl_legacy'), b = m.releases.find((x) => x.id === 'rl_legacy2');
+    return { makers: Object.keys(H.ROUND_MAKERS).join(), arcade: H.ARCADE_KINDS.join(), rounds: JSON.stringify(H.ROUNDS_FOR), edits: JSON.stringify(H.EDIT_FOR), game: a.game, edit: b.editGame };
   });
-  await page.waitForSelector('.layer .edit-step h3:has-text("L’étalonnage")', { timeout: 8000 });
-  const edIntro = await page.textContent('.layer .edit-step');
-  await page.locator('.layer .edit-step button', { hasText: /^ *Monter$/ }).click();
-  await page.waitForSelector('.layer .grade-play', { timeout: 5000 });
-  const fbs = [];
-  for (let k = 0; k < 3; k++) {
-    await page.waitForFunction((j) => { const el = document.querySelector('.layer .grade-play .mg-top .mono'); return el && el.textContent.startsWith((j + 1) + '/') && !document.querySelector('.layer .grade-play .btn-hot').disabled; }, k, { timeout: 8000 });
-    await G(page, ([id, j, twinSrc]) => {
-      const H = window.__hype, r = H.S.game.releases.find((x) => x.id === id), game = r.editGame, it = game.items[j];
-      let v = j === 1 ? Object.assign({}, it.target, { temp: Math.max(-1, Math.min(1, it.target.temp + (it.target.temp > 0.3 ? -0.5 : 0.5))) }) : eval(twinSrc)(H, game, it).v;
-      for (const inp of document.querySelectorAll('.layer .grade-sl input')) { inp.value = String(Math.round(v[inp.dataset.k] * 100)); inp.dispatchEvent(new Event('input', { bubbles: true })); }
-    }, [ed, k, TWIN]);
-    await sleep(150);
-    await page.click('.layer .grade-play .btn-hot');
-    await page.waitForFunction(() => /ressemblance|raccord/.test((document.querySelector('.layer .grade-play .mt-fb') || {}).textContent || ''), null, { timeout: 4000 });
-    fbs.push(await page.textContent('.layer .grade-play .mt-fb'));
-    if (k === 1) await shot(page, 'grade-hint');
-  }
-  await page.waitForFunction((id) => !!window.__hype.S.game.releases.find((x) => x.id === id).edit, ed, { timeout: 10000 });
-  const edr = await G(page, (id) => { const r = window.__hype.S.game.releases.find((x) => x.id === id); return { m: r.edit.m, score: r.played.score }; }, ed);
-  check('on screen, at the edit step: two shots matched by eye (not by the numbers) are « Parfait, c’est raccord ! », the shot left warm shows its likeness and what was off',
-    /C’est l’image qui compte/.test(edIntro) && /Parfait, c’est raccord/.test(fbs[0]) && /Parfait, c’est raccord/.test(fbs[2]) && /% de ressemblance · .*trop (chaud|froid)/.test(fbs[1]) && edr.m > 0.66 && edr.m < 1, { fbs, edr });
-  await G(page, () => { const H = window.__hype, g = H.S.game; H.S.editForce = null; for (const x of g.releases) if (x.state === 'scheduled' || x.state === 'live') x.state = 'dropped'; H.S.stack = []; H.update(); });
+  check('the colour grading is gone from the shoot, the edit and the rounds; a game of it drawn before the update (not played) is drawn again',
+    !/etalonnage/.test(gone.makers + gone.arcade + gone.rounds + gone.edits) && gone.game === null && gone.edit === null, gone);
 
   // ---------- the quote: the inventory and the brands signed ----------
   const setup = await G(page, () => {

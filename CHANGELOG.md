@@ -5,6 +5,28 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.4 — 18 octobre 2026 (build 27004)
+
+**Plusieurs sorties programmées d’un coup, des acomptes qui tombent vraiment, et des mini-jeux enfin jouables.**
+
+### ✨ Nouveautés
+
+- **📅 Plusieurs sorties à la fois** : tu peux programmer jusqu’à 6 sorties d’avance (vidéos, shorts, lives…), même pendant un défi Daily Upload. La plus proche passe en premier, les autres attendent leur tour, et tu les retrouves toutes dans le Programme du Studio.
+- **⏩ Sortir plus tôt** : une sortie prévue peut être avancée à l’heure de ton choix avant la date annoncée, ou tout de suite. Aucun malus : ton public l’a juste plus vite.
+
+### 🛠️ Corrections
+
+- **💸 L’acompte** : quand une marque accepte de te verser un acompte en message, il est maintenant inscrit dans le contrat et versé à la signature. Sur un contrat déjà signé, si elle accepte de l’augmenter, la différence tombe tout de suite. La carte du contrat affiche l’acompte prévu.
+- **🎨 Adieu l’étalonnage** : ce mini-jeu était bien trop dur, il est retiré du tournage comme du montage.
+- **⏱️ Plus de temps pour répondre** : 2 secondes de plus pour chaque réponse dans les mini-jeux, quelle que soit la difficulté. Chaque élément à trier, chaque question, chaque série, chaque image à retrouver, chaque message du chat et chaque coupe en profitent.
+- **🗓️ Fin de mois** : si l’horloge du jeu revient en arrière, la paie de la plateforme, les abonnements de tes membres et les factures du mois ne tombent plus deux fois.
+
+### 💡 Bon à savoir
+
+- Par défaut, l’acompte reste de 30 % à la signature à partir de 500 €. En dessous, tout est payé à la livraison, sauf si tu en négocies un.
+- Sans l’étalonnage, une vidéo ou un clip tire son mini-jeu parmi 7 au tournage, soit 1 chance sur 7 chacun (1 sur 6 avec un monteur dans ton équipe).
+- Un post qui reparle d’une sortie déjà programmée ne crée pas de doublon : c’est la même sortie.
+
 ## 0.27.3 — 18 octobre 2026 (build 27003)
 
 **Fini le quiz à chaque tournage : tous les mini-jeux ont enfin la même chance de tomber.**

@@ -157,12 +157,16 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Le Studio** : ta chaîne (YouTube, TikTok, Instagram, Twitch ou Spotify), avec un écran de publication propre à
   chaque plateforme, les tendances du moment, l’argent qui suit les vraies règles (seuils de monétisation, partage des
   revenus, saisons : les pubs paient plus en fin d’année, moins en janvier et l’été), les sponsors à négocier
-  (le prix, la mention « Collaboration commerciale », l’exclusivité, le délai : tout se discute en privé, et le contrat
-  suit ce que vous décidez ; à toi de repérer les pièges ; un cachet se paie 30 % à la signature dès 500 €, le reste à
-  la publication, et les petites marques paient souvent en produits, pas en argent : c’est écrit sur l’offre, sur le
-  contrat et à la livraison depuis la 0.22.3), une équipe à recruter
+  (le prix, la mention « Collaboration commerciale », l’exclusivité, le délai, l’acompte : tout se discute en privé, et
+  le contrat suit ce que vous décidez ; à toi de repérer les pièges ; par défaut, un cachet se paie 30 % à la signature
+  dès 500 €, le reste à la publication ; depuis la 0.27.4, l’acompte négocié est inscrit au contrat, et une hausse
+  acceptée sur un contrat signé est versée tout de suite ; les petites marques paient souvent en produits, pas en
+  argent : c’est écrit sur l’offre, sur le contrat et à la livraison depuis la 0.22.3), une équipe à recruter
   (monteuse, graphiste, scénariste, community manager, agent, attachée de presse, avocate) et le défi **Daily Upload**
   (pas de report possible pendant un défi : le jeu le dit à la place du bouton « Repousser »).
+  Depuis la 0.27.4, tu peux **programmer jusqu’à 6 sorties d’avance**, même pendant un défi : la plus proche passe en
+  premier, les autres attendent leur tour dans le Programme du Studio, et chacune peut **sortir plus tôt** (maintenant,
+  bientôt ou à une heure de ton choix avant la date prévue), sans aucun malus.
   Depuis la 0.20, programmer une sortie commence par **le devis** : ce qu’il faut acheter, louer ou payer pour ce
   contenu-là (un jeu, une location, un circuit, des ingrédients…), à prix réalistes, jamais ton matos ni ce que tu as déjà
   acheté pour une ancienne vidéo. Il se paie pour programmer (un contenu sans rien à acheter reste gratuit) ; pour une
@@ -281,15 +285,16 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Quatre nouveaux mini-jeux** (0.25), joués sans l’IA (aucun token) : **modérer le chat** d’un live (supprimer
   les insultes, les arnaques et le spam sans toucher aux fans, avec des pièges à partir de Difficile), **le mixage** d’un
   podcast (garder chaque piste dans la bande verte), **le recadrage vertical** d’un short (garder le sujet dans le
-  cadre du téléphone) et **l’étalonnage** d’une vidéo (accorder la température, la lumière, la saturation, et le
-  contraste en Expert, au plan de référence ; depuis la 0.27, c’est l’image qui est jugée, comme à l’œil, et le jeu dit ce
-  qui clochait). Ils arrivent au tournage selon le format, et le montage tourne lui aussi
-  (la coupe au rythme, le dérushage, l’étalonnage, le recadrage, le mixage), jamais le même jeu qu’au tournage.
-  Plus la difficulté monte, plus c’est rapide, serré et chargé. Depuis la 0.27.3, au tournage, chaque mini-jeu du
-  format a la même chance, quelle que soit la difficulté : les cinq que l’IA écrit sur ton sujet (trier, remettre dans
-  l’ordre, quiz, vrai ou faux, trouve l’intrus) et les trois épreuves du format, soit 1 chance sur 8, jamais le même
-  deux fois de suite (1 sur 7 avec un monteur dans l’équipe : pas de coupe au rythme pour toi). Cauchemar reste le quiz
-  de vraies questions.
+  cadre du téléphone) et **l’étalonnage** d’une vidéo (retiré en 0.27.4 : bien trop dur). Ils arrivent au tournage
+  selon le format, et le montage tourne lui aussi (la coupe au rythme, le dérushage, le recadrage, le mixage), jamais
+  le même jeu qu’au tournage. Plus la difficulté monte, plus c’est rapide, serré et chargé. Depuis la 0.27.3, au
+  tournage, chaque mini-jeu du format a la même chance, quelle que soit la difficulté : les cinq que l’IA écrit sur ton
+  sujet (trier, remettre dans l’ordre, quiz, vrai ou faux, trouve l’intrus) et les épreuves du format (la coupe au
+  rythme, la mémoire, plus le recadrage pour un short, le chat pour un live, le mixage pour un podcast), soit 1 chance
+  sur 8, et 1 sur 7 pour une vidéo ou un clip ; jamais le même deux fois de suite (une de moins avec un monteur dans
+  l’équipe : pas de coupe au rythme pour toi). Cauchemar reste le quiz de vraies questions. Depuis la 0.27.4, chaque
+  réponse a **2 secondes de plus**, quelle que soit la difficulté (chaque élément à trier, chaque question, chaque
+  série, chaque image à retrouver, chaque message du chat, chaque coupe).
 - **Les mini-jeux** (tournages et rendez-vous) gardent ta progression à chaque réponse : si tu en sors, tu reprends où tu
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
@@ -336,7 +341,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.3.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.4.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

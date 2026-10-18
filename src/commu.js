@@ -113,7 +113,7 @@ function CommuSection({ g, now }) {
     ${qs.length ? html`<div class="fan-qs">${qs.map((c) => html`<div class="fan-q" key=${c.id}>
       <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} onClick=${() => openDM(c.id)} />
       <div class="mid"><b>${c.name}</b><span>« ${str(c.fan.text, 120)} »</span>
-        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button><button class="btn btn-hot btn-sm" disabled=${!!activeRelease(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button></div></div>
+        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button><button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button></div></div>
     </div>`)}</div>` : html`<p class="muted">Pas de question d’abonné en attente. Elles arrivent en message privé, quand ton fil bouge.</p>`}
     ${regs.length ? html`<p class="commu-regs">💛 Tes habitués : ${regs.slice(-8).map((c) => c.name.split(' ')[0]).join(', ')}</p>` : null}
     <${MembBlock} g=${g} />
@@ -253,7 +253,7 @@ function tickMemb(g, t = Date.now()) {
   }
   m.day = day;
   const key = monthKey(gameDate(t));
-  if (m.paidKey !== key) {
+  if (!m.paidKey || key > m.paidKey) { // 0.27.4: (a clock set back pays no month twice)
     const month = monthOfKey(m.paidKey), frac = Math.min(1, (t - m.monthAt) / (30 * DAY_MS)), N = cap1(membName(g));
     if (can && m.members > 0) {
       const net = Math.round(membNet(g, m) * frac * 100) / 100;

@@ -88,7 +88,7 @@ function payTerms(g, d) {
   if (d.gift) return 'Le matos, envoyé à la signature'; // 0.21
   if (!d.fee) return 'Les produits, envoyés à la signature';
   if (d.payLate) return `En une fois, ${d.payLate} jours après la publication`;
-  return d.upfront ? '30 % à la signature, le reste à la livraison' : 'À la livraison';
+  return d.upfront ? (upShown(d) >= 100 ? 'Tout à la signature' : `${upShown(d)} % à la signature, le reste à la livraison`) : 'À la livraison'; // 0.27.4: what was agreed
 }
 
 /* ---------- the agents: what they see, what they bring, how far they can go ---------- */
@@ -135,7 +135,7 @@ function agentGamble(g, d) {
     d.hard = ''; // (the brand gives what it can, now)
     const nf = Math.min(dealBounds(d).cap, niceRound(d.fee * rand(1.15, 1.3)));
     d.fee = nf;
-    d.upfront = nf >= 500 ? Math.round(nf * 0.3) : 0;
+    d.upfront = upfrontOf(d);
     addIncomingDM(g, c, `C’est fait ! J’ai tenu bon avec ${d.brand} : ${fmtMoney(g, nf)}. Franchement, j’y croyais à moitié. Tu n’as plus qu’à signer 😎`, later() + 1500, { max: 300 });
     dmCard(g, g.chars[d.contact] || c, { sys: 'deal', deal: d.id, upd: true }, later() + 2500);
     addNotif(g, { k: 'money', c: c.id, text: `${first} a décroché mieux avec ${d.brand} : ${fmtMoney(g, nf)}.` });
@@ -303,7 +303,7 @@ function scamCtx(g, d, c) {
   const n = c.name.split(' ')[0];
   const never = `Elle ne l’avoue JAMAIS, même si le joueur l’accuse : elle s’indigne, rassure, invente des références, ou change de sujet.`;
   const S0 = {
-    impaye: `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’a aucune intention de payer. ${n} promet un paiement « à ${d.payLate} jours, comme tout le monde », esquive les questions sur l’entreprise, pousse à signer vite. ${never})`,
+    impaye: `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’a aucune intention de payer. ${n} promet un paiement « à ${d.payLate} jours, comme tout le monde », esquive les questions sur l’entreprise, pousse à signer vite, et refuse tout acompte avec une excuse (« la compta », « chez nous c’est comme ça »). ${never})`,
     frais: `(Secret : c’est une arnaque au « programme ambassadeur » : le joueur paie ${fmtMoney(g, d.costs)} de frais et ne recevra rien de valable. ${n} présente ça comme une chance rare « réservée aux meilleurs profils ». ${never})`,
     dangereux: `(Secret : ${d.product} est dangereux et n’a aucune autorisation. ${n} vante des résultats « incroyables » et répond de façon floue sur la sécurité ou les certifications. ${never})`,
     nul: `(Secret : le produit est de très mauvaise qualité, les clients se plaignent beaucoup. ${n} parle de « quelques avis de concurrents jaloux ». ${never})`,

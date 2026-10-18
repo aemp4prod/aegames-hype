@@ -50,6 +50,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await ctx.addInitScript(MOCK);
   await ctx.addInitScript(() => {
     window.__mockCoeurs = { 'theo.marlin': 'serein', 'nox.ombre': 'anxieux', 'zara.vey': 'prudent', 'leandre.aube': 'impulsif' };
+    window.__castOlds = 0; // (0.27.4: nobody older than 34 in this cast, or a heart the checks rely on drew a role apart)
     window.__mockAmis = { 'zara.vey': 'nox.ombre', 'nox.ombre': 'theo.marlin' };
   });
   const page = await ctx.newPage();

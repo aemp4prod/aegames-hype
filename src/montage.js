@@ -46,7 +46,7 @@ function widenZone(x, w) {
 function makeEdit(r, g) {
   const D = diffOf((r.played && r.played.diff) || r.diff);
   const E = g ? gearEdit(g, r) : null;
-  // 0.25: a rotation, by format: the cut, the rushes, the grading, the reframing, the mix (never the shoot's own game, and
+  // 0.25: a rotation, by format: the cut, the rushes, the reframing, the mix (0.27.4: no more grading) (never the shoot's own game, and
   // not the last edit when there is another one)
   const shot = r.played && r.played.kind;
   let pool = (EDIT_FOR[r.what] || EDIT_FOR.vidéo).filter((k) => k !== shot && !(shot === 'montage' && k === 'montage'));
@@ -58,7 +58,6 @@ function makeEdit(r, g) {
     const m = ROUND_MAKERS[kind](r, D), w = E ? E.w : 1;
     if (m.band) m.band = Math.min(0.45, m.band * w);
     if (m.w) m.w = Math.min(0.5, m.w * w);
-    if (m.d1) { const k = Math.min(1.6, w); m.d0 = Math.round(m.d0 * k * 10) / 10; m.d1 = Math.round(m.d1 * k * 10) / 10; } // (0.27: the grading's thresholds)
     return Object.assign(m, { edit: true, timeK: E ? E.time : 1 });
   }
   const m = makeMontage(r, D);
@@ -255,7 +254,7 @@ function EditStep({ g, r, now }) {
       </div>
     </div>`;
   }
-  if (game.kind === 'tri') return html`<${TriGame} items=${game.items} onDone=${onDone} now=${now} total=${Math.round(mgTime('tri', game.items.length, diffOf(game.diff)) * (game.timeK || 1))} hints=${0} run=${game.run || null} keep=${keep} />`;
+  if (game.kind === 'tri') return html`<${TriGame} items=${game.items} onDone=${onDone} now=${now} total=${Math.round(mgTime('tri', game.items.length, diffOf(game.diff)) * (game.timeK || 1)) + mgExtra('tri', game.items.length)} hints=${0} run=${game.run || null} keep=${keep} />`;
   if (ARCADE_KINDS.includes(game.kind)) return html`<${ArcadeGame} game=${game} onDone=${onDone} now=${now} run=${game.run || null} keep=${keep} />`; // 0.25
   return html`<${MontageGame} game=${game} onDone=${onDone} run=${game.run || null} keep=${keep} />`;
 }

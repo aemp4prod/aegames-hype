@@ -122,6 +122,10 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
     H.tickMemb(g, t2);
     out.broken = { before: n0, after: m.members, unmet: m.unmet, warm: Math.round((g.career.warmth - w1) * 10) / 10, notif: (g.notifs.find((x) => /n’ont pas eu leur vidéo en avant-première/.test(x.text)) || {}).text || '' };
     out.ctx = H.commuCtx(g);
+    // back to the present (the ticks above ran weeks ahead): this month starts now (0.27.4: a month key ahead of the
+    // clock no longer passes for a new month)
+    const dn = H.gameDate(Date.now());
+    m.paidKey = dn.getFullYear() + '-' + String(dn.getMonth() + 1).padStart(2, '0'); m.monthAt = Date.now(); m.day = H.gameDay(Date.now());
     return out; });
   check('members come little by little toward what the audience gives (about 0,2 % at lukewarm, more when warm or cheaper, fewer at 9,99 €); each month paid with the month’s revenue, less the platform’s 30 %',
     grow.after20 > 100 && grow.after20 <= grow.target * 1.15 && grow.warm > grow.target && grow.cheap > grow.target && grow.dear < grow.target && Math.abs(grow.paid - grow.expect) < 0.05 && grow.paid > 0 && /Adhésions de janvier/.test(grow.ledger) && /membres/.test(grow.notif) && grow.unmet === false, grow);

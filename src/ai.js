@@ -187,11 +187,10 @@ function ctxText(g, o = {}) {
   if (dates) L.push(`Ces rendez-vous n’ont pas encore eu lieu : personne ne les dit passés, ratés ou annulés (c’est le jeu qui le dit quand ça arrive).`);
   // 0.9.4: a date talked about but never on the agenda is no lapin
   if (g.chronicle.slice(-(nChron || 8)).some((e) => /rendez-vous|rencard|\brdv\b|d[îi]ner|un verre/i.test(e.text))) L.push('Seuls les rendez-vous de l’agenda (ci-dessus) engagent le joueur : s’il a été question d’un autre sans qu’il soit inscrit, personne ne lui reproche de lapin.');
-  const rl = activeRelease(g);
-  if (rl) {
+  plannedReleases(g).slice(0, 4).forEach((rl, k) => { // 0.27.4: several can be planned
     const rc = rl.c && g.chars[rl.c];
-    L.push(`Le joueur a ${rl.series ? 'programmé' : 'annoncé'} ${unW(rl)}${rl.series ? ` (épisode ${rl.ep} de son défi quotidien)` : ''} : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}, sortie ${rl.due > now ? 'prévue dans ' + fmtDur(rl.due - now) : 'attendue maintenant'}${rl.delays ? `, déjà ${whatF(rl) ? 'repoussée' : 'repoussé'} ${rl.delays} fois` : ''}. Le public l’attend.`);
-  }
+    L.push(`Le joueur a ${k ? 'aussi ' : ''}${rl.series ? 'programmé' : 'annoncé'} ${unW(rl)}${rl.series ? ` (épisode ${rl.ep} de son défi quotidien)` : ''} : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}, sortie ${rl.due > now ? 'prévue dans ' + fmtDur(rl.due - now) : 'attendue maintenant'}${rl.delays ? `, déjà ${whatF(rl) ? 'repoussée' : 'repoussé'} ${rl.delays} fois` : ''}. Le public l’attend.`);
+  });
   if (lowActive(g)) L.push('Le joueur fait profil bas : il ne publie plus pour l’instant.');
   if (K.skills) L.push(skillsCtx(g)); // 0.24: levels out of 50
   const rs = resaleCtx(g); // 0.26: what the player sells second hand (their audience can see it)
@@ -417,6 +416,8 @@ const INVITE_DM = (c) => `- Si ${c.name} PROPOSE dans ses messages de voir le jo
 const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un personnage principal PROPOSE au joueur, dans son message privé ("dm"), de se voir à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) : juste après ce "dm", {"t":"invite","by":"handle","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble. Les personnages proches du joueur (relation 30 ou plus) prennent ce genre d’initiative ${often}.`;
 // A video (or live, clip…) the player announces for later: the game starts a countdown.
 const ANNOUNCE_LINE = '- Si le joueur annonce dans son message qu’il sortira bientôt un contenu (vidéo, live, clip, podcast…), même en passant : {"t":"announce","what":"vidéo","topic":"≤ 80 caractères : ce qu’il veut montrer ou prouver, fidèle à SES mots ; s’il ne le dit pas, reprends ce qu’il défendait lui-même juste avant, sans y mélanger les autres intrigues du moment","in":60,"about":"handle du personnage visé s’il veut prouver ou dénoncer quelque chose sur lui, sinon vide"} ("in" = minutes avant la sortie d’après ce qu’il dit et l’heure qu’il est, 60 si ce n’est pas précisé, entre 1 et 1440). Les réactions peuvent déjà en parler.';
+// 0.27.4: with releases already planned, the model knows which: a post about one of them is no new one
+const announceLine = (g, now = Date.now()) => { const P = plannedReleases(g); return ANNOUNCE_LINE + (P.length ? ` Déjà prévu : ${P.map((r) => `${unW(r)} « ${str(r.topic, 50)} » ${fmtWhen(r.due, now)}`).join(' ; ')}. S’il parle d’une de ces sorties, pas de ligne "announce" : seulement pour un nouveau contenu.` : ''); };
 // The shoot (mini-game) decides how the release is received.
 const VIDEO_TIER_TEXT = {
   top: (r) => `RÉUSSI : ${laW(r)} est ${whatF(r) ? 'réussie' : 'réussi'}, convainc, fait rire ou impressionne ; quality 7-9, reception 6-9, virality 7-9`,
@@ -581,7 +582,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     secrets ? CLUE_LINE(true) : null,
     ...(story.length ? STORY_LINES(ids) : []),
     story.length < 2 ? '- Comme le joueur a moins de deux quêtes histoire, ajoute : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}' : null,
-    !acc && !vid && !deb && !secAns && !conf && !extra.apology && !activeRelease(g) && ANNOUNCE_RE.test(text) ? ANNOUNCE_LINE : null, // (the game also reads the player's own words: parseAnnounce)
+    !acc && !vid && !deb && !secAns && !conf && !extra.apology && planRoom(g) && ANNOUNCE_RE.test(text) ? announceLine(g) : null, // (the game also reads the player's own words: parseAnnounce)
     planHere ? PLAN_LINE : null,
     ...secretActLines(g, focus), // 0.18: someone who holds a secret of the player, a denial someone can prove
     ...dilemmaLines(g), // 0.18: two friends ask for the same spot
@@ -2149,7 +2150,7 @@ function promptMiniGame(g, r, force) {
 }
 // Without Claude, the shoot is the production itself: put its steps back in order.
 const prodGame = (r) => ({ kind: 'ordre', title: 'Le tournage', intro: `Remets les étapes de ${laW(r)} « ${str(r.topic, 60)} » dans le bon ordre.`, items: (PROD_STEPS[r.what] || PROD_STEPS.vidéo).map((text) => ({ text })) });
-const MG_NAMES = { tri: 'trier', ordre: 'remettre dans l’ordre', quiz: 'quiz', vf: 'vrai ou faux', intrus: 'trouve l’intrus', montage: 'montage au rythme', memoire: 'mémoire', chat: 'modérer le chat', mixage: 'mixage', cadrage: 'recadrage', etalonnage: 'étalonnage' };
+const MG_NAMES = { tri: 'trier', ordre: 'remettre dans l’ordre', quiz: 'quiz', vf: 'vrai ou faux', intrus: 'trouve l’intrus', montage: 'montage au rythme', memoire: 'mémoire', chat: 'modérer le chat', mixage: 'mixage', cadrage: 'recadrage' };
 function validGame(sp) {
   if (sp.kind === 'tri' || sp.kind === 'vf') return sp.items.length >= 4 && sp.items.some((x) => x.good) && sp.items.some((x) => !x.good);
   if (sp.kind === 'intrus') return sp.items.length >= 3;
@@ -2169,7 +2170,7 @@ function startShoot(r) {
 // of a short, the mix of a podcast, the grading of a video): no Claude needed, never twice in a row.
 /* 0.27.3: at the shoot, every mini-game of the format has the same chance: the five the AI writes on the subject (sort,
    order, quiz, true or false, odd one out) and the format's skill rounds (the cut on the beat, the memory, and the chat
-   of a live, the reframing of a short, the mix of a podcast or the grading of a video). Never the same as the last
+   of a live, the reframing of a short, the mix of a podcast; 0.27.4: no more grading). Never the same as the last
    shoot, half as likely when played in the two before. The game picks the format: left to choose, the AI wrote a quiz
    most of the time. « Cauchemar » stays the real-knowledge quiz (its very idea). */
 const MG_KINDS_AI = ['tri', 'ordre', 'quiz', 'vf', 'intrus'];

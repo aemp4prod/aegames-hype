@@ -1409,7 +1409,7 @@ function askDrop(g, r) {
 // Where « jusqu’à la sortie » goes, read when the jump really happens (it may wait for the characters to finish).
 const relDue = (r) => () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; };
 function ReleaseCard({ g, now }) {
-  const r = activeRelease(g);
+  const plan = plannedReleases(g), r = plan[0] || null, more = plan.slice(1); // 0.27.4: the others wait their turn
   if (!r || S.publishing === r.id) return null;
   const W = WHATS[r.what] || WHATS.vidéo;
   const left = r.due - now;
@@ -1421,8 +1421,10 @@ function ReleaseCard({ g, now }) {
       <div class="row">
         ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> Avancer jusqu’à la sortie`}</button>`
           : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
+        ${left > 0 ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}>Plus tôt</button>` : null}
         ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
       </div>
+      ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${str(x.topic, 28)} » ${fmtWhen(x.due, now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
     </div>
   </div>`;
 }
@@ -1480,10 +1482,12 @@ function EventCard({ evt }) {
     </div>` : null}
   </div>`;
 }
-const MG_LABEL = { tri: 'Trier les éléments', ordre: 'Remets dans l’ordre', quiz: 'Le quiz', vf: 'Vrai ou faux', intrus: 'Trouve l’intrus', montage: 'Coupe au rythme', memoire: 'Mémoire', chat: 'Modère le chat', mixage: 'Le mixage', cadrage: 'Le recadrage', etalonnage: 'L’étalonnage' };
+const MG_LABEL = { tri: 'Trier les éléments', ordre: 'Remets dans l’ordre', quiz: 'Le quiz', vf: 'Vrai ou faux', intrus: 'Trouve l’intrus', montage: 'Coupe au rythme', memoire: 'Mémoire', chat: 'Modère le chat', mixage: 'Le mixage', cadrage: 'Le recadrage' };
 const MG_PER = { tri: 5000, ordre: 9000, quiz: 15000, vf: 4000, intrus: 12000 }; // per item at « Difficile » (per round for the quiz and the odd one out)
 const PER_ROUND = { quiz: true, intrus: true };
 const mgTime = (kind, n, D) => Math.round((PER_ROUND[kind] ? MG_PER[kind] : (MG_PER[kind] || 0) * n) * D.time);
+// 0.27.4: then two more seconds for each answer (each item, each question or series), whatever helps or slows the player
+const mgExtra = (kind, n) => MG_EXTRA * (PER_ROUND[kind] ? 1 : n);
 const MG_RULE = {
   tri: (sec) => `Garde ce qui sert ton contenu, jette les pièges. ${sec} secondes pour tout trier.`,
   ordre: (sec) => `Touche les étapes dans le bon ordre. ${sec} secondes.`,
@@ -1492,7 +1496,7 @@ const MG_RULE = {
   intrus: (sec) => `Dans chaque série, une seule proposition n’a rien à faire là : trouve-la. ${sec} secondes par série.`,
   montage: (sec, game) => `Le curseur file sur la timeline : touche « ${game.verb || 'Couper'} » pile quand il passe dans la zone verte. ${game.items.length} fois, chacune compte.`,
   memoire: (sec, game) => `Une suite défile, une image à la fois : retiens-la, puis retrouve-la dans l’ordre. ${game.items.length} manches, de plus en plus longues.`,
-  chat: (sec, game) => game.rule, mixage: (sec, game) => game.rule, cadrage: (sec, game) => game.rule, etalonnage: (sec, game) => game.rule, // 0.25
+  chat: (sec, game) => game.rule, mixage: (sec, game) => game.rule, cadrage: (sec, game) => game.rule, // 0.25
 };
 const shuffle = (a) => { const b = a.slice(); for (let k = b.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [b[k], b[j]] = [b[j], b[k]]; } return b; };
 // 1 = perfect order, from how many pairs are swapped (one swap still scores high, a random order low).
@@ -1711,7 +1715,7 @@ function MontageGame({ game, onDone, run, keep }) {
       const x = st.current, t = performance.now();
       if (!x.fb && !done.current) {
         if (cur.current) cur.current.style.left = (pos(t) * 100).toFixed(2) + '%';
-        if (t - x.t0 > sp * 4) cut(null); // two round trips without a cut: missed
+        if (t - x.t0 > sp * 4 + MG_EXTRA) cut(null); // two round trips without a cut (0.27.4: and two more seconds): missed
       }
       raf = requestAnimationFrame(draw);
     };
@@ -1755,7 +1759,7 @@ function MemoryGame({ game, onDone, now, run, keep }) {
   const done = useRef(false), alive = useRef(true);
   const s = st.current;
   const seq = s.k < nR ? rounds[s.k].seq : [];
-  const pickTime = (len) => 3000 + 1100 * len;
+  const pickTime = (len) => 3000 + (1100 + MG_EXTRA) * len; // (0.27.4: two more seconds for each image)
   const finish = (scores) => { if (!done.current) { done.current = true; onDone(scores.reduce((a, v) => a + v, 0) / nR); } };
   useEffect(() => {
     const x = st.current;
@@ -1815,7 +1819,7 @@ function ShootPlay({ r, now, outcomes, icon }) {
   const kind = MG_LABEL[game.kind] ? game.kind : 'ordre';
   const D = diffOf(game.diff || r.diff);
   const g = S.game, crew = !r.player && r.crew ? r.crew : []; // a release's team (an editor, a scriptwriter) helps the shoot
-  const total = Math.round(mgTime(kind, game.items.length, D) * (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)); // 0.20: the prompter
+  const total = Math.round(mgTime(kind, game.items.length, D) * (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)) + mgExtra(kind, game.items.length); // 0.20: the prompter
   const hints = g && crew.includes('scenariste') ? staffPower(g, 'scenariste') : 0;
   if (phase === 'intro') {
     return html`<div class="mg-intro">
@@ -1984,6 +1988,8 @@ function Layer(props) {
   if (t === 'settings') return html`<${SettingsLayer} ...${props} />`;
   if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
+  if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
+  if (t === 'cheat') return html`<${ModeMenuLayer} ...${props} />`; // 0.27.4: the hidden menu
   if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
   if (t === 'insta') return html`<${InstaLayer} ...${props} />`;
   if (t === 'tiktok') return html`<${TikTokLayer} ...${props} />`;
@@ -2950,12 +2956,15 @@ if (window.__HYPE_TEST__) {
     VOL, volId, volFor, levelOf, chattyOn, autoLiveOn, lifeK, COST_IN, COST_OUT, costAt, hourCafes, hourCafesOf, setOpt, COMMENTS, COMMENT_IDS, LIVE, LIVE_IDS, commentsOf, liveOf, volIdOf, usesOf, USE_LABELS, livePause, AUTO_IDLE_MS,
     SKILL_MAX, SKILL_TREE, SKILL_IDS, SKILL_CUM, skillNeed, skillLevelOf, skillLevel, skillFx, skillFxAt, ensureSkills, trainSkill, practiseAct, practiseDM, practiseTalk, skillsCtx, skillNow, nextTier,
     BUY_KINDS, BUY_RE, buyTalk, BUY_LINE, applyBuy, buyText, buyLabel, buyTotals, buyPrice, PAY_DEFAULT, sround, talkTranscript,
-    makeChat, makeMix, makeFrame, makeGrade, gradeScore, gradeDE, gradeHint, ROUND_MAKERS, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
+    makeChat, makeMix, makeFrame, ROUND_MAKERS, mgTime, mgExtra, MG_EXTRA, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
     importPhoto, removePhoto, ownPhoto, setPhotoDesc, pfpQuiet, pfpAnnounce, pfpPosted, // 0.25.1
     JOB_TIERS, JOB_K, JOB_DIFFS, JOB_FLOP, jobTier, jobQual, jobQ, qOf, jobBest, legendFrom, jobExpect, tierRank, // 0.25.2
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
     COND, resaleName, invOf, invItem, invLive, invSold, invAdd, gearToInv, equipInv, receiveGear, fairOf, suggestOf, fanBoost, resaleDemand, priceK, saleSpeed, listItem, unlist, tickResale, sellItem, noticeSale, resoldLine, resaleCtx, giftTalk, GIFT_LINE, receiveGift, roundPrice, SALE_RATE, NOTICE_MS, // 0.26
     dealOf, dealBounds, dealSummary, applyDealLine, declineDeal, // 0.19.1: contracts
+    upPctOf, upfrontOf, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
+    plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
+    openMenu, menuKey, menuApply, menuOn, menuNum, tapCash, MENU_CODE, checkPayout, billGear, // 0.27.4: the hidden menu
     // 0.20: the gear, the connection, the subscriptions, the start
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,

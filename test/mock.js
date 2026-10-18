@@ -272,6 +272,8 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
       const lo = Number((/entre (\d+) et (\d+)/.exec(p.split('OBLIGATOIRE dès que')[1] || '') || [])[1] || 0);
       return L({ t: 'msg', text: 'Bon… va pour la mention. Mais du coup on baisse un peu, ok ?' }, { t: 'deal', mention: true, ...(lo ? { fee: lo } : {}) }, { t: 'rel', d: 1, why: 'a tenu à faire les choses bien' });
     }
+    const ac = /acompte (?:de |à )?(\d+)\s?%/i.exec(said); // 0.27.4: the brand agrees to a down payment, the contract follows
+    if (ac) return L({ t: 'msg', text: `Ça marche pour ${ac[1]} % d’acompte, je l’ajoute au contrat.` }, { t: 'deal', upfront: window.__mockUpRaw !== undefined ? window.__mockUpRaw : Number(ac[1]) }, { t: 'rel', d: 1, why: 'échange pro' });
     const ask = /je serais plutôt sur ([\d\s]+)/.exec(p.split('Nouveau message du joueur')[1] || '');
     const max = Number(((/monter jusqu’à ([\d\s]+)/.exec(p) || [])[1] || '0').replace(/\D/g, ''));
     const want = ask ? Number(ask[1].replace(/\D/g, '')) : 0;

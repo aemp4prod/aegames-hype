@@ -359,7 +359,7 @@ function bookRelease(g, r, views, post, ads) {
 // The month is over (on the game clock): the platform pays what it owes, from 70 € on YouTube (AdSense threshold).
 function checkPayout(g, t) {
   const c = g.career, key = monthKey(gameDate(t));
-  if (c.estMonth === key) return false;
+  if (c.estMonth && key <= c.estMonth) return false; // 0.27.4: a clock set back never pays a month twice (keys are « 2026-10 »)
   const total = Math.round((c.est + c.owed) * 100) / 100, month = monthOfKey(c.estMonth), pf = PF(g);
   c.est = 0;
   c.estMonth = key;
@@ -633,8 +633,28 @@ function trimDeals(g, max = 24) {
   while (g.deals.length > max) { const k = g.deals.findIndex((d) => !dealPending(d)); if (k < 0) break; g.deals.splice(k, 1); }
 }
 const dealWhat = (g, d) => (d.what === 'short' ? PF(g).shortName : d.what);
+// 0.27.4: the down payment is negotiated too: 30 % at the signature from 500 by default, or what the brand agreed to in
+// the DM (before, a brand could say yes there: the contract stayed the same and nothing came). A brand that never pays
+// never pays one either.
+const NO_UPFRONT = ['impaye', 'frais'];
+const upPctOf = (d) => (NO_UPFRONT.includes(d.scam) ? 0 : d.upPct != null ? d.upPct : d.fee >= 500 ? 30 : 0);
+const upfrontOf = (d) => (d.fee > 0 ? Math.round((d.fee * upPctOf(d)) / 100) : 0);
+const upShown = (d) => (d.fee > 0 && d.upfront > 0 ? Math.round((100 * d.upfront) / d.fee) : 0); // the deposit, as a share of the price
+// The deposit in a model line: a percentage of the price (0 to 100); with a currency, or above 100, an amount.
+function readUpfront(v, d) {
+  if (v === undefined || v === null || v === '' || v === true || v === 'true') return null;
+  if (v === false || v === 'false' || /^(?:non|aucun|sans)$/i.test(String(v).trim())) return 0;
+  const s = String(v), x = parseFloat(s.replace(/\s/g, '').replace(',', '.'));
+  if (!Number.isFinite(x) || x < 0) return null;
+  const money = !/%/.test(s) && (/[€$£]|\beur|[ée]cus?\b|cr[ée]dits?\b/i.test(s) || x > 100);
+  if (money && !(d.fee > 0)) return null;
+  const pct = money ? (100 * x) / d.fee : x > 0 && x < 1 && !/%/.test(s) ? x * 100 : x; // (0.4: a share, written as one)
+  return clamp(Math.round(pct), 0, 100);
+}
+const upLine = (g, d) => (!(d.fee > 0) || d.payLate ? '' : d.upfront > 0 ? `, acompte de ${fmtMoney(g, d.upfront)} (${upShown(d)} %) ${d.state === 'offer' ? 'à la signature' : 'déjà versé'}`
+  : d.state === 'offer' ? ', sans acompte (tout est payé à la livraison)' : '');
 function dealSummary(g, d) {
-  return `${d.fee ? fmtMoney(g, d.fee) : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
+  return `${d.fee ? fmtMoney(g, d.fee) : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
 }
 // The agent's cut on what the brands pay.
 function agentCut(g, amount, brand) {
@@ -652,7 +672,7 @@ function signDeal(g, d) {
   const t = Date.now();
   Object.assign(d, { state: d.scam === 'frais' || (d.gift && d.scam === 'impaye') ? 'waiting' : 'signed', signedAt: t, due: t + d.days * DAY_MS });
   const c = g.chars[d.contact];
-  if (d.upfront) { earn(g, d.upfront, `Acompte ${d.brand} (30 %)`, 'deal'); agentCut(g, d.upfront, d.brand); }
+  if (d.upfront) { earn(g, d.upfront, `Acompte ${d.brand} (${upShown(d)} %)`, 'deal'); agentCut(g, d.upfront, d.brand); }
   if (d.gift) sendGift(g, d); // 0.21
   else if (!d.fee && d.value && d.state === 'signed') invAdd(g, { kind: 'goods', name: d.product.replace(/^(?:ses|son|sa|leurs?)\s+/i, ''), emoji: d.emoji, value: d.value, cond: 'neuf', from: { how: 'marque', brand: d.brand, deal: d.id, c: d.contact } }); // 0.26: the products, sent at the signature
   if (c && d.scam !== 'brief') { addIncomingDM(g, c, d.scam === 'frais' ? 'Bienvenue dans la team des ambassadeurs ! 🎉 Ton kit part cette semaine 📦' : d.gift ? (d.state === 'waiting' ? `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} part cette semaine, tu nous diras 📦` : `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} est en route, tu l’as dès aujourd’hui 📦`) : pick(['Top, contrat signé ! On a hâte de voir ça 🙌', 'Parfait, c’est signé. Hâte de voir ce que tu vas en faire !', d.shady ? 'Génial, bienvenue dans la team ! Et comme convenu : on reste discrets 😉' : 'Génial, bienvenue dans la team ! N’oublie pas la mention « Collaboration commerciale » 😉']), later() + 1500, { max: 300 }); touch(c); }
@@ -713,8 +733,24 @@ function applyDealLine(g, c, o) {
     const nf = Math.min(B.cap, niceRound(clamp(fee, B.lo, B.cap))); // never above the brand's maximum
     if (nf !== d.fee) {
       d.fee = nf;
-      if (!signed) d.upfront = nf >= 500 ? Math.round(nf * 0.3) : 0; // (once signed, the down payment is paid: the rest comes on delivery)
+      if (!signed) d.upfront = upfrontOf(d); // (once signed, the down payment is paid: the rest comes on delivery)
       said.unshift(fmtMoney(g, nf));
+    }
+  }
+  // 0.27.4: the down payment they agreed to: in the contract before the signature; after it, the extra is paid now
+  const up = readUpfront(o.upfront, d);
+  if (up !== null && d.fee > 0 && !NO_UPFRONT.includes(d.scam) && !c.ghost) {
+    if (!signed) {
+      if (up !== upPctOf(d)) { d.upPct = up; d.upfront = upfrontOf(d); said.push(d.upfront ? `acompte de ${upShown(d)} % à la signature (${fmtMoney(g, d.upfront)})` : 'sans acompte, tout à la livraison'); }
+    } else {
+      const nu = Math.round((d.fee * up) / 100), extra = nu - (d.upfront || 0);
+      if (extra > 0) {
+        d.upPct = up;
+        d.upfront = nu;
+        earn(g, extra, `Acompte ${d.brand} (complément)`, 'deal');
+        agentCut(g, extra, d.brand);
+        said.push(`acompte porté à ${upShown(d)} % (+${fmtMoney(g, extra)} versés tout de suite)`);
+      }
     }
   }
   if (!said.length) return;
@@ -969,7 +1005,7 @@ function nextAt(hour, min, t = Date.now(), minGap = 60000) { // 0.22: « 21 h »
   return t + (at - now);
 }
 function startSeries(g, o) {
-  if (seriesOn(g) || activeRelease(g)) return false;
+  if (seriesOn(g) || !planRoom(g)) return false; // (0.27.4: other releases may be planned around it)
   const what = PF(g).fmts.includes(o.what) ? o.what : PF(g).main;
   const can = canMake(g, what); // 0.20: no computer, no daily long video
   if (!can.ok) { toast(can.why, 'bad'); return false; }
@@ -977,15 +1013,15 @@ function startSeries(g, o) {
     diff: diffOf(o.diff).id, hard: !!o.hard, at: Date.now(), ep: 0, streak: 0, best: 0, fails: 0, missed: 0, results: [], state: 'on' };
   if (o.devis) s.devis = o.devis; // 0.20: what the whole challenge cost, paid at launch
   g.series = s;
-  scheduleEpisode(g, s, nextAt(s.hour, s.min));
-  addNotif(g, { k: 'release', text: `📅 Défi Daily Upload lancé : ${s.days} ${s.what === 'live' ? 'lives' : 'sorties'} en ${s.days} jours${s.hard ? ', mode hardcore' : ''}. Premier épisode ${fmtWhen(activeRelease(g).due)}.` });
+  const ep1 = scheduleEpisode(g, s, nextAt(s.hour, s.min));
+  addNotif(g, { k: 'release', text: `📅 Défi Daily Upload lancé : ${s.days} ${s.what === 'live' ? 'lives' : 'sorties'} en ${s.days} jours${s.hard ? ', mode hardcore' : ''}. Premier épisode ${fmtWhen(ep1.due)}.` });
   addChronicle(g, `${g.player.name} se lance dans un défi : ${s.days} jours de suite, ${s.what === 'live' ? 'un live' : 'une sortie'} par jour (« ${s.theme} »)${s.hard ? ', en mode hardcore' : ''}.`);
   addTrigger(g, `Le joueur lance un défi « Daily Upload » de ${s.days} jours sur « ${s.theme} »${s.hard ? ' en mode hardcore' : ''} : certains l’encouragent, d’autres parient qu’il va craquer.`);
   return true;
 }
 // A release programmed in advance (no announcement post): the countdown starts now.
 function scheduleRelease(g, o) {
-  if (activeRelease(g)) return null;
+  if (!planRoom(g)) return null; // 0.27.4: several at once
   const topic = str(o.topic, 100);
   if (!topic || !(o.due > Date.now())) return null;
   let what = normWhat(o.what);
@@ -998,7 +1034,7 @@ function scheduleRelease(g, o) {
   if (o.deal) r.deal = o.deal; // the sponsor it carries, chosen with the quote
   if (o.fanQ) r.fanQ = o.fanQ; // 0.21: the question of a fan it answers
   g.releases.push(r);
-  if (g.releases.length > 10) g.releases.splice(0, g.releases.length - 10);
+  trimReleases(g);
   addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(topic, 60)} » est programmé${whatF(r) ? 'e' : ''} ${fmtWhen(o.due)}.` });
   addTrigger(g, `Le joueur a programmé ${unW(r)} pour ${fmtWhen(o.due)} : « ${str(topic, 80)} ». Certains l’attendent déjà.`);
   return r;
@@ -1008,7 +1044,7 @@ function scheduleEpisode(g, s, due) {
   const r = { id: uid('rl'), what: s.what, noun: s.what === 'short' ? PF(g).shortName : '', topic: `${s.theme} · épisode ${n}`, post: null, at: t, due, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: s.diff, series: s.id, ep: n };
   if (s.legacy) r.legacy = true; // 0.20: a daily upload started before the gear goes on as it was
   g.releases.push(r);
-  if (g.releases.length > 10) g.releases.splice(0, g.releases.length - 10);
+  trimReleases(g);
   return r;
 }
 // An episode is out (tier: how its shoot went): the streak grows or breaks, then the next one, or the end.
@@ -1020,8 +1056,8 @@ function seriesEpisode(g, r, tier) {
   if (tier === 'flop') { s.fails++; s.streak = 0; if (s.hard) { endSeries(g, s); return; } }
   else { s.streak++; s.best = Math.max(s.best, s.streak); }
   if (s.ep >= s.days) { endSeries(g, s); return; }
-  scheduleEpisode(g, s, Math.max(nextAt(s.hour, s.min), r.due + DAY_MS - 5 * 60000));
-  addNotif(g, { k: 'release', text: `Épisode ${s.ep}/${s.days} ${tier === 'flop' ? 'raté : ta série retombe à zéro' : `réussi : série de ${s.streak} (×${String(Math.round(seriesMult(g) * 100) / 100).replace('.', ',')} sur le prochain)`}. Prochain ${fmtWhen(activeRelease(g).due)}.` });
+  const nx = scheduleEpisode(g, s, Math.max(nextAt(s.hour, s.min), r.due + DAY_MS - 5 * 60000));
+  addNotif(g, { k: 'release', text: `Épisode ${s.ep}/${s.days} ${tier === 'flop' ? 'raté : ta série retombe à zéro' : `réussi : série de ${s.streak} (×${String(Math.round(seriesMult(g) * 100) / 100).replace('.', ',')} sur le prochain)`}. Prochain ${fmtWhen(nx.due)}.` });
 }
 function seriesMissed(g, r) {
   const s = g.series;
@@ -1042,8 +1078,8 @@ function endSeries(g, s, quit) {
   const bb = !won && (quit || s.hard || fails * 2 >= s.days);
   s.state = won ? 'won' : bb ? 'badbuzz' : 'bide';
   const st = g.stats, h = g.player.handle;
-  const rl = activeRelease(g);
-  if (rl && rl.series === s.id) rl.state = 'dropped';
+  const rl = plannedReleases(g).find((x) => x.series === s.id); // 0.27.4: not always the next one any more
+  if (rl) rl.state = 'dropped';
   if (won) {
     const gems = 2 * s.days * (s.hard ? 2 : 1), fol = grow(st.followers, Math.round(st.followers * (0.03 + 0.01 * s.days) * (s.hard ? 1.5 : 1)) + 20);
     st.gems += gems;
@@ -1433,8 +1469,8 @@ function dmCareerCtx(g, c) {
     out.push(c.joined // 0.16: work, and more
       ? `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, qui défend son budget. Avec le joueur, c’est devenu personnel ; ${il} sépare le travail du reste… plus ou moins.`
       : `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, aimable, qui défend son budget. ${cap1(il)} parle surtout business, mais reste une personne : si le joueur l’amène sur le terrain perso, ${il} réagit selon son caractère.`);
-    if (d && d.state === 'offer') out.push(`Son offre actuelle : ${dealSummary(g, d)}. Elle peut monter jusqu’à ${fmtMoney(g, dealBounds(d).cap)} au grand maximum si le joueur argumente bien (ses vues, sa niche, son audience, la qualité) ; s’il est exigeant sans raison, désagréable, ou s’il demande plus que ce maximum, elle refuse ou retire l’offre. Si le joueur envoie un devis ou un budget détaillé, elle répond sur les chiffres, poste par poste. Tout se négocie : le prix, la mention « Collaboration commerciale », l’exclusivité, le délai, le format.${d.shady ? ' Elle tient à ce qu’il n’y ait pas de mention « Collaboration commerciale », et paie plus pour ça (c’est illégal : elle le sait, n’en parle jamais d’elle-même, et minimise si le joueur pose la question ; s’il veut la mention, elle peut l’accepter en payant moins).' : ''}${d.banned ? ` Le produit fait partie de ce que la loi interdit aux influenceurs de promouvoir (${d.banned}) : elle n’en parle jamais d’elle-même et minimise si le joueur s’en inquiète.` : ''}`);
-    else if (d && d.state === 'signed') out.push(`Le contrat est signé : ${dealSummary(g, d)}, à livrer ${fmtWhen(d.due)}. Elle suit ça de près. Un avenant reste possible si les deux sont d’accord (le prix, la mention, plus de délai).${d.shady ? ' (Sans mention : c’est illégal, elle le sait, n’en parle jamais d’elle-même et minimise si le joueur pose la question.)' : ''}`);
+    if (d && d.state === 'offer') out.push(`Son offre actuelle : ${dealSummary(g, d)}. Elle peut monter jusqu’à ${fmtMoney(g, dealBounds(d).cap)} au grand maximum si le joueur argumente bien (ses vues, sa niche, son audience, la qualité) ; s’il est exigeant sans raison, désagréable, ou s’il demande plus que ce maximum, elle refuse ou retire l’offre. Si le joueur envoie un devis ou un budget détaillé, elle répond sur les chiffres, poste par poste. Tout se négocie : le prix, la mention « Collaboration commerciale », l’exclusivité, le délai, le format, l’acompte (la part versée à la signature : elle accepte, propose moins ou refuse, selon le contrat et son budget).${d.shady ? ' Elle tient à ce qu’il n’y ait pas de mention « Collaboration commerciale », et paie plus pour ça (c’est illégal : elle le sait, n’en parle jamais d’elle-même, et minimise si le joueur pose la question ; s’il veut la mention, elle peut l’accepter en payant moins).' : ''}${d.banned ? ` Le produit fait partie de ce que la loi interdit aux influenceurs de promouvoir (${d.banned}) : elle n’en parle jamais d’elle-même et minimise si le joueur s’en inquiète.` : ''}`);
+    else if (d && d.state === 'signed') out.push(`Le contrat est signé : ${dealSummary(g, d)}, à livrer ${fmtWhen(d.due)}. Elle suit ça de près. Un avenant reste possible si les deux sont d’accord (le prix, la mention, plus de délai, un acompte plus gros).${d.shady ? ' (Sans mention : c’est illégal, elle le sait, n’en parle jamais d’elle-même et minimise si le joueur pose la question.)' : ''}`);
     // 0.25.2: only a contract that is over says so (since 0.20 this line followed every open offer too: brands thought
     // the negotiation closed)
     else if (d && d.state === 'waiting') out.push(`Le contrat est signé : ${dealSummary(g, d)} ; ${d.gift ? 'le matos' : 'le kit'} doit arriver.`);
@@ -1456,7 +1492,7 @@ function dmCareerCtx(g, c) {
 function dmCareerLines(g, c) {
   const out = [];
   const d = g.deals.find((x) => x.contact === c.id && x.state === 'offer') || g.deals.find((x) => x.contact === c.id && x.state === 'signed');
-  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
+  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
   if (c.kind === 'cand' && c.cand && STAFF_ROLES[c.cand.role].pay !== 'cut') out.push(`- Si ${c.name} accepte de baisser son tarif : {"t":"rate","rate":${c.cand.rate}} (entre ${Math.round(c.cand.rate * 0.8)} et ${c.cand.rate}).`);
   if (c.kind === 'staff') out.push(`- Seulement si ${c.name} démissionne pour de bon (le joueur l’a vraiment mal traité·e) : {"t":"quit"}.`);
   return out;

@@ -15,7 +15,7 @@ function StatusStrip({ g, now }) {
     <button class="clock-btn" onClick=${openWatch} aria-label=${`Il est ${ck.time}, ${ck.day}. Avancer le temps`} title="Avancer le temps"><${Icon} n="clock" s=${15} /><b>${ck.time}</b><span>${ck.day}</span><${Icon} n="ffwd" s=${13} /></button>
     ${standLv(g) ? html`<${StandChip} g=${g} />` : m ? html`<span class="cal-chip" title=${cap1(m.E.mood)}>${m.E.emoji} ${cap1(calWord(m))}</span>`
       : html`<span class="cal-chip quiet" title=${cap1(SEASON_WORD(d))}>${seasonEmoji(d)} Pubs ×${fmtDec(adSeason(d))}</span>`}
-    <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => goTab('studio')} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoney(g, c.cash, false)}</b></button>
+    <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => { goTab('studio'); tapCash(); }} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoney(g, c.cash, false)}</b></button>
   </div>`;
 }
 
@@ -278,9 +278,152 @@ function SettingsLayer({ g, i }) {
         <small>${PACK.people.length ? `${PACK.people.length} ${plural(PACK.people.length, 'personne', 'personnes')} et ${Object.keys(PACK.photos).length} photos dans le pack : les persos principaux ont leur photo, leur Insta et leurs posts photo. ` : 'Le pack photos arrive bientôt. '}Tu peux aussi importer une photo pour un perso depuis son profil.</small>
       </div>
     </section>
+    ${menuOn() ? html`<section class="section">
+      <div class="section-h"><h3>🛠️ Mode menu</h3><span>débloqué</span></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${openMenu}><${Icon} n="gear" s=${15} /> Ouvrir le mode menu</button></div>
+    </section>` : null}
     <section class="section danger-zone" style="border-bottom:0">
       <div class="section-h"><h3>Zone sensible</h3><span>Hype ${APP_VERSION} · ${APP_STAGE}</span></div>
       <button class="btn btn-ghost btn-sm" onClick=${() => askConfirm({ title: 'Supprimer cette partie ?', text: `${g.world.emoji} ${g.world.name} · ${P.name}. Tout sera effacé, sans retour possible.`, ok: 'Supprimer définitivement', danger: true, run: () => removeGame(g) })}><${Icon} n="trash" s=${15} /> Supprimer cette partie</button>
+    </section>
+  <//>`;
+}
+
+/* ---------- 0.27.4: the hidden menu: money, the clock, the reputation, the skills, the ties, set by hand ---------- */
+// Opened with the Konami code (↑ ↑ ↓ ↓ ← → ← → B A, outside a text field) or 7 quick taps on the money; once unlocked,
+// it is in the settings too. What it changes, nobody in the game hears about (no post, no chronicle).
+const MENU_CODE = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+const menuOn = () => lsGet('hype:menu') === '1';
+let menuKeys = [];
+const cashTaps = { n: 0, at: 0 };
+function openMenu() {
+  if (S.phase !== 'game' || !S.game) { toast('Ouvre une partie pour le mode menu.'); return; }
+  if (!menuOn()) { lsSet('hype:menu', '1'); toast('🛠️ Mode menu débloqué. Tu le retrouves aussi dans les Réglages.', 'good'); }
+  if (!S.stack.some((l) => l.t === 'cheat')) openLayer({ t: 'cheat' });
+}
+function menuKey(e) {
+  const el = e && e.target, tag = el && el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) { menuKeys = []; return; }
+  menuKeys = menuKeys.concat(String(e.key || '').toLowerCase()).slice(-MENU_CODE.length);
+  if (menuKeys.length === MENU_CODE.length && menuKeys.every((k, n) => k === MENU_CODE[n])) { menuKeys = []; openMenu(); }
+}
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('keydown', menuKey);
+function tapCash() {
+  const t = Date.now();
+  cashTaps.n = t - cashTaps.at < 1600 ? cashTaps.n + 1 : 1;
+  cashTaps.at = t;
+  if (cashTaps.n >= 7) { cashTaps.n = 0; openMenu(); }
+}
+// « 50 000 », « 1234,5 », « -20 »: a number, or null.
+const menuNum = (v) => { const x = parseFloat(String(v == null ? '' : v).replace(/[\s  ]/g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
+// The level: the characters a level brings still arrive (no gems: those are set by hand too); a lower level unlocks nothing back.
+function menuLevel(g, n) {
+  const s = g.stats, L = clamp(Math.round(n), 1, 300);
+  while (s.level < L) {
+    s.level++;
+    const next = mains(g, false).find((c) => !c.unlocked);
+    if (next) {
+      Object.assign(next, { unlocked: true, unlockedAt: Date.now() });
+      addNotif(g, { k: 'new', c: next.id, text: `${next.name} débarque dans ton monde` });
+      addChronicle(g, `${next.name} (@${next.handle}) vient d’arriver dans le monde.`);
+      addTrigger(g, `@${next.handle} vient d’arriver sur le réseau : qu’il ou elle se présente avec un premier post qui ouvre une nouvelle intrigue.`, next.id);
+    }
+  }
+  s.level = L;
+  s.xp = 0;
+}
+// The clock: the game shows `target` now (only the clock moves: nothing happens in between; a new month pays and bills once).
+function menuClock(g, target) { if (Number.isFinite(target)) g.clockOff = Math.round(target - Date.now()); }
+// o: { cash, followers, gems, level, rep: { image, cred, pro, kind } on 1000, skills: { id: level }, at, rel: { charId: -100..100 } }
+function menuApply(g, o) {
+  const s = g.stats, c = g.career, done = [];
+  const n = (k) => (o[k] == null ? null : menuNum(o[k]));
+  if (n('cash') !== null) { c.cash = Math.round(n('cash') * 100) / 100; done.push('argent'); }
+  if (n('followers') !== null) { s.followers = Math.max(0, Math.round(n('followers'))); checkMilestones(g); done.push('abonnés'); }
+  if (n('gems') !== null) { s.gems = Math.max(0, Math.round(n('gems'))); done.push('gemmes'); }
+  if (n('level') !== null) { menuLevel(g, n('level')); done.push('niveau'); }
+  if (o.rep) {
+    const P = ensureRep(s);
+    for (const k of REP_IDS) { const x = menuNum(o.rep[k]); if (x !== null) P[k] = clamp(x / 10, 0, 100); }
+    s.reputation = repGlobal(P);
+    checkCancel(g); // (out of a cancel above 350, into one below 150: the usual rules)
+    done.push('réputation');
+  }
+  if (o.skills) {
+    if (!s.skills || typeof s.skills !== 'object') s.skills = {};
+    if (!s.skillXp || typeof s.skillXp !== 'object') s.skillXp = {};
+    for (const id of SKILL_IDS) { const x = menuNum(o.skills[id]); if (x !== null) { const L = clamp(Math.round(x), 0, SKILL_MAX); s.skills[id] = L; s.skillXp[id] = SKILL_CUM[L]; } }
+    done.push('compétences');
+  }
+  if (o.at != null && Number.isFinite(+o.at)) { menuClock(g, +o.at); done.push('heure'); }
+  if (o.rel) for (const id of Object.keys(o.rel)) { const ch = g.chars[id], x = menuNum(o.rel[id]); if (ch && x !== null) ch.rel = clamp(Math.round(x), -100, 100); }
+  return done;
+}
+const pad2 = (x) => String(x).padStart(2, '0');
+const dateField = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const timeField = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+function MenuRel({ g, c }) {
+  const [v, setV] = useState(c.rel);
+  return html`<div class="menu-rel">
+    <${Avatar} who=${author(g, 'c:' + c.id)} size=${32} />
+    <div class="mid"><b>${c.name}</b><span>${relLabel(v, c.g, c.vibe)} · ${v > 0 ? '+' : ''}${v}</span>
+      <input type="range" min="-100" max="100" step="1" value=${v} aria-label=${'Relation avec ' + c.name}
+        onInput=${(ev) => setV(+ev.target.value)} onChange=${(ev) => { menuApply(g, { rel: { [c.id]: ev.target.value } }); update(); }} /></div>
+  </div>`;
+}
+function ModeMenuLayer({ g, i, now }) {
+  const s = g.stats, c = g.career, P = ensureRep(s), d0 = gameDate(now);
+  const [v, setV] = useState(() => ({
+    cash: String(Math.round(c.cash * 100) / 100), followers: String(s.followers), gems: String(s.gems), level: String(s.level),
+    rep: Object.fromEntries(REP_IDS.map((k) => [k, String(rep1000(P[k]))])),
+    skills: Object.fromEntries(SKILL_IDS.map((id) => [id, String(skillLevel(g, id))])),
+    date: dateField(d0), time: timeField(d0),
+  }));
+  const set = (k, x) => setV((o) => Object.assign({}, o, { [k]: x }));
+  const setIn = (grp, k, x) => setV((o) => Object.assign({}, o, { [grp]: Object.assign({}, o[grp], { [k]: x }) }));
+  const apply = (o, msg) => { menuApply(g, o); toast(msg, 'good'); saveNow(); update(); };
+  const num = (k, label, hint) => html`<label class="menu-num"><span>${label}</span><input class="input" inputmode="decimal" value=${v[k]} onInput=${(ev) => set(k, ev.target.value)} />${hint ? html`<small>${hint}</small>` : null}</label>`;
+  const at = new Date(`${v.date}T${v.time || '00:00'}`).getTime();
+  const people = mains(g).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : '€';
+  return html`<${LayerShell} i=${i} title="🛠️ Mode menu">
+    <section class="section">
+      <p class="muted">Les réglages cachés de ta partie : ça s’applique tout de suite, et personne dans le jeu n’en saura rien.</p>
+      <div class="section-h"><h3>Argent et compteurs</h3></div>
+      <div class="menu-grid">${num('cash', `Argent (${sym})`, `Maintenant : ${fmtMoney(g, c.cash)}`)}${num('followers', 'Abonnés')}${num('gems', 'Gemmes')}${num('level', 'Niveau', 'Monter fait arriver les persos du niveau')}</div>
+      <button class="btn btn-hot btn-sm" onClick=${() => apply({ cash: v.cash, followers: v.followers, gems: v.gems, level: v.level }, 'C’est fait.')}>Appliquer</button>
+    </section>
+    <section class="section">
+      <div class="section-h"><h3>Réputation</h3><span>${rep1000(s.reputation)}/1000 · ${repLabel(s.reputation)}</span></div>
+      <div class="menu-grid">${REP_IDS.map((k) => html`<label class="menu-num" key=${k}><span>${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}</span><input class="input" inputmode="numeric" value=${v.rep[k]} onInput=${(ev) => setIn('rep', k, ev.target.value)} /><small>sur 1000</small></label>`)}</div>
+      <div class="row">
+        <button class="btn btn-hot btn-sm" onClick=${() => apply({ rep: v.rep }, 'Réputation changée.')}>Appliquer</button>
+        ${playerBadBuzz(g, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { g.pbb = null; toast('Bad buzz terminé.', 'good'); update(); }}>Arrêter le bad buzz</button>` : null}
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-h"><h3>Date et heure du jeu</h3><span>${cap1(d0.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))} · ${timeField(d0)}</span></div>
+      <div class="menu-grid">
+        <label class="menu-num"><span>Date</span><input class="input" type="date" value=${v.date} onInput=${(ev) => set('date', ev.target.value)} /></label>
+        <label class="menu-num"><span>Heure</span><input class="input" type="time" value=${v.time} onInput=${(ev) => set('time', ev.target.value)} /></label>
+      </div>
+      <div class="row">
+        <button class="btn btn-hot btn-sm" disabled=${!Number.isFinite(at)} onClick=${() => apply({ at }, `Il est ${v.time.replace(':', ' h ')} dans le jeu.`)}>Appliquer</button>
+        <button class="btn btn-ghost btn-sm" onClick=${() => { const d = new Date(); set('date', dateField(d)); set('time', timeField(d)); }}>Heure de ton PC</button>
+      </div>
+      <small class="muted">Seule l’horloge bouge : rien ne se passe pendant le temps sauté. Passer à un nouveau mois déclenche une fois ce qui tombe en fin de mois (paie, factures) ; revenir en arrière ne déclenche rien.</small>
+    </section>
+    <section class="section">
+      <div class="section-h"><h3>Compétences</h3><span>sur ${SKILL_MAX}</span></div>
+      <div class="menu-grid">${SKILL_IDS.map((id) => html`<label class="menu-num" key=${id}><span>${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}</span><input class="input" inputmode="numeric" value=${v.skills[id]} onInput=${(ev) => setIn('skills', id, ev.target.value)} /></label>`)}</div>
+      <button class="btn btn-hot btn-sm" onClick=${() => apply({ skills: v.skills }, 'Compétences changées.')}>Appliquer</button>
+    </section>
+    ${people.length ? html`<section class="section">
+      <div class="section-h"><h3>Relations</h3><span>de −100 à +100</span></div>
+      <div class="menu-rels">${people.map((p) => html`<${MenuRel} key=${p.id} g=${g} c=${p} />`)}</div>
+    </section>` : null}
+    <section class="section" style="border-bottom:0">
+      <button class="linkbtn quiet" onClick=${() => { lsSet('hype:menu', '0'); closeLayer(); toast('Mode menu masqué : le code le rouvre.'); update(); }}>Masquer le mode menu</button>
     </section>
   <//>`;
 }
@@ -290,6 +433,7 @@ function StudioTab({ g, now }) {
   const c = g.career, pf = platformOf(g), P = PLATFORMS[pf], d = gameDate(now);
   const prog = programOf(g);
   const mine = g.posts.filter((p) => p.a === 'p' && p.video && p.video.views).sort((a, b) => b.ts - a.ts);
+  const plan = plannedReleases(g); // 0.27.4
   const offers = g.deals.filter((x) => x.state === 'offer'), signed = signedDeals(g);
   const past = g.deals.filter((x) => !DEAL_OPEN.includes(x.state)).slice(-4).reverse();
   const nextMonth = MONTHS[(d.getMonth() + 1) % 12];
@@ -346,12 +490,13 @@ function StudioTab({ g, now }) {
       <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'recruit' })}><${Icon} n="userplus" s=${15} /> Recruter</button>
     </section>
     <section class="section">
-      <div class="section-h"><h3>Programme</h3><span>${seriesOn(g) ? 'défi en cours' : activeRelease(g) ? 'une sortie prévue' : 'rien de prévu'}</span></div>
+      <div class="section-h"><h3>Programme</h3><span>${plan.length ? `${plan.length} ${plural(plan.length, 'sortie prévue', 'sorties prévues')}${seriesOn(g) ? ' · défi en cours' : ''}` : seriesOn(g) ? 'défi en cours' : 'rien de prévu'}</span></div>
       ${g.series ? html`<${SeriesCard} g=${g} s=${g.series} now=${now} />` : null}
-      ${!seriesOn(g) ? html`<div class="row">
-        <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'series' })} disabled=${!!activeRelease(g)}><${Icon} n="calendar" s=${15} /> Défi Daily Upload</button>
-        <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'series', id: 'single' })} disabled=${!!activeRelease(g)}><${Icon} n="clock" s=${15} /> Programmer une sortie</button>
-      </div>${activeRelease(g) ? html`<small class="muted">Une sortie est déjà prévue : publie-la d’abord.</small>` : null}` : null}
+      ${plan.length ? html`<div class="plan-list">${plan.map((r, k) => html`<${PlanRow} key=${r.id} g=${g} r=${r} first=${k === 0} now=${now} />`)}</div>` : null}
+      <div class="row">
+        ${!seriesOn(g) ? html`<button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'series' })} disabled=${!planRoom(g)}><${Icon} n="calendar" s=${15} /> Défi Daily Upload</button>` : null}
+        <button class=${'btn btn-sm ' + (seriesOn(g) ? 'btn-hot' : 'btn-ghost')} onClick=${() => openLayer({ t: 'series', id: 'single' })} disabled=${!planRoom(g)}><${Icon} n="clock" s=${15} /> ${plan.length ? 'Programmer une autre sortie' : 'Programmer une sortie'}</button>
+      </div>${!planRoom(g) ? html`<small class="muted">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : null}
     </section>
     ${mine.length ? html`<section class="section">
       <div class="section-h"><h3>Ta chaîne</h3><span>${fmtN(mine.reduce((n, p) => n + p.video.views, 0))} vues au total</span></div>
@@ -386,7 +531,7 @@ function DealCard({ g, d, now, inDM }) {
     <div class="dl-terms">
       <span><small>Rémunération</small><b>${d.fee ? fmtMoney(g, d.fee) : d.gift ? `${GEAR[d.gift.kind].emoji} ${giftName(g, d.gift)}` : 'Produits offerts'}</b>${d.fee && d.fee !== d.fee0 ? html`<em>(au départ ${fmtMoney(g, d.fee0)})</em>` : d.gift ? html`<em>matos offert · ${TIER_LABELS[d.gift.t].toLowerCase()} · valeur ${fmtMoney(g, d.gift.value)}</em>` : !d.fee ? html`<em>≈ ${fmtMoney(g, d.value)} en produits · pas d’argent</em>` : null}</span>
       <span><small>À livrer</small><b>${d.what === 'live' ? 'Un live' : cap1(`${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`)}</b><em>${d.state === 'signed' ? `avant ${fmtGameAt(d.due)}` : `sous ${d.days} jours`}</em></span>
-      ${d.upfront ? html`<span><small>Acompte</small><b>${fmtMoney(g, d.upfront)}</b><em>à la signature</em></span>` : null}
+      ${d.upfront ? html`<span><small>Acompte</small><b>${fmtMoney(g, d.upfront)}</b><em>${d.state === 'broken' ? 'remboursé' : d.signedAt ? 'versé' : 'à la signature'}</em></span>` : null}
     </div>
     <ul class="dl-clauses">
       <li>Paiement : ${payTerms(g, d)}.</li>
@@ -408,8 +553,36 @@ function DealCard({ g, d, now, inDM }) {
     ${!inDM && c ? html`<button class="linkbtn dl-contact" onClick=${() => openDM(c.id)}>Écrire à ${c.name.split(' ')[0]}</button>` : null}
   </div>`;
 }
+// 0.27.4: one planned release in the programme: when, and what can be done with it (sooner, later, give up, shoot it).
+function PlanRow({ g, r, first, now }) {
+  const W = WHATS[r.what] || WHATS.vidéo, left = r.due - now, cc = r.collab && g.chars[r.collab];
+  return html`<div class=${'plan-row' + (left <= 0 ? ' due' : '')}>
+    <span class="pl-emo" aria-hidden="true">${W.emoji}</span>
+    <div class="mid"><b>${cap1(nounOf(r))} « ${r.topic} »</b>
+      <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · avec ${cc.name.split(' ')[0]}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
+    <div class="acts">
+      ${left > 0 ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Plus tôt</button>`
+        : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
+      ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="linkbtn quiet" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="linkbtn quiet" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+    </div>
+  </div>`;
+}
+// 0.27.4: a release brought forward: the times before the planned one, no cost.
+function MoveLayer({ l, g, i, now }) {
+  const r = (g.releases || []).find((x) => x.id === l.id);
+  if (!r || r.state !== 'scheduled' || r.due <= now) return html`<${LayerShell} i=${i} title="Sortir plus tôt"><div class="empty"><b>${r && r.state === 'scheduled' ? 'C’est déjà l’heure' : 'Cette sortie n’est plus prévue'}</b></div><//>`;
+  const opts = advanceChoices(g, r, now);
+  const go = (o) => { if (advanceRelease(g, r, o.at)) { toast(o.at <= Date.now() + 60000 ? `${cap1(ta(r))} sort maintenant : à toi de tourner !` : `${cap1(ta(r))} sort ${fmtWhen(r.due)}.`, 'good'); closeLayer(); update(); } };
+  return html`<${LayerShell} i=${i} title="Sortir plus tôt">
+    <div class="mg-setup">
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. Choisis une heure plus tôt : aucun malus, ton public l’aura juste plus vite.</p>
+      <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
+      <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
+    </div>
+  <//>`;
+}
 function SeriesCard({ g, s, now }) {
-  const rl = activeRelease(g);
+  const rl = plannedReleases(g).find((x) => x.series === s.id); // 0.27.4: not always the next one
   const dots = Array.from({ length: s.days }, (_, k) => s.results[k] || (k === s.ep && s.state === 'on' ? 'next' : 'todo'));
   return html`<div class=${'series-card st-' + s.state}>
     <div class="se-head"><span aria-hidden="true">${s.state === 'won' ? '🏆' : s.state === 'badbuzz' ? '💥' : s.state === 'bide' ? '😬' : '📅'}</span><div><b>Daily Upload · ${s.days} jours${s.hard ? ' · hardcore' : ''}</b><span>« ${s.theme} » · ${diffOf(s.diff).emoji} ${diffOf(s.diff).label}</span></div></div>
@@ -479,7 +652,7 @@ function SeriesLayer({ l, g, i }) {
   const needDevis = !easyGear(), dv = needDevis && S.devis && S.devis.key === devisKey(o) ? S.devis : null, dvBusy = S.busy.devis === devisKey(o);
   const total = dv ? devisTotal(dv) : 0;
   const launch = () => {
-    if (!ok || !canMake(g, what).ok || activeRelease(g)) return;
+    if (!ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
     if (needDevis && !dv) { genDevis(o); return; }
     if (total > 0 && total > g.career.cash) return; // (nothing to pay: even in the red, a content made with what you have)
     const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
@@ -509,7 +682,7 @@ function SeriesLayer({ l, g, i }) {
       <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le multiplicateur grimpe presque deux fois plus vite (jusqu’à ×4) et les récompenses doublent. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
       <div class="se-stakes"><span>🏆 <b>Réussi</b> : +${2 * days * (hard ? 2 : 1)} gemmes, une vague d’abonnés, et une marque te repère.</span><span>😬 <b>Pas tenu</b> : un petit bide.</span><span>💥 <b>Raté en beauté</b> (la moitié des épisodes ratés ou manqués${hard ? ', ou un seul en hardcore' : ''}) : bad buzz.</span></div>`}
       ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? S.devisAttach || '' : null} onAttach=${single ? (id) => { S.devisAttach = id; update(false); } : null} />` : null}
-      <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !!activeRelease(g) || !canMake(g, what).ok || dvBusy || (total > 0 && total > g.career.cash)}>${needDevis && !dv
+      <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (total > 0 && total > g.career.cash)}>${needDevis && !dv
         ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`)
         : html`<${Icon} n="calendar" s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${single ? 'programmer' : 'lancer le défi'}` : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
       ${needDevis && !dv ? html`<small class="muted">Le devis dit ce qu’il faut acheter, louer ou payer pour ce contenu (jamais ce que tu as déjà). Il se paie pour programmer.</small>` : null}
