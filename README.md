@@ -12,7 +12,7 @@ Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son pr
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.26.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.27.7 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -311,6 +311,13 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
   questions sont nouvelles. Pas de notification par-dessus pendant que tu joues.
+- **Les fenêtres** (0.27.7) : sur ordi, une fenêtre tirée par sa barre de titre flotte au-dessus du jeu, où tu veux, et
+  son coin la redimensionne ; le jeu reste utilisable derrière (un autre onglet, un message), et chaque type de fenêtre
+  retient sa place. Partout, « Réduire » range une fenêtre dans une barre en bas de l’écran avec ce que tu y as rempli,
+  et un clic la ramène telle quelle. Un rendez-vous en cours se déplace mais ne se réduit pas, et bloque le reste.
+  Ce que tu as tapé pour publier ou pour préparer un tournage revient même après avoir fermé la fenêtre.
+- **Les noms** (0.27.7) : tes sauvegardes (✏️ dans la fenêtre Sauvegardes, les automatiques aussi) et tes parties (sur
+  l’écran d’accueil) prennent le nom que tu leur donnes.
 - **L’heure du jeu** : une date et une heure visibles, une montre pour avancer le temps de 5 minutes à une semaine.
 - **Les cafés** : ton budget IA du jour, réglable à chaque partie (Découverte, Léger, Normal, Intensif, Marathon, Sans
   limite), avec ce que chaque palier représente en posts et en messages, et lequel choisir selon ton abonnement (avec
@@ -353,7 +360,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.6.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.7.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.6';
+const APP_VERSION = '0.27.7';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -353,6 +353,10 @@ const S = {
   game: null,
   tab: 'feed',
   stack: [],
+  dock: [], // 0.27.7: the windows put aside (still open, everything typed in them kept)
+  win: null, // 0.27.7: where each kind of window floats on a computer (read from this browser once)
+  pubDrafts: {}, // 0.27.7: an upload form half filled, by release (closing it no longer loses it)
+  setupDrafts: {}, // 0.27.7: the topic, the plan and the level of a shoot being prepared
   modals: [],
   modalGapUntil: 0,
   toasts: [],
@@ -2881,12 +2885,12 @@ function autoSave(g, why) {
 
 function summarize(g) {
   return {
-    id: g.id, world: g.world.name, emoji: g.world.emoji, hue: g.world.hue,
+    id: g.id, world: g.world.name, emoji: g.world.emoji, hue: g.world.hue, title: g.title || '', // (0.27.7: the name the player gave it)
     name: g.player.name, handle: g.player.handle, avatar: g.player.emoji, ahue: g.player.hue,
     level: g.stats.level, followers: g.stats.followers, updatedAt: g.updatedAt, setup: !!g.pendingCast,
   };
 }
-const SUMMARY_KEYS = ['world', 'emoji', 'hue', 'name', 'handle', 'avatar', 'ahue', 'level', 'followers', 'setup'];
+const SUMMARY_KEYS = ['world', 'title', 'emoji', 'hue', 'name', 'handle', 'avatar', 'ahue', 'level', 'followers', 'setup'];
 const lastWritten = {};
 let saveTimer = null;
 let saving = Promise.resolve();

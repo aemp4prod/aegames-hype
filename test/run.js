@@ -439,7 +439,7 @@ async function studioSteps(page, thumb) {
   await back(page);
 
   // ---------- fake proof that passes, then a counter-investigation takes it apart ----------
-  const fresh = (rep) => G(page, (r) => { const g = window.__hype.S.game; Object.assign(g.stats, { reputation: r, cancelled: false, energy: g.stats.maxEnergy }); g.pbb = null; g.low = null; window.__hype.update(); }, rep);
+  const fresh = (rep) => G(page, (r) => { const H = window.__hype, g = H.S.game, P = H.ensureRep(g.stats); for (const k of Object.keys(P)) P[k] = r; Object.assign(g.stats, { reputation: r, cancelled: false, energy: g.stats.maxEnergy }); g.pbb = null; g.low = null; H.update(); }, rep); // (the four pillars too: the next move of reputation is computed from them)
   await fresh(60);
   await clickText(page, '.tab', 'Profil');
   await sleep(300);
@@ -573,7 +573,7 @@ async function studioSteps(page, thumb) {
   await page.waitForSelector('.modal .saves-card');
   await sleep(300);
   await shot(page, 'saves-before-shoot');
-  await page.locator('.modal .save-row', { hasText: 'Avant le tournage' }).first().locator('button').click();
+  await page.locator('.modal .save-row', { hasText: 'Avant le tournage' }).first().locator('button', { hasText: 'Charger' }).click();
   await page.waitForSelector('.modal-title');
   await sleep(600);
   await page.click('.modal .btn-danger-solid');
@@ -859,7 +859,7 @@ async function studioSteps(page, thumb) {
   await G(page, () => { const g = window.__hype.S.game; g.stats.followers += 5000; g.stats.gems += 77; window.__hype.update(); });
   await page.click('.save-btn');
   await page.waitForSelector('.modal .saves-card');
-  await page.locator('.modal .save-row', { hasText: 'Sauvegarde 1' }).locator('button').click();
+  await page.locator('.modal .save-row', { hasText: 'Sauvegarde 1' }).locator('button', { hasText: 'Charger' }).click();
   await page.waitForSelector('.modal-title');
   await sleep(600);
   await shot(page, 'load-confirm');
@@ -881,7 +881,7 @@ async function studioSteps(page, thumb) {
   await page.click('.save-btn');
   await page.waitForSelector('.modal .saves-card');
   const row2 = await page.textContent('.modal .save-row:has-text("Sauvegarde 2")');
-  await page.locator('.modal .save-row', { hasText: 'Sauvegarde 2' }).locator('button').click();
+  await page.locator('.modal .save-row', { hasText: 'Sauvegarde 2' }).locator('button', { hasText: 'Charger' }).click();
   await page.waitForSelector('.modal-title');
   await sleep(600);
   await page.click('.modal .btn-danger-solid');

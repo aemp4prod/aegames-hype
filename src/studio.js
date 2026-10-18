@@ -810,6 +810,16 @@ function RumorBanner({ g, now }) {
 }
 
 /* ---------- the upload screen of each platform (inspired by them, with Hype's own look) ---------- */
+// 0.27.7: an upload form half filled stays as it was, its window closed or put aside (the thumbnail is the release's own).
+const PUB_KEEP = ['title', 'caption', 'hook', 'trend', 'trend2', 'collab', 'deal', 'mention', 'decl', 'membAvant', 'membLive'];
+function pubDraft(r, deals) {
+  const d = S.pubDrafts && S.pubDrafts[r.id];
+  if (!d) return {};
+  const o = Object.fromEntries(PUB_KEEP.filter((k) => k in d).map((k) => [k, d[k]]));
+  if (o.deal && !deals.some((x) => x.id === o.deal)) { delete o.deal; delete o.mention; } // (that contract is over since)
+  return o;
+}
+function keepPubDraft(r, f) { if (!S.pubDrafts) S.pubDrafts = {}; S.pubDrafts[r.id] = Object.fromEntries(PUB_KEEP.map((k) => [k, f[k]])); }
 const kindOfFmt = (w) => (w === 'vidéo' ? 'wide' : w === 'short' ? 'vert' : w === 'live' ? 'live' : 'audio');
 function PublishForm({ g, r, now }) {
   const pf = platformOf(g), P = PLATFORMS[pf], W = WHATS[r.what] || WHATS.vidéo, kind = kindOfFmt(r.what);
@@ -822,8 +832,8 @@ function PublishForm({ g, r, now }) {
   const T0 = r.thumb || null; // 0.14: the thumbnail made in the studio
   const taken = (d) => plannedReleases(g).some((x) => x.id !== r.id && x.deal === d.id); // 0.27.6: carried by another planned release
   const d0 = r.deal ? deals.find((d) => d.id === r.deal) || null : deals.find((d) => !taken(d)) || null; // 0.20: the sponsor chosen with the quote (0.27.6: delivered since by another release, none rather than another brand)
-  const [f, setF] = useState(() => ({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', mention: !(d0 && d0.shady), decl: [], membAvant: false, membLive: false }));
-  const set = (k, v, more) => setF(Object.assign({}, f, { [k]: v }, more || {}));
+  const [f, setF] = useState(() => Object.assign({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', mention: !(d0 && d0.shady), decl: [], membAvant: false, membLive: false }, pubDraft(r, deals))); // (0.27.7: what was typed before the window was closed comes back)
+  const set = (k, v, more) => { const n = Object.assign({}, f, { [k]: v }, more || {}); keepPubDraft(r, n); setF(n); };
   const [lo, hi] = estimateViews(g, r, f);
   const aud = audienceAt(gameDate(now));
   const dl = f.deal ? dealOf(g, f.deal) : null;

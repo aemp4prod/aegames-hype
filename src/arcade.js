@@ -191,8 +191,8 @@ function FrameGame({ game, onDone, run, keep }) {
   const [, setV] = useState(0);
   const render = () => setV((v) => v + 1);
   const stage = useRef(null), subj = useRef(null), frame = useRef(null), bL = useRef(null), bR = useRef(null), done = useRef(false), alive = useRef(true);
-  const keys = useRef(null);
-  if (!keys.current) keys.current = ownKeys();
+  const keys = useRef(null), lay = useContext(WinCtx);
+  if (!keys.current) keys.current = ownKeys(lay);
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / nR); } };
   // where the frame goes: a button held, else the arrows of the keyboard (both held: the last one pressed)
   const dirNow = () => { const x = st.current, K = x.keys; return x.ptr || (K.l && K.r ? K.last : K.l ? -1 : K.r ? 1 : 0); };

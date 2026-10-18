@@ -776,7 +776,7 @@ function outagePostpone(g, r) {
   r.outageMoved = true;
   r.due = G.net.out + 15 * 60000;
   r.game = null; r.played = null; r.edit = null; r.editGame = null; r.thumb = null; r.render = null; r.dueSaid = false;
-  S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id));
+  dropLayers((l) => l.t === 'minigame' && l.id === r.id);
   addNotif(g, { k: 'release', text: `📵 Coupure : ${ta(r)} « ${str(r.topic, 50)} » est décalé${whatF(r) ? 'e' : ''} ${fmtWhen(r.due, t)}. Ton public comprend… pour cette fois.` });
   addTrigger(g, `Le joueur a dû décaler ${sa(r)} « ${str(r.topic, 60)} » à cause d’une coupure internet : la plupart comprennent, quelques-uns en rigolent.`);
   return true;

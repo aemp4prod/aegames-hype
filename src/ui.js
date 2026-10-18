@@ -1,9 +1,12 @@
 /* =========================================================
    UI (Preact + htm)
    ========================================================= */
-const { html, render, useState, useEffect, useLayoutEffect, useRef } = window.htmPreact;
+const { html, render, useState, useEffect, useLayoutEffect, useRef, createContext, useContext } = window.htmPreact;
 
 const ICONS = {
+  minus: '<path d="M5 12h14"/>', // 0.27.7: the windows
+  detach: '<path d="M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4"/><rect width="10" height="7" x="12" y="13" rx="2"/>',
+  dock: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/>',
   cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   wifi: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
@@ -192,7 +195,7 @@ function goTab(t) {
   if (!g) return;
   if (S.tab === 'notifs' && t !== 'notifs') g.notifReadAt = Date.now();
   if (t === 'notifs' && S.tab !== 'notifs') { S.notifSeenBefore = g.notifReadAt; g.notifReadAt = Date.now(); }
-  if (t === S.tab && !S.stack.length && VIEW_EL.current) VIEW_EL.current.scrollTo({ top: 0, behavior: 'smooth' });
+  if (t === S.tab && !layerCovers() && VIEW_EL.current) VIEW_EL.current.scrollTo({ top: 0, behavior: 'smooth' });
   if (t !== S.tab && VIEW_EL.current) SCROLL[S.tab] = VIEW_EL.current.scrollTop;
   closeAllLayers();
   S.tab = t;
@@ -202,6 +205,8 @@ function goTab(t) {
 function openLayer(l) {
   const top = S.stack[S.stack.length - 1];
   if (top && top.t === l.t && top.id === l.id) return;
+  const docked = S.dock.find((x) => x.t === l.t && x.id === l.id); // 0.27.7: put aside: it comes back as it was left
+  if (docked) { unminLayer(docked); return; }
   l.key = uid('l');
   S.stack.push(l);
   if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
@@ -216,12 +221,82 @@ function closeLayer() {
   update();
 }
 function closeAllLayers() {
+  const keep = []; // 0.27.7: a window floating on a computer stays open from one tab to another (the player works beside it)
   while (S.stack.length) {
     const l = S.stack.pop();
+    if (winFloats(l)) { keep.unshift(l); continue; }
     if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
     if (l.t === 'compose') resetComposeExtras();
   }
+  S.stack = keep;
   S.ideas = null;
+}
+/* ---------- 0.27.7: the windows. On a computer each one can float over the game (which stays usable behind it), moved
+   by its title bar and resized by its corner, and its kind keeps its place. Any of them can be put aside in the dock at
+   the bottom with everything typed in it, then brought back as it was. A date being played holds the game: it moves and
+   resizes, but stays in front, blocks the rest, and is never put aside. On a phone: put aside only. ---------- */
+const WinCtx = createContext(null);
+const WIN_MIN_W = 320, WIN_MIN_H = 240;
+const winWide = () => typeof window !== 'undefined' && window.innerWidth >= 900;
+function winStore() {
+  if (!S.win) { let w = null; try { w = JSON.parse(lsGet('hype:win') || 'null'); } catch (e) { w = null; } S.win = w && typeof w === 'object' ? w : {}; }
+  return S.win;
+}
+function winSet(t, o) { const st = winStore(); st[t] = Object.assign({}, st[t], o); try { lsSet('hype:win', JSON.stringify(st)); } catch (e) { /* (storage off: for this visit) */ } }
+const winModal = (l) => !!(l && l.t === 'minigame' && S.game && (S.game.events || []).some((e) => e.id === l.id));
+const winFloats = (l) => !!(l && winWide() && (l.win ? l.win.float : (winStore()[l.t] || {}).float) && !winModal(l));
+const layerCovers = () => S.stack.some((l) => !winFloats(l)); // a window over the tab (a floating one leaves it in view)
+// Where a kind of window floats: where it was left, always reachable on this screen.
+// A window's own place once moved (l.win); a new one takes its kind's, a step aside from the others of its kind.
+function winOf(l) {
+  if (l.win) return winRect(null, l.win);
+  const n = S.stack.filter((x) => x !== l && x.t === l.t && S.stack.indexOf(x) < S.stack.indexOf(l) && winFloats(x)).length;
+  const R = winRect(l.t);
+  return n ? winRect(null, Object.assign({}, R, { x: R.x + 28 * n, y: R.y + 28 * n })) : R;
+}
+function winRect(t, own) {
+  const W = own || winStore()[t] || {}, vw = window.innerWidth, vh = window.innerHeight;
+  const w = clamp(Math.round(W.w || Math.min(600, vw - 80)), WIN_MIN_W, Math.max(WIN_MIN_W, vw - 16));
+  const h = clamp(Math.round(W.h || Math.min(760, vh - 60)), WIN_MIN_H, Math.max(WIN_MIN_H, vh - 16));
+  const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), 120 - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - h)); // (its bottom, and its corner, stay on the screen)
+  return { x, y, w, h, float: !!W.float };
+}
+function minLayer(l) {
+  const k = S.stack.indexOf(l);
+  if (k < 0 || winModal(l)) return;
+  S.stack.splice(k, 1);
+  l.min = true;
+  S.dock.push(l);
+  update(false);
+}
+function unminLayer(l) {
+  const k = S.dock.indexOf(l);
+  if (k < 0) return;
+  S.dock.splice(k, 1);
+  l.min = false;
+  l.back = true; // (it does not slide in again)
+  S.stack.push(l);
+  update(false);
+}
+function closeDocked(l) {
+  const k = S.dock.indexOf(l);
+  if (k < 0) return;
+  S.dock.splice(k, 1);
+  if (l.t === 'compose') resetComposeExtras();
+  update(false);
+}
+// A floating window clicked under another one comes to the front.
+function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack.length - 1) { S.stack.splice(k, 1); S.stack.push(l); update(false); } }
+// Closes the windows that match, open or put aside.
+function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); }
+const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn);
+const WIN_EMOJI = { compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+function Dock() {
+  if (!S.dock.length) return null;
+  return html`<div class="win-dock" role="toolbar" aria-label="Fenêtres réduites">${S.dock.map((l) => html`<span class="win-chip" key=${l.key}>
+    <button type="button" class="wc-open" onClick=${() => unminLayer(l)} title="Rouvrir"><span aria-hidden="true">${WIN_EMOJI[l.t] || '🪟'}</span><b>${l.title || 'Fenêtre'}</b></button>
+    <button type="button" class="wc-x" onClick=${() => closeDocked(l)} aria-label=${'Fermer : ' + (l.title || 'la fenêtre')}><${Icon} n="x" s=${14} /></button>
+  </span>`)}</div>`;
 }
 const openPost = (id, focus) => openLayer({ t: 'thread', id, focus: !!focus });
 const openChar = (id) => { if (id === 'p') goTab('profile'); else openLayer({ t: 'char', id }); };
@@ -336,7 +411,7 @@ function enterGame(g, restore = {}) {
   g.ready = true;
   syncEnergy(g);
   Object.assign(S, {
-    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
+    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], dock: [], pubDrafts: {}, setupDrafts: {}, modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
     feedSeenAt: t, feedAtTop: true, lastToastAt: t, notifSeenBefore: g.notifReadAt,
     drafts: { post: '', photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], reply: {}, dm: {}, confess: null, secAns: null, conf: {} }, replyTo: {}, autoSkip: {}, catchup: null,
   });
@@ -357,14 +432,14 @@ function enterGame(g, restore = {}) {
 function leaveGame() {
   const g = S.game;
   if (g) g.lastSeenAt = Date.now();
-  Object.assign(S, { game: null, phase: 'home', stack: [], modals: [], toasts: [], ideas: null, catchup: null });
+  Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   update(false);
   leaving = abortFlows().then(() => saveGame(g)); // each flow finishes or undoes itself on g, then g is saved once
 }
 async function removeGame(g) {
   const id = g.id;
-  Object.assign(S, { game: null, phase: 'home', stack: [], modals: [], toasts: [], ideas: null, catchup: null });
+  Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   deletedIds.add(id); // nothing may write it back while its flows end
   update(false);
@@ -373,6 +448,21 @@ async function removeGame(g) {
 }
 
 // From the home screen: a game deleted without opening it (the open one goes through removeGame).
+// 0.27.7: a game gets a name of the player's own (empty: its world's name again).
+async function renameGameById(id, name) {
+  const n = str(name, 40), sm = S.games.find((x) => x.id === id);
+  if (!sm) return;
+  sm.title = n;
+  update(false);
+  try {
+    if (S.game && S.game.id === id) { if (n) S.game.title = n; else delete S.game.title; scheduleSave(); return; }
+    const core = await Store.read('g_' + id);
+    if (!core) throw { code: 'not_found' };
+    if (n) core.title = n; else delete core.title;
+    await Store.write('g_' + id, core);
+    await writeIndex(null, true);
+  } catch (e) { console.warn('rename', e && (e.code || e.message)); toast('Impossible de renommer cette partie pour l’instant. Réessaie.', 'bad'); }
+}
 async function removeGameById(id) {
   if (S.game && S.game.id === id) return removeGame(S.game);
   const sm = S.games.find((x) => x.id === id) || null;
@@ -568,6 +658,8 @@ function Home({ now }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [del]);
   const confirmDel = () => { if (!del || Date.now() - del.at < 450) return; const id = del.s.id; setDel(null); removeGameById(id); };
+  const [ren, setRen] = useState(null); // 0.27.7: { id, text }: a game being renamed
+  const renOK = () => { if (!ren) return; renameGameById(ren.id, ren.text); setRen(null); };
   return html`<div class="screen"><div class="screen-in">
     ${games.length ? html`<div class="screen-top">
       <span class="wm">hype<i></i></span>
@@ -579,11 +671,18 @@ function Home({ now }) {
     ${games.length ? html`<section class="stack">
         <h1 class="h-lg">Tes parties</h1>
         <div class="saves">${games.map((s) => html`<div key=${s.id} class="save-wrap">
-          <button class="save" onClick=${() => openGame(s.id)} disabled=${S.busy.load}>
+          ${ren && ren.id === s.id ? html`<div class="save save-renaming">
             <span class="save-tile" style=${'--h:' + (s.hue == null ? 300 : s.hue)}>${s.emoji}</span>
-            <span class="save-main"><b>${s.world}</b><span>${s.avatar} ${s.name} · @${s.handle}</span></span>
+            <input class="input" maxlength="40" value=${ren.text} placeholder=${s.world} aria-label="Nom de la partie" ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = '1'; el.focus(); el.select(); } }}
+              onInput=${(e) => setRen({ id: s.id, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') renOK(); else if (e.key === 'Escape') { e.stopPropagation(); setRen(null); } }} />
+            <button class="btn btn-hot btn-sm" onClick=${renOK}>OK</button>
+            <button class="btn btn-ghost btn-sm" onClick=${() => setRen(null)}>Annuler</button>
+          </div>` : html`<button class="save" onClick=${() => openGame(s.id)} disabled=${S.busy.load}>
+            <span class="save-tile" style=${'--h:' + (s.hue == null ? 300 : s.hue)}>${s.emoji}</span>
+            <span class="save-main"><b>${s.title || s.world}</b><span>${s.title ? s.world + ' · ' : ''}${s.avatar} ${s.name} · @${s.handle}</span></span>
             <span class="save-meta">${s.setup ? html`<span class="chip hot">À finir</span>` : html`<b>${fmtN(s.followers)}</b><span>${plural(s.followers, 'abonné', 'abonnés')} · niv. ${s.level}</span>`}<span>${fmtAgo(s.updatedAt, now)}</span></span>
-          </button>
+          </button>`}
+          <button class="save-edit" onClick=${() => setRen({ id: s.id, text: s.title || '' })} disabled=${S.busy.load} aria-label=${`Renommer la partie ${s.title || s.world}`} title="Renommer cette partie"><${Icon} n="pen" s=${17} /></button>
           <button class="save-del" onClick=${() => setDel({ s, at: Date.now() })} disabled=${S.busy.load} aria-label=${`Supprimer la partie ${s.world} · ${s.name}`} title="Supprimer cette partie"><${Icon} n="trash" s=${18} /></button>
         </div>`)}</div>
         ${full ? html`<p class="muted">Tu as atteint ${MAX_GAMES} parties. Pour en créer une autre, supprime-en une avec la corbeille.</p>` : null}
@@ -881,7 +980,8 @@ function Game({ g, now }) {
       ${S.tab === 'feed' || S.tab === 'profile' ? html`<button class=${'fab' + (S.fabAway ? ' away' : '')} onClick=${() => openCompose()} aria-label="Publier un post" tabindex=${S.fabAway ? -1 : undefined}><${Icon} n="pen" s=${24} /></button>` : null}
     </main>
     <${Side} g=${g} now=${now} />
-    ${S.stack.map((l, i) => html`<${Layer} key=${l.key} l=${l} i=${i} g=${g} now=${now} />`)}
+    ${S.dock.concat(S.stack).map((l, i) => html`<${WinCtx.Provider} key=${l.key} value=${l}><${Layer} l=${l} i=${i} g=${g} now=${now} /><//>`)}
+    <${Dock} />
     ${modal ? html`<${Modal} key=${modal.id} m=${modal} g=${g} />` : null}
   </div>`;
 }
@@ -1397,13 +1497,13 @@ function askPostpone(g, r) {
     title: `Repousser ${ta(r)} de 30 min ?`,
     text: `${n === 1 ? 'Premier' : n === 2 ? 'Deuxième' : 'Dernier'} report : ${repWord(repTry(g, postponePlan(n)))}${n >= 2 ? ' et des abonnés qui partent' : ''}. ${['On trouvera ça moyen pro.', 'Ça commence à faire amateur.', 'Beaucoup diront que tu te défiles.'][r.delays]}`,
     ok: 'Repousser', danger: true,
-    run: () => { if (postponeRelease(g, r)) { S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id)); toast(`${cap1(ta(r))} sort dans 30 min. Ton public s’impatiente.`, 'bad'); update(); } },
+    run: () => { if (postponeRelease(g, r)) { dropLayers((l) => l.t === 'minigame' && l.id === r.id); toast(`${cap1(ta(r))} sort dans 30 min. Ton public s’impatiente.`, 'bad'); update(); } },
   });
 }
 function askDrop(g, r) {
   askConfirm({
     title: `Abandonner ${ta(r)} ?`, text: `Tout le monde l’attendait : ${repWord(repTry(g, DROP_PLAN))} et des abonnés qui partent.`, ok: 'Abandonner', danger: true,
-    run: () => { dropRelease(g, r); S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id)); update(); },
+    run: () => { dropRelease(g, r); dropLayers((l) => l.t === 'minigame' && l.id === r.id); update(); },
   });
 }
 // Where « jusqu’à la sortie » goes, read when the jump really happens (it may wait for the characters to finish).
@@ -1531,10 +1631,11 @@ const topIsGame = () => { const l = S.stack[S.stack.length - 1]; return !!(l && 
 const typingIn = (e) => { const el = e && e.target; return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)); };
 // A skill round that listens to the keyboard: only the last one opened, on top, and never while the player types.
 const KEY_OWNERS = [];
-function ownKeys() {
+function ownKeys(lay) {
   const tok = {};
   KEY_OWNERS.push(tok);
-  return { mine: (e) => KEY_OWNERS[KEY_OWNERS.length - 1] === tok && !typingIn(e) && topIsGame(), drop: () => { const k = KEY_OWNERS.indexOf(tok); if (k >= 0) KEY_OWNERS.splice(k, 1); } };
+  // (0.27.7: its own window on top, when it knows it: windows put aside and brought back no longer go by the order they opened)
+  return { mine: (e) => !typingIn(e) && (lay ? S.stack[S.stack.length - 1] === lay : KEY_OWNERS[KEY_OWNERS.length - 1] === tok && topIsGame()), drop: () => { const k = KEY_OWNERS.indexOf(tok); if (k >= 0) KEY_OWNERS.splice(k, 1); } };
 }
 // Steps never placed count as wrong among themselves (0.27.6: in the order they were dealt, a game left alone could win).
 const leftWorst = (pool) => pool.slice().sort((a, b) => b - a);
@@ -1581,7 +1682,7 @@ function settleRuns(g, t = Date.now()) {
   let changed = false;
   for (const r of [...(g.releases || []), ...(g.events || [])]) {
     if (!r || r.state !== 'scheduled' || r.played || !r.game || !r.game.run) continue;
-    if (S.stack.some((l) => l.t === 'minigame' && l.id === r.id)) continue; // on screen: the game itself finishes it
+    if (layerOpen((l) => l.t === 'minigame' && l.id === r.id)) continue; // on screen (0.27.7: or put aside): the game itself finishes it
     const sc = runOver(r.game, t);
     if (sc !== null) { finishShoot(r, sc); changed = true; }
   }
@@ -1722,8 +1823,8 @@ function MontageGame({ game, onDone, run, keep }) {
   }
   const [view, setView] = useState(() => ({ k: st.current.k, got: st.current.got.slice(), fb: null, t0: 0 }));
   const cur = useRef(null), done = useRef(false), alive = useRef(true);
-  const keys = useRef(null);
-  if (!keys.current) keys.current = ownKeys();
+  const keys = useRef(null), lay = useContext(WinCtx);
+  if (!keys.current) keys.current = ownKeys(lay);
   const pos = (t) => { const x = (Math.max(0, t - st.current.t0) / sp) % 2; return x < 1 ? x : 2 - x; };
   const sync = () => { const x = st.current; setView({ k: x.k, got: x.got.slice(), fb: x.fb, t0: x.t0 }); };
   const finish = (got) => { if (!done.current) { done.current = true; onDone(got.reduce((a, v) => a + v, 0) / n); } };
@@ -1894,9 +1995,12 @@ function MgAnswers({ game }) {
 }
 // Before the shoot: the topic (the player's, editable) and the difficulty, which sets the time and the rewards.
 function ShootSetup({ r }) {
-  const [topic, setTopic] = useState(r.topic);
-  const [plot, setPlot] = useState(r.plot || '');
-  const [diff, setDiff] = useState(r.diff || 'moyen');
+  const d0 = (S.setupDrafts && S.setupDrafts[r.id]) || {}; // 0.27.7: what was typed before the window was closed
+  const [topic, setTopic0] = useState(d0.topic != null && !r.devis ? d0.topic : r.topic);
+  const [plot, setPlot0] = useState(d0.plot != null ? d0.plot : r.plot || '');
+  const [diff, setDiff0] = useState(d0.diff || r.diff || 'moyen');
+  const keep = (k, v) => { if (!S.setupDrafts) S.setupDrafts = {}; S.setupDrafts[r.id] = Object.assign({}, S.setupDrafts[r.id], { [k]: v }); };
+  const setTopic = (v) => { keep('topic', v); setTopic0(v); }, setPlot = (v) => { keep('plot', v); setPlot0(v); }, setDiff = (v) => { keep('diff', v); setDiff0(v); };
   const W = WHATS[r.what] || WHATS.vidéo;
   const ok = topic.trim().length >= 3;
   const g = S.game, can = g ? canMakeR(g, r) : { ok: true }; // 0.20: a computer down, no connection for the live
@@ -1936,7 +2040,7 @@ function ShootResult({ r, g, now }) {
     <div class="mg-score">${Math.round(r.played.score * 100)} %</div>
     <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un flop' : 'gains ' + fmtMult(D.mult) + (tier === 'top' && D.viral ? ' · viral assuré' : '')}</span>
     <p>${tier === 'top' ? `${cap1(laW(r))} va cartonner.` : tier === 'mid' ? `${cap1(laW(r))} marchera moyennement.` : 'Si tu publies maintenant, c’est le flop assuré.'}${tier === 'top' && D.real ? ' Tu connais vraiment ton sujet : ça se sent.' : ''}${r.series ? (tier === 'flop' ? ' Ta série retombera à zéro.' : ` Ta série passera à ${(g.series ? g.series.streak : 0) + 1}.`) : ''}</p>
-    ${r.series && tier !== 'top' ? html`<p class="date-late series-note"><${Icon} n="calendar" s=${15} /><span><b>Défi Daily Upload : pas de report possible.</b> ${tier === 'flop' ? (g.series && g.series.hard ? 'Mode hardcore : un épisode raté met fin au défi, publié ou non.' : 'Publie quand même : raté, ta série repart de zéro ; pas publié, tu perds en plus ${Math.abs(repPts(repTry(g, { cred: -10, pro: -5 })))} de réputation.') : 'Publie pour valider l’épisode : ta série continue.'}</span></p>` : null}
+    ${r.series && tier !== 'top' ? html`<p class="date-late series-note"><${Icon} n="calendar" s=${15} /><span><b>Défi Daily Upload : pas de report possible.</b> ${tier === 'flop' ? (g.series && g.series.hard ? 'Mode hardcore : un épisode raté met fin au défi, publié ou non.' : `Publie quand même : raté, ta série repart de zéro. Pas publié, c’est un épisode manqué (${repWord(repTry(g, { cred: -10, pro: -5 }))}), et le défi ne pourra plus être réussi.`) : 'Publie pour valider l’épisode : ta série continue.'}</span></p>` : null}
     ${tier !== 'top' || D.real ? html`<${MgAnswers} game=${r.game} />` : null}
     <${StudioSteps} g=${g} r=${r} now=${now} />
     ${tier !== 'top' && !r.series && r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost" onClick=${() => askPostpone(g, r)}>Repousser pour retenter · ${repWord(repTry(g, postponePlan(r.delays + 1)))}</button>` : null}
@@ -2010,11 +2114,63 @@ function MiniGameLayer({ l, g, now, i }) {
 
 /* ---------- layers ---------- */
 function LayerShell({ i, title, head, foot, children, onBack, dark }) {
-  return html`<div class="layer" style=${'z-index:' + (20 + (i || 0))} onClick=${(e) => { if (e.target === e.currentTarget) closeLayer(); }}>
-    <section class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal="true" aria-label=${title}>
-      <header class="layer-head"><button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>${head || html`<h2>${title}</h2>`}</header>
+  const l = useContext(WinCtx), panel = useRef(null);
+  if (l && typeof title === 'string' && title) l.title = title; // (the dock shows it)
+  const wide = !!l && winWide(), modal = winModal(l), R = wide ? winOf(l) : null, float = !!(R && R.float);
+  // 0.27.7: the title bar moves the window (it floats from the first move); the corner resizes it
+  const drag = (e, mode) => {
+    if (!wide || e.button > 0 || (mode === 'move' && e.target.closest('button, a, input, textarea, select, [contenteditable="true"]'))) return;
+    const el = panel.current;
+    if (!el) return;
+    const r0 = el.getBoundingClientRect(), p0 = { x: e.clientX, y: e.clientY };
+    const base = { x: r0.left, y: r0.top, w: r0.width, h: r0.height };
+    if (!float) { base.h = Math.min(base.h, Math.round(window.innerHeight * 0.82)); base.w = Math.min(base.w, 640); } // (out of the middle, a window of its own: not the whole height)
+    const cur = Object.assign({}, base);
+    let live = false;
+    const move = (ev) => {
+      const dx = ev.clientX - p0.x, dy = ev.clientY - p0.y;
+      if (!live) {
+        if (Math.abs(dx) + Math.abs(dy) < 5) return;
+        live = true;
+        if (!float) { l.win = Object.assign({ float: true }, base); update(false); }
+        document.body.classList.add('win-dragging');
+      }
+      const vw = window.innerWidth, vh = window.innerHeight;
+      if (mode === 'move') { cur.x = clamp(base.x + dx, 120 - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - base.h)); }
+      else { cur.w = clamp(base.w + dx, WIN_MIN_W, vw - base.x - 8); cur.h = clamp(base.h + dy, WIN_MIN_H, vh - base.y - 8); }
+      Object.assign(el.style, { left: cur.x + 'px', top: cur.y + 'px', width: cur.w + 'px', height: cur.h + 'px' });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      document.body.classList.remove('win-dragging');
+      if (live) { l.win = { float: true, x: Math.round(cur.x), y: Math.round(cur.y), w: Math.round(cur.w), h: Math.round(cur.h) }; winSet(l.t, l.win); update(false); } // (this one, and the next of its kind)
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
+  const toggleFloat = () => {
+    if (!l) return;
+    if (float) { l.win = Object.assign({}, R, { float: false }); winSet(l.t, { float: false }); }
+    else { const r0 = panel.current && panel.current.getBoundingClientRect(); l.win = Object.assign({ float: true }, r0 ? { x: r0.left + 24, y: Math.max(0, r0.top + 24), w: Math.min(r0.width, 600), h: Math.min(r0.height - 48, 760) } : winRect(l.t)); winSet(l.t, l.win); }
+    update(false);
+  };
+  const cls = 'layer' + (float ? ' float' : '') + (float && modal ? ' held' : '') + (l && l.min ? ' min' : '') + (l && l.back ? ' back' : '');
+  return html`<div class=${cls} style=${'z-index:' + (20 + (i || 0))} aria-hidden=${l && l.min ? 'true' : undefined} onClick=${(e) => { if (!float && e.target === e.currentTarget) closeLayer(); }}>
+    <section ref=${panel} class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal=${float && !modal ? 'false' : 'true'} aria-label=${title}
+      style=${float ? `left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px` : ''} onPointerDown=${float && l ? () => raiseLayer(l) : undefined}>
+      <header class=${'layer-head' + (wide ? ' movable' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : undefined}>
+        <button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>${head || html`<h2>${title}</h2>`}
+        ${l ? html`<span class="win-btns">
+          ${modal ? null : html`<button type="button" class="win-btn win-min" onClick=${() => minLayer(l)} aria-label="Réduire la fenêtre" title="Réduire (tout ce que tu as rempli est gardé)"><${Icon} n="minus" s=${18} /></button>`}
+          ${wide ? html`<button type="button" class="win-btn win-float" onClick=${toggleFloat} aria-label=${float ? 'Remettre la fenêtre au centre' : 'Détacher la fenêtre'} title=${float ? 'Remettre au centre' : 'Détacher : la déplacer et la redimensionner'}><${Icon} n=${float ? 'dock' : 'detach'} s=${18} /></button>` : null}
+        </span>` : null}
+      </header>
       <div class="layer-body">${children}</div>
       ${foot ? html`<footer class="layer-foot">${foot}</footer>` : null}
+      ${float ? html`<span class="win-grip" onPointerDown=${(e) => drag(e, 'size')} aria-hidden="true" title="Redimensionner"></span>` : null}
     </section>
   </div>`;
 }
@@ -2496,7 +2652,7 @@ function ComposeLayer({ g, now, i }) {
       pfp: D.accuse || D.debunk || D.confess || D.secAns || D.merch || !ph || !ph.own || !ph.own.includes(D.pfp) ? null : D.pfp }; // 0.25.1
     Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null });
     S.ideas = null;
-    S.stack = S.stack.filter((l) => l.t !== 'compose'); // close this layer, not whatever is on top
+    dropLayers((l) => l.t === 'compose'); // close this layer, not whatever is on top (0.27.7: nor one put aside)
     goFeedTop();
     update(false);
     const ok = await runAct('post', text, null, null, extra);
@@ -2621,6 +2777,34 @@ async function saveToSlot() {
   S.busy.save = false;
   update();
 }
+// 0.27.7: a save has the name the player gave it (or the moment it was made, or its slot).
+const saveName = (x) => (x && x.name) || (x && x.auto ? x.label : 'Sauvegarde ' + (x ? x.slot : ''));
+function renameSave(g, slot, name) {
+  const x = (g.saves || []).find((y) => y.slot === slot);
+  if (!x) return false;
+  const n = str(name, 40);
+  if (n) x.name = n; else delete x.name; // (empty: back to its own name)
+  scheduleSave();
+  Store.read(`g_${g.id}_save_${slot}`).then((b) => { if (b && b.meta) { if (n) b.meta.name = n; else delete b.meta.name; return Store.write(`g_${g.id}_save_${slot}`, b); } return null; }).catch((e) => console.warn('rename save', e && (e.code || e.message)));
+  return true;
+}
+function SaveRow({ g, x, close }) {
+  const [ed, setEd] = useState(null); // the name being typed
+  const ok = () => { renameSave(g, x.slot, ed); setEd(null); update(false); };
+  if (ed != null) {
+    return html`<div class="save-row editing">
+      <input class="input" maxlength="40" value=${ed} placeholder=${x.auto ? x.label : 'Sauvegarde ' + x.slot} aria-label="Nom de la sauvegarde" ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = '1'; el.focus(); el.select(); } }}
+        onInput=${(e) => setEd(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') ok(); else if (e.key === 'Escape') { e.stopPropagation(); setEd(null); } }} />
+      <button class="btn btn-hot btn-sm" onClick=${ok}>OK</button>
+      <button class="btn btn-ghost btn-sm" onClick=${() => setEd(null)}>Annuler</button>
+    </div>`;
+  }
+  return html`<div class=${'save-row' + (x.auto ? ' auto' : '')}>
+    <div><b>${saveName(x)}</b><small>${x.auto ? 'Auto · ' : ''}${x.name && x.auto ? x.label + ' · ' : ''}${agoLabel(x.at)} · Niv. ${x.lvl} · ${fmtN(x.fol)} ${plural(x.fol, 'abonné', 'abonnés')}</small></div>
+    <button class="iconbtn save-ren" onClick=${() => setEd(x.name || '')} aria-label=${'Renommer : ' + saveName(x)} title="Renommer"><${Icon} n="pen" s=${16} /></button>
+    <button class="btn btn-ghost btn-sm" onClick=${() => { close(); askConfirm({ title: 'Revenir à cette sauvegarde ?', text: `${saveName(x)} (${agoLabel(x.at)}). Tout ce qui s’est passé depuis sera perdu.`, ok: 'Revenir en arrière', danger: true, run: () => loadSave(x.slot) }); }}>Charger</button>
+  </div>`;
+}
 // « il y a 5 min », in game time (a skip makes a save older).
 const agoLabel = (ts, now = Date.now()) => { const a = fmtAgo(ts, now); return /^\d/.test(a) ? 'il y a ' + a : a; };
 async function loadSave(slot) {
@@ -2642,7 +2826,8 @@ async function loadSave(slot) {
   const ng = migrate(Object.assign(snap, { id: g.id, saves: g.saves, ready: true }));
   enterGame(ng, { tab: 'feed', hot: true });
   saveNow();
-  toast(`Retour en arrière : ${body.meta && body.meta.label ? body.meta.label : 'sauvegarde chargée'}.`, 'good');
+  const named = (ng.saves || []).find((y) => y.slot === slot);
+  toast(`Retour en arrière : ${named ? saveName(named) : body.meta && body.meta.label ? body.meta.label : 'sauvegarde chargée'}.`, 'good');
 }
 // The ways out of a cancel (also offered when a fake proof gets exposed).
 function CancelPaths({ g, close }) {
@@ -2744,10 +2929,7 @@ function Modal({ m, g }) {
       <p>Sauvegarde maintenant, ou reviens à un moment d’avant : tout ce qui s’est passé depuis sera effacé.</p>
       <button class="btn btn-hot" onClick=${saveToSlot} disabled=${S.busy.save}><${Icon} n="save" s=${16} /> ${S.busy.save ? 'Sauvegarde…' : 'Sauvegarder maintenant'}</button>
       ${SAVE_SLOTS.every((k) => list.some((x) => x.slot === k)) ? html`<small class="muted">Tes 3 emplacements sont pris : la plus ancienne sera remplacée.</small>` : null}
-      ${list.length ? html`<div class="save-list">${list.map((x) => html`<div class=${'save-row' + (x.auto ? ' auto' : '')} key=${x.slot}>
-          <div><b>${x.auto ? x.label : 'Sauvegarde ' + x.slot}</b><small>${x.auto ? 'Auto · ' : ''}${agoLabel(x.at)} · Niv. ${x.lvl} · ${fmtN(x.fol)} ${plural(x.fol, 'abonné', 'abonnés')}</small></div>
-          <button class="btn btn-ghost btn-sm" onClick=${() => { close(); askConfirm({ title: 'Revenir à cette sauvegarde ?', text: `${x.auto ? x.label : 'Sauvegarde ' + x.slot} (${agoLabel(x.at)}). Tout ce qui s’est passé depuis sera perdu.`, ok: 'Revenir en arrière', danger: true, run: () => loadSave(x.slot) }); }}>Charger</button>
-        </div>`)}</div>` : html`<p class="muted" style="font-size:13.5px">Aucune sauvegarde pour l’instant. Le jeu en fait aussi une tout seul juste avant tes actions risquées.</p>`}
+      ${list.length ? html`<div class="save-list">${list.map((x) => html`<${SaveRow} key=${x.slot} g=${g} x=${x} close=${close} />`)}</div>` : html`<p class="muted" style="font-size:13.5px">Aucune sauvegarde pour l’instant. Le jeu en fait aussi une tout seul juste avant tes actions risquées.</p>`}
       <button class="btn btn-ghost" onClick=${close}>Fermer</button>
     </div>`;
   } else if (m.t === 'clash') {
@@ -2869,7 +3051,7 @@ function tick() {
     if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
-    if (S.tab === 'notifs' && !S.stack.length) g.notifReadAt = t;
+    if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
     if (g.stats.cancelled && t - (g.apologyAt || 0) < APOLOGY_COOLDOWN) fast = true;
     const n = unreadNotifs(g, t) + unreadDMs(g, t, dmOpen);
     const title = n ? `(${n}) Hype` : 'Hype';
@@ -3007,6 +3189,7 @@ if (window.__HYPE_TEST__) {
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
     COND, resaleName, invOf, invItem, invLive, invSold, invAdd, gearToInv, equipInv, receiveGear, fairOf, suggestOf, fanBoost, resaleDemand, priceK, saleSpeed, listItem, unlist, tickResale, sellItem, noticeSale, resoldLine, resaleCtx, giftTalk, GIFT_LINE, receiveGift, roundPrice, SALE_RATE, NOTICE_MS, // 0.26
     dealOf, dealBounds, dealSummary, applyDealLine, declineDeal, // 0.19.1: contracts
+    saveToSlot, leaveGame, openGame, minLayer, unminLayer, closeDocked, raiseLayer, dropLayers, layerOpen, winRect, winOf, winSet, winStore, winModal, winFloats, renameSave, saveName, renameGameById, pubDraft, keepPubDraft, // 0.27.7
     checkDeals, relLimit, fanPlanned, startShoot, menuClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
     plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned

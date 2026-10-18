@@ -5,6 +5,22 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.7 — 18 octobre 2026 (build 27007)
+
+**Des fenêtres qui se déplacent, se redimensionnent et se rangent, et des noms pour tes sauvegardes et tes parties.**
+
+### ✨ Nouveautés
+
+- **🪟 Des fenêtres libres** (sur ordi) : tire une fenêtre par sa barre de titre (publication, programmation, boutique, inventaire, messages…) et elle flotte au-dessus du jeu, là où tu la poses ; son coin la redimensionne. Le jeu reste utilisable derrière : tu changes d’onglet, tu lis un message, la fenêtre reste là. Chaque type de fenêtre retient sa place et sa taille, et un bouton la remet au centre.
+- **➖ Réduire** : un bouton range n’importe quelle fenêtre dans une barre en bas de l’écran, avec tout ce que tu y as déjà rempli. Un clic la ramène telle quelle. Sur téléphone aussi.
+- **💘 Les rendez-vous** : la fenêtre d’un rendez-vous se déplace et se redimensionne, mais elle ne se réduit pas, et le reste du jeu reste bloqué tant qu’il dure.
+- **✏️ Renommer** : chaque sauvegarde (les tiennes comme les automatiques) se renomme d’un clic sur ✏️, et son nom reste quand tu y reviens. Tes parties se renomment aussi, sur l’écran d’accueil.
+- **📝 Rien ne se perd** : ce que tu as tapé pour publier (titre, légende, accroche, sponsor…) ou pour préparer un tournage (le sujet, ce qui se passe, la difficulté) revient quand tu rouvres la fenêtre, même après l’avoir fermée.
+
+### 💡 Bon à savoir
+
+- Un mini-jeu chronométré qu’on réduit continue de tourner : son chrono ne s’arrête pas.
+
 ## 0.27.6 — 18 octobre 2026 (build 27006)
 
 **Une grande passe de corrections sur tout ce qui est arrivé ces derniers jours : sorties programmées, contrats, devis, inventaire et mini-jeux.**

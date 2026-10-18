@@ -1684,7 +1684,7 @@ function finishAct(ctx) {
     }
   } finally { holdUntil = 0; }
   // A toast only when the result is not on screen.
-  const onScreen = ctx.kind === 'post' ? S.tab === 'feed' && !S.stack.length : S.stack.some((l) => l.t === 'thread' && l.id === ctx.target.id);
+  const onScreen = ctx.kind === 'post' ? S.tab === 'feed' && !layerCovers() : S.stack.some((l) => l.t === 'thread' && l.id === ctx.target.id);
   if (S.game === g && !onScreen && item.res && item.res.fol) {
     toast(`${nAbonnes(item.res.fol, true)}${item.res.verdict ? ' · ' + item.res.verdict : ''}`, item.res.fol > 0 ? 'good' : 'bad', null, item.res.revealAt + 300);
   }
@@ -2350,7 +2350,7 @@ async function publishRelease(r, caption, form = {}) {
   if (!g || !r || !r.played || r.state !== 'scheduled' || S.busy.act) return;
   const W = WHATS[r.what] || WHATS.vidéo;
   const text = str(caption, 280) || `${W.emoji} ${laW(r)} est en ligne : ${r.topic}`;
-  S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === r.id));
+  dropLayers((l) => l.t === 'minigame' && l.id === r.id);
   S.publishing = r.id; // the countdown card hides while the release streams
   goFeedTop();
   update(false);
@@ -2611,7 +2611,7 @@ async function endDate(ev) {
   for (const o of activeEvents(g)) if (o.player && Math.abs(o.due - ev.due) < 90 * 60000) standUp(g, o, later() + 4000, `(tu étais avec ${c.name.split(' ')[0]})`);
   S.busy.ev = null;
   endFlow(f);
-  S.stack = S.stack.filter((l) => !(l.t === 'minigame' && l.id === ev.id));
+  dropLayers((l) => l.t === 'minigame' && l.id === ev.id);
   if (faded && ev.morning && S.game === g) nightTogether(g, c, ev); // 0.25.3: the night passes, the morning is there
   update();
   if (S.game === g) openDM(c.id);
