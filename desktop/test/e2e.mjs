@@ -32,6 +32,7 @@ async function launch(env = {}) {
   page.on('pageerror', (e) => errors.push('[page] ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
   await page.waitForSelector('#app *', { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector('#app .splash'), null, { timeout: 15000 }); // the first screen, past the splash
   return { app, page };
 }
 const G = (page, fn, arg) => page.evaluate(fn, arg);
@@ -380,6 +381,24 @@ try {
   check('the atelier (creator mode) keeps its photos as files on this computer and exports the pack as one file', docs.includes('pk_meta.json') && docs.filter((f) => /^pk_img_/.test(f)).length === 3
     && pack && pack.format === 'hype-pack' && pack.v === 2 && pack.people.length === 1 && pack.people[0].g === 'm' && /compétitif/.test(pack.people[0].profile) && pack.people[0].photos.length === 2
     && pack.people[0].photos[0].tags.join() === 'sport,déterminé' && /casque/.test(pack.people[0].photos[0].desc) && /^data:image\/webp/.test(pack.people[0].photos[0].img), { docs, packFile, tags: pack && pack.people[0].photos[0].tags });
+  // 0.27.1: the creator's older copy of a shipped face takes in the shipped version (its images read by the app itself)
+  if (existsSync(shipped)) {
+    const all = JSON.parse(readFileSync(shipped, 'utf8')).people, want = all.find((p) => p.photos.length >= 2);
+    const sync = await G(page, async (w) => {
+      const H = window.__hype, ph = w.photos[0];
+      const r = await fetch('pack/' + ph.file).catch(() => null);
+      if (!r || !r.ok) return { fetched: false };
+      const b = await r.blob(), data = await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
+      const meta = (await H.Store.read('pk_meta')) || { v: 2, people: [] };
+      meta.people.push({ id: w.id, g: w.g, style: w.style || 'moderne', label: w.label, look: '', profile: '', portrait: null, photos: [{ id: ph.id, season: 'all', moment: 'all', set: '', tags: ['ancien'], desc: 'ancien' }], next: 2 });
+      await H.Store.write('pk_img_' + ph.id, { data });
+      await H.Store.write('pk_meta', meta);
+      await H.loadAtelier();
+      const L = H.S.atelier.meta.people.find((x) => x.id === w.id), E = JSON.parse(await H.packExportText()).people.find((x) => x.id === w.id);
+      return { fetched: true, n: L ? L.photos.length : 0, files: L ? L.photos.filter((x) => x.file).length : 0, people: H.S.atelier.meta.people.length, exported: E ? E.photos.filter((x) => /^data:image\//.test(x.img)).length : 0 };
+    }, want);
+    check('the creator’s older copy of a shipped face takes in the shipped version (all its photos, the other shipped faces too), and its export carries the shipped images', sync.fetched && sync.n === want.photos.length && sync.files === want.photos.length && sync.people === 1 + all.length && sync.exported === want.photos.length, sync);
+  }
   await app.close();
 
   // ---------- the real SDK (no fake): the app starts and offers to connect ----------

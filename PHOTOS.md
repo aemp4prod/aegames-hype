@@ -26,14 +26,14 @@ dans le fil.
 
 Les médias, les marques et le public gardent leur emoji : tout le monde n’a pas de photo sur les réseaux.
 
-## Ce qu’il faut faire : 15 personnes, 150 images
+## Ce qu’il faut faire : 15 personnes, au moins 150 images
 
 | Qui | Combien |
 | --- | --- |
 | Femmes | 7 |
 | Hommes | 6 |
 | Personnes au look androgyne | 2 |
-| Pour chacune | 1 photo de profil + 9 photos (une grille de 3 × 3) |
+| Pour chacune | 1 photo de profil + au moins 9 photos (une grille de 3 × 3), et autant que tu veux en plus |
 
 C’est ce qu’il faut pour que tous les persos principaux d’une partie aient leur visage : les 10 du début et les 5 qui
 arrivent avec les niveaux. Les mêmes visages reviennent d’une partie à l’autre, comme des acteurs.
@@ -140,6 +140,12 @@ avoir l’air adulte, et ne ressembler à aucune célébrité.
    sont des carrousels, et les stories à la une n’existent que dans cet aperçu).
 
 Tes photos marchent tout de suite dans tes propres parties, sur ton PC. Tout est enregistré au fur et à mesure.
+
+**À chaque mise à jour** (depuis la 0.27.1), l’atelier récupère tout seul ce qui a été ajouté au pack du jeu : les
+nouvelles photos d’un visage (elles s’affichent depuis le jeu), son profil, sa photo de profil, et les visages qui te
+manquent. Tes propres photos et tes propres visages restent : si l’un d’eux portait le même identifiant qu’un visage
+du jeu, il en prend un autre. Un visage que tu as retiré ne revient qu’avec une nouvelle version. Pas de limite au
+nombre de photos par visage.
 
 ## Le donner à tout le monde
 

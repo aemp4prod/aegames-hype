@@ -10,6 +10,7 @@ manifest.json, which build.py and desktop/scripts/build-renderer.mjs write into 
 published next to the page, in pack/ (the Claude version) and copied into the app (the ChatGPT version).
 """
 import argparse
+import datetime
 import base64
 import json
 import pathlib
@@ -50,6 +51,9 @@ def main():
     if not isinstance(src, dict) or src.get('format') != 'hype-pack' or not isinstance(src.get('people'), list):
         sys.exit('Ce fichier n’est pas un pack photos Hype (format « hype-pack »).')
     out = pathlib.Path(a.out)
+    # 0.27.1: the version of each face (YYYYMMDDHHMM of the export): a creator's atelier takes in a newer one
+    m = re.match(r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})', str(src.get('made') or ''))
+    REV = int(''.join(m.groups())) if m else int(datetime.datetime.now().strftime('%Y%m%d%H%M'))
     out.mkdir(parents=True, exist_ok=True)
     for f in out.iterdir():  # the previous pack goes (only its own files)
         if f.is_file() and (FILE.match(f.name) or f.name == 'manifest.json'):
@@ -82,7 +86,7 @@ def main():
             'id': pid, 'g': x.get('g') if x.get('g') in ('f', 'm', 'x') else 'x',
             'style': x.get('style') if x.get('style') in STYLES else 'moderne',
             'label': text(x.get('label'), 30), 'look': text(x.get('look'), 60), 'profile': text(x.get('profile'), PROFILE_MAX),
-            'portrait': image(x.get('portrait'), pid + '-p'), 'photos': [],
+            'portrait': image(x.get('portrait'), pid + '-p'), 'photos': [], 'rev': REV,
         }
         if not person['portrait']:
             warnings.append(f'{person["label"] or pid} : pas de photo de profil')

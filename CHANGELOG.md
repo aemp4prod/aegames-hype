@@ -5,6 +5,20 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.1 — 18 octobre 2026 (build 27001)
+
+**Les nouvelles photos arrivent enfin chez tout le monde, même si tu as un Atelier photos, et plus aucune limite de photos par visage.**
+
+### 🛠️ Corrections
+
+- **📸 Les photos livrées avec le jeu** : si tu avais déjà travaillé dans l’Atelier photos, tes anciennes copies passaient devant elles (la streameuse aux mèches roses restait à ses anciennes photos, la DJ techno manquait à l’atelier). Désormais, à chaque mise à jour, ton atelier récupère tout seul les nouvelles photos, profils et visages du jeu, et garde tout ce qui vient de toi.
+- **📦 Exporter le pack** emporte maintenant aussi les photos livrées avec le jeu, images comprises.
+
+### 💡 Bon à savoir
+
+- **♾️ Plus de limite de photos** : l’atelier ne compte plus tes photos sur un objectif de 135, et chaque visage peut en avoir des centaines.
+- Tu n’as jamais ouvert l’Atelier photos ? Rien ne change pour toi : toutes les photos étaient déjà dans ton jeu.
+
 ## 0.27.0 — 18 octobre 2026 (build 27000)
 
 **57 nouveaux autocollants, un étalonnage enfin juste, un devis qui connaît tes partenariats… et 86 nouvelles photos pour la streameuse aux mèches roses.**

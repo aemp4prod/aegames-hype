@@ -13,7 +13,7 @@ const PH_GENDERS = [['f', 'Femme'], ['m', 'Homme'], ['x', 'Look androgyne']];
 // What a complete pack holds: a face for every main character of a game (the 10 of the start, the 5 who arrive with
 // the levels), each with a profile photo and enough photos for a grid of 3 × 3.
 const PACK_GOAL = { f: 7, m: 6, x: 2, photos: 9 };
-const PH_DESC_MAX = 300, PH_PROFILE_MAX = 300, PH_TAG_MAX = 20, PH_PER_PERSON = 150; // (0.27: 20 tags of up to 32 characters, the creator's as written; 150 photos a face, 60 before)
+const PH_DESC_MAX = 300, PH_PROFILE_MAX = 300, PH_TAG_MAX = 20, PH_PER_PERSON = 1000; // (0.27: 20 tags of up to 32 characters, the creator's as written; 0.27.1: no real limit to a face's photos, 60 before)
 // The creator's tags are free. The game understands them through these families of words (case and accents
 // ignored): what a photo shows (for the highlights, and to match what a post talks about), its mood (a character in a
 // bad buzz posts a serious photo rather than a laughing one), the occasions it belongs to (out only at their time).
@@ -84,7 +84,7 @@ const SET_ID = /^s\d{1,3}$/;
 // keys, mood and occ are what the game reads in the tags.
 function cleanPhoto(x, local) {
   if (!x || !PH_ID.test(String(x.id || ''))) return null;
-  const file = local ? null : String(x.file || '');
+  const file = local ? (PH_FILE.test(String(x.file || '')) ? String(x.file) : '') : String(x.file || ''); // (0.27.1: a creator's photo that came with the game shows its shipped image)
   if (!local && !PH_FILE.test(file)) return null;
   let tags = Array.isArray(x.tags) ? x.tags : [];
   if (!tags.length && (Array.isArray(x.places) || Array.isArray(x.occ))) { // a pack made with the 0.8.0 atelier
@@ -112,6 +112,7 @@ function cleanPerson(x, local) {
     style: PH_STYLES.some((v) => v[0] === x.style) ? x.style : 'moderne',
     label: str(x.label, 30), look: str(x.look, 60), profile: str(x.profile, PH_PROFILE_MAX),
     portrait: local ? (PH_ID.test(pt) ? pt : null) : (PH_FILE.test(pt) ? pt : null),
+    portraitFile: local && PH_FILE.test(String(x.portraitFile || '')) ? String(x.portraitFile) : null, // (0.27.1: the shipped one)
     photos: (Array.isArray(x.photos) ? x.photos : []).map((ph) => cleanPhoto(ph, local)).filter(Boolean).slice(0, PH_PER_PERSON),
   };
 }
@@ -153,8 +154,11 @@ function localImg(id) {
   }
   return v === 'loading' || v === 'missing' ? null : v;
 }
-const phSrc = (p, ph) => (!p || !ph ? null : p.local ? localImg(ph.id) : PACK_BASE + ph.file);
-const portraitSrc = (p) => (!p || !p.portrait ? null : p.local ? localImg(p.portrait) : PACK_BASE + p.portrait);
+const phSrc = (p, ph) => (!p || !ph ? null : p.local && !ph.file ? localImg(ph.id) : PACK_BASE + ph.file);
+const portraitSrc = (p) => (!p ? null : p.local ? (p.portraitFile ? PACK_BASE + p.portraitFile : p.portrait ? localImg(p.portrait) : null) : p.portrait ? PACK_BASE + p.portrait : null);
+// In the atelier (its own records): a photo's image, a person's profile photo.
+const atImg = (ph) => (!ph ? null : ph.file ? PACK_BASE + ph.file : localImg(ph.id));
+const atPortrait = (p) => (!p ? null : p.portraitFile ? PACK_BASE + p.portraitFile : p.portrait ? localImg(p.portrait) : null);
 const photoSrcById = (id) => { const x = PACK.photos[id]; return x ? phSrc(x.p, x.ph) : null; };
 
 /* ---------- faces: who plays which main character ---------- */
@@ -585,7 +589,115 @@ async function loadAtelier() {
     if (!Array.isArray(ph.tags)) { const c = cleanPhoto(ph, true); ph.tags = c ? c.tags : []; delete ph.places; delete ph.occ; }
   }
   S.atelier.loaded = true;
+  try { await syncShipped(); } catch (e) { /* the atelier stays as it was: tried again next time */ } // (0.27.1)
   rebuildPack();
+}
+/* 0.27.1: the creator's atelier follows the pack shipped with the game. The shipped pack is made from the creator's own
+   exports, plus what was put in it directly (new faces, new photos): when a newer version of a face ships (its « rev »),
+   the atelier takes it in — its new photos (shown from the shipped images until the creator replaces them), its
+   profile, its profile photo — and a face it lacks is added. The creator's own photos and faces stay: a photo of theirs
+   under the id of a shipped one that is another picture gets an id of its own, and so does a face of theirs under the id
+   of a shipped face (the shipped pack keeps the very bytes of the creator's export, so the images tell). A face the
+   creator removed comes back only with a newer version. Only an atelier that holds the shipped faces is touched (a
+   player's own pack, made from scratch, never is). Without it, the creator's older copy hid the new photos, in the
+   atelier and in the game (their copy comes first). When an image cannot be read, that face waits for the next time. */
+async function syncShipped() {
+  const A = S.atelier, B = bundledPack();
+  if (!A.loaded || !B || !Array.isArray(B.people) || !B.people.length) return false;
+  const ids = new Set(B.people.map((x) => x && x.id));
+  if (!A.meta.shipped && !A.meta.people.some((x) => ids.has(x.id))) return false;
+  const done = A.meta.shipped || (A.meta.shipped = {}), trash = [];
+  let ch = false;
+  for (const raw of B.people) {
+    const b = cleanPerson(raw, false), rev = Math.max(1, Math.round(num(raw && raw.rev, 1)));
+    if (!b || num(done[b.id], 0) >= rev) continue;
+    let ok = false;
+    try { ok = await takeShipped(b, trash); } catch (e) { ok = false; } // (an image could not be written: another time)
+    if (!ok) continue;
+    done[b.id] = rev;
+    ch = true;
+  }
+  if (!ch) return false;
+  await saveAtelier(true);
+  if (!A.err) for (const id of trash) { Store.remove('pk_img_' + id).catch(() => {}); delete PACK_IMG[id]; } // (copied under their new id)
+  return true;
+}
+// The creator's image of a photo and the shipped one: 'same', 'diff', 'none' (no image of their own) or '?' (unreadable).
+async function sameImg(id, file) {
+  let d = null;
+  try { d = await Store.read('pk_img_' + id); } catch (e) { return '?'; }
+  const a = d && typeof d.data === 'string' && DATA_IMG.test(d.data) ? d.data : null;
+  if (!a) return 'none';
+  const b = file ? await fileData(file) : null;
+  return !b ? '?' : a.slice(a.indexOf(',') + 1) === b.slice(b.indexOf(',') + 1) ? 'same' : 'diff';
+}
+async function copyImg(from, to) {
+  const d = await Store.read('pk_img_' + from);
+  if (!d || typeof d.data !== 'string') return false;
+  await Store.write('pk_img_' + to, { data: d.data });
+  PACK_IMG[to] = d.data;
+  return true;
+}
+const setNum = (s) => { const m = /^s(\d+)$/.exec(s || ''); return m ? parseInt(m[1], 10) : 0; };
+const phNum = (pid, id) => { const k = parseInt(String(id).slice(pid.length + 1), 10); return k > 0 ? k : 0; };
+// One shipped face into the atelier: decided first (nothing written), then the images copied, then the atelier changed.
+// false: not this time (an image could not be read).
+async function takeShipped(b, trash) {
+  const A = S.atelier, memo = new Map();
+  const cmp = async (mine, ph) => { if (!memo.has(mine.id)) memo.set(mine.id, mine.file ? 'same' : await sameImg(mine.id, ph.file)); return memo.get(mine.id); };
+  const twin = (L, ph) => L.photos.find((x) => x.id === ph.id);
+  let L = atPerson(b.id), face = 'same';
+  if (L && L.photos.length && !(L.label && L.label === b.label)) { // the same face, or one of the creator's own under this id?
+    face = 'diff';
+    for (const ph of b.photos) {
+      const mine = twin(L, ph);
+      const r = mine ? await cmp(mine, ph) : 'none';
+      if (r === 'same') { face = 'same'; break; }
+      if (r === '?') face = '?';
+    }
+    if (face === '?') return false;
+  }
+  const own = []; // the creator's photos under a shipped id that are another picture
+  if (L && face === 'same') {
+    for (const ph of b.photos) {
+      const mine = twin(L, ph);
+      if (!mine) continue;
+      const r = await cmp(mine, ph);
+      if (r === '?') return false;
+      if (r === 'diff') own.push(mine);
+    }
+  }
+  // the images under their new ids (nothing changed if a write fails)
+  if (L && face === 'diff') {
+    const nid = nextPersonId(L.g), moves = L.photos.map((ph) => [ph, nid + '-' + (phNum(L.id, ph.id) || ph.id.replace(/[^a-z0-9]/g, ''))]);
+    for (const [ph, to] of moves) await copyImg(ph.id, to);
+    if (L.portrait) await copyImg(L.portrait, nid + '-p');
+    for (const [ph, to] of moves) { trash.push(ph.id); ph.id = to; }
+    if (L.portrait) { trash.push(L.portrait); L.portrait = nid + '-p'; }
+    L.id = nid;
+    L = null;
+  }
+  let top = 0;
+  if (L) for (const ph of [...L.photos, ...b.photos]) top = Math.max(top, phNum(b.id, ph.id));
+  const moved = own.map((ph, k) => [ph, `${b.id}-${top + 1 + k}`]);
+  for (const [ph, to] of moved) await copyImg(ph.id, to);
+  for (const [ph, to] of moved) { trash.push(ph.id); ph.id = to; }
+  if (!L) A.meta.people.push(L = { id: b.id, g: b.g, style: b.style, label: b.label, look: b.look, profile: b.profile, portrait: null, photos: [], next: 1 });
+  else Object.assign(L, { g: b.g, style: b.style, label: b.label || L.label, look: b.look || L.look, profile: b.profile || L.profile });
+  if (b.portrait) L.portraitFile = b.portrait;
+  // the creator's own series must not join a shipped one by chance (the same « s3 » for two shoots)
+  const shipIds = new Set(b.photos.map((ph) => ph.id)), shipSets = new Set(b.photos.map((ph) => ph.set).filter(Boolean));
+  const keep = new Set(L.photos.filter((x) => shipIds.has(x.id) && x.set).map((x) => x.set)), remap = {};
+  let sn = 0;
+  for (const ph of [...L.photos, ...b.photos]) sn = Math.max(sn, setNum(ph.set));
+  for (const x of L.photos) if (!shipIds.has(x.id) && x.set && shipSets.has(x.set) && !keep.has(x.set)) x.set = remap[x.set] || (remap[x.set] = 's' + (++sn));
+  for (const ph of b.photos) {
+    const meta = { season: ph.season, moment: ph.moment, set: ph.set, tags: ph.tags.slice(), desc: ph.desc, file: ph.file };
+    const mine = twin(L, ph);
+    if (mine) Object.assign(mine, meta); else L.photos.push(Object.assign({ id: ph.id }, meta));
+  }
+  for (const x of L.photos) L.next = Math.max(L.next || 1, phNum(L.id, x.id) + 1);
+  return true;
 }
 let atSaveTimer = null;
 function saveAtelier(now = false) {
@@ -657,6 +769,7 @@ async function setPortrait(person, file) {
     await Store.write('pk_img_' + id, { data });
     PACK_IMG[id] = data;
     person.portrait = id;
+    delete person.portraitFile; // (0.27.1: the shipped one, if it was shown)
     await saveAtelier(true);
   } catch (e) { toast('Impossible d’importer cette image.', 'bad'); }
   S.atelier.busy = '';
@@ -751,15 +864,26 @@ async function imgData(id) {
   return b && typeof b.data === 'string' && b.data.startsWith('data:image/') ? b.data : null;
 }
 // The whole pack in one file (format « hype-pack »): what tools/pack.py turns into the pack shipped with the game.
+// (0.27.1) A shipped image, as data (what the export carries).
+async function fileData(file) {
+  try {
+    const r = await fetch(PACK_BASE + file);
+    if (!r.ok) return null;
+    const b = await r.blob();
+    const d = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); });
+    return typeof d === 'string' && DATA_IMG.test(d) ? d : null;
+  } catch (e) { return null; }
+}
 async function packExportText() {
   const people = [];
   for (const p of S.atelier.meta.people) {
     const photos = [];
     for (const ph of p.photos) {
-      const img = await imgData(ph.id);
+      const img = ph.file ? await fileData(ph.file) || await imgData(ph.id) : await imgData(ph.id);
       if (img) photos.push({ id: ph.id, season: ph.season, moment: ph.moment, set: ph.set || '', tags: ph.tags || [], desc: ph.desc || '', img });
     }
-    people.push({ id: p.id, g: p.g, style: p.style, label: p.label, look: p.look || '', profile: p.profile || '', portrait: p.portrait ? await imgData(p.portrait) : null, photos });
+    const portrait = p.portraitFile ? await fileData(p.portraitFile) : p.portrait ? await imgData(p.portrait) : null;
+    people.push({ id: p.id, g: p.g, style: p.style, label: p.label, look: p.look || '', profile: p.profile || '', portrait, photos });
   }
   return JSON.stringify({ format: 'hype-pack', v: 2, app: APP_VERSION, made: new Date().toISOString(), people });
 }
@@ -805,10 +929,13 @@ async function packImportText(text) {
     }
     people.push(meta);
   }
+  const n = people.length;
   S.atelier.meta = { v: 2, people };
-  S.atelier.sel = people.length ? people[0].id : null;
-  await saveAtelier(true);
-  return people.length;
+  S.atelier.sel = n ? people[0].id : null;
+  let synced = false; // (0.27.1: an older export takes in the faces shipped since, as at every start)
+  try { synced = await syncShipped(); } catch (e) { synced = false; }
+  if (!synced) await saveAtelier(true);
+  return n;
 }
 async function clearAtelierDocs() {
   for (const p of S.atelier.meta.people) {
@@ -1044,7 +1171,6 @@ function Atelier({ now }) {
   const cnt = { f: 0, m: 0, x: 0 };
   let photos = 0;
   for (const p of people) { cnt[p.g]++; photos += p.photos.length; }
-  const goal = PACK_GOAL.f + PACK_GOAL.m + PACK_GOAL.x;
   const importFile = async () => {
     if (HOST && HOST.openFile) { const f = await HOST.openFile('pack'); if (f && typeof f.text === 'string') await importPackFrom(f.text); return; }
     if (fileRef.current) fileRef.current.click();
@@ -1060,20 +1186,20 @@ function Atelier({ now }) {
       <span class=${'chip' + (cnt.f >= PACK_GOAL.f ? ' good' : '')}>Femmes ${cnt.f}/${PACK_GOAL.f}</span>
       <span class=${'chip' + (cnt.m >= PACK_GOAL.m ? ' good' : '')}>Hommes ${cnt.m}/${PACK_GOAL.m}</span>
       <span class=${'chip' + (cnt.x >= PACK_GOAL.x ? ' good' : '')}>Look androgyne ${cnt.x}/${PACK_GOAL.x}</span>
-      <span class=${'chip' + (photos >= goal * PACK_GOAL.photos ? ' good' : '')}>Photos ${photos}/${goal * PACK_GOAL.photos}</span>
+      <span class="chip">Photos ${photos}</span>
     </div>
     ${HOST ? null : html`<div class="notice"><${Icon} n="alert" /><p>Ici, la place est comptée : pour tout le pack, travaille plutôt dans l’appli PC (Hype pour ChatGPT), qui range les photos sur ton ordi.</p></div>`}
     <div class="at-people">
-      ${people.map((p) => { const pt = p.portrait ? localImg(p.portrait) : null; const miss = p.photos.filter((x) => !x.desc).length; return html`<button type="button" key=${p.id} class=${'at-pcard' + (sel === p ? ' on' : '')} onClick=${() => { S.atelier.sel = p.id; update(false); }}>
+      ${people.map((p) => { const pt = atPortrait(p); const miss = p.photos.filter((x) => !x.desc).length; return html`<button type="button" key=${p.id} class=${'at-pcard' + (sel === p ? ' on' : '')} onClick=${() => { S.atelier.sel = p.id; update(false); }}>
         <span class="at-pt">${pt ? html`<img src=${pt} alt="" />` : html`<${Icon} n="user" s=${26} />`}</span>
         <span class="at-pmain"><b>${p.label || p.id}</b><small>${{ f: 'Femme', m: 'Homme', x: 'Look androgyne' }[p.g]} · ${p.photos.length} ${plural(p.photos.length, 'photo', 'photos')}</small>
-          ${!p.portrait ? html`<small class="warn">sans photo de profil</small>` : !p.profile ? html`<small class="warn">sans profil</small>` : miss ? html`<small class="warn">${miss} sans description</small>` : null}</span>
+          ${!p.portrait && !p.portraitFile ? html`<small class="warn">sans photo de profil</small>` : !p.profile ? html`<small class="warn">sans profil</small>` : miss ? html`<small class="warn">${miss} sans description</small>` : null}</span>
       </button>`; })}
       <div class="at-add">
         ${PH_GENDERS.map(([k, lb]) => html`<button type="button" key=${k} class="btn btn-ghost btn-sm" onClick=${() => addPerson(k)}><${Icon} n="plus" s=${15} /> ${lb}</button>`)}
       </div>
     </div>
-    ${sel ? html`<${AtPerson} p=${sel} onPreview=${() => setPreview(true)} />` : people.length ? null : html`<div class="empty"><b>Commence par ajouter une personne</b><span>Objectif : ${PACK_GOAL.f} femmes, ${PACK_GOAL.m} hommes et ${PACK_GOAL.x} personnes au look androgyne, avec une photo de profil et ${PACK_GOAL.photos} photos chacune.</span></div>`}
+    ${sel ? html`<${AtPerson} p=${sel} onPreview=${() => setPreview(true)} />` : people.length ? null : html`<div class="empty"><b>Commence par ajouter une personne</b><span>Objectif : ${PACK_GOAL.f} femmes, ${PACK_GOAL.m} hommes et ${PACK_GOAL.x} personnes au look androgyne, avec une photo de profil et au moins ${PACK_GOAL.photos} photos chacune (autant que tu veux).</span></div>`}
     <section class="section at-pack">
       <div class="section-h"><h3>Ton pack</h3><span>${people.length} ${plural(people.length, 'personne', 'personnes')} · ${photos} ${plural(photos, 'photo', 'photos')}</span></div>
       <p class="muted">Quand il te plaît, exporte-le : ça donne un seul fichier, à envoyer pour qu’il soit ajouté au jeu de tout le monde. Dans tes parties à toi, il marche déjà.</p>
@@ -1094,7 +1220,7 @@ function AtPerson({ p, onPreview }) {
   const [drag, setDrag] = useState(false);
   const [del, setDel] = useState(false);
   const [pick, setPick] = useState(null); // grouping photos into a series: the ids ticked so far
-  const pt = p.portrait ? localImg(p.portrait) : null;
+  const pt = atPortrait(p);
   const set = (k, v) => { p[k] = v; saveAtelier(); };
   const cov = { all: 0, ete: 0, hiver: 0, mi: 0 };
   for (const ph of p.photos) cov[ph.season]++;
@@ -1147,7 +1273,7 @@ function AtPerson({ p, onPreview }) {
       <small>Astuce : un nom de fichier comme « gaming-marrant-soir.png » remplit déjà les tags, la saison et le moment.</small>
     </label>
     ${ask.length >= 2 ? html`<div class="at-ask" role="group" aria-label="Une série ?">
-      <div class="at-ask-imgs">${ask.slice(0, 5).map((id) => { const src = localImg(id); return html`<span key=${id}>${src ? html`<img src=${src} alt="" />` : null}</span>`; })}</div>
+      <div class="at-ask-imgs">${ask.slice(0, 5).map((id) => { const src = atImg(p.photos.find((x) => x.id === id)); return html`<span key=${id}>${src ? html`<img src=${src} alt="" />` : null}</span>`; })}</div>
       <p><b>Ces ${ask.length} photos vont ensemble ?</b> Le même shooting : même tenue, même lieu. Le jeu ne les postera jamais à quelques jours d’écart : elles sortiront en carrousel, ou l’une d’elles seule, plus tard.</p>
       <div class="row"><button type="button" class="btn btn-hot btn-sm" onClick=${() => makeSeries(p, ask)}>Oui, c’est une série</button><button type="button" class="btn btn-ghost btn-sm" onClick=${() => { S.atelier.ask = null; update(false); }}>Non, des photos séparées</button></div>
     </div>` : null}
@@ -1166,7 +1292,7 @@ function AtPerson({ p, onPreview }) {
 }
 // inSet: in a series (its season and moment are the series'); pick: the grouping mode, with its ticked ids.
 function AtPhoto({ p, ph, inSet, pick, onPick }) {
-  const src = localImg(ph.id);
+  const src = atImg(ph);
   const set = (k, v) => { ph[k] = v; saveAtelier(); };
   const on = !!(pick && pick.includes(ph.id));
   return html`<div class=${'at-photo' + (on ? ' picked' : '')}>

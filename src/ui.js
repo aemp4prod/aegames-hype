@@ -2898,7 +2898,7 @@ if (window.__HYPE_TEST__) {
     refreshFeed, skipTime,
     // 0.8: the photo pack
     PACK, PACK_IMG, rebuildPack, portraitSrc, faceOf, assignFace, assignFaces, pickPhoto, matchAiPhoto, tickPhotos, occasionsAt, seasonOf, momentOf, facesAsk, capBatch, publishQueued, emojiCaption,
-    igList, ttList, makeSlides, pickSlides, genNewChar, loadAtelier, packExportText, packImportText, creatorOn, openAtelier, guessTags, hintTags, addAmbientPost, charPortrait, cleanPhoto,
+    igList, ttList, makeSlides, pickSlides, genNewChar, loadAtelier, syncShipped, phSrc, atImg, atPortrait, removePerson, PH_PER_PERSON, packExportText, packImportText, creatorOn, openAtelier, guessTags, hintTags, addAmbientPost, charPortrait, cleanPhoto,
     // 0.9: trust and advice
     trustOf, gardeOf, trustMult, trustLabel, applyTrust, initTrust, migrateTrust, migrate, addAdvice, tickAdvice, resolveAdvice, plannedAdvice, confideSecret, secretBetrayed, isShady,
     sendDM, standUp, fakeBusted, startBadBuzz, ADVICE_NEED, TRUST_STEPS, openAdvice, openChar, promptWrite,

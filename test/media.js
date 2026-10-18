@@ -386,13 +386,14 @@ const stored = (page, ids) => G(page, async (list) => { const H = window.__hype;
   await page.check('.layer .see-box input');
   await page.fill('#photo-desc', 'mon perso en terrasse au soleil');
   await page.fill('#compose', 'pause café ☕');
-  const v3n = await G(page, () => { window.__mockImgFail = 'image_rejected'; return { n: window.__prompts.length, imgs: (window.__imgs || []).length }; });
+  // (every toast shown is noted: the game's own news of the hour can push this one out of the four kept)
+  const v3n = await G(page, () => { window.__mockImgFail = 'image_rejected'; window.__toastLog = []; window.__toastTimer = setInterval(() => { for (const t of window.__hype.S.toasts) if (!window.__toastLog.includes(t.text)) window.__toastLog.push(t.text); }, 40); return { n: window.__prompts.length, imgs: (window.__imgs || []).length }; });
   await publish(page);
   const v3 = await G(page, (a) => {
     const H = window.__hype, p = H.S.game.posts.filter((x) => x.a === 'p').sort((x, y) => y.ts - x.ts)[0];
     const acts = window.__prompts.slice(a.n).filter((x) => x.includes('Le joueur publie ce post'));
     return { calls: acts.length, first: acts[0] ? acts[0].includes('L’image jointe est celle de ce post') : false, second: acts[1] ? !acts[1].includes('image jointe') && acts[1].includes('Avec une PHOTO. Ce qu’on voit : « mon perso en terrasse au soleil »') : false,
-      see: p.photo.see || 0, replies: p.replies.length, text: p.text, toast: H.S.toasts.map((t) => t.text).join(' | '), vision: H.S.vision, miss: H.S.visionMiss };
+      see: p.photo.see || 0, replies: p.replies.length, text: p.text, toast: (clearInterval(window.__toastTimer), window.__toastLog.join(' | ')), vision: H.S.vision, miss: H.S.visionMiss };
   }, v3n);
   check('images refused: the post goes on from its description (one more call), said so; the box stays for the next post',
     v3.calls === 2 && v3.first && v3.second && v3.see === 0 && v3.replies >= 1 && v3.text === 'pause café ☕' && /n’a pas pu voir tes images/.test(v3.toast) && v3.vision > 0 && v3.miss === 1, v3);
