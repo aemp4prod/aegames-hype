@@ -254,7 +254,7 @@ function EditStep({ g, r, now }) {
       </div>
     </div>`;
   }
-  if (game.kind === 'tri') return html`<${TriGame} items=${game.items} onDone=${onDone} now=${now} total=${Math.round(mgTime('tri', game.items.length, diffOf(game.diff)) * (game.timeK || 1)) + mgExtra('tri', game.items.length)} hints=${0} run=${game.run || null} keep=${keep} />`;
+  if (game.kind === 'tri') return html`<${TriGame} items=${game.items} onDone=${onDone} now=${now} total=${mgClock('tri', game.items, diffOf(game.diff), game.timeK || 1)} hints=${0} run=${game.run || null} keep=${keep} />`;
   if (ARCADE_KINDS.includes(game.kind)) return html`<${ArcadeGame} game=${game} onDone=${onDone} now=${now} run=${game.run || null} keep=${keep} />`; // 0.25
   return html`<${MontageGame} game=${game} onDone=${onDone} run=${game.run || null} keep=${keep} />`;
 }

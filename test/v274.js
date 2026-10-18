@@ -291,9 +291,9 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     return r.id;
   });
   await page.waitForSelector('.layer .mg-intro', { timeout: 10000 });
-  const vfIntro = await G(page, (id) => { const H = window.__hype, r = H.S.game.releases.find((x) => x.id === id); return { text: document.querySelector('.layer .mg-intro').textContent, n: r.game.items.length, k: !H.easyGear() && H.hasBonus(H.S.game, 'prompteur') ? 1.15 : 1 }; }, vfId);
-  const vfSec = Math.round((Math.round(Math.round(4000 * vfIntro.n * 0.42) * vfIntro.k) + 2000 * vfIntro.n) / 1000); // (a prompter gives more time to read)
-  check('on screen: the rule of the shoot says the new time (true or false in Mythique: two more seconds per statement)', new RegExp(`Tranche vite : ${vfSec} secondes pour tout`).test(vfIntro.text), { n: vfIntro.n, want: vfSec, text: vfIntro.text.slice(0, 260) });
+  const vfIntro = await G(page, (id) => { const H = window.__hype, r = H.S.game.releases.find((x) => x.id === id); const k = !H.easyGear() && H.hasBonus(H.S.game, 'prompteur') ? 1.15 : 1; return { text: document.querySelector('.layer .mg-intro').textContent, n: r.game.items.length, k, clock: H.mgClock('vf', r.game.items, H.DIFFS.find((d) => d.id === 'mythique'), k), old: Math.round(H.mgTime('vf', r.game.items.length, H.DIFFS.find((d) => d.id === 'mythique')) * k) + H.mgExtra('vf', r.game.items.length) }; }, vfId);
+  const vfSec = Math.round(vfIntro.clock / 1000); // (0.27.5: by what there is to read, never less than the 0.27.4 clock; a prompter gives more)
+  check('on screen: the rule of the shoot says the new time (true or false in Mythique: two more seconds per statement at least)', new RegExp(`Tranche vite : ${vfSec} secondes pour tout`).test(vfIntro.text) && vfIntro.clock >= vfIntro.old, { n: vfIntro.n, want: vfSec, clock: vfIntro.clock, old: vfIntro.old, text: vfIntro.text.slice(0, 260) });
   await G(page, () => { const H = window.__hype, g = H.S.game; H.S.mgForce = null; for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped'; H.S.stack = []; H.update(); });
 
   // ---------- the hidden menu ----------

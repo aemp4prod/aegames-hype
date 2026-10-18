@@ -1488,12 +1488,37 @@ const PER_ROUND = { quiz: true, intrus: true };
 const mgTime = (kind, n, D) => Math.round((PER_ROUND[kind] ? MG_PER[kind] : (MG_PER[kind] || 0) * n) * D.time);
 // 0.27.4: then two more seconds for each answer (each item, each question or series), whatever helps or slows the player
 const mgExtra = (kind, n) => MG_EXTRA * (PER_ROUND[kind] ? 1 : n);
+/* 0.27.5: the clock also follows what there is to read. A question of three lines and one of three words had the same
+   few seconds: at the top levels, nobody could read the long ones in time. Now each item gets the time to read its
+   characters (and those of its answers) at a pace that rises with the difficulty, plus the time to decide (shorter
+   between two buttons, longer among four answers, in between to place a step); never less than before.
+   Measured with simulated players (an average reader at about 20 characters a second, a quick one at 32): Mythique is
+   very hard for the first and fine for the second; Cauchemar keeps its own clock. */
+const MG_PACE = { facile: [8, 3.5], moyen: [10, 3], difficile: [12.5, 2.6], expert: [15, 2.2], legende: [17.5, 1.9], mythique: [20, 1.6] }; // [characters a second, seconds to decide]
+const MG_DECIDE = { tri: 0.38, vf: 0.38, ordre: 0.6 }; // (of the seconds to decide: two buttons, placing a step; four answers: all of it, and one more)
+const mgChars = (it) => String((it && it.text) || '').length + (it && Array.isArray(it.a) ? it.a.reduce((n, x) => n + String(x == null ? '' : x).length, 0) : 0);
+function mgRead(kind, items, D, k) {
+  const P = MG_PACE[D.id];
+  if (!P || D.real || !items || !items.length) return 0;
+  const [cps, dec] = P;
+  if (PER_ROUND[kind]) return Math.round(1000 * (mgChars(items[k]) / cps + dec + 1));
+  return Math.round(1000 * (items.reduce((n, it) => n + mgChars(it), 0) / cps + items.length * dec * (MG_DECIDE[kind] || 0.5)));
+}
+// The clock of a game (ms): the whole list (sort, true or false, order), or one per question (quiz, odd one out). k: the
+// helpers' factor (a scriptwriter, an editor, a prompter, the machine), on all of it.
+function mgClock(kind, items, D, k = 1) {
+  const n = (items || []).length;
+  const old = (i) => mgTime(kind, n, D) * k + mgExtra(kind, n); // (0.27.4, the floor)
+  if (PER_ROUND[kind]) return (items || []).map((_, i) => Math.round(Math.max(old(i), mgRead(kind, items, D, i) * k)));
+  return Math.round(Math.max(old(), mgRead(kind, items, D) * k));
+}
+const clockSec = (c) => Math.round((Array.isArray(c) ? c.reduce((a, b) => a + b, 0) / Math.max(1, c.length) : c) / 1000);
 const MG_RULE = {
   tri: (sec) => `Garde ce qui sert ton contenu, jette les pièges. ${sec} secondes pour tout trier.`,
   ordre: (sec) => `Touche les étapes dans le bon ordre. ${sec} secondes.`,
-  quiz: (sec) => `Une question à la fois, ${sec} secondes chacune.`,
+  quiz: (sec, game) => `Une question à la fois, ${game && game.items.some((q) => mgChars(q) > 160) ? `environ ${sec} secondes chacune (plus pour les longues)` : `${sec} secondes chacune`}.`,
   vf: (sec) => `Vrai ou faux ? Tranche vite : ${sec} secondes pour tout.`,
-  intrus: (sec) => `Dans chaque série, une seule proposition n’a rien à faire là : trouve-la. ${sec} secondes par série.`,
+  intrus: (sec, game) => `Dans chaque série, une seule proposition n’a rien à faire là : trouve-la. ${game && game.items.some((q) => mgChars(q) > 120) ? `Environ ${sec} secondes par série (plus pour les longues).` : `${sec} secondes par série.`}`,
   montage: (sec, game) => `Le curseur file sur la timeline : touche « ${game.verb || 'Couper'} » pile quand il passe dans la zone verte. ${game.items.length} fois, chacune compte.`,
   memoire: (sec, game) => `Une suite défile, une image à la fois : retiens-la, puis retrouve-la dans l’ordre. ${game.items.length} manches, de plus en plus longues.`,
   chat: (sec, game) => game.rule, mixage: (sec, game) => game.rule, cadrage: (sec, game) => game.rule, // 0.25
@@ -1628,13 +1653,14 @@ function OrderGame({ items, onDone, now, total, hints = 0, run, keep }) {
 }
 // A question and its answers (quiz), or a theme and the one that does not belong (intrus).
 function QuizGame({ items, onDone, now, total, odd, hints = 0, run, keep }) {
+  const tq = (k) => (Array.isArray(total) ? total[k] || total[total.length - 1] : total); // 0.27.5: each question its clock
   const opts = (q) => shuffle(q.a.map((t, k) => ({ t, k })));
   const optsOf = (q, ks) => ks.filter((k) => q.a[k] != null).map((k) => ({ t: q.a[k], k }));
   const n = items.length;
   // a question already on screen when the player left keeps its clock (end); the next one starts its own when it shows
   const [s, setS] = useState(() => (run && typeof run.k === 'number' && Array.isArray(run.o)
-    ? { k: run.k, right: run.right || 0, fb: null, end: run.end || Date.now() + total, o: items[run.k] ? optsOf(items[run.k], run.o) : [], hints: run.hints != null ? run.hints : hints }
-    : { k: 0, right: 0, fb: null, end: Date.now() + total, o: opts(items[0]), hints }));
+    ? { k: run.k, right: run.right || 0, fb: null, end: run.end || Date.now() + tq(run.k), o: items[run.k] ? optsOf(items[run.k], run.o) : [], hints: run.hints != null ? run.hints : hints }
+    : { k: 0, right: 0, fb: null, end: Date.now() + tq(0), o: opts(items[0]), hints }));
   // a hint takes one wrong answer away (never the last one)
   const useHint = () => { const q = items[s.k]; const wrong = s.o.filter((x) => x.k !== q.ok); if (wrong.length < 2 || s.hints <= 0) return; const drop = pick(wrong); const o = s.o.filter((x) => x !== drop); keep({ hints: s.hints - 1, o: o.map((x) => x.k) }); setS(Object.assign({}, s, { hints: s.hints - 1, o })); };
   const done = useRef(false), alive = useRef(true);
@@ -1654,14 +1680,14 @@ function QuizGame({ items, onDone, now, total, odd, hints = 0, run, keep }) {
     setS(Object.assign({}, s, { right, fb: { ok, k, why: q.why } }));
     setTimeout(() => {
       if (nk >= n) finish(right);
-      else if (alive.current) { const end = Date.now() + total; keep({ end }); setS((x) => Object.assign({}, x, { k: nk, fb: null, end, o: no })); }
+      else if (alive.current) { const end = Date.now() + tq(nk); keep({ end }); setS((x) => Object.assign({}, x, { k: nk, fb: null, end, o: no })); }
     }, 1400);
   };
   useEffect(() => { if (!s.fb && s.k < n && now >= s.end) answer(-1); }, [now]);
   if (s.k >= n) return html`<div class="mg-play mg-wait"><${Typing} /></div>`;
   const q = items[s.k];
   return html`<div class="mg-play">
-    <${MgTop} k=${s.k + 1} n=${items.length} left=${s.end - now} total=${total} />
+    <${MgTop} k=${s.k + 1} n=${items.length} left=${s.end - now} total=${tq(s.k)} />
     <div class="mg-card">${odd ? html`<span class="mg-tag">Trouve l’intrus</span>` : null}<p>${q.text}</p>${s.fb ? html`<small>${s.fb.ok ? (odd ? 'Bien vu, c’était l’intrus' : 'Bonne réponse') : s.fb.k < 0 ? 'Trop tard' : 'Raté'}${s.fb.why ? ' · ' + s.fb.why : ''}</small>` : null}</div>
     <div class="mg-opts">${s.o.map((x) => html`<button key=${x.k} class=${'mg-opt' + (s.fb && x.k === q.ok ? ' ok' : s.fb && x.k === s.fb.k ? ' ko' : '')} onClick=${() => answer(x.k)} disabled=${!!s.fb}>${x.t}</button>`)}</div>
     ${!s.fb && s.o.length > 2 ? html`<${HintBtn} left=${s.hints} onUse=${useHint} />` : null}
@@ -1819,7 +1845,7 @@ function ShootPlay({ r, now, outcomes, icon }) {
   const kind = MG_LABEL[game.kind] ? game.kind : 'ordre';
   const D = diffOf(game.diff || r.diff);
   const g = S.game, crew = !r.player && r.crew ? r.crew : []; // a release's team (an editor, a scriptwriter) helps the shoot
-  const total = Math.round(mgTime(kind, game.items.length, D) * (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)) + mgExtra(kind, game.items.length); // 0.20: the prompter
+  const total = mgClock(kind, game.items, D, (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)); // 0.20: the prompter; 0.27.5: by what there is to read
   const hints = g && crew.includes('scenariste') ? staffPower(g, 'scenariste') : 0;
   if (phase === 'intro') {
     return html`<div class="mg-intro">
@@ -1828,7 +1854,7 @@ function ShootPlay({ r, now, outcomes, icon }) {
       <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · gains ${fmtMult(D.mult)}</span>
       <p>${game.intro}</p>
       ${D.real ? html`<p class="mg-warn">De vraies questions de connaisseur sur ton sujet : rien d’inventé, aucune pitié.</p>` : null}
-      <p class="muted">${MG_RULE[kind](Math.round(total / 1000), game)} ${outcomes || `Réussi : ${laW(r)} cartonne. Moyen : ${whatF(r) ? 'elle' : 'il'} marche moyen. Raté : flop.`}</p>
+      <p class="muted">${MG_RULE[kind](clockSec(total), game)} ${outcomes || `Réussi : ${laW(r)} cartonne. Moyen : ${whatF(r) ? 'elle' : 'il'} marche moyen. Raté : flop.`}</p>
       ${crew.length ? html`<p class="mg-crew">${crew.map((k) => STAFF_ROLES[k].emoji).join(' ')} Ton équipe est là${crew.includes('monteur') || crew.includes('scenariste') ? ` : +${Math.round((staffMult(g, 'time', r.what, crew) - 1) * 100)} % de temps` : ''}${hints ? `, ${hints} ${plural(hints, 'indice', 'indices')}` : ''}.</p>` : null}
       <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n=${icon || 'clapper'} s=${16} /> C’est parti</button>
     </div>`;
@@ -2956,7 +2982,7 @@ if (window.__HYPE_TEST__) {
     VOL, volId, volFor, levelOf, chattyOn, autoLiveOn, lifeK, COST_IN, COST_OUT, costAt, hourCafes, hourCafesOf, setOpt, COMMENTS, COMMENT_IDS, LIVE, LIVE_IDS, commentsOf, liveOf, volIdOf, usesOf, USE_LABELS, livePause, AUTO_IDLE_MS,
     SKILL_MAX, SKILL_TREE, SKILL_IDS, SKILL_CUM, skillNeed, skillLevelOf, skillLevel, skillFx, skillFxAt, ensureSkills, trainSkill, practiseAct, practiseDM, practiseTalk, skillsCtx, skillNow, nextTier,
     BUY_KINDS, BUY_RE, buyTalk, BUY_LINE, applyBuy, buyText, buyLabel, buyTotals, buyPrice, PAY_DEFAULT, sround, talkTranscript,
-    makeChat, makeMix, makeFrame, ROUND_MAKERS, mgTime, mgExtra, MG_EXTRA, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
+    makeChat, makeMix, makeFrame, ROUND_MAKERS, mgTime, mgExtra, MG_EXTRA, mgRead, mgClock, mgChars, MG_PACE, clockSec, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
     importPhoto, removePhoto, ownPhoto, setPhotoDesc, pfpQuiet, pfpAnnounce, pfpPosted, // 0.25.1
     JOB_TIERS, JOB_K, JOB_DIFFS, JOB_FLOP, jobTier, jobQual, jobQ, qOf, jobBest, legendFrom, jobExpect, tierRank, // 0.25.2
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
@@ -2969,7 +2995,7 @@ if (window.__HYPE_TEST__) {
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,
     theft, nextLaunchAt, gearIssues, outagePostpone, easyGear, usable, subOn, hasBonus, firstBill,
-    promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey, devisStock,
+    promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey, devisStock, sameThing, bigWords, devisDeals,
     SCAM_KINDS, CRITIC, scamChance, scamOffer, brandSheet, sheetLine, payTerms, AGENT_CEIL, dealSize, agentReview, dealHard, agentGamble, scamBeforeSign, scamAfterSign,
     penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MAKERS, MERCH_MIN, merchOK, merchOf, openDrop, lastDrop, prepDrop, cancelDrop, launchDrop, sellDay, tickMerch, restock, stopDrop, merchCtx, merchLine, priceRatio, unitCost, stockCost,
   };

@@ -31,8 +31,9 @@ const MIX_TRACKS = [['🎙️', 'Ta voix', 0.62], ['🎙️', 'L’invité', 0.5
 function makeMix(r, D) {
   const ix = diffIx(D), nT = [2, 2, 3, 3, 4, 4, 4][ix] || 3;
   return { kind: 'mixage', title: 'Le mixage', what: r.what, intro: 'Chaque piste bouge toute seule : garde-la dans la bande verte. Une voix qui sature ou une musique qui couvre tout, et l’épisode devient pénible à écouter.',
-    tracks: MIX_TRACKS.slice(0, nT).map(([e, l, target]) => ({ e, l, target })), band: [0.3, 0.26, 0.22, 0.18, 0.15, 0.13, 0.13][ix] || 0.2,
-    drift: [0.1, 0.13, 0.16, 0.2, 0.24, 0.28, 0.28][ix] || 0.16, roundMs: 7000, items: [0, 1, 2], diff: D.id,
+    // 0.27.5: from Expert on, a wider band and a calmer drift (simulated players: Légendaire and Mythique were out of reach)
+    tracks: MIX_TRACKS.slice(0, nT).map(([e, l, target]) => ({ e, l, target })), band: [0.3, 0.26, 0.22, 0.2, 0.18, 0.16, 0.16][ix] || 0.2,
+    drift: [0.1, 0.13, 0.16, 0.18, 0.2, 0.22, 0.22][ix] || 0.16, roundMs: 7000, items: [0, 1, 2], diff: D.id,
     rule: `${nT} pistes à tenir dans le vert avec + et −, trois passages de 7 secondes.` };
 }
 

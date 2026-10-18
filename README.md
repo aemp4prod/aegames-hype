@@ -294,7 +294,12 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   sur 8, et 1 sur 7 pour une vidéo ou un clip ; jamais le même deux fois de suite (une de moins avec un monteur dans
   l’équipe : pas de coupe au rythme pour toi). Cauchemar reste le quiz de vraies questions. Depuis la 0.27.4, chaque
   réponse a **2 secondes de plus**, quelle que soit la difficulté (chaque élément à trier, chaque question, chaque
-  série, chaque image à retrouver, chaque message du chat, chaque coupe).
+  série, chaque image à retrouver, chaque message du chat, chaque coupe). Depuis la 0.27.5, le chrono des jeux écrits
+  par l’IA suit **la longueur de ce qu’il y a à lire** (le texte et ses réponses, à un rythme de lecture qui monte avec
+  la difficulté, plus le temps de choisir), jamais moins qu’en 0.27.4 ; chaque question du quiz a son propre chrono.
+  Les difficultés ont été réglées avec des joueurs simulés (un lecteur moyen, un lecteur rapide) : Mythique est très
+  dur pour le premier et jouable pour le second. Le mixage est plus doux à partir d’Expert, et le quiz et l’intrus ont
+  4 questions au moins.
 - **Les mini-jeux** (tournages et rendez-vous) gardent ta progression à chaque réponse : si tu en sors, tu reprends où tu
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
@@ -341,7 +346,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.4.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.5.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

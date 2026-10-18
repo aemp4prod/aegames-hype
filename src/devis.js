@@ -28,6 +28,14 @@ function stockFrom(g, x) {
   return 'à toi';
 }
 const devisDeals = (g, o) => signedDeals(g).filter((d) => d.what === o.what);
+// 0.27.5: a partner brand provides its own product, nothing else: a game's beta once « paid » for the books of a video
+// about law. A line it provides must name that product (a word in common with it, or with the brand).
+const DEVIS_STOPW = new Set(['pour', 'avec', 'dans', 'sans', 'plus', 'tres', 'leur', 'leurs', 'cette', 'votre', 'notre', 'tout', 'tous', 'toute', 'toutes', 'offert', 'offerte', 'offerts', 'gratuit', 'gratuite', 'marque', 'produit', 'produits', 'fourni', 'fournie', 'partenaire']);
+const bigWords = (s) => normItem(s).split(' ').filter((w) => w.length >= 4 && !DEVIS_STOPW.has(w));
+function sameThing(a, b) {
+  const B = bigWords(b);
+  return bigWords(a).some((w) => B.some((x) => x === w || (x.length >= 5 && w.length >= 5 && x.slice(0, 5) === w.slice(0, 5))));
+}
 const devisKey = (o) => [o.what, str(o.topic, 120).toLowerCase(), o.days || 0].join('|');
 function promptDevis(g, o, stock = devisStock(g), deals = devisDeals(g, o)) {
   const money = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros';
@@ -42,11 +50,12 @@ function promptDevis(g, o, stock = devisStock(g), deals = devisDeals(g, o)) {
     deals.length ? `Ses partenariats signés pour ce type de contenu : ${deals.map((d) => `${d.brand} (${str(d.product, 60)})`).join(' ; ')}.` : null,
     '', '## TÂCHE : LE DEVIS',
     `Ce qu’il faut acheter, louer ou payer pour faire CE contenu, avec des prix réalistes (en ${money}, comme en vrai). Rien d’inutile : un contenu tourné chez soi, sans accessoire, peut ne rien coûter du tout. Jamais de matériel de tournage (le sien suffit), jamais de salaire (son équipe est déjà payée). Des noms génériques, sans marque.`,
-    stock.length || deals.length ? `Ne lui fais jamais payer ce qu’il a déjà : si un objet de son inventaire couvre un besoin de ce contenu (les produits qu’une marque lui a envoyés, un cadeau, un achat), aucune ligne à payer pour ça, signale-le. Pareil pour ce qu’une marque partenaire fournit pour qu’il en parle.` : null,
+    stock.length || deals.length ? `Ne lui fais jamais payer ce qu’il a déjà, mais seulement pour un vrai besoin de CE contenu : un objet de son inventaire (les produits qu’une marque lui a envoyés, un cadeau, un achat) ne compte que s’il sert vraiment à ce qu’on y verra (un jeu vidéo ne remplace pas des livres de droit, une box repas ne sert pas un tuto maquillage). Alors, aucune ligne à payer pour ce besoin-là, et signale-le ; tout le reste se paie normalement.` : null,
+    deals.length ? `Un partenariat ne fournit que son propre produit, rien d’autre, et seulement si ce contenu s’en sert vraiment : un partenariat sans rapport avec le sujet ne change rien au devis.` : null,
     '', FORMAT,
     `Au plus ${DEVIS_MAX} lignes : {"t":"cost","item":"≤ 60 caractères","price":40,"kind":"achat","keep":true,"per":"once"} (kind : achat, location, transport, service ou conso ; keep : true seulement pour un objet qu’il gardera et pourra réutiliser).`,
     stock.length ? `- Chaque objet de son inventaire qui sert ce contenu (au plus ${DEVIS_HAVE}) : {"t":"have","id":"i1","use":"conso"} (use : "conso" si le tournage le consomme — on le mange, on le boit, on l’use —, "garde" s’il le récupère après).` : null,
-    deals.length ? `- Ce qu’une marque partenaire fournit pour ce contenu : {"t":"have","brand":"${deals[0].brand}","item":"≤ 60 caractères"}.` : null,
+    deals.length ? `- Seulement si le produit d’une marque partenaire sert vraiment ce contenu : {"t":"have","brand":"${deals[0].brand}","item":"ce produit, ≤ 60 caractères"}.` : null,
     `Si rien n’est à payer, une seule ligne : {"t":"free"}${stock.length || deals.length ? ' (plus les lignes "have", s’il y en a)' : ''}.`,
     '- Facultatif, si un type de marque pourrait financer ce contenu : {"t":"sponsor","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","why":"≤ 80 caractères"}.'].filter((x) => x !== null).join('\n');
 }
@@ -63,7 +72,7 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
       const s = stock.find((y) => y.key === String(x.id || '').trim().toLowerCase());
       if (s) { if (!have.some((h) => h.inv === s.x.id)) have.push({ inv: s.x.id, name: s.x.name, emoji: s.x.emoji, from: stockFrom(g, s.x), use: x.use === 'garde' ? 'garde' : 'conso' }); continue; }
       const d = deals.find((y) => y.brand.toLowerCase() === str(x.brand, 40).toLowerCase()), item = str(x.item, 60);
-      if (d && item && !have.some((h) => normItem(h.name) === normItem(item))) have.push({ name: item, emoji: d.emoji, from: `fourni par ${d.brand}`, brand: d.brand });
+      if (d && item && sameThing(item, `${d.product} ${d.brand}`) && !have.some((h) => normItem(h.name) === normItem(item))) have.push({ name: item, emoji: d.emoji, from: `fourni par ${d.brand}`, brand: d.brand }); // (0.27.5: its own product only)
     } else if (x.t === 'sponsor' && !sponsor && SECTORS.some((s) => s.id === x.sector)) sponsor = { sector: x.sector, why: str(x.why, 80) };
   }
   return makeDevis(o, items, sponsor, true, have);

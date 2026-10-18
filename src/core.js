@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.4';
+const APP_VERSION = '0.27.5';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -1289,7 +1289,7 @@ const diffOf = (id) => DIFFS.find((d) => d.id === id) || DIFFS[1];
 const MG_EXTRA = 2000; // 0.27.4: two more seconds for each answer, at every difficulty (it was impossible at the top)
 const fmtMult = (m) => '×' + String(m).replace('.', ',');
 const MG_BASE_N = { tri: 6, ordre: 5, quiz: 4, vf: 7, intrus: 4, montage: 5 }; // items at « Moyen » and « Difficile »
-const mgCount = (kind, d) => Math.max(kind === 'quiz' || kind === 'intrus' ? 3 : 4, (MG_BASE_N[kind] || 5) + d.items);
+const mgCount = (kind, d) => Math.max(4, (MG_BASE_N[kind] || 5) + d.items); // (0.27.5: four at least: with three questions, one slip at Facile cost the « top » that Moyen still gave)
 const diffIx = (D) => Math.max(0, DIFFS.findIndex((d) => d.id === D.id));
 // Skill rounds played without Claude: cut on the beat, remember the script. Harder: faster, tighter, longer.
 const MONTAGE = {

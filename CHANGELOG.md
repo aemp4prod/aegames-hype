@@ -5,6 +5,24 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.5 — 18 octobre 2026 (build 27005)
+
+**Des mini-jeux enfin à taille humaine, même en Mythique.**
+
+### 🛠️ Corrections
+
+- **⏱️ Le temps de lire** : le chrono du quiz, du vrai ou faux, du tri, de l’ordre et de l’intrus suit maintenant la longueur de ce qu’il y a à lire. Une question de trois lignes a plus de temps qu’une question de trois mots, et jamais moins qu’avant.
+- **🎯 Mythique jouable** : une question de quiz typique a maintenant environ 12 secondes (8 avant), une série de l’intrus 9 (7 avant), et les affirmations longues du vrai ou faux ont le temps d’être lues. C’est toujours très dur, mais faisable.
+- **🎚️ Le mixage** : à partir d’Expert, la bande verte est plus large et les pistes dérivent moins vite.
+- **🧮 Le quiz et l’intrus en Facile** : 4 questions au lieu de 3, pour qu’une seule erreur ne te prive plus d’un tournage réussi.
+- **🧾 Le devis** : un partenariat ne paie plus ce qui n’a rien à voir avec lui. Une marque ne fournit que son propre produit, et seulement si ton contenu s’en sert vraiment : la bêta d’un jeu ne couvre plus les livres d’une vidéo sur le droit.
+
+### 💡 Bon à savoir
+
+- Chaque difficulté a été réglée en faisant jouer des joueurs simulés, un lecteur moyen et un lecteur rapide : en Mythique, le premier réussit rarement, le second souvent.
+- Pendant un quiz, la barre de temps de chaque question montre son propre chrono.
+- Cauchemar ne change pas : ses vraies questions de connaisseur gardent leur chrono.
+
 ## 0.27.4 — 18 octobre 2026 (build 27004)
 
 **Plusieurs sorties programmées d’un coup, des acomptes qui tombent vraiment, et des mini-jeux enfin jouables.**

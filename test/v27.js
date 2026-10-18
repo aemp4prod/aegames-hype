@@ -93,7 +93,7 @@ async function newGame(page, identity) {
     window.__mockDevis = [
       { t: 'cost', item: 'box repas Croc’Midi', price: 30, kind: 'conso', keep: false, per: 'once' }, // (what the player has: dropped)
       { t: 'cost', item: 'nappe à carreaux rouges', price: 15, kind: 'achat', keep: true, per: 'once' },
-      { t: 'have', id: 'i2', use: 'conso' }, { t: 'have', brand: 'Croc’Midi', item: 'sauces de la marque' }, { t: 'have', id: 'i9', use: 'conso' },
+      { t: 'have', id: 'i2', use: 'conso' }, { t: 'have', brand: 'Croc’Midi', item: 'nappe et couverts' }, { t: 'have', brand: 'Croc’Midi', item: 'repas du jour Croc’Midi' }, { t: 'have', id: 'i9', use: 'conso' }, // (0.27.5: a brand provides its own product only: no tablecloth)
     ];
     H.S.devis = null;
     H.openLayer({ t: 'series', id: 'single' });
@@ -111,7 +111,7 @@ async function newGame(page, identity) {
     return { card: document.querySelector('.devis-card').textContent, items: dv.items.map((x) => x.item), have: dv.have.map((h) => [h.name, h.from, h.use || '']), total: window.__hype.devisTotal(dv),
       stock: (/Ce qu’il a sous la main, dans son inventaire : ([^\n]*)/.exec(p) || [])[1] || '', deals: (/Ses partenariats signés pour ce type de contenu : ([^\n]*)/.exec(p) || [])[1] || '', rule: /Ne lui fais jamais payer ce qu’il a déjà/.test(p) && p.includes('{"t":"have","id":"i1"') };
   });
-  check('the quote knows what the player has: the inventory (not what is on sale or sold) and the brand signed for this kind of content are in the prompt; what covers a need is « Déjà là, rien à payer » (the brand’s box repas, used up by the shoot; the brand’s sauces), never on the bill, even when the AI lists it',
+  check('the quote knows what the player has: the inventory (not what is on sale or sold) and the brand signed for this kind of content are in the prompt; what covers a need is « Déjà là, rien à payer » (the brand’s box repas, used up by the shoot; a meal of the brand, but never what it does not make), never on the bill, even when the AI lists it',
     dv1.stock.includes('[i1] Plaid à carreaux (un cadeau)') && dv1.stock.includes('[i2] Box repas (envoyé par Croc’Midi)') && !/sweat|lampe/i.test(dv1.stock) && /Croc’Midi \(ses box repas\)/.test(dv1.deals) && dv1.rule
       && dv1.items.join('|') === 'nappe à carreaux rouges' && dv1.total === 15 && dv1.have.length === 2 && dv1.have[0][0] === 'Box repas' && dv1.have[0][2] === 'conso' && /fourni par Croc’Midi/.test(dv1.have[1][1])
       && /Déjà là, rien à payer/.test(dv1.card) && /utilisé pour le tournage/.test(dv1.card) && /15 €/.test(dv1.card), dv1);
