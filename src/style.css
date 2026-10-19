@@ -2894,3 +2894,18 @@ body.os-win { overflow: hidden; }
 .os-grab { flex: 1 1 auto; align-self: stretch; min-width: 12px; }
 .os-bar h2 { margin-right: 0; }
 .os-bar .who { margin-right: 0; flex: 0 1 auto; }
+
+/* 0.27.10: the PC app's own window: Hype's bar on top instead of the system's title bar, the game under it. Its windows,
+   messages and dialogs live in « .app-body » (layout containment makes it their frame: they never cover the bar). */
+#app.framed { display: flex; flex-direction: column; }
+.app-body { flex: 1 1 0; min-height: 0; position: relative; contain: layout paint; }
+.appbar { flex: none; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 4px 0 8px; color: #fff; user-select: none; -webkit-app-region: drag;
+  background: linear-gradient(100deg, var(--hot) 0%, #c4166f 58%, #8f1453 100%); }
+.appbar.blur { filter: saturate(0.55) brightness(0.92); }
+.appbar .hb-logo { font-size: 13px; padding: 4px 9px 5px; }
+.ab-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, 0.86); }
+.ab-grab { flex: 1 1 auto; align-self: stretch; min-width: 24px; }
+.appbar .win-btns { display: flex; align-items: center; gap: 2px; -webkit-app-region: no-drag; }
+.appbar .win-btn { width: 42px; height: 30px; border-radius: 8px; color: rgba(255, 255, 255, 0.92); }
+.appbar .win-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+.appbar .win-close:hover { background: #fff; color: var(--hot); }

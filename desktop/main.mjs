@@ -146,6 +146,23 @@ function zoomKeys(event, input) {
   else if (k === '-' || c === 'Minus' || c === 'NumpadSubtract') { event.preventDefault(); applyZoom(win.webContents.getZoomFactor() - 0.1); }
   else if (k === '0' || c === 'Digit0' || c === 'Numpad0') { event.preventDefault(); resetZoom(); }
 }
+// 0.27.10: a window torn out of the game by its bar follows the mouse (onto another screen too) until it is let go:
+// the game says where its bar is held and how big it is (in the page's pixels), the app moves it under the cursor.
+let follow = null;
+const stopFollow = () => { if (follow) { clearInterval(follow.timer); clearTimeout(follow.end); follow = null; } };
+function followKid(kid, arg) {
+  stopFollow();
+  if (!win || win.isDestroyed() || !kid || kid.isDestroyed()) return;
+  const z = win.webContents.getZoomFactor(), n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const dx = Math.round(n(arg && arg.dx) * z), dy = Math.round(n(arg && arg.dy) * z), w = Math.round(n(arg && arg.w) * z), h = Math.round(n(arg && arg.h) * z);
+  if (w >= 340 && h >= 280) { try { kid.setSize(w, h); } catch (e) { /* (closing) */ } }
+  const step = () => { if (kid.isDestroyed()) { stopFollow(); return; } const p = screen.getCursorScreenPoint(); kid.setPosition(Math.round(p.x - dx), Math.round(p.y - dy)); };
+  step();
+  follow = { timer: setInterval(step, 15), end: setTimeout(stopFollow, 20000) }; // (letting go ends it; 20 s at most)
+}
+// 0.27.10: the game's own window, as Hype's bar shows it (enlarged or not, full screen, in front).
+const appState = () => (win && !win.isDestroyed() ? { max: win.isMaximized(), full: win.isFullScreen(), focus: win.isFocused() } : { max: false, full: false, focus: false });
+const sendAppState = () => { if (win && !win.isDestroyed()) win.webContents.send('hype:app-state', appState()); };
 // While a window is out of the game, the game keeps its pace even minimized (it is the one that draws that window).
 const kidsChanged = () => { if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling(kids.size === 0); };
 function createWindow() {
@@ -154,10 +171,12 @@ function createWindow() {
     width: Math.min(Math.round(1200 * big), wa.width - 40), height: Math.min(Math.round(860 * big), wa.height - 40), minWidth: 380, minHeight: 560,
     title: 'Hype', show: false, autoHideMenuBar: true, icon: join(ROOT, 'build', 'icon.png'),
     backgroundColor: '#0f0d12',
+    frame: process.platform === 'darwin', // 0.27.10: no Windows title bar: the game draws Hype's own (moved by it, resized by the edges)
     // spelling: the system's own checker on Windows and macOS (on Linux it would download dictionaries from Google: off)
     webPreferences: { preload: join(ROOT, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: process.platform !== 'linux', additionalArguments: TEST ? ['--hype-test'] : [], zoomFactor: z0 },
   });
   win.webContents.on('did-finish-load', () => applyZoom(savedZoom() || autoZoom(), false));
+  for (const ev of ['maximize', 'unmaximize', 'restore', 'enter-full-screen', 'leave-full-screen', 'focus', 'blur']) win.on(ev, sendAppState); // (Hype's bar follows)
   win.webContents.on('zoom-changed', zoomWheel);
   win.webContents.on('before-input-event', zoomKeys);
   // 0.27.9: only the game's own windows (an empty page it fills itself, named by the game); nothing else ever opens
@@ -206,8 +225,17 @@ function registerIpc() {
     return ai.image({ id: req.id, prompt: req.prompt, sketch });
   });
   handle('hype:ai-cancel', async (event, id) => { ai.cancel(String(id)); return ok(true); });
+  // 0.27.10: Hype's bar on the game's own window: reduce, enlarge (or back), close; 'state' only answers
+  handle('hype:app', async (event, act) => {
+    if (!win || win.isDestroyed() || event.sender !== win.webContents) return ok(null);
+    if (act === 'min') win.minimize();
+    else if (act === 'max') { if (win.isFullScreen()) win.setFullScreen(false); else if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
+    else if (act === 'close') win.close();
+    else if (act !== 'state') return ok(null);
+    return ok(appState());
+  });
   // 0.27.9: Hype's bar in a window out of the game: reduce, enlarge, close, bring to the front, back to the game
-  handle('hype:win', async (event, name, act) => {
+  handle('hype:win', async (event, name, act, arg) => {
     const kid = kids.get(String(name));
     if (act === 'game') { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } return ok(true); }
     if (!kid || kid.isDestroyed()) return ok(false);
@@ -215,6 +243,8 @@ function registerIpc() {
     else if (act === 'max') { if (kid.isMaximized()) kid.unmaximize(); else kid.maximize(); }
     else if (act === 'close') kid.close();
     else if (act === 'front') { if (kid.isMinimized()) kid.restore(); kid.show(); kid.focus(); }
+    else if (act === 'follow') followKid(kid, arg);
+    else if (act === 'drop') { stopFollow(); kid.focus(); }
     else return ok(false);
     return ok(true);
   });

@@ -12,7 +12,7 @@ Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son pr
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.27.9 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.27.10 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -312,12 +312,13 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   en étais, tes réponses restent données et le chrono ne s’arrête pas pour toi (une question restée à l’écran trop
   longtemps est ratée). Une sauvegarde ou un export ne garde jamais un mini-jeu à moitié joué : en le rechargeant, les
   questions sont nouvelles. Pas de notification par-dessus pendant que tu joues.
-- **Les fenêtres** (0.27.7, 0.27.9) : sur ordi (dès 720 pixels de large), une fenêtre tirée par sa barre de titre flotte
-  au-dessus du jeu, où tu veux (jusqu’à ne plus montrer que sa barre), et ses bords la redimensionnent ; le jeu reste
-  utilisable derrière (un autre onglet, un message), et chaque type de fenêtre retient sa place. Dans l’appli PC, une
-  conversation, un profil, la publication ou l’inventaire peuvent aussi sortir du jeu : une vraie fenêtre, sur un autre
-  écran si tu veux, avec la barre de Hype à la place de celle de Windows. Partout, « Réduire » range une fenêtre dans une barre en bas de l’écran avec ce que tu y as rempli,
-  et un clic la ramène telle quelle. Un rendez-vous en cours se déplace mais ne se réduit pas, et bloque le reste.
+- **Les fenêtres** (0.27.7, 0.27.9, 0.27.10) : dans l’appli PC, « Détacher » ou la barre d’une fenêtre tirée en fait
+  tout de suite une vraie fenêtre (une conversation, un profil, la publication, la boutique, l’inventaire, les réglages…),
+  qui suit ta souris jusqu’où tu la lâches, même sur un autre écran, avec la barre de Hype à la place de celle de
+  Windows ; les mini-jeux et les rendez-vous restent au centre du jeu. Dans la version Claude (sur ordi, dès 720 pixels
+  de large), une fenêtre tirée par sa barre flotte au-dessus du jeu, où tu veux, et ses bords la redimensionnent ; le
+  jeu reste utilisable derrière. Chaque type de fenêtre retient sa place. Partout, « Réduire » range une fenêtre dans une barre en bas de l’écran avec ce que tu y as rempli,
+  et un clic la ramène telle quelle. Un rendez-vous en cours ne se réduit pas et bloque le reste.
   Ce que tu as tapé pour publier ou pour préparer un tournage revient même après avoir fermé la fenêtre.
 - **Les noms** (0.27.7) : tes sauvegardes (✏️ dans la fenêtre Sauvegardes, les automatiques aussi) et tes parties (sur
   l’écran d’accueil) prennent le nom que tu leur donnes.
@@ -368,7 +369,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype pour ChatGPT (Windows)
 
-1. Télécharge `Hype-Setup-0.27.9.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.27.10.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.
@@ -387,7 +388,7 @@ seul (`.github/workflows/release.yml`) ; tout est expliqué dans [docs/DISTRIBUT
   ChatGPT → Réglages → Usage (lien « Gérer l’usage » dans le jeu).
 - **Le modèle** : dans les réglages (la roue), tu choisis le modèle ChatGPT et l’« intelligence des personnages » (rapide, normale, maximale).
 - **La taille** : Ctrl + molette, Ctrl + et Ctrl − (Ctrl 0 : taille auto, plus grande sur un écran 4K), ou Réglages → Taille de l’affichage.
-- **Les fenêtres** : le bouton « Sortir du jeu » d’une fenêtre (une conversation, un profil, la publication, l’inventaire…) en fait une vraie fenêtre, à poser où tu veux, même sur un deuxième écran ; « Remettre dans le jeu » la ramène.
+- **Les fenêtres** : « Détacher », ou tirer la barre d’une fenêtre (une conversation, un profil, la publication, l’inventaire…), en fait une vraie fenêtre, qui suit ta souris jusqu’où tu la lâches, même sur un deuxième écran ; « Remettre dans le jeu » la ramène. La fenêtre de Hype elle-même porte la barre de Hype (0.27.10) : on la déplace par cette barre, un double-clic l’agrandit.
 - **Tes parties** restent sur ton ordinateur, dans `%APPDATA%\Hype\parties` (tes photos aussi, chacune dans son fichier). Rien n’est envoyé ailleurs qu’à OpenAI pour faire répondre les personnages, et tes photos seulement quand tu coches « Les persos voient ces images ».
 - **Ta connexion ChatGPT** est chiffrée par Windows (`%APPDATA%\Hype\chatgpt`). Hype ne voit jamais ton mot de passe ni tes conversations ChatGPT.
 - **Changer d’IA** : Réglages → **Exporter** crée un fichier de ta partie (avec tes photos) ; **Importer une partie** (accueil) la reprend, dans la version Claude ou ChatGPT.

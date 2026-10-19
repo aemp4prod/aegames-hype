@@ -8,6 +8,10 @@ ipcRenderer.on('hype:ai-delta', (_event, msg) => {
 });
 const sessionListeners = new Set();
 const zoomListeners = new Set();
+const appListeners = new Set();
+ipcRenderer.on('hype:app-state', (_event, s) => {
+  for (const f of appListeners) { try { f(s); } catch (e) { /* a listener of the page */ } }
+});
 ipcRenderer.on('hype:zoom', (_event, z) => {
   for (const f of zoomListeners) { try { f(z); } catch (e) { /* a listener of the page */ } }
 });
@@ -55,5 +59,9 @@ contextBridge.exposeInMainWorld('hypeHost', {
   saveFile: (name, text, kind) => ipcRenderer.invoke('hype:file-save', String(name), String(text), kind === 'pack' ? 'pack' : 'game').then((r) => r === true),
   openFile: (kind) => ipcRenderer.invoke('hype:file-open', kind === 'pack' ? 'pack' : 'game').then((r) => (r && typeof r.text === 'string' ? r : null)),
   // 0.27.9: a window out of the game: 'min', 'max', 'close', 'front'; 'game' brings the game's own window to the front
-  winCtl: (name, act) => ipcRenderer.invoke('hype:win', String(name), String(act)).then(unwrap),
+  winCtl: (name, act, arg) => ipcRenderer.invoke('hype:win', String(name), String(act), arg && typeof arg === 'object' ? { dx: Number(arg.dx) || 0, dy: Number(arg.dy) || 0, w: Number(arg.w) || 0, h: Number(arg.h) || 0 } : null).then(unwrap), // (0.27.10: 'follow' the mouse, then 'drop')
+  // 0.27.10: the game's own window has no system title bar (not on macOS): Hype's bar reduces, enlarges and closes it
+  frameless: process.platform !== 'darwin',
+  appCtl: (act) => ipcRenderer.invoke('hype:app', String(act)).then(unwrap),
+  onAppState(cb) { if (typeof cb === 'function') appListeners.add(cb); },
 });

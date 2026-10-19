@@ -5,6 +5,16 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.27.10 — 19 octobre 2026 (build 27010)
+
+**La fenêtre de Hype porte sa propre barre, à la place de celle de Windows, et dans l’appli PC une fenêtre détachée est toujours une vraie fenêtre.**
+
+### ✨ Nouveautés
+
+- **🏷️ La barre de Hype sur la fenêtre du jeu** (appli PC) : plus de barre de titre Windows, mais celle de Hype, comme sur les fenêtres sorties du jeu. Elle porte le logo, le monde de ta partie, puis Réduire, Agrandir (ou Remettre à sa taille) et Fermer. La fenêtre se déplace par cette barre (un double-clic l’agrandit) et se redimensionne par ses bords.
+- **🪟 Détacher, c’est une vraie fenêtre** (appli PC) : plus de fenêtre qui flotte à l’intérieur du jeu. « Détacher », ou tirer la barre d’une fenêtre, en fait tout de suite une vraie fenêtre, qui suit ta souris jusqu’où tu la lâches, même sur un autre écran. Ça marche pour les messages, les profils, la publication, la boutique, l’inventaire, les compétences, les pages photos et les réglages ; les mini-jeux, les tournages et les rendez-vous restent au centre du jeu. Dans la version Claude, les fenêtres flottent toujours dans le jeu.
+- **Rien ne passe par-dessus la barre** : les fenêtres du jeu, les messages et les questions s’ouvrent dessous.
+
 ## 0.27.9 — 19 octobre 2026 (build 27009)
 
 **De vraies fenêtres : dans l’appli PC, une fenêtre sort du jeu pour aller où tu veux, même sur un autre écran, avec la barre de Hype à la place de celle de Windows. Et des mini-jeux un cran plus durs.**

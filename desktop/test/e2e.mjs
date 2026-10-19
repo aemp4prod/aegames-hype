@@ -68,6 +68,31 @@ try {
   const home0 = await G(page, () => ({ panel: !!document.querySelector('.gpt-panel .gpt-btn'), btn: (document.querySelector('.gpt-btn') || {}).textContent || '', newDisabled: [...document.querySelectorAll('button')].find((b) => /Nouvelle partie/.test(b.textContent)).disabled, store: window.__hype.S.store, import: !!document.querySelector('button .ic') && /Importer une partie/.test(document.body.textContent) }));
   await shot(page, 'home-signed-out');
   check('first launch: « Continuer avec ChatGPT », no new game before signing in, games saved on this computer', home0.panel && /Continuer avec ChatGPT/.test(home0.btn) && home0.newDisabled && home0.store === 'db' && home0.import, home0);
+  // 0.27.10: no Windows title bar: Hype's own bar on the game's window (the buttons drive the real window: under Xvfb,
+  // without a window manager, the window cannot enlarge, so the window's own calls are watched instead)
+  const bar0 = await G(page, () => { const b = document.querySelector('.appbar'), body = document.querySelector('.app-body'), r = b && b.getBoundingClientRect(), rb = body && body.getBoundingClientRect();
+    return { bar: !!b, logo: !!(b && b.querySelector('.hb-logo')), btns: b ? [...b.querySelectorAll('.win-btn')].map((x) => x.getAttribute('aria-label')) : [], h: r ? Math.round(r.height) : 0, bodyTop: rb ? Math.round(rb.top) : -1, drag: b ? getComputedStyle(b).getPropertyValue('-webkit-app-region') : '' }; });
+  await main(app, ({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows()[0];
+    let max = false;
+    globalThis.__winCalls = [];
+    w.maximize = () => { globalThis.__winCalls.push('maximize'); max = true; w.emit('maximize'); };
+    w.unmaximize = () => { globalThis.__winCalls.push('unmaximize'); max = false; w.emit('unmaximize'); };
+    w.minimize = () => { globalThis.__winCalls.push('minimize'); };
+    w.isMaximized = () => max;
+  });
+  await page.click('.appbar .win-max');
+  await page.waitForFunction(() => /Remettre Hype à sa taille/.test(document.querySelector('.appbar .win-max').getAttribute('aria-label')), null, { timeout: 5000 }).catch(() => {});
+  const lab1 = await G(page, () => document.querySelector('.appbar .win-max').getAttribute('aria-label'));
+  await page.click('.appbar .win-max');
+  await page.waitForFunction(() => /Agrandir Hype/.test(document.querySelector('.appbar .win-max').getAttribute('aria-label')), null, { timeout: 5000 }).catch(() => {});
+  const lab2 = await G(page, () => document.querySelector('.appbar .win-max').getAttribute('aria-label'));
+  await page.click('.appbar .win-min');
+  await sleep(400);
+  const winCalls = await main(app, () => globalThis.__winCalls.slice());
+  check('the game’s window wears Hype’s bar, not the system’s: the logo, « Réduire », « Agrandir » (then « Remettre à sa taille »), « Fermer »; the bar moves the window; the game starts under it',
+    bar0.bar && bar0.logo && bar0.btns.join('|') === 'Réduire Hype|Agrandir Hype|Fermer Hype' && bar0.h === 36 && bar0.bodyTop === 36 && bar0.drag === 'drag'
+      && /Remettre Hype à sa taille/.test(lab1) && /Agrandir Hype/.test(lab2) && winCalls.join(',') === 'maximize,unmaximize,minimize', { bar0, lab1, lab2, winCalls });
   // the photo pack shipped with the game (assets/pack/, when there is one): its images are in the app and load
   const shipped = join(APP, '..', 'assets', 'pack', 'manifest.json');
   if (existsSync(shipped)) {
@@ -188,6 +213,8 @@ try {
   await closeLayers(page);
   const cid = await G(page, () => { const H = window.__hype, c = H.mains(H.S.game)[0]; H.openDM(c.id); return c.id; });
   await page.waitForSelector('.layer .win-out', { timeout: 10000 });
+  const under = await G(page, () => { const L = document.querySelector('.layer .layer-panel').getBoundingClientRect(), e = document.elementFromPoint(260, 18); return { top: Math.round(L.top), bar: !!(e && e.closest('.appbar')) }; });
+  check('0.27.10: the game’s windows open under Hype’s bar, never over it', under.top >= 36 && under.bar, under);
   const [kid] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), page.click('.layer .win-out')]);
   await kid.waitForSelector('.os-bar .hb-logo', { timeout: 15000 });
   await sleep(500);
@@ -230,6 +257,25 @@ try {
   const reload = await G(page, () => ({ os: (window.__hype.S.os || []).length, stack: window.__hype.S.stack.length }));
   const wins3 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
   check('a save loaded: the windows out of the game close with the game they showed', reload.os === 0 && reload.stack === 0 && wins3 === 1, { reload, wins3 });
+  // 0.27.10, the PC app: no window inside the game any more; its bar dragged, it is a real window at once, following the mouse
+  await G(page, (id) => window.__hype.openDM(id), cid);
+  await page.waitForSelector('.layer .layer-head.movable', { timeout: 10000 });
+  const noIn = await G(page, () => { const o = document.querySelector('.layer .win-out'); return { float: !!document.querySelector('.layer .win-float'), out: o ? o.getAttribute('aria-label') : '' }; });
+  const hd = await G(page, () => { const r = document.querySelector('.layer .layer-head .who, .layer .layer-head h2').getBoundingClientRect(); return { x: Math.round(r.left + 20), y: Math.round(r.top + r.height / 2) }; });
+  await page.mouse.move(hd.x, hd.y);
+  await page.mouse.down();
+  const [kid6] = await Promise.all([app.waitForEvent('window', { timeout: 15000 }), (async () => { for (let k = 1; k <= 6; k++) { await page.mouse.move(hd.x + 12 * k, hd.y + 6 * k); await sleep(40); } })()]);
+  await kid6.waitForSelector('.os-bar', { timeout: 15000 });
+  await page.mouse.up();
+  await sleep(500);
+  const torn = await G(page, (id) => { const H = window.__hype; return { os: (H.S.os || []).map((l) => l.t + ':' + l.id), inGame: H.S.stack.some((l) => l.t === 'dm' && l.id === id), profile: H.S.stack.some((l) => l.t === 'char') }; }, cid);
+  const wins6 = await main(app, ({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+  check('0.27.10, the PC app: no window inside the game (no « Détacher » that floats inside); dragging its bar makes it a real window at once, which follows the mouse; the drag opens no profile',
+    !noIn.float && noIn.out === 'Détacher la fenêtre' && torn.os.length === 1 && !torn.inGame && !torn.profile && wins6 === 2, { noIn, torn, wins6 });
+  const gone6 = kid6.waitForEvent('close', { timeout: 15000 });
+  await kid6.click('.os-bar .win-close').catch(() => {});
+  await gone6;
+  await sleep(300);
   // the post being written, out of the game: « Publier » there publishes it, and its window closes
   await compose(page);
   await page.waitForSelector('.layer .win-out', { timeout: 10000 });

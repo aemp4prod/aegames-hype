@@ -10,6 +10,7 @@ const ICONS = {
   popout: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>', // 0.27.9: out of the game, and back
   popin: '<path d="M20 4 12 12"/><path d="M12 6v6h6"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
   maxi: '<rect width="16" height="16" x="4" y="4" rx="2"/>',
+  unmaxi: '<rect width="13" height="13" x="4" y="7" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>', // 0.27.10: back to its size
   cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
   wifi: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
@@ -254,7 +255,7 @@ function winStore() {
 }
 function winSet(t, o) { const st = winStore(); st[t] = Object.assign({}, st[t], o); try { lsSet('hype:win', JSON.stringify(st)); } catch (e) { /* (storage off: for this visit) */ } }
 const winModal = (l) => !!(l && l.t === 'minigame' && S.game && (S.game.events || []).some((e) => e.id === l.id));
-const winFloats = (l) => !!(l && winWide() && (l.win ? l.win.float : (winStore()[l.t] || {}).float) && !winModal(l));
+const winFloats = (l) => !!(l && winWide() && !osDesk() && (l.win ? l.win.float : (winStore()[l.t] || {}).float) && !winModal(l)); // (0.27.10: the PC app makes real windows instead)
 const layerCovers = () => S.stack.some((l) => !winFloats(l)); // a window over the tab (a floating one leaves it in view)
 // Where a kind of window floats: where it was left, always reachable on this screen.
 // A window's own place once moved (l.win); a new one takes its kind's, a step aside from the others of its kind.
@@ -265,7 +266,7 @@ function winOf(l) {
   return n ? winRect(null, Object.assign({}, R, { x: R.x + 28 * n, y: R.y + 28 * n })) : R;
 }
 function winRect(t, own) {
-  const W = own || winStore()[t] || {}, vw = window.innerWidth, vh = window.innerHeight;
+  const W = own || winStore()[t] || {}, V = viewBox(), vw = V.w, vh = V.h; // (0.27.10: under Hype's bar in the PC app)
   const w = clamp(Math.round(W.w || Math.min(600, vw - 80)), WIN_MIN_W, Math.max(WIN_MIN_W, vw - 16));
   const h = clamp(Math.round(W.h || Math.min(760, vh - 60)), WIN_MIN_H, Math.max(WIN_MIN_H, vh - 16));
   const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), 120 - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - WIN_BAR));
@@ -301,12 +302,44 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
 const WIN_EMOJI = { compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+/* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
+   world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
+   it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
+const APP_FRAMED = !!(HOST && HOST.frameless && HOST.appCtl);
+const APP_ST = { max: false, full: false, focus: true };
+if (APP_FRAMED) {
+  const take = (s) => { if (s && typeof s === 'object') { Object.assign(APP_ST, s); update(false); } };
+  try { HOST.onAppState(take); HOST.appCtl('state').then(take).catch(() => {}); } catch (e) { /* (an older app) */ }
+}
+function appCtl(act) { try { HOST.appCtl(act).then((s) => { if (s && typeof s === 'object') { Object.assign(APP_ST, s); update(false); } }).catch(() => {}); } catch (e) { /* (closing) */ } }
+function AppBar() {
+  const g = S.phase === 'game' ? S.game : null, where = g && g.world ? `${g.world.emoji || ''} ${g.world.name || ''}`.trim() : '';
+  return html`<header class=${'appbar' + (APP_ST.focus ? '' : ' blur')}>
+    <span class="hb-logo" aria-hidden="true">hype</span>
+    ${where ? html`<span class="ab-where">${where}</span>` : null}
+    <span class="ab-grab"></span>
+    <span class="win-btns">
+      <button type="button" class="win-btn win-min" onClick=${() => appCtl('min')} aria-label="Réduire Hype" title="Réduire"><${Icon} n="minus" s=${17} /></button>
+      <button type="button" class="win-btn win-max" onClick=${() => appCtl('max')} aria-label=${APP_ST.max || APP_ST.full ? 'Remettre Hype à sa taille' : 'Agrandir Hype'} title=${APP_ST.max || APP_ST.full ? 'Remettre à sa taille' : 'Agrandir'}><${Icon} n=${APP_ST.max || APP_ST.full ? 'unmaxi' : 'maxi'} s=${15} /></button>
+      <button type="button" class="win-btn win-close" onClick=${() => appCtl('close')} aria-label="Fermer Hype" title="Fermer"><${Icon} n="x" s=${17} /></button>
+    </span>
+  </header>`;
+}
+// The room the game has, and where it starts on the screen (under Hype's bar in the PC app).
+function viewBox() {
+  const b = APP_FRAMED && typeof document !== 'undefined' ? document.querySelector('.app-body') : null;
+  if (!b) return { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
+  const r = b.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+}
 /* ---------- 0.27.9: out of the game (the PC app): a window becomes a real window of the system, without its frame (Hype's
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit'];
-const osWinOK = (l) => !!(HOST && HOST.winCtl && l && OS_KINDS.includes(l.t) && typeof window !== 'undefined' && typeof window.open === 'function');
+const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'insta', 'tiktok']; // (0.27.10: all but the mini-games)
+// The PC app, which can open real windows (the Claude version keeps its windows inside the game).
+function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
+const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
 // Where it opens: where this kind was last left, or beside the game (over its right side when the screen has no room).
 function osOpenRect(l) {
   const st = (winStore()[l.t] || {}).os;
@@ -335,9 +368,11 @@ function osDoc(w) {
   osLook(d);
   return d.getElementById('os-root');
 }
-function popOut(l) {
+// opt.at: where on the screen and how big (a window torn out of the game by its bar); opt.follow: it then follows the
+// mouse until the button is released (the app moves it: { dx, dy } where its bar is held, its size).
+function popOut(l, opt = {}) {
   if (!osWinOK(l) || l.os) return false;
-  const name = 'hypewin-' + uid('w').replace(/[^a-z0-9]/gi, '').slice(0, 30), r = osOpenRect(l);
+  const name = 'hypewin-' + uid('w').replace(/[^a-z0-9]/gi, '').slice(0, 30), r = opt.at || osOpenRect(l);
   let w = null, root = null;
   try { w = window.open('', name, `popup=1,left=${r.x},top=${r.y},width=${r.w},height=${r.h}`); } catch (e) { w = null; }
   if (!w) return false;
@@ -349,6 +384,7 @@ function popOut(l) {
   w.addEventListener('pagehide', () => osGone(l));
   for (const ev of ['pointerdown', 'keydown', 'wheel']) w.addEventListener(ev, () => { S.lastInputAt = Date.now(); }, { passive: true, capture: true }); // (the player is here: playing in that window)
   update();
+  if (opt.follow) { try { HOST.winCtl(name, 'follow', opt.follow).catch(() => {}); } catch (e) { /* (an older app: it stays where it opened) */ } }
   return true;
 }
 // Its window closed (its ✕, or the system's): closed in the game too. « Remettre dans le jeu »: a window of the game again.
@@ -627,7 +663,8 @@ function App() {
   else if (S.phase === 'game' && S.game) main = html`<${Game} g=${S.game} now=${now} />`;
   else if (S.phase === 'atelier') main = html`<${Atelier} now=${now} />`;
   else main = html`<${Splash} />`;
-  return html`${main}<${HostModal} /><${Toasts} now=${now} />`;
+  const body = html`${main}<${HostModal} /><${Toasts} now=${now} />`;
+  return APP_FRAMED && !APP_ST.full ? html`<${AppBar} /><div class="app-body">${body}</div>` : APP_FRAMED ? html`<div class="app-body">${body}</div>` : body; // (0.27.10)
 }
 function Splash() {
   return html`<div class="splash"><span class="wm wm-xl">hype<i></i></span><${Typing} /></div>`;
@@ -2274,15 +2311,17 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
       ${foot ? html`<footer class="layer-foot">${foot}</footer>` : null}
     </section></div>`;
   }
-  const wide = !!l && winWide(), modal = winModal(l), R = wide ? winOf(l) : null, float = !!(R && R.float);
+  // 0.27.10: in the PC app, no window inside the game any more: « Détacher », or its bar dragged, makes it a real window
+  // at once (one that holds the game, a date or a mini-game, stays in the middle). Floating inside: the Claude version.
+  const desk = osDesk(), wide = !!l && winWide() && !desk, modal = winModal(l), R = wide ? winOf(l) : null, float = !!(R && R.float), osOut = osWinOK(l) && !modal;
   // 0.27.7: the title bar moves the window (it floats from the first move); the corner resizes it
   const drag = (e, mode) => {
     if (!wide || e.button > 0 || (mode === 'move' && e.target.closest('.win-btn, .iconbtn, a[href], input, textarea, select, [contenteditable="true"]'))) return; // (0.27.9: a name or an avatar in the bar moves it too; a tap on it still opens)
     const el = panel.current;
     if (!el) return;
-    const r0 = el.getBoundingClientRect(), p0 = { x: e.clientX, y: e.clientY };
-    const base = { x: r0.left, y: r0.top, w: r0.width, h: r0.height };
-    if (!float) { base.h = Math.min(base.h, Math.round(window.innerHeight * 0.82)); base.w = Math.min(base.w, 640); } // (out of the middle, a window of its own: not the whole height)
+    const r0 = el.getBoundingClientRect(), p0 = { x: e.clientX, y: e.clientY }, V = viewBox(); // (0.27.10: its place counts from under Hype's bar)
+    const base = { x: r0.left - V.x, y: r0.top - V.y, w: r0.width, h: r0.height };
+    if (!float) { base.h = Math.min(base.h, Math.round(V.h * 0.82)); base.w = Math.min(base.w, 640); } // (out of the middle, a window of its own: not the whole height)
     const cur = Object.assign({}, base);
     let live = false;
     const move = (ev) => {
@@ -2293,7 +2332,7 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
         if (!float) { l.win = Object.assign({ float: true }, base); update(false); }
         document.body.classList.add('win-dragging');
       }
-      const vw = window.innerWidth, vh = window.innerHeight;
+      const vw = V.w, vh = V.h;
       if (mode === 'move') { cur.x = clamp(base.x + dx, 120 - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - WIN_BAR)); }
       else { // (0.27.9: by any edge, like a real window: right, left, bottom, the corners)
         if (mode.includes('e')) cur.w = clamp(base.w + dx, WIN_MIN_W, Math.max(WIN_MIN_W, vw - base.x - 4));
@@ -2318,22 +2357,51 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   };
+  // Its bar dragged in the PC app: from the first move, a real window under the mouse, which follows it (onto another
+  // screen too) until it is let go. A tap without a move stays a tap (a name in the bar opens the profile).
+  const tear = (e) => {
+    if (!osOut || e.button > 0 || e.target.closest('.win-btn, .iconbtn, a[href], input, textarea, select, [contenteditable="true"]')) return;
+    const el = panel.current;
+    if (!el) return;
+    const r0 = el.getBoundingClientRect(), p0 = { x: e.clientX, y: e.clientY };
+    let torn = null;
+    const move = (ev) => {
+      if (torn || Math.abs(ev.clientX - p0.x) + Math.abs(ev.clientY - p0.y) < 5) return;
+      const w = Math.round(Math.min(r0.width, 600)), h = Math.round(Math.min(r0.height, 760));
+      const hx = Math.round(Math.min(p0.x - r0.left, w - 60)), hy = Math.round(Math.min(p0.y - r0.top, 40)); // (where its bar is held, inside its new size)
+      const at = { x: Math.round(ev.screenX - hx), y: Math.round(ev.screenY - hy), w, h };
+      torn = popOut(l, { at, follow: { dx: hx, dy: hy, w, h } }) ? { name: l.os.name } : { name: null };
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (!torn) return;
+      if (torn.name) { try { HOST.winCtl(torn.name, 'drop').catch(() => {}); } catch (err) { /* (closing) */ } } // (it stays where it was let go)
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); }; // (the click a drag ends with opens nothing)
+      window.addEventListener('click', swallow, true);
+      setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
   const toggleFloat = () => {
     if (!l) return;
     if (float) { l.win = Object.assign({}, R, { float: false }); winSet(l.t, { float: false }); }
-    else { const r0 = panel.current && panel.current.getBoundingClientRect(); l.win = Object.assign({ float: true }, r0 ? { x: r0.left + 24, y: Math.max(0, r0.top + 24), w: Math.min(r0.width, 600), h: Math.min(r0.height - 48, 760) } : winRect(l.t)); winSet(l.t, l.win); }
+    else { const r0 = panel.current && panel.current.getBoundingClientRect(), V = viewBox(); l.win = Object.assign({ float: true }, r0 ? { x: r0.left - V.x + 24, y: Math.max(0, r0.top - V.y + 24), w: Math.min(r0.width, 600), h: Math.min(r0.height - 48, 760) } : winRect(l.t)); winSet(l.t, l.win); }
     update(false);
   };
   const cls = 'layer' + (float ? ' float' : '') + (float && modal ? ' held' : '') + (l && l.min ? ' min' : '') + (l && l.back ? ' back' : '');
   return html`<div class=${cls} style=${'z-index:' + (20 + (i || 0))} aria-hidden=${l && l.min ? 'true' : undefined} onClick=${(e) => { if (!float && e.target === e.currentTarget) closeLayer(); }}>
     <section ref=${panel} class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal=${float && !modal ? 'false' : 'true'} aria-label=${title}
       style=${float ? `left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px` : ''} onPointerDown=${float && l ? () => raiseLayer(l) : undefined}>
-      <header class=${'layer-head' + (wide ? ' movable' : '') + (float ? ' hypebar' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : undefined}>
+      <header class=${'layer-head' + (wide || osOut ? ' movable' : '') + (float ? ' hypebar' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : osOut ? tear : undefined}>
         ${float && !onBack ? html`<span class="hb-logo" aria-hidden="true">hype</span>` : html`<button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>`}${head || html`<h2>${title}</h2>`}
         ${l ? html`<span class="win-btns">
           ${modal ? null : html`<button type="button" class="win-btn win-min" onClick=${() => minLayer(l)} aria-label="Réduire la fenêtre" title=${l && MG_LAYERS.includes(l.t) ? 'Réduire (le chrono continue)' : 'Réduire (tout ce que tu as rempli est gardé)'}><${Icon} n="minus" s=${18} /></button>`}
           ${wide ? html`<button type="button" class="win-btn win-float" onClick=${toggleFloat} aria-label=${float ? 'Remettre la fenêtre au centre' : 'Détacher la fenêtre'} title=${float ? 'Remettre au centre' : 'Détacher : la déplacer et la redimensionner'}><${Icon} n=${float ? 'dock' : 'detach'} s=${18} /></button>` : null}
-          ${osWinOK(l) && !modal ? html`<button type="button" class="win-btn win-out" onClick=${() => popOut(l)} aria-label="Sortir la fenêtre du jeu" title="Sortir du jeu : une vraie fenêtre, à poser où tu veux (même sur un autre écran)"><${Icon} n="popout" s=${17} /></button>` : null}
+          ${osOut ? html`<button type="button" class="win-btn win-out" onClick=${() => popOut(l)} aria-label="Détacher la fenêtre" title="Détacher : une vraie fenêtre, à poser où tu veux (même sur un autre écran). Tirer sa barre la détache aussi."><${Icon} n="popout" s=${17} /></button>` : null}
           ${float ? html`<button type="button" class="win-btn win-close" onClick=${() => { raiseLayer(l); closeLayer(); }} aria-label="Fermer la fenêtre" title="Fermer"><${Icon} n="x" s=${18} /></button>` : null}
         </span>` : null}
       </header>
@@ -3257,6 +3325,7 @@ async function boot(data) {
   S.voice = loadVoicePref();
   applyTheme();
   rebuildPack(); // the pack shipped with the game; the creator's own atelier is read once the storage is ready
+  if (APP_FRAMED) document.getElementById('app').classList.add('framed'); // 0.27.10: Hype's bar on top, the game under it
   render(html`<${App} />`, document.getElementById('app'));
   update(false);
   setInterval(tick, 1000);
