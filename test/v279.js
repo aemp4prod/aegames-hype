@@ -21,7 +21,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-v279');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -231,11 +231,11 @@ async function newGame(page, identity) {
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.openLayer({ t: 'series', id: 'single' }); });
   await page.waitForFunction(() => /Sortie : /.test((document.querySelector('.layer .se-when') || {}).textContent || ''), null, { timeout: 8000 });
   const w0 = await txt(page, '.layer .se-when');
-  const soon = await page.locator('.layer button', { hasText: 'Au plus tôt' }).count();
-  await page.locator('.layer button', { hasText: '+1 jour' }).click();
+  const soon = await page.locator('.layer button', { hasText: 'Demain' }).count(); // (0.28.1: the days, counted from today)
+  await page.locator('.layer button', { hasText: 'Après-demain' }).click();
   await sleep(100);
   const w1 = await txt(page, '.layer .se-when');
-  check('« Programmer une sortie »: « Au plus tôt » (not « Prochaine fois »), and the date it will come out, changed by the day picked', soon === 1 && /Sortie : /.test(w0) && /Sortie : /.test(w1) && w0 !== w1, { soon, w0, w1 });
+  check('« Programmer une sortie »: the days counted from today (« Demain », « Après-demain »…), and the date it will come out, changed by the day picked', soon >= 1 && /Sortie : /.test(w0) && /Sortie : /.test(w1) && w0 !== w1, { soon, w0, w1 });
 
   // ---------- 9. the release card and the programme: the same buttons, what happens after the delay; the challenge's words ----------
   await G(page, () => {

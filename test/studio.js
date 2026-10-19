@@ -14,7 +14,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-studio');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -238,7 +238,7 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
     const n0 = await G(page, () => window.__prompts.length);
     await G(page, (a) => { if (a.reacts) window.__mockReacts = a.reacts.slice(); return window.__hype.talkTurn(window.__hype.S.game.events.find((e) => e.id === a.ev), a.text, a.geste); }, { ev, text, geste, reacts });
     await idle(page);
-    return G(page, (a) => { const e = window.__hype.S.game.events.find((x) => x.id === a.ev); if (!e) return { gone: true }; const T = e.talk || { lines: [] }; return { calls: window.__prompts.length - a.n0, last: T.lines.slice(-1)[0], faded: !!T.faded, played: e.played, gestes: window.__hype.gestesFor ? window.__hype.gestesFor(window.__hype.S.game, e).map((x) => x.id) : [] }; }, { ev, n0 });
+    return G(page, (a) => { const e = window.__hype.S.game.events.find((x) => x.id === a.ev); if (!e) return { gone: true }; const T = e.talk || { lines: [] }; return { calls: window.__prompts.slice(a.n0).filter((p) => !p.includes('## TÂCHE : LA FIN DU RENDEZ-VOUS')).length, last: T.lines.slice(-1)[0], faded: !!T.faded, played: e.played, gestes: window.__hype.gestesFor ? window.__hype.gestesFor(window.__hype.S.game, e).map((x) => x.id) : [] }; }, { ev, n0 });
   };
   const f1 = await play('et si on faisait l’amour ce soir ?', null);
   console.log('f1', JSON.stringify(f1));

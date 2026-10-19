@@ -5,6 +5,95 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.28.1 — 19 octobre 2026 (build 28001)
+
+**Plus de plafond sur les prix, une icône dessinée pour chaque succès, et une grande campagne de tests : plus de 100 corrections, et des personnages qui font moins attendre.**
+
+### ✨ Nouveautés
+
+- **💸 Plus de plafond** : une ligne de devis, un achat en message ou un cadeau coûtent ce qu’ils coûtent vraiment, même des dizaines de millions. Les prix sont lus comme on les écrit (« 1.200.000 € », « 1,5 M€ », « 2 millions »), et les grands nombres s’affichent en court là où la place manque (« 2,7 M€ »).
+- **🏆 Une icône pour chacun des 60 succès**, dessinée dans le style des autocollants du jeu : dans la liste, sur ton profil, dans les notifications et dans le toast qui l’annonce. Ceux que tu n’as pas encore sont grisés, et « Voir » t’amène directement au succès.
+- **🗓️ Repousser une sortie à l’heure de ton choix** : bien à l’avance, c’est gratuit ; à la dernière minute, ça coûte comme avant. « Abandonner » est toujours là, et ce que tu avais acheté pour le garder va dans ton inventaire.
+- **🎬 Le budget de production se voit** : une vidéo qui a coûté cher pour la taille de ton compte attire plus de monde, et le public en parle. Ce que tu as acheté pour la garder (un jeu à tester, un costume…) rejoint ton inventaire une fois la vidéo sortie.
+- **✂️ Monter toi-même, même avec une équipe** : « Monter moi-même » et « La faire moi-même » reprennent la main sur le montage et la miniature de ton monteur ou de ton graphiste.
+- **📨 Démarcher une marque** : quand personne ne répond tout de suite, une offre peut arriver un à trois jours plus tard.
+
+### ⚡ Moins d’attente
+
+- **Le public répond plus vite** : les commentaires (« Voir plus », les vagues, les reposts) et « Écrire pour moi » passent un cran sous ton réglage « Intelligence des personnages » (« Rapide » quand tu es sur « Normale »).
+- **Écris à quelqu’un pendant qu’un autre te répond** : chaque conversation attend sa propre réponse (« Théo est en train de te répondre… »), plus toutes à la fois.
+- **La fin d’un rendez-vous s’écrit pendant que tu lis ton score** : « Voir comment la soirée se termine » l’a tout de suite. Avec « Rendez-vous soignés », seul le dernier mot prend le modèle le plus réfléchi.
+- **Le résultat d’un post arrive avec les premières réponses**, et les réponses, les messages et la fin d’une soirée s’enchaînent un peu plus vite.
+- **Le Fil s’ouvre plus vite** dans une partie avancée : les 30 derniers posts, puis « Voir plus ».
+- Un modèle qui refuse un niveau de réflexion garde les autres.
+
+### 🛠️ Corrigé
+
+**Sauvegardes**
+- Quitter le jeu pendant que l’IA répond ne laisse plus un post qui a « rapporté » sans l’avoir fait, ni un cadeau payé jamais offert.
+- Revenir à une sauvegarde ne rend plus les cafés déjà dépensés ; une sauvegarde automatique « Avant d’avancer de 7 jours » a bien 7 jours.
+- Passer par « Mes parties » ne fait plus perdre ce que tu étais en train d’écrire ni tes fenêtres réduites.
+- Une réponse vide de l’IA n’est plus prise pour une réponse, et un devis vide ou coupé n’est plus gratuit par erreur (« Redemander le devis »).
+
+**Argent et achats**
+- Un cadeau n’est jamais payé deux fois, et offert à quelqu’un qui t’a bloqué(e), il te revient.
+- La carte est refusée seulement quand l’argent manque vraiment, et le reçu garde ce qu’il te restait à ce moment-là.
+- Deux clics rapides sur « Payer » ne paient qu’une fois (devis, réparations), et un gros devis demande confirmation.
+- « Écrire pour moi » prend ses gemmes tout de suite et les rend si rien n’est écrit.
+- Un achat récent ne se revend plus plus cher qu’il n’a coûté.
+- « Gagnés depuis le début » ne compte plus un acompte remboursé.
+- Le prix du merch n’est plus ramené à 300 € sans le dire : c’est ton prix (5 € au moins), et la demande suit.
+- La boutique de gemmes dit quand un boost est déjà actif. L’agence de com’ répare ta réputation jusqu’à 650 : au-delà, c’est ton public qui décide.
+
+**Studio et sorties**
+- Les choix de date se lisent depuis aujourd’hui (« Demain », « Après-demain », le jour), et « +1 jour » ne programme plus au surlendemain.
+- La montre prévient quand elle passe l’échéance d’un contrat ou d’un travail à rendre, et « +1 jour » ou « +1 semaine » arrive à la même heure, changement d’heure compris.
+- Un épisode de défi Daily Upload garde le sujet et la difficulté du défi.
+- Le texte de la miniature d’équipe porte le sens du sujet (« jeu de société magique », plus « JE TESTE UN »).
+- Fermer des adhésions sans aucun membre ne refroidit plus ta commu.
+- Les nouveaux contacts ne prennent plus le prénom d’un personnage principal.
+
+**Cœur**
+- Un deuxième rendez-vous au même endroit s’inscrit bien dans l’agenda.
+- Un message gentil pendant que quelqu’un te demande de ralentir ne compte plus comme de l’insistance (seul ce qui le met mal à l’aise compte).
+- Une invitation passée affiche son jour et son heure, plus « Maintenant ».
+- Ce qu’un perso retient de toi : les cadeaux tiennent en un seul souvenir et ne chassent plus les vrais, « a un rendez-vous avec toi » disparaît une fois la soirée passée, et un froid se lit à ton adresse (plus de « le joueur »).
+- Le mariage est présenté comme un mariage (« Le grand jour », « Vous vous êtes dit oui »).
+- Un couple gardé secret tient plus longtemps quand vous êtes peu connus.
+- Annuler un rendez-vous : le bouton de retour dit « Garder le rendez-vous ».
+- La fiche d’un perso n’affiche plus « Méfiant » juste au-dessus de « Fait vite confiance ».
+
+**Réseau et réputation**
+- Une rumeur garde son propre post, et sa notification mène à elle.
+- Les tendances se calculent sur deux jours et selon la portée des posts ; un hashtag de plus de 40 caractères n’est plus coupé en deux.
+- Tu peux publier des excuses pendant ton propre bad buzz.
+- Un pilier de réputation à 0 ne rend plus les insultes gratuites ; plus de « −14 abonnés » quand tu n’en as plus.
+- Un clic sur le nom ou le @ d’un post ouvre la fiche de son auteur.
+- Un secret trop court à la création est signalé au lieu de disparaître.
+
+**Écrans et fenêtres**
+- Les toasts font la queue (jamais plus de deux à la fois, aucun perdu, les succès et les quêtes d’abord), ne cachent plus les boutons d’une fenêtre, et passent au-dessus des fenêtres réduites et des onglets.
+- « Niveau supérieur » et les autres annonces attendent la fin de la conversation en cours.
+- Un clic sur la notification d’un succès ouvre ses succès ; « Retour » ferme la fenêtre qui porte le bouton, et une conversation déjà ouverte revient devant au lieu de s’ouvrir deux fois.
+- L’en-tête ne déborde plus (les grands nombres s’écrivent en court), et le devis et ses boutons restent dans leur carte.
+- Le compteur d’un post compte un emoji pour un caractère.
+- Échap revient à la grille dans les pages photos.
+- Une longue conversation dit qu’elle ne garde que ses 60 derniers messages.
+- Les succès verrouillés restent lisibles (seule l’icône est grisée).
+- Création d’une partie : « Retour » à l’étape du premier abonné, et l’accord avec son genre.
+- Des fautes et des accords corrigés partout (« font jaser », « prête », « Commission d’Iris », « à l’Académie Lumen »…).
+
+**Succès**
+- « Chaud lapin » tombe aussi quand on te freine en message, « Coin coin » compte les cadeaux payés en message, et « Mariage express » compte depuis votre première conversation.
+- « Flop complet » ne tombe plus pour un post bien reçu pendant un cancel ; « Tout le monde en parle » demande un hashtag que tu as lancé ; « Gngn je pensais pas ça de toi » demande un bad buzz vraiment assumé (fermer une fenêtre ne suffit plus).
+- « Ça devient la télé » et « MrBeast » tombent à la publication de la vidéo, plus au paiement du devis.
+- Une offre refusée puis rejouée depuis une sauvegarde ne compte qu’une fois.
+
+### 💡 Bon à savoir
+
+- **Une seule limite aux montants** : au-delà d’un million de milliards, les additions ne comptent plus les centimes juste ; un prix écrit au-delà est illisible pour le jeu (un devis se redemande, un achat ne passe pas). Ce n’est pas une règle du jeu.
+- **Un fichier exporté puis retouché à la main** (ou exporté avant cette version, sans empreinte) garde ses succès pour lui : ils restent dans la partie mais ne montent pas sur Æ Games Launcher.
+
 ## 0.28.0 — 19 octobre 2026 (build 28000)
 
 **Les succès arrivent : 60 à débloquer en jouant, certains cachés, et ils montent sur Æ Games Launcher. Et aussi : offrir un cadeau en message, la romance à tous les âges adultes, des barres de défilement aux couleurs de Hype.**

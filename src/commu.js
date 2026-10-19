@@ -151,7 +151,7 @@ function liveDonations(g, post, views, dons) {
   post.video.donTotal = total;
   post.video.donNet = net;
   g.career.est += net;
-  ledger(g, `Dons du live « ${str(post.video.topic, 30)} » (${Math.round((DON_SHARE[platformOf(g)] || 0.5) * 100)} % pour toi)`, net, 'est');
+  ledger(g, `Dons du live « ${wordCut(post.video.topic, 30)} » (${Math.round((DON_SHARE[platformOf(g)] || 0.5) * 100)} % pour toi)`, net, 'est');
   addNotif(g, { k: 'money', p: post.id, text: `💝 Ton live a reçu ${fmtMoney(g, total)} de dons (${fmtMoney(g, net)} pour toi, versés avec tes revenus du mois).` });
   return net;
 }
@@ -171,7 +171,7 @@ function DonsBlock({ g, p }) {
   return html`<div class="dons" onClick=${(ev) => ev.stopPropagation()}>
     <div class="dons-h"><b>💝 ${fmtMoney(g, v.donTotal)} de dons</b><span>${fmtMoney(g, v.donNet)} pour toi</span></div>
     ${(v.dons || []).map((d, k) => html`<div class="don" key=${k}><span class="don-amt">${fmtMoney(g, d.amount)}</span><span><b>@${d.by}</b> ${d.text}</span></div>`)}
-    ${v.donRest ? html`<small class="muted">et ${fmtMoney(g, v.donRest)} d’autres dons</small>` : null}
+    ${v.donRest && (v.dons || []).length ? html`<small class="muted">et ${fmtMoney(g, v.donRest)} d’autres dons</small>` : null}
     ${v.thanked ? html`<small class="muted">Merci envoyé ✓</small>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (thankDonors(g, p)) update(); }}>🙏 Remercier tout le monde</button>`}
   </div>`;
 }
@@ -225,9 +225,10 @@ function openMemb(g, price, perks, t = Date.now()) {
 function closeMemb(g, t = Date.now()) {
   const m = membOf(g);
   if (!m || !m.on) return false;
+  const had = m.members > 0; // 0.28.1: nobody to let down, nobody to cool
   m.on = false;
   m.members = 0;
-  warmMove(g, -3, `tu fermes les ${membName(g)}`, t);
+  if (had) warmMove(g, -3, `tu fermes les ${membName(g)}`, t);
   return true;
 }
 // A release that keeps a promise: a video in early access, a members-only live.
@@ -294,7 +295,7 @@ function MembBlock({ g }) {
       <div class="memb-h"><b>👑 ${fmtN(m.members)} ${plural(m.members, 'membre', 'membres')}</b><span>${fmtDec(m.price)} € par mois · ≈ ${fmtMoney(g, membNet(g, m))} par mois pour toi</span></div>
       ${!can.ok ? html`<p class="muted">${can.why}</p>` : null}
       <ul class="memb-perks">${m.perks.map((k) => { const P = MEMB_PERKS.find((x) => x[0] === k), ok = k === 'badge' || (m.done || {})[k] >= m.monthAt; return html`<li key=${k} class=${ok ? 'ok' : 'todo'}><span>${ok ? '✓' : '○'}</span> ${P[1]}${P[2] ? html` <small>${ok ? '· fait ce mois-ci' : '· ' + P[2]}</small>` : null}</li>`; })}</ul>
-      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => setEd({ price: m.price, perks: m.perks.slice() })}>Modifier</button><button class="linkbtn" onClick=${() => askConfirm({ title: `Fermer les ${membName(g)} ?`, text: `${m.members ? `${m.members > 1 ? `Tes ${fmtN(m.members)} membres arrêtent` : 'Ton membre arrête'} de payer` : 'Plus personne ne pourra adhérer'}, et ta commu le prendra mal.`, ok: 'Fermer', danger: true, run: () => { if (closeMemb(g)) update(); } })}>Fermer les ${membName(g)}</button></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => setEd({ price: m.price, perks: m.perks.slice() })}>Modifier</button><button class="linkbtn" onClick=${() => askConfirm({ title: `Fermer les ${membName(g)} ?`, text: m.members ? `${m.members > 1 ? `Tes ${fmtN(m.members)} membres arrêtent` : 'Ton membre arrête'} de payer, et ta commu le prendra mal.` : 'Plus personne ne pourra adhérer.', ok: 'Fermer', danger: true, run: () => { if (closeMemb(g)) update(); } })}>Fermer les ${membName(g)}</button></div>
     </div>`;
   }
   const E = ed || { price: 4.99, perks: ['badge', 'avant'] };

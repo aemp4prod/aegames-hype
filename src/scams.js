@@ -60,7 +60,7 @@ function sheetLine(g, d) {
 }
 const PITCH = {
   frais: (g, d) => `Félicitations ${g.player.name.split(' ')[0]} ! 🎉 Ton profil a été sélectionné pour rejoindre le programme ambassadeur de ${d.brand}. Places très limitées : je t’envoie les détails ⬇️`,
-  brief: (g, d) => `Bonjour ${g.player.name.split(' ')[0]}, je suis chargée des campagnes de ${d.brand}. Budget validé pour une collaboration avec toi. Le contrat et le brief sont prêts, il ne reste qu’à les télécharger ⬇️`,
+  brief: (g, d) => `Bonjour ${g.player.name.split(' ')[0]}, je suis ${gx((g.chars[d.contact] || {}).g, 'chargé', 'chargée', 'chargé·e')} des campagnes de ${d.brand}. Budget validé pour une collaboration avec toi. Le contrat et le brief sont prêts, il ne reste qu’à les télécharger ⬇️`,
   impaye: (g, d) => `Salut ${g.player.name.split(' ')[0]} ! On lance ${d.product} et on veut des créateurs qui ont du style : on a un beau budget pour toi. Je t’envoie la proposition ⬇️`,
 };
 // Called by makeOffer once the offer exists: maybe a scam (terms changed accordingly); returns { pitch } or null.
@@ -143,12 +143,21 @@ function agentGamble(g, d) {
     return 'won';
   }
   d.state = 'withdrawn';
-  addIncomingDM(g, c, `Je suis désolé·e… ${d.brand} n’a pas aimé ma façon de négocier, ils se sont retirés. Un contrat de cette taille, ce n’était pas encore pour moi.`, later() + 1500, { max: 300 });
+  addIncomingDM(g, c, `Je suis ${gx(c.g, 'désolé', 'désolée', 'désolé·e')}… ${d.brand} n’a pas aimé ma façon de négocier, ils se sont retirés. Un contrat de cette taille, ce n’était pas encore pour moi.`, later() + 1500, { max: 300 });
   addNotif(g, { k: 'money', c: c.id, text: `${d.brand} se retire : ${first} n’avait pas le niveau pour ce contrat.` });
   return 'lost';
 }
 
 /* ---------- signing, delivering: what a scam does ---------- */
+// 0.28.1: a brand that scammed the player, or that the critic exposed, never comes back with an offer (its contract may
+// be trimmed since: its name is kept).
+function burnBrand(g, brand) {
+  const b = str(brand, 30).toLowerCase(), c = g.career;
+  if (!b) return;
+  const L = Array.isArray(c.burnt) ? c.burnt : (c.burnt = []);
+  if (!L.includes(b)) { L.push(b); if (L.length > 60) L.splice(0, L.length - 60); }
+}
+const brandBurnt = (g, brand) => { const b = str(brand, 30).toLowerCase(); return !!b && ((Array.isArray(g.career.burnt) && g.career.burnt.includes(b)) || g.deals.some((d) => d.scam && d.brand.toLowerCase() === b && (d.state === 'scammed' || d.unpaid))); }; // (the deals of an older game too)
 // Before a signature (true: go on). A fee to pay; a « brief » to open; a trap clause of another contract.
 function scamBeforeSign(g, d) {
   if (d.scam === 'frais' && d.costs && !pay(g, d.costs, `Frais d’inscription ${d.brand}`, 'deal')) { toast(`Il te faut ${fmtMoney(g, d.costs)} pour les frais d’inscription.`, 'bad'); return false; }
@@ -160,12 +169,13 @@ function scamAfterSign(g, d) {
   const t = Date.now();
   if (d.scam === 'brief') {
     d.state = 'scammed';
+    burnBrand(g, d.brand);
     const pc = g.gear && g.gear.items.pc;
     if (usable(pc)) pc.virus = 1;
     const loss = Math.round(g.stats.followers * 0.01);
     g.stats.followers = Math.max(0, g.stats.followers - loss);
     const dr = repMove(g, { cred: -6, pro: -4 }, 'ton compte piraté a envoyé des liens d’arnaque', { noCheck: true });
-    addNotif(g, { k: 'money', text: `💀 Le « brief » de ${d.brand} était un piège : ${usable(pc) || (pc && pc.virus) ? 'un virus bloque ton ordinateur, et ' : ''}ton compte a été piraté une heure, le temps d’envoyer des liens douteux en ton nom (${repWord(dr)}, −${nAbonnes(loss)}).` });
+    addNotif(g, { k: 'money', text: `💀 Le « brief » de ${d.brand} était un piège : ${usable(pc) || (pc && pc.virus) ? 'un virus bloque ton ordinateur, et ' : ''}ton compte a été piraté une heure, le temps d’envoyer des liens douteux en ton nom (${repBit(dr, '', ', ')}−${nAbonnes(loss)}).` });
     const at = t + randi(3000, 8000);
     addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `@${g.player.handle} vient de m’envoyer un lien super chelou en privé ?? piraté ou quoi` }, at, at);
     addTrigger(g, `Le compte du joueur s’est fait pirater : pendant une heure, des messages d’arnaque sont partis en son nom. Certains s’inquiètent pour lui, d’autres se moquent de sa naïveté.`);
@@ -179,6 +189,7 @@ function penalClause(g, d) {
   for (const x of g.deals) {
     if (x === d || !x.clause || x.clause.kind !== 'penal' || x.clause.paid || !['signed', 'done'].includes(x.state) || t - (x.signedAt || 0) > 180 * DAY_MS) continue;
     x.clause.paid = t;
+    burnBrand(g, x.brand);
     charge(g, x.clause.amount, `Pénalité du contrat ${x.brand} (exclusivité totale)`, 'fine');
     const c = g.chars[x.contact];
     if (c) addIncomingDM(g, c, `Bonjour. Nous avons vu ton partenariat avec ${d.brand}. Je te rappelle l’article 7 de notre contrat (exclusivité totale de 6 mois) : la pénalité de ${fmtMoney(g, x.clause.amount)} est due. Bonne journée.`, later() + 4000, { max: 320 });
@@ -200,16 +211,16 @@ function tickScams(g, t = Date.now()) {
   for (const d of g.deals) {
     if (!d.scam) continue;
     const c = g.chars[d.contact];
-    if (d.lostAt && t >= d.lostAt && d.gift) { d.lostAt = 0; d.state = 'scammed'; ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le colis de ${d.brand} (${giftName(g, d.gift)}) n’est jamais arrivé, et ${c ? c.name.split(' ')[0] + ' ne répond plus' : 'la marque a disparu'}.` }); }
-    if (d.lostAt && t >= d.lostAt) { d.lostAt = 0; d.state = 'scammed'; ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le « kit ambassadeur » de ${d.brand} n’est jamais arrivé, et ${c ? c.name.split(' ')[0] : 'ton contact'} ne répond plus. Tes ${fmtMoney(g, d.costs)} sont perdus.` }); }
+    if (d.lostAt && t >= d.lostAt && d.gift) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le colis de ${d.brand} (${giftName(g, d.gift)}) n’est jamais arrivé, et ${c ? c.name.split(' ')[0] + ' ne répond plus' : 'la marque a disparu'}.` }); }
+    if (d.lostAt && t >= d.lostAt) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le « kit ambassadeur » de ${d.brand} n’est jamais arrivé, et ${c ? c.name.split(' ')[0] : 'ton contact'} ne répond plus. Tes ${fmtMoney(g, d.costs)} sont perdus.` }); }
     if (d.unpaidAt && t >= d.unpaidAt) {
-      d.unpaidAt = 0; d.unpaid = true; ch = true;
+      d.unpaidAt = 0; d.unpaid = true; ch = true; burnBrand(g, d.brand);
       if (c) c.ghost = true;
       addNotif(g, { k: 'money', text: `💸 ${d.payLate} jours plus tard : ${d.brand} n’a jamais payé tes ${fmtMoney(g, d.fee)}. Le contact a disparu.` });
     }
-    if (d.recallAt && t >= d.recallAt) { d.recallAt = 0; ch = true; productRecall(g, d); }
-    if (d.flopAt && t >= d.flopAt) { d.flopAt = 0; ch = true; productFlop(g, d); }
-    if (d.imageAt && t >= d.imageAt) { d.imageAt = 0; ch = true; imageAbuse(g, d); }
+    if (d.recallAt && t >= d.recallAt) { d.recallAt = 0; ch = true; productRecall(g, d); burnBrand(g, d.brand); }
+    if (d.flopAt && t >= d.flopAt) { d.flopAt = 0; ch = true; productFlop(g, d); burnBrand(g, d.brand); }
+    if (d.imageAt && t >= d.imageAt) { d.imageAt = 0; ch = true; imageAbuse(g, d); burnBrand(g, d.brand); }
     if (d.expose && t >= d.expose) { d.expose = 0; ch = true; criticExposes(g, d); }
   }
   for (const L of (g.career.loves || []).slice()) {
@@ -217,6 +228,7 @@ function tickScams(g, t = Date.now()) {
     if (loyalOffer(g, L) || t - L.at > 20 * DAY_MS) { g.career.loves = g.career.loves.filter((x) => x !== L); ch = true; } // (no room for it today: tomorrow)
     else L.at = t + DAY_MS;
   }
+  if (tickPitches(g, t)) ch = true; // 0.28.1: a brand the player wrote to answers late
   return ch;
 }
 function productRecall(g, d) {
@@ -228,7 +240,7 @@ function productRecall(g, d) {
   addAmbientPost(g, { by: 'alerte.conso', name: 'Alerte Conso', bio: 'rappels de produits et arnaques du quotidien', text: `⚠️ RAPPEL : ${d.product} (${d.brand}) est retiré de la vente, il présente un danger. Si vous en avez acheté, n’y touchez plus. Plusieurs créateurs en ont fait la promo.` }, at, at);
   at += randi(4000, 8000);
   addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `donc @${g.player.handle} nous a vendu un produit DANGEREUX. on en parle ? #RappelProduit` }, at, at);
-  addNotif(g, { k: 'cancel', text: `⚠️ ${cap1(d.product)} (${d.brand}) est rappelé : il est dangereux. Tu en as fait la promo : bad buzz (${repWord(dr)}, −${nAbonnes(loss)}).` });
+  addNotif(g, { k: 'cancel', text: `⚠️ ${cap1(d.product)} (${d.brand}) est rappelé : il est dangereux. Tu en as fait la promo : bad buzz (${repBit(dr, '', ', ')}−${nAbonnes(loss)}).` });
   addChronicle(g, `${g.player.name} a fait la promo d’un produit dangereux, rappelé depuis (${d.brand}).`);
   addTrigger(g, `Le produit dont le joueur a fait la promo (${d.product}, ${d.brand}) vient d’être rappelé : il est dangereux. Indignation, inquiétude, « il ne vérifie rien avant de vendre ? ».`);
   checkCancel(g);
@@ -241,13 +253,13 @@ function productFlop(g, d) {
   unlockAch(g, 'cashed-the-check', t); // 0.28: a sponsored product, badly received
   let at = t + randi(2000, 5000);
   for (const fn of [(h) => `j’ai acheté ${d.product} parce que @${h} le recommandait… franchement c’est nul, ça s’est cassé en deux jours`, (h) => `@${h} tu l’as vraiment testé ${d.product} ou t’as juste pris l’argent ?`]) { addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: fn(g.player.handle) }, at, at); at += randi(5000, 10000); }
-  addNotif(g, { k: 'reldown', text: `👎 Ceux qui ont acheté ${d.product} sur tes conseils sont déçus : c’est de la camelote (${repWord(dr)}, −${nAbonnes(loss)}).` });
+  addNotif(g, { k: 'reldown', text: `👎 Ceux qui ont acheté ${d.product} sur tes conseils sont déçus : c’est de la camelote (${repBit(dr, '', ', ')}−${nAbonnes(loss)}).` });
 }
 function imageAbuse(g, d) {
   const dr = repMove(g, { image: -8, cred: -3 }, `${d.brand} met ton visage dans une pub ringarde`);
   const t = Date.now();
   addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `pourquoi @${g.player.handle} est dans une pub ${d.brand} en boucle sur toutes mes vidéos 😭 « jusqu’à −70 % » avec sa tête retouchée` }, t + 3000, t + 3000);
-  addNotif(g, { k: 'reldown', text: `📺 ${d.brand} utilise ton visage et ta voix dans des pubs partout (ton contrat le permet, sans limite de durée) : on se moque (${repWord(dr)}).` });
+  addNotif(g, { k: 'reldown', text: `📺 ${d.brand} utilise ton visage et ta voix dans des pubs partout (ton contrat le permet, sans limite de durée) : on se moque${repBit(dr, ' (', ')')}.` });
 }
 // The critic on the platform exposes the scam: names those who promoted it (or got fooled).
 function criticExposes(g, d) {
@@ -257,6 +269,7 @@ function criticExposes(g, d) {
   // 0.27.6: a victim is one who signed; a promoter, one who published (a contract never delivered promoted nothing)
   const h = g.player.handle, mine = victim ? ['signed', 'done', 'scammed', 'waiting'].includes(d.state) || d.unpaid : !!(d.post || d.state === 'done' || d.unpaid);
   if (!mine && Math.random() < 0.5) return; // not every scam makes a video
+  burnBrand(g, d.brand); // 0.28.1: exposed
   const lines = {
     impaye: `🧨 ARNAQUE : ${d.brand} ne paie pas les créateurs. Même méthode à chaque fois : gros cachet promis, zéro acompte, paiement « à ${d.payLate} jours »… puis plus rien.`,
     frais: `🧨 ARNAQUE : le « programme ambassadeur » de ${d.brand}. Tu paies des « frais », tu reçois trois babioles et un code promo. Personne n’est payé, sauf eux.`,
@@ -272,7 +285,7 @@ function criticExposes(g, d) {
     if (d.scam === 'impaye' || d.scam === 'dangereux' || d.scam === 'nul') addNotif(g, { k: 'money', text: `Ton contrat avec ${d.brand} ne vaut plus rien : ${CRITIC.name} vient de démasquer l’arnaque. Tu n’as rien à livrer.` });
   }
   if (!mine) { addNotif(g, { k: 'money', text: `🧨 ${CRITIC.name} démasque ${d.brand} : ${d.state === 'declined' || d.state === 'expired' || d.state === 'withdrawn' ? 'tu as bien fait de ne pas signer' : 'une arnaque'}.` }); return; }
-  if (!victim) { const dr = repMove(g, { cred: -5, pro: -4 }, `${CRITIC.name} te cite parmi ceux qui ont vendu ${d.brand}`); addNotif(g, { k: 'reldown', text: `🧨 ${CRITIC.name} démasque ${d.brand} et te cite parmi ceux qui en ont fait la promo (${repWord(dr)}).` }); }
+  if (!victim) { const dr = repMove(g, { cred: -5, pro: -4 }, `${CRITIC.name} te cite parmi ceux qui ont vendu ${d.brand}`); addNotif(g, { k: 'reldown', text: `🧨 ${CRITIC.name} démasque ${d.brand} et te cite parmi ceux qui en ont fait la promo${repBit(dr, ' (', ')')}.` }); }
   else addNotif(g, { k: 'money', text: `🧨 ${CRITIC.name} démasque ${d.brand} et te cite parmi les créateurs piégés.` });
   addTrigger(g, `${CRITIC.name}, youtubeur qui démonte les arnaques, expose ${d.brand} et cite le joueur parmi ${victim ? 'ceux qui se sont fait avoir' : 'ceux qui en ont fait la promo'}. Les réactions vont de la compassion aux moqueries.`);
 }

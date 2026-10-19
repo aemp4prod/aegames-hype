@@ -11,7 +11,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-v22');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -375,7 +375,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
     const e3 = mk('evLast3');
     const n3 = window.__prompts.length;
     await H.lastWord(e3, '');
-    out.bye = !!e3.played && e3.talk.closed === true && window.__prompts.length === n3;
+    out.bye = !!e3.played && e3.talk.closed === true && window.__prompts.slice(n3).every((p) => p.includes('## TÂCHE : LA FIN DU RENDEZ-VOUS')); // (0.28.1: no answer to write; only the end of the evening, written ahead)
     out.ideas = H.lastWordsFor(g, e3);
     g.events = g.events.filter((e) => !/^evLast/.test(e.id));
     // a deal paid in products

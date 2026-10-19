@@ -5,7 +5,8 @@
    ========================================================= */
 const ACH_GROUPS = [['debut', 'Les premiers pas'], ['coeur', 'Relations'], ['drama', 'Drama et réputation'], ['avance', 'Avancement'], ['argent', 'Carrière et argent'], ['rare', 'Extrêmement rare']];
 // id: a stable key, also the one the Æ Games Launcher knows (never renamed, never reused). goal: counted (« 3 / 10 »).
-// hidden: « Succès caché » until it comes (those that would give away a trap of the game stay hidden).
+// hidden: « Succès caché » until it comes (those that would give away a trap of the game stay hidden). rec: its progress
+// is the best reached (the count can go down again: shown as « record »).
 const ACH = [
   // ---- the first steps ----
   { id: 'first-post', grp: 'debut', emoji: '✍️', name: 'Premier post', desc: 'Publier ton premier post.' },
@@ -30,7 +31,7 @@ const ACH = [
   { id: 'just-no', grp: 'coeur', emoji: '🙅', name: 'Indésirable', desc: '« Non. »', hidden: true },
   { id: 'milf-lover', grp: 'coeur', emoji: '🍷', name: 'MILF Lover', desc: 'Sortir avec quelqu’un de plus de 35 ans.' },
   { id: 'gilf-lover', grp: 'coeur', emoji: '🫖', name: 'GILF Lover', desc: 'Sortir avec quelqu’un de plus de 55 ans.' },
-  { id: 'date-from-hell', grp: 'coeur', emoji: '👹', name: 'Rendez-vous en enfer', desc: 'Rater trois rendez-vous d’affilée.', goal: 3 },
+  { id: 'date-from-hell', grp: 'coeur', emoji: '👹', name: 'Rendez-vous en enfer', desc: 'Rater trois rendez-vous d’affilée.', goal: 3, rec: true },
   { id: 'stood-up', grp: 'coeur', emoji: '🐰', name: 'Lapin', desc: 'Laisser quelqu’un en plan à un rendez-vous.', hidden: true },
   { id: 'ghosted', grp: 'coeur', emoji: '👻', name: 'Ghosté', desc: 'Ne plus avoir de réponse pendant trois jours.', hidden: true },
   { id: 'ex-comeback', grp: 'coeur', emoji: '🔁', name: 'Le retour de l’ex', desc: 'Te remettre avec ton ex.' },
@@ -50,7 +51,7 @@ const ACH = [
   { id: 'hype-train', grp: 'drama', emoji: '🚂', name: 'Il est bien monté le minotaure', desc: 'Monter dans le train de la hyyype.' },
   { id: 'cancelled', grp: 'drama', emoji: '🧯', name: 'Annulé', desc: 'Te faire annuler par le réseau.', hidden: true },
   // ---- the climb ----
-  { id: 'gaining-traction', grp: 'avance', emoji: '📈', name: 'Ça commence à prendre', desc: 'Atteindre 1 000 abonnés.', goal: 1000 },
+  { id: 'gaining-traction', grp: 'avance', emoji: '📈', name: 'Ça commence à prendre', desc: 'Atteindre 1 000 abonnés.', goal: 1000, rec: true },
   { id: 'partner-program', grp: 'avance', emoji: '🤝', name: 'Partenaire', desc: 'Débloquer la monétisation.' },
   { id: 'silver-play-button', grp: 'avance', emoji: '🥈', name: 'Silver Play Button', desc: 'Atteindre 100 000 abonnés.' },
   { id: 'golden-play-button', grp: 'avance', emoji: '🥇', name: 'Golden Play Button', desc: 'Atteindre 500 000 abonnés.' },
@@ -61,16 +62,16 @@ const ACH = [
   // ---- career and money ----
   { id: 'in-the-red', grp: 'argent', emoji: '🔴', name: 'Dans le rouge', desc: 'Passer à découvert.' },
   { id: 'incorruptible', grp: 'argent', emoji: '✋', name: 'Intègre', desc: 'Refuser 10 offres de marques.', goal: 10 },
-  { id: 'billboard', grp: 'argent', emoji: '🪧', name: 'Panneau publicitaire', desc: 'Signer 5 contrats le même mois.', goal: 5 },
+  { id: 'billboard', grp: 'argent', emoji: '🪧', name: 'Panneau publicitaire', desc: 'Signer 5 contrats le même mois.', goal: 5, rec: true },
   { id: 'big-spender', grp: 'argent', emoji: '💳', name: 'Flambeur', desc: 'T’offrir la nouveauté la plus chère du moment.' },
   { id: 'yard-sale', grp: 'argent', emoji: '📦', name: 'Vide-grenier', desc: 'Vendre 10 objets sur Occaz.', goal: 10 },
-  { id: 'the-boss', grp: 'argent', emoji: '💼', name: 'Le boss', desc: 'Avoir une équipe de 5 personnes.', goal: 5 },
+  { id: 'the-boss', grp: 'argent', emoji: '💼', name: 'Le boss', desc: 'Avoir une équipe de 5 personnes.', goal: 5, rec: true },
   { id: 'jail-time', grp: 'argent', emoji: '🚔', name: 'Case prison', desc: 'Avoir un partenariat illégal découvert.', hidden: true },
   { id: 'tv-show', grp: 'argent', emoji: '📺', name: 'Ça devient la télé', desc: 'Produire une vidéo à plus de 100 000 €.' },
   { id: 'mrbeast', grp: 'argent', emoji: '🤑', name: 'MrBeast', desc: 'Produire une vidéo à plus de 1 000 000 €.' },
   { id: 'born-to-be-hero', grp: 'argent', emoji: '🦸', name: 'Born to be hero', desc: 'Dénoncer un influvoleur.', hidden: true },
   // ---- extremely rare ----
-  { id: 'subject-expert', grp: 'rare', emoji: '🎓', name: 'Expert en la matière', desc: 'Réussir 10 tournages d’affilée en Cauchemar.', goal: 10 },
+  { id: 'subject-expert', grp: 'rare', emoji: '🎓', name: 'Expert en la matière', desc: 'Réussir 10 tournages d’affilée en Cauchemar.', goal: 10, rec: true },
   { id: 'living-legend', grp: 'rare', emoji: '🌌', name: 'Légende vivante', desc: 'Réussir un tournage en Mythique.' },
   { id: 'sleepless-night', grp: 'rare', emoji: '🦉', name: 'Nuit blanche', desc: 'Publier entre 3 h et 5 h du matin.' },
 ];
@@ -116,7 +117,7 @@ function unlockAch(g, id, at) {
   const st = ensureAch(g);
   st.got[id] = t;
   if (A.goal) st.prog[id] = Math.max(st.prog[id] || 0, A.goal);
-  addNotif(g, { k: 'ach', at: t, text: `🏆 Succès débloqué : ${A.emoji} ${achName(g, A)}` });
+  addNotif(g, { k: 'ach', a: id, at: t, text: `🏆 Succès débloqué : ${achName(g, A)}` }); // (0.28.1: its icon shows with it)
   achOut(g, A.goal ? 'set' : 'unlock', id, A.goal || null);
   return true;
 }
@@ -145,7 +146,9 @@ function achKeep(snap, g) {
   const got = Object.assign({}, a.got), prog = Object.assign({}, a.prog);
   for (const id in b.got || {}) if (!got[id]) got[id] = b.got[id];
   for (const id in b.prog || {}) prog[id] = Math.max(prog[id] || 0, b.prog[id] || 0);
-  snap.ach = Object.assign({}, a, { got, prog, soldN: Math.max(a.soldN || 0, b.soldN || 0), declined: Math.max(a.declined || 0, b.declined || 0), shop: Object.assign({}, a.shop, b.shop) });
+  // (0.28.1) the counters behind them are the save's own: an offer declined, then the save loaded, then declined again,
+  // is one offer declined (the progress shown keeps its high-water mark, it never goes down)
+  snap.ach = Object.assign({}, a, { got, prog });
   if (b.cheated) snap.ach.cheated = 1;
 }
 // Caught with someone else (a partner finds out): the « discipline » starts again.
@@ -174,6 +177,7 @@ function tickAch(g, t = Date.now()) {
   if (rep < 100) st.repLow = 1;
   if (st.repLow && rep > 700) unlockAch(g, 'phoenix', t);
   if (s.cancelled) unlockAch(g, 'cancelled', t);
+  if (g.pbb && !g.pbb.over && t >= g.pbb.until) { g.pbb.over = 1; if (!g.pbb.sorry && !g.pbb.agency) unlockAch(g, 'owned-the-bad-buzz', t); } // 0.28.1: assumed
   // the career, the money
   const car = g.career || {};
   if (car.prog && car.prog.state === 'on') unlockAch(g, 'partner-program', t);
@@ -199,7 +203,7 @@ function tickAch(g, t = Date.now()) {
     if (c.vibe === 'fiancailles' || c.vibe === 'mariage') unlockAch(g, 'engaged', t);
     if (c.vibe === 'mariage') {
       unlockAch(g, 'married', t);
-      const met = Math.min(c.firstTalk || Infinity, c.unlockedAt || Infinity), wed = c.pace && c.pace.v === 'mariage' ? c.pace.at : t;
+      const met = c.firstTalk || c.unlockedAt || Infinity, wed = c.pace && c.pace.v === 'mariage' ? c.pace.at : t;
       if (Number.isFinite(met) && wed - met < 7 * DAY_MS) unlockAch(g, 'express-wedding', t);
     }
   }
@@ -220,14 +224,16 @@ function myTrend(g, t = Date.now()) {
     const mine = (g.posts || []).filter((p) => p.a === 'p' && !p.pending && p.at <= t && has(p));
     if (!mine.length) continue;
     const from = Math.min(...mine.map((p) => p.at));
-    if ((g.posts || []).filter((p) => p.a !== 'p' && p.at >= from && p.at <= t && has(p)).length >= 3) return true;
+    if ((g.posts || []).some((p) => p.a !== 'p' && p.at < from && has(p))) continue; // (0.28.1: launched by someone else)
+    const after = (g.posts || []).filter((p) => p.a !== 'p' && p.at >= from && p.at <= t && has(p));
+    if (after.length >= 3 && new Set(after.map((p) => p.a)).size >= 2) return true;
   }
   return false;
 }
 // Their partner leaves them for someone of the cast (the AI said so: "pour" on its vibe line).
 function leftFor(g, c, handle, at = later()) {
   const o = handle ? charByHandle(g, normHandle(handle)) : null;
-  if (!c || !o || o === c || !isMain(o)) return false;
+  if (!c || !o || o === c || !isMain(o) || !o.unlocked) return false; // (0.28.1: not for someone who is not on the network yet)
   const first = c.name.split(' ')[0];
   setTie(g, c.id, o.id, Math.max(tieOf(g, c.id, o.id), 70));
   addMem(g, c, `j’ai quitté le joueur pour ${o.name}`);
@@ -252,19 +258,27 @@ function giftCounted(g, c, price, at) {
 }
 
 /* ---------- the screens: a few on the profile, all of them in their window ---------- */
+// 0.28.1: an achievement's icon (a sticker drawn for it; its emoji if it has none)
+const ACH_SRC = {};
+function achIcon(A, size = 36, cls = '') {
+  const svg = A && typeof ACH_ICONS !== 'undefined' ? ACH_ICONS[A.id] : null;
+  if (!svg) return A ? emoParts(A.emoji) : null;
+  const src = ACH_SRC[A.id] || (ACH_SRC[A.id] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+  return html`<img class=${'ach-ic' + (cls ? ' ' + cls : '')} src=${src} width=${size} height=${size} alt="" draggable="false" />`;
+}
 function AchBadge({ g, A }) {
   const got = achGot(g, A.id), hide = A.hidden && !got;
-  return html`<div class=${'ach-row' + (got ? ' got' : '')}>
-    <span class="ach-emo" aria-hidden="true">${hide ? '❔' : got ? emoParts(A.emoji) : '🔒'}</span>
+  return html`<div class=${'ach-row' + (got ? ' got' : '')} data-ach=${A.id}>
+    <span class=${'ach-emo' + (hide ? '' : ' has-ic')} aria-hidden="true">${hide ? emoParts('❔') : got ? achIcon(A, 40) : html`${achIcon(A, 40, 'locked')}<i class="ach-lock">${emoParts('🔒')}</i>`}</span>
     <div class="mid"><b>${hide ? 'Succès caché' : achName(g, A)}</b><small>${hide ? 'Il se dévoile quand tu le débloques.' : achDesc(g, A)}${got ? html` · <span class="ach-when">${fmtDate(g.ach.got[A.id])}</span>` : null}</small>
-      ${A.goal && !got && !hide ? html`<span class="ach-prog"><${Meter} frac=${Math.min(1, ((g.ach.prog || {})[A.id] || 0) / A.goal)} /><small>${fmtN((g.ach.prog || {})[A.id] || 0)}${A.unit ? '\u00a0' + A.unit : ''} / ${fmtN(A.goal)}${A.unit ? '\u00a0' + A.unit : ''}</small></span>` : null}</div>
+      ${A.goal && !got && !hide ? html`<span class="ach-prog"><${Meter} frac=${Math.min(1, ((g.ach.prog || {})[A.id] || 0) / A.goal)} /><small>${A.rec ? 'record : ' : ''}${fmtN((g.ach.prog || {})[A.id] || 0)}${A.unit ? '\u00a0' + A.unit : ''} / ${fmtN(A.goal)}${A.unit ? '\u00a0' + A.unit : ''}</small></span>` : null}</div>
   </div>`;
 }
 function AchSection({ g }) {
   const got = ACH.filter((A) => achGot(g, A.id)).sort((a, b) => g.ach.got[b.id] - g.ach.got[a.id]);
   return html`<section class="section ach-sec">
     <div class="section-h"><h3>Succès</h3><span>${got.length} / ${ACH.length}</span></div>
-    ${got.length ? html`<div class="ach-chips">${got.slice(0, 8).map((A) => html`<span class="ach-chip" key=${A.id} title=${achDesc(g, A)}>${emoParts(A.emoji)} ${achName(g, A)}</span>`)}</div>` : html`<p class="muted" style="font-size:13px">Aucun pour l’instant : ils viennent avec ce que tu vis.</p>`}
+    ${got.length ? html`<div class="ach-chips">${got.slice(0, 8).map((A) => html`<span class="ach-chip" key=${A.id} title=${achDesc(g, A)}>${achIcon(A, 22)} ${achName(g, A)}</span>`)}</div>` : html`<p class="muted" style="font-size:13px">Aucun pour l’instant : ils viennent avec ce que tu vis.</p>`}
     <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'ach' })}><${Icon} n="trophy" s=${15} /> Tous les succès</button>
   </section>`;
 }

@@ -17,7 +17,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-v20');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -283,10 +283,10 @@ async function newGame(page, identity) {
   await sleep(400);
   const dv2 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const out = { cash: g.career.cash, owned: g.gear.owned.map((x) => x.name), r: r && { what: r.what, total: r.devis && r.devis.total } }; if (r) r.state = 'dropped'; return out; });
   check('programming asks for the quote first (what this content takes, never the gear); paid, it programs; what is kept joins what the player owns',
-    /Demander le devis/.test(ask) && /jeu de cartes magiques/.test(dv1.card) && /75\s€/.test(dv1.card) && /Payer 75\s€ et programmer/.test(dv1.btn) && dv1.prompt.includes('Son matériel de tournage') && dv1.prompt.includes('ne le rachète jamais')
+    /Demander le devis/.test(ask) && /jeu de cartes magiques/.test(dv1.card) && /75\s€/.test(dv1.card) && /Payer 75\s€ et programmer/.test(dv1.btn) && dv1.prompt.includes('Son matériel de tournage')
     && dv2.cash === 925 && dv2.owned.includes('le jeu de cartes magiques') && dv2.r && dv2.r.total === 75, { ask, card: dv1.card.slice(0, 160), btn: dv1.btn, dv2 });
   const own = await G(page, async () => { const H = window.__hype, g = H.S.game; H.S.devis = null; H.S.devisBy = {}; const dv = await H.genDevis({ what: 'vidéo', topic: 'je refais une partie du jeu de cartes' }); const p = window.__prompts.filter((x) => x.includes('## TÂCHE : LE DEVIS')).pop(); return { items: dv.items.map((x) => x.item), total: H.devisTotal(dv), inPrompt: p.includes('le jeu de cartes magiques') }; });
-  check('…a second quote never buys again what the player owns (dropped even if the AI forgets)', own.items.length === 1 && own.items[0] === 'snacks pour le tournage' && own.total === 15 && own.inPrompt, own);
+  check('…a second quote: what the player bought and still has is told to the AI (it judges whether this content needs something else: 0.28.1, the game no longer makes a thing free by its name)', own.inPrompt, own);
   await G(page, () => { window.__mockDevis = null; window.__hype.S.devis = null; window.__hype.S.devisBy = {}; window.__hype.closeLayer(); });
 
   // ---------- the quote of an announced content, at its shoot ----------

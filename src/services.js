@@ -15,6 +15,8 @@ const normJobKind = (k) => (/mini|thumb|vignette|couverture|cover/i.test(String(
 const fileStem = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').split('_').filter((w) => w.length > 2).slice(0, 2).join('_') || 'projet';
 const jobsOf = (g, cid) => (g.jobs || []).filter((j) => !cid || j.c === cid);
 const JOB_LIVE = ['open', 'ready', 'sent'];
+// 0.28.1: the jobs still to hand in whose deadline falls between two moments (the watch says it before skipping past it)
+const jobsDueIn = (g, from, to) => (g.jobs || []).filter((j) => (j.state === 'open' || j.state === 'ready') && j.due > from && j.due <= to);
 const openJob = (g, cid) => jobsOf(g, cid).find((j) => JOB_LIVE.includes(j.state)) || null;
 const jobOf = (g, id) => (g.jobs || []).find((j) => j.id === id) || null;
 const payCap = (c, g) => Math.max(30, Math.round(Math.sqrt(Math.max(0, c.followers || 0)) * 2 * (1 + (g ? skillFx(g, 'jobPay') : 0)) / 10) * 10); // a small creator pays a little (3 000 subscribers: 110 €; 1 million: 2 000 €); 0.24: creativity, tier 10
@@ -148,7 +150,7 @@ async function sendJob(id) {
       else if (o.t === 'jobpost' && !fx.post) fx.post = str(o.text, 320);
       else if (o.t === 'mem' && !fx.mem) fx.mem = str(o.text, 90);
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'job' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'job', effort: 'low' });
   } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'dm'); }
   S.busy.job = null;
   endFlow(f);
@@ -171,7 +173,7 @@ function jobOutcome(g, c, j, paid, fx = {}, at = later()) {
   gainXP(g, Math.round(10 + 25 * q));
   trainSkill(g, 'creativite', 3 + Math.round(6 * q), at); // (a craft practised; 0.24: as XP of the skill)
   const rd = fx.rel ? fx.rel.d : q >= 0.7 ? 5 : q >= JOB_FLOP ? 2 : -3;
-  applyRel(g, c, rd, (fx.rel && fx.rel.why) || (rd > 0 ? `content·e de ${K.noun}` : `déçu·e par ${K.noun}`), at + 600, 12);
+  applyRel(g, c, rd, (fx.rel && fx.rel.why) || (rd > 0 ? `${gx(c.g, 'content', 'contente', 'content·e')} de ${K.noun}` : `${gx(c.g, 'déçu', 'déçue', 'déçu·e')} par ${K.noun}`), at + 600, 12);
   if (j.sentAt > j.due) applyRel(g, c, -2, 'tu as rendu en retard', at + 900, 4);
   if (fx.mem) addMem(g, c, fx.mem);
   // 0.23: the video goes out on THEIR channel, the player mentioned: an audience that comes by how known they are and how

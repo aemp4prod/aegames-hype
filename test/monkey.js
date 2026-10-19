@@ -10,7 +10,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-monkey');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const STEPS = +(process.env.STEPS || 120);

@@ -575,9 +575,9 @@ function tapVersion() {
     if (!atelierHere()) { toast('L’Atelier photos est dans l’appli PC (Hype pour ChatGPT).'); return; }
     const on = !creatorOn();
     lsSet('hype:creator', on ? '1' : '0');
-    toast(on ? 'Mode créateur activé : l’Atelier photos est sur l’accueil.' : 'Mode créateur désactivé.', on ? 'good' : '');
+    toast(on ? 'Mode créateur activé : l’Atelier photos est sur l’accueil.' : 'Mode créateur désactivé.', on ? 'good' : '', null, 0, 'vertaps');
     update(false);
-  } else if (verTaps.n >= 4) toast(`Encore ${7 - verTaps.n} ${plural(7 - verTaps.n, 'appui', 'appuis')}…`);
+  } else if (verTaps.n >= 4) toast(`Encore ${7 - verTaps.n} ${plural(7 - verTaps.n, 'appui', 'appuis')}…`, '', null, 0, 'vertaps');
 }
 S.atelier = { meta: { v: 2, people: [] }, loaded: false, sel: null, saving: false, savedAt: 0, busy: '', err: '' };
 async function loadAtelier() {

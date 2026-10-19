@@ -22,7 +22,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-v28');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -134,7 +134,7 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
     delete g.ach.got['the-boss']; delete g.ach.prog['the-boss'];
     return { first, again, unknown, more: n1 - n0, text: last && last.text };
   });
-  check('each achievement comes once, with a notification « 🏆 Succès débloqué : 💼 Le boss »; an unknown key: nothing', once.first && !once.again && !once.unknown && once.more === 1 && once.text === '🏆 Succès débloqué : 💼 Le boss', once);
+  check('each achievement comes once, with a notification « 🏆 Succès débloqué : Le boss » (0.28.1: its icon drawn beside it); an unknown key: nothing', once.first && !once.again && !once.unknown && once.more === 1 && once.text === '🏆 Succès débloqué : Le boss', once);
 
   // ---------- partners at once, and how long without being caught; their ages; an old enemy; a wedding in a week ----------
   const hearts = await G(page, () => {
@@ -233,6 +233,7 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
   const tt = await G(page, () => {
     const H = window.__hype, g = H.S.game, C = (h) => H.charByHandle(g, h), out = {};
     const a = C('theo.marlin'), z = C('zara.vey');
+    z.unlocked = true; // (0.28.1: one leaves only for someone already on the network)
     Object.assign(a, { vibe: 'couple', rel: 30, cool: null });
     H.vibeLine(g, a, { vibe: 'ex', why: 'je pars' }, Date.now()); out.noPour = H.achGot(g, 'good-doggy');
     a.vibe = 'couple';
@@ -257,7 +258,12 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
   await shot(page, 'cancel-modal');
   await page.locator('.modal .btn', { hasText: 'J’assume' }).click();
   await sleep(400);
-  const assume = await G(page, () => window.__hype.achGot(window.__hype.S.game, 'owned-the-bad-buzz'));
+  const assume = await G(page, () => { // 0.28.1: closing a window is no owning up; a bad buzz of the player's, ridden out without excuses nor agency, is
+    const H = window.__hype, g = H.S.game, t = Date.now(), out = { button: H.achGot(g, 'owned-the-bad-buzz') };
+    g.pbb = { at: t - 3000, until: t - 1000, c: null, kind: 'dm', agency: 1 }; H.tickAch(g, t); out.agency = H.achGot(g, 'owned-the-bad-buzz');
+    g.pbb = { at: t - 3000, until: t - 1000, c: null, kind: 'dm' }; H.tickAch(g, t); out.rode = H.achGot(g, 'owned-the-bad-buzz'); g.pbb = null;
+    return out;
+  });
   await settle(page);
   const dr = await G(page, () => {
     const H = window.__hype, g = H.S.game, s = g.stats, C = (h) => H.charByHandle(g, h), out = {};
@@ -267,22 +273,25 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
     g.fakes = g.fakes || []; g.fakes.push(rec);
     H.fakeBusted(g, l, rec, false, 0); out.fake = H.achGot(g, 'fake-proof-busted'); out.cancelled = H.achGot(g, 'cancelled') || (H.tickAch(g, Date.now()), H.achGot(g, 'cancelled'));
     Object.assign(s, { cancelled: false, reputation: 60 }); g.pbb = null;
-    const n = C('nox.vale') || C('oskar.brume'), post = (id, cred) => ({ id, text: 'voilà ce que je sais', res: { cred } });
-    const ctx = (c, fake, cred) => ({ g, accuse: c, eval: { exposed: false }, fake, post: post('pa' + cred + (fake ? fake.kind : ''), cred), outcome: { fol: 0, likes: 0 }, debunk: null });
+    const n = C('nox.vale') || C('oskar.brume'), post = (id, cred, text) => ({ id, text: text || 'voilà ce que je sais', res: { cred } });
+    const ctx = (c, fake, cred, text) => ({ g, accuse: c, eval: { exposed: false }, fake, post: post('pa' + cred + (fake ? fake.kind : ''), cred, text), outcome: { fol: 0, likes: 0 }, debunk: null });
     H.accusationResult(ctx(n, { kind: 'dm', desc: 'une capture', q: 8, vig: 0, busted: false }, 8)); out.crowDm = H.achGot(g, 'the-crow');
     const m = C('maelle.fen'); m.badBuzz = null;
-    H.accusationResult(ctx(m, { kind: 'temoin', desc: 'un témoin anonyme', q: 8, vig: 0, busted: false }, 8)); out.crow = H.achGot(g, 'the-crow');
+    H.accusationResult(ctx(m, { kind: 'temoin', desc: 'un témoin anonyme', q: 8, vig: 0, busted: false }, 8)); out.crowNow = H.achGot(g, 'the-crow');
+    { const fk = g.fakes.find((x) => x.c === m.id && x.kind === 'temoin'); if (fk) Object.assign(fk, { state: 'safe', later: 0, crowAt: Date.now() - 1 }); H.checkFakes(g, Date.now()); } // (0.28.1: once it has held)
+    out.crow = H.achGot(g, 'the-crow');
     out.hero0 = H.achGot(g, 'born-to-be-hero');
     const z = C('zara.vey'); z.badBuzz = null;
     H.accusationResult(ctx(z, null, 5)); out.hero5 = H.achGot(g, 'born-to-be-hero');
     const r = C('remi.sol'); r.badBuzz = null;
-    H.accusationResult(ctx(r, null, 8)); out.hero = H.achGot(g, 'born-to-be-hero');
+    H.accusationResult(ctx(r, null, 8)); out.hero8 = H.achGot(g, 'born-to-be-hero'); // (0.28.1: a call-out, but not for robbing anyone)
+    r.badBuzz = null; H.accusationResult(ctx(r, null, 8, 'il arnaque ses abonnés avec un faux concours')); out.hero = H.achGot(g, 'born-to-be-hero');
     return out;
   });
   await settle(page);
-  check('« J’assume » in the cancel: « Gngn je pensais pas ça de toi »', assume, { assume });
+  check('« Gngn je pensais pas ça de toi »: not for closing the cancel window with « J’assume », nor for a bad buzz the agency buried; yes for one ridden out', !assume.button && !assume.agency && assume.rode, assume);
   check('a fake proof exposed: « Le comte de menthe et cristaux » (and a cancel: « Annulée »); a made-up « anonymous witness » that takes: « Le corbeau » (another kind of fake: no); a call-out that lands: « Born to be hero » (one that only divides: no)',
-    !dr.fake0 && dr.fake && dr.cancelled && !dr.crowDm && dr.crow && !dr.hero0 && !dr.hero5 && dr.hero, dr);
+    !dr.fake0 && dr.fake && dr.cancelled && !dr.crowDm && !dr.crowNow && dr.crow && !dr.hero0 && !dr.hero5 && !dr.hero8 && dr.hero, dr);
 
   // ---------- drama: a secret out, the answers to it, apologies, a sponsored product that flops ----------
   const sec = await G(page, () => {
@@ -345,15 +354,17 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
     const ch = H.makeDevis({ what: 'vidéo', topic: 'Trente jours au resto', days: 30 }, [{ item: 'un repas étoilé', price: 30000, kind: 'conso', per: 'episode' }], null, true, []);
     H.payDevis(g, ch, 'défi'); out.tv0 = H.achGot(g, 'tv-show'); out.paid0 = !!ch.paid;
     const v = H.makeDevis(o, [{ item: 'une voiture de sport', price: 150000, kind: 'achat', keep: true, per: 'once' }], null, true, []);
-    H.payDevis(g, v, 'la voiture'); out.tv = H.achGot(g, 'tv-show'); out.mb0 = H.achGot(g, 'mrbeast');
-    H.payDevis(g, dv0, 'la villa'); out.mb = H.achGot(g, 'mrbeast'); out.cash = g.career.cash;
+    H.payDevis(g, v, 'la voiture'); out.tvPaid = H.achGot(g, 'tv-show'); // (0.28.1: paid is not made: at the publication)
+    const rel = (id, dv) => { const r = { id, what: 'vidéo', topic: o.topic, state: 'scheduled', due: Date.now(), at: Date.now(), delays: 0, devis: { total: H.devisTotal(dv), items: dv.items, have: [] } }; g.releases.push(r); H.releaseDone({ g, video: { r, tier: 'mid', score: 0.6, diff: 'facile' }, post: { id: 'p' + id } }); return r; };
+    rel('rv1', v); out.tv = H.achGot(g, 'tv-show'); out.mb0 = H.achGot(g, 'mrbeast');
+    H.payDevis(g, dv0, 'la villa'); out.mbPaid = H.achGot(g, 'mrbeast'); rel('rv2', dv0); out.mb = H.achGot(g, 'mrbeast'); out.cash = g.career.cash;
     // the novelties out: the cheapest first (no), then the dearest
     g.gear.launch.n = 3; const out3 = H.NEW_GEAR.slice(0, 3), cheap = out3.slice().sort((a, b) => a.price - b.price)[0], dear = out3.slice().sort((a, b) => b.price - a.price)[0];
     H.buyNew(g, cheap.id); out.fl0 = H.achGot(g, 'big-spender'); H.buyNew(g, dear.id); out.fl = H.achGot(g, 'big-spender');
     return out;
   });
   check('a quote line as dear as a real one (a villa: 1 800 000 €, it was capped at 50 000); a challenge at 30 000 € an episode: no; a video over 100 000 € « Ça devient la télé », over a million « MrBeast »; the dearest novelty « Flambeuse » (a cheaper one: no)',
-    JSON.stringify(money.cap) === '[1800000,4000]' && money.paid0 && !money.tv0 && money.tv && !money.mb0 && money.mb && !money.fl0 && money.fl, money);
+    JSON.stringify(money.cap) === '[1800000,4000]' && money.paid0 && !money.tv0 && !money.tvPaid && money.tv && !money.mb0 && !money.mbPaid && money.mb && !money.fl0 && money.fl, money);
   const shop = await G(page, async () => {
     const H = window.__hype, g = H.S.game, out = {}, wait = (ms) => new Promise((r) => setTimeout(r, ms));
     Object.assign(g.stats, { gems: 500, reputation: 40, cancelled: false }); g.boosts = {};
@@ -503,7 +514,7 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
   await sleep(200);
   await shot(page, 'ach-window-end');
   check('a post at 3:30 in the morning: « Nuit blanche », its toast with « Voir », which opens the window: all 60 in their six groups, the names agree with the player (« Flambeuse », « Ghostée »), each dated once unlocked',
-    /Succès débloqué : 🦉 Nuit blanche/.test(tst.text) && tst.btn === 'Voir' && win.title === 'Succès' && win.rows === 60 && win.nuit && win.got === win.count && win.hidden === 0 && win.fem
+    /Succès débloqué : (🦉 )?Nuit blanche/.test(tst.text) && tst.btn === 'Voir' && win.title === 'Succès' && win.rows === 60 && win.nuit && win.got === win.count && win.hidden === 0 && win.fem
       && ['Les premiers pas', 'Relations', 'Drama et réputation', 'Avancement', 'Carrière et argent', 'Extrêmement rare'].every((x) => win.sections.includes(x)) && new RegExp(`^${win.count} sur 60\\.`).test(win.intro), { tst, win });
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.goTab ? H.goTab('profile') : null; H.update(); });
   await page.click('.rail-item[aria-label="Profil"]:visible, .tab:visible:has-text("Profil")').catch(() => {});

@@ -7,6 +7,42 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const randi = (a, b) => Math.floor(rand(a, b + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const num = (v, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+// 0.28.1: an amount as a model may write it: « 1.200.000 € », « 1,5 M€ », « 2 millions », « 3k », « 1e6 », « 1 200,50 »,
+// « 25 000 écus », 1500. NaN for what is not an amount (a minus sign, nothing to read); 0 for « gratuit ».
+const MONEY_MULT = { k: 1e3, mille: 1e3, m: 1e6, million: 1e6, millions: 1e6, md: 1e9, mds: 1e9, milliard: 1e9, milliards: 1e9, bn: 1e9 };
+function parseMoney(v) {
+  if (typeof v === 'number') return Number.isFinite(v) && v >= 0 ? v : NaN;
+  let s = String(v == null ? '' : v).toLowerCase().replace(/[   ]/g, ' ').trim();
+  if (!s) return NaN;
+  if (/^(gratuit|gratuite|offert|offerte|free|rien)\b/.test(s)) return 0;
+  const sci = /(^|[^\d.,])(\d+(?:[.,]\d+)?)\s*e\s*\+?(\d{1,3})(?![\d])/.exec(s);
+  if (sci) { const x = Number(sci[2].replace(',', '.')) * Math.pow(10, Number(sci[3])); return /-\s*$/.test(s.slice(0, sci.index + sci[1].length)) ? NaN : x; }
+  const m = /(-\s*)?(\d[\d '’.,]*)\s*(milliards?|mds?|millions?|mille|bn|k|m(?![a-zé]))?/.exec(s);
+  if (!m) return NaN;
+  if (m[1]) return NaN; // a negative price is no price
+  let d = m[2].replace(/[ '’]+$/, '').replace(/[.,]+$/, '');
+  // the separators: one followed by exactly three digits (and more groups or the end) groups thousands; else decimals
+  const parts = d.split(/([.,])/);
+  let out = '', dec = false;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (p === '.' || p === ',') {
+      const next = parts[i + 1] || '', later = parts.slice(i + 2).join('');
+      if (!dec && /^\d{3}$/.test(next.replace(/[ '’]/g, '')) && (later === '' || /^[.,]/.test(later))) continue;
+      if (dec) break; // a second decimal mark: stop there
+      out += '.'; dec = true;
+    } else out += p.replace(/[ '’]/g, '');
+  }
+  let x = Number(out);
+  if (!Number.isFinite(x)) return NaN;
+  const u = m[3] && MONEY_MULT[m[3]];
+  if (u) x *= u;
+  return x;
+}
+// The one technical limit on an amount (0.28.1, no game ceiling): past a million billion, sums no longer count cents
+// right; a price written beyond it is no price the game can read (a quote asks again, a purchase does not go through).
+const MONEY_MAX = 1e15;
+const moneyIn = (v) => { const x = parseMoney(v); return Number.isFinite(x) && x <= MONEY_MAX ? x : NaN; };
 const int = (v, a, b, d) => clamp(Math.round(num(v, d)), a, b);
 const str = (v, max = 400) => (typeof v === 'string' ? v : (v == null ? '' : String(v))).replace(/[^\S\u00a0\u202f]+/g, ' ').trim().slice(0, max); // (0.27.8: the no-break spaces stay: « 150 € » never breaks)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -80,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.28.0';
+const APP_VERSION = '0.28.1';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -92,7 +128,7 @@ function lsOK() {
 const gx = (gd, m, f, x) => (gd === 'f' ? f : gd === 'm' ? m : x);
 const pg = (g) => ({ il: 'm', elle: 'f' })[g && g.player ? g.player.pron : ''] || 'x';
 const px = (g, m, f, x) => gx(pg(g), m, f, x);
-const TAG_RE = /#[\p{L}\p{N}_]{2,40}/gu;
+const TAG_RE = /#[\p{L}\p{N}_]{2,40}(?![\p{L}\p{N}_])/gu; // (0.28.1: longer than 40, it is no hashtag, not cut in two)
 const wordSet = (t) => new Set(String(t).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4));
 function similar(a, b) {
   const A = wordSet(a), B = wordSet(b);
@@ -129,7 +165,7 @@ const EV_KINDS = { // f: feminine noun (« ta capture était fausse », « ton v
 };
 const evLabel = (kind) => { const l = (EV_KINDS[kind] || EV_KINDS.dm).label; return l[0].toLowerCase() + l.slice(1); }; // « capture de DM »
 const START = {
-  anon: { label: 'Inconnu·e', desc: 'Tu pars de zéro. Chaque abonné se mérite.', followers: 40, rep: 50 },
+  anon: { label: 'Anonyme', desc: 'Tu pars de presque rien : une poignée d’abonnés. Chaque nouveau se mérite.', followers: 40, rep: 50 },
   rising: { label: 'Étoile montante', desc: 'On commence à parler de toi.', followers: 2500, rep: 60 },
   star: { label: 'Star', desc: 'Tout le monde te connaît. Tout le monde te juge.', followers: 250000, rep: 62 },
 };
@@ -149,7 +185,7 @@ const SHOP = [
   { id: 'push', icon: 'trend', tone: 'hot', label: 'Mise en avant', desc: 'Ta prochaine sortie (vidéo, short, live…) est poussée par l’algorithme : deux fois plus de vues.', price: 15 },
   { id: 'reach', icon: 'zap', tone: 'good', label: 'Boost de portée', desc: 'Ton prochain post touche 2,5 fois plus de monde.', price: 10 },
   { id: 'viral', icon: 'flame', tone: 'flash', label: 'Moment viral', desc: 'Ton prochain post devient viral, c’est garanti.', price: 30 },
-  { id: 'pr', icon: 'shield', tone: 'bad', label: 'Agence de com’', desc: '+250 de réputation, et la fin d’un cancel garantie.', price: 18 },
+  { id: 'pr', icon: 'shield', tone: 'bad', label: 'Agence de com’', desc: 'Jusqu’à +250 de réputation (une agence répare, elle ne fait pas aimer : pas au-delà de 650), et la fin d’un cancel garantie.', price: 18 },
 ];
 const shopPrice = (id) => (SHOP.find((x) => x.id === id) || { price: 0 }).price;
 // Every kind of bond, in four families. Some are stages: a couple before an engagement, an engagement before a wedding.
@@ -411,11 +447,14 @@ function update(save = true) {
   setTimeout(run, 120);
 }
 function bumpLive(until) { if (until > S.liveUntil) S.liveUntil = until; }
-function toast(text, kind = '', action = null, from = 0) {
+// group: a toast of a series (« Encore 2 appuis… ») takes the place of the one before it (0.28.1: in the queue, the last
+// word of a series would otherwise wait behind its own steps).
+function toast(text, kind = '', action = null, from = 0, group = '') {
   if (!text) return;
+  if (group) S.toasts = S.toasts.filter((x) => x.group !== group);
   const start = Math.max(from || 0, later());
   const dur = action ? 7000 : kind === 'bad' ? 6500 : 3600;
-  S.toasts.push({ id: uid('t'), text, kind, action, from: start, until: start + dur });
+  S.toasts.push(Object.assign({ id: uid('t'), text, kind, action, from: start, until: start + dur }, group ? { group } : {}));
   if (S.toasts.length > 4) S.toasts.splice(0, S.toasts.length - 4);
   update(false);
 }
@@ -778,6 +817,7 @@ function repMove(g, plan, why, opts = {}) {
   const live = s.repDay && t - s.repDay.at < 24 * 3600000 ? s.repDay : { at: t, n: {} };
   const day = opts.dry ? { at: live.at, n: Object.assign({}, live.n) } : (s.repDay = live);
   const before = repGlobal(P);
+  let spill = 0;
   for (const k of REP_IDS) {
     let d = num(plan && plan[k], 0);
     if (!d) continue;
@@ -787,8 +827,11 @@ function repMove(g, plan, why, opts = {}) {
       d = used >= REP_DAY_CAP ? d * 0.25 : used + d > REP_DAY_CAP ? REP_DAY_CAP - used + (used + d - REP_DAY_CAP) * 0.25 : d;
       day.n[k] = used + d;
     } else if (d < 0 && !opts.raw) d *= repFall(P[k]);
-    P[k] = clamp(Math.round((P[k] + d) * 100) / 100, 0, 100);
+    const nv = Math.round((P[k] + d) * 100) / 100;
+    if (nv < 0) spill -= nv; // 0.28.1: a pillar at 0 falls no further: the rest of the blow lands on the others
+    P[k] = clamp(nv, 0, 100);
   }
+  if (spill > 0) { const rest = REP_IDS.filter((k) => P[k] > 0); for (const k of rest) P[k] = clamp(Math.round((P[k] - spill / rest.length) * 100) / 100, 0, 100); }
   const after = repGlobal(P), delta = Math.round((after - before) * 100) / 100;
   if (opts.dry) return delta;
   s.reputation = after;
@@ -1027,6 +1070,7 @@ function addNotif(g, n) {
   const o = tag({ id: uid('n'), ts: at, at, k: n.k, text: n.text, c: n.c || null, p: n.p || null });
   if (n.tg) o.tg = n.tg; // a hashtag to open
   if (n.sk) o.sk = n.sk; // 0.24: a skill's tree to open
+  if (n.a) o.a = n.a; // 0.28.1: an achievement (its icon)
   g.notifs.push(o);
   if (g.notifs.length > 140) g.notifs.splice(0, g.notifs.length - 140);
   bumpLive(at + 500);
@@ -1056,6 +1100,20 @@ function addMem(g, by, text, shown) {
   c.mem.push(shown ? { t: text, ts: Date.now(), s: str(shown, 110) } : { t: text, ts: Date.now() });
   if (c.mem.length > 6) c.mem.splice(0, c.mem.length - 6);
 }
+// 0.28.1: the gifts make one memory per character, kept up to date (they no longer push the real memories out); the
+// player reads it as « Tu lui as offert… ».
+function giftMem(g, c, what) {
+  if (!c || !isMain(c)) return;
+  c.mem = c.mem || [];
+  const old = c.mem.find((m) => m.k === 'gift'), n = (old ? old.n || 1 : 0) + 1, w = str(what, 60);
+  const t = n > 1 ? `le joueur m’a fait ${n} cadeaux, le dernier : ${w}` : `le joueur m’a offert ${w}`;
+  const s = n > 1 ? `Tu lui as fait ${n} cadeaux, le dernier : ${w}` : `Tu lui as offert ${w}`;
+  c.mem = c.mem.filter((m) => m !== old && !/^le joueur m’a offert /.test(m.t)); // (and the ones of before 0.28.1)
+  c.mem.push({ t, s, ts: Date.now(), k: 'gift', n });
+  if (c.mem.length > 6) c.mem.splice(0, c.mem.length - 6);
+}
+// 0.28.1: the player's own words, as quoted to the model: no braces, so nothing typed can pass for one of its lines.
+const noJson = (t) => String(t == null ? '' : t).replace(/[{}]/g, (m) => (m === '{' ? '(' : ')'));
 // Story beats chosen by the game, played by the next AI call (post, reply, refresh, or a DM with that character).
 const TRIGGER_TTL = 30 * 60 * 1000;
 function addTrigger(g, text, charId) {
@@ -1239,12 +1297,15 @@ function fakeBusted(g, c, fk, lateBust, lossNow = 0) {
 // Kept as they are: when the game was made and saved, when the player was last seen (absences),
 // and the coffee clock (accelerated time is spent working: it refills nothing).
 const TIME_KEEP = new Set(['createdAt', 'updatedAt', 'lastSeenAt', 'lastPlayedAt', 'energyAt', 'queuedAt']); // queuedAt: a photo waiting for its caption, in real time
+// 0.28.1: an amount is never a date, however big (1 500 milliards d'euros stay put when the clock moves).
+const AMOUNT_KEY = /fol|cash|money|price|views|likes|amount|total|paid|fee|gems|earn|spent|cost|value|budget|reach|members|subs|^xp$/i;
+const amountKey = (k) => AMOUNT_KEY.test(k) && !/(At|Ts|Time|Until)$/.test(k);
 // all: every timer moves (a save loaded later picks up where it was); otherwise story beats keep their age.
 function shiftTime(g, ms, all = false) {
   const walk = (o) => {
     for (const k of Object.keys(o)) {
       const v = o[k];
-      if (typeof v === 'number') { if (v > 1.4e12 && v < 4.1e12 && !TIME_KEEP.has(k)) o[k] = v - ms; }
+      if (typeof v === 'number') { if (v > 1.4e12 && v < 4.1e12 && !TIME_KEEP.has(k) && !amountKey(k)) o[k] = v - ms; }
       else if (v && typeof v === 'object') walk(v);
     }
   };
@@ -1451,10 +1512,31 @@ function advanceChoices(g, r, now = Date.now()) {
     for (const h of [8, 12, 17, 18, 19, 20, 21, 22]) {
       const x = gameDate(now); x.setDate(x.getDate() + dd); x.setHours(h, 0, 0, 0);
       const at = x.getTime() - clockOff();
-      if (ok(at)) out.push({ at, label: `${dd === 0 ? (h >= 18 ? 'Ce soir' : 'Aujourd’hui') : dd === 1 ? 'Demain' : cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }))} ${h} h`, peak: audienceAt(gameDate(at)) >= 1.2 });
+      if (ok(at)) out.push({ at, label: slotLabel(x, dd, h), peak: audienceAt(gameDate(at)) >= 1.2 });
     }
   }
   return out.sort((a, b) => a.at - b.at).slice(0, 18);
+}
+// A day as the planners say it: « Ce soir 20 h », « Demain 12 h », « Jeudi 18 h », a week on « Lundi 26 18 h ».
+function slotLabel(x, dd, h) {
+  if (dd === 0) return `${h >= 18 ? 'Ce soir' : 'Aujourd’hui'} ${h} h`;
+  if (dd === 1) return `Demain ${h} h`;
+  const wd = cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }));
+  return `${wd}${dd >= 7 ? ' ' + x.getDate() : ''} ${h} h`;
+}
+// 0.28.1: the later times offered when postponing: soon after the planned one, then the day planner's hours for a week.
+function laterChoices(g, r, now = Date.now()) {
+  const base = Math.max(r.due, now), out = [];
+  const ok = (at) => at > base + 20 * 60000 && at < base + 8 * 86400000 && !out.some((o) => Math.abs(o.at - at) < 20 * 60000);
+  for (const m of [30, 60, 120, 180]) { const at = base + m * 60000; if (ok(at)) out.push({ at, label: m < 60 ? `${m} min plus tard` : `${m / 60} h plus tard` }); }
+  for (let dd = 0; dd <= 8; dd++) {
+    for (const h of [8, 12, 17, 18, 19, 20, 21, 22]) {
+      const x = gameDate(now); x.setDate(x.getDate() + dd); x.setHours(h, 0, 0, 0);
+      const at = x.getTime() - clockOff();
+      if (ok(at)) out.push({ at, label: slotLabel(x, dd, h), peak: audienceAt(gameDate(at)) >= 1.2 });
+    }
+  }
+  return out.sort((a, b) => a.at - b.at).slice(0, 20);
 }
 // The words of a topic that say what it is about (not « ma nouvelle vidéo ce soir »).
 const REL_GENERIC = new Set(['video', 'videos', 'tiktok', 'tiktoks', 'short', 'shorts', 'reel', 'reels', 'live', 'lives', 'stream', 'podcast', 'episode', 'episodes', 'clip', 'clips', 'nouveau', 'nouvelle', 'nouvel', 'prochain', 'prochaine', 'demain', 'soir', 'heure', 'heures', 'minute', 'minutes', 'bientot', 'arrive', 'sortie', 'sort', 'annonce', 'chaine', 'abonnes', 'rendez', 'vous', 'ensemble', 'surprise']);
@@ -1495,15 +1577,30 @@ const DELAY_LINES = [
   (h, r, t) => `toujours pas de ${r.what} de @${h}. ça sent la panne d’idées ${t}`,
   (h, r, t) => `@${h} annonce, repousse, annonce, repousse… ${t}`,
 ];
-// Postponing costs more each time: not very pro, then unprofessional, then « il se défile ».
-function postponeRelease(g, r, mins = 30) {
-  if (!r || r.state !== 'scheduled' || r.delays >= MAX_DELAYS || r.series) return false; // no postponing in a daily upload
-  const s = g.stats, t = Date.now();
+// 0.28.1: moved well before its time (more than 2 h), a release just gets a new date: the public hardly notices (twice;
+// after that, it does). At the last minute, or late, it is a real postponement, and it costs more each time: not very
+// pro, then unprofessional, then « il se défile ».
+const RELEASE_NOTICE = 2 * 3600000;
+const earlyMove = (r, now = Date.now()) => !!r && r.due - now > RELEASE_NOTICE && (r.moved || 0) < 2;
+const canPostpone = (r, now = Date.now()) => !!r && r.state === 'scheduled' && !r.series && (earlyMove(r, now) || r.delays < MAX_DELAYS);
+function postponeRelease(g, r, due) {
+  if (!r || r.state !== 'scheduled' || r.series) return false; // no postponing in a daily upload
+  const s = g.stats, t = Date.now(), base = Math.max(r.due, t);
+  const at = Math.round(Number.isFinite(due) && due > base + 60000 ? due : base + 30 * 60000);
+  if (earlyMove(r, t)) {
+    r.moved = (r.moved || 0) + 1;
+    r.due = at;
+    r.dueSaid = false;
+    addNotif(g, { k: 'release', at: t, text: `🗓️ ${cap1(ta(r))} « ${str(r.topic, 60)} » est ${whatF(r) ? 'décalée' : 'décalé'} : ${fmtWhen(r.due, t)}.` });
+    addTrigger(g, `Le joueur décale ${sa(r)} « ${str(r.topic, 60)} », bien à l’avance : ${whatF(r) ? 'elle' : 'il'} sortira ${fmtWhen(r.due, t)}. Ceux qui l’attendaient patienteront.`, r.c || null);
+    return true;
+  }
+  if (r.delays >= MAX_DELAYS) return false;
   r.delays++;
   const loss = r.delays >= 2 ? Math.round(s.followers * (r.delays === 2 ? 0.03 : 0.05)) : 0;
   const dr = repMove(g, postponePlan(r.delays), `tu as repoussé ${ta(r)}`, { noCheck: true });
   if (loss) s.followers = Math.max(0, s.followers - loss);
-  r.due = Math.max(r.due, t) + mins * 60000;
+  r.due = at;
   r.game = null; // a new shoot next time
   r.played = null;
   r.edit = null; r.editGame = null; r.thumb = null; r.render = null; // 0.14: and a new edit, a new thumbnail (0.20: a new render)
@@ -1520,11 +1617,20 @@ function postponeRelease(g, r, mins = 30) {
   checkCancel(g);
   return true;
 }
+// 0.28.1: what a quote bought to keep (a game to test, a costume…) is the player's: into the inventory once the content is
+// out (used) or given up (as new), to keep, to use again in a quote, or to sell. The rentals and services are spent.
+function keptToInv(g, r, cond) {
+  const dv = r && r.devis;
+  if (!dv || dv.inv || !Array.isArray(dv.items) || typeof invAdd !== 'function') return;
+  dv.inv = 1;
+  for (const x of dv.items) if (x && x.keep && x.price > 0) invAdd(g, { kind: 'buy', name: x.item, value: x.price, cond, from: { how: 'devis', r: r.id } });
+}
 function dropRelease(g, r, forgot) {
   if (!r || r.state !== 'scheduled') return;
   if (r.series) { r.state = 'dropped'; seriesMissed(g, r); return; } // an episode of a daily upload: the series decides
   const s = g.stats, t = later();
   r.state = 'dropped';
+  keptToInv(g, r, 'neuf');
   const loss = Math.round(s.followers * 0.04);
   const dr = repMove(g, DROP_PLAN, `${sa(r)} promis${whatF(r) ? 'e' : ''}, jamais sorti${whatF(r) ? 'e' : ''}`, { noCheck: true });
   s.followers = Math.max(0, s.followers - loss);
@@ -1661,9 +1767,11 @@ function addEvent(g, o, src) {
   const player = kind === 'rdv' || o.with_player === true || o.with_player === 'true';
   if (player && /[ée]ch[ée]ance|deadline|remettre|envoyer|attend(?:re)? (?:les|des|ses|tes|vos)|pi[èe]ces/i.test(what)) return null; // a deadline is not a date
   if (!g.events) g.events = [];
-  // the same thing announced twice (a reply and a post), or announced again after it happened, is one event
+  // the same thing announced twice (a reply and a post), or announced again after it happened, is one event; a date
+  // with the player is one only while it is still to come (0.28.1: « encore un resto demain soir ? » is a second date)
   if (g.events.some((e) => e.c === c.id && ((e.state === 'scheduled' && Math.abs(e.due - due) < 3 * 3600000)
-    || (e.kind === (player ? 'rdv' : kind) && t - e.at < 12 * 3600000 && sameWhat(e.what, what, c.name))))) return null;
+    || (player ? e.kind === 'rdv' && e.state === 'scheduled' && sameWhat(e.what, what, c.name)
+      : e.kind === kind && t - e.at < 12 * 3600000 && sameWhat(e.what, what, c.name))))) return null;
   if (activeEvents(g).length >= 6) return null;
   const ev = { id: uid('ev'), kind: player ? 'rdv' : kind, c: c.id, what, at: t, due, state: 'scheduled', src: src || null, player, game: null, played: null, diff: player ? fameDiff(c) : null, tries: 0 };
   // their answer to a bad buzz (still running, or barely over): the network waits for it, the event decides
@@ -1677,6 +1785,7 @@ function addEvent(g, o, src) {
   if (player) {
     if (dateKind(c, ev) === 'wedding') startVeille(g, c, ev); // 0.12: before the wedding, a doubt or the guest list
     addMem(g, c, `a un rendez-vous avec le joueur : ${str(what, 70)}`);
+    { const m = (c.mem || [])[(c.mem || []).length - 1]; if (m && /^a un rendez-vous avec le joueur/.test(m.t)) Object.assign(m, { k: 'rdv', ev: ev.id }); }
     closeInvites(g, c, ev);
     const clash = datesClash(g, ev);
     if (clash) queueModalFor(g, { t: 'clash', a: clash.id, b: ev.id });
@@ -1936,6 +2045,11 @@ function standUp(g, ev, t = Date.now(), why) {
 // Called by the clock: a date the player never showed up to, a character's event nobody watched.
 function checkEvents(g, t = Date.now(), onScreen = () => false) {
   let changed = false;
+  // 0.28.1: « a un rendez-vous avec le joueur » is forgotten once that date happened, was cancelled or missed
+  for (const c of Object.values(g.chars || {})) {
+    if (!c.mem || !c.mem.some((m) => /^a un rendez-vous avec le joueur/.test(m.t))) continue;
+    c.mem = c.mem.filter((m) => !/^a un rendez-vous avec le joueur/.test(m.t) || (g.events || []).some((e) => e.c === c.id && e.player && e.state === 'scheduled' && (!m.ev || e.id === m.ev)));
+  }
   for (const iv of g.invites || []) if (iv.state === 'open' && t > iv.due - 5 * 60000) { iv.state = 'expired'; changed = true; } // never answered: no blame
   for (const ev of g.events || []) {
     if (ev.state !== 'scheduled' || t < ev.due + EVENT_GRACE * (ev.played ? 2 : 1) || onScreen(ev.id)) continue; // (0.27.6: a date being played is no stood-up date)
@@ -1961,6 +2075,7 @@ function checkEvents(g, t = Date.now(), onScreen = () => false) {
 function checkFakes(g, t = Date.now()) {
   let changed = false;
   for (const fk of g.fakes || []) {
+    if (fk.crowAt && t >= fk.crowAt) { if (fk.state !== 'busted') unlockAch(g, 'the-crow', t); fk.crowAt = 0; }
     if (fk.state !== 'live' || !fk.later || t < fk.later) continue;
     const c = g.chars[fk.c];
     if (!c) { fk.state = 'safe'; continue; }
@@ -2047,7 +2162,7 @@ function officialize(g, c, v, at) {
   if (fol > 0) { s.followers += fol; checkMilestones(g); }
   if (back > 0) c.followers += back;
   g.coupleHype = { c: c.id, until: Date.now() + 7 * 24 * 3600000, mult: ({ couple: 1.25, fiancailles: 1.35, mariage: 1.5 })[v] || 1.25 };
-  addNotif(g, { k: 'follow', at: t + 1500, text: `${v === 'mariage' ? 'Ton mariage' : v === 'fiancailles' ? 'Tes fiançailles' : 'Ton couple'} avec ${c.name} fait jaser : ${fol > 0 ? nAbonnes(fol, true) : 'tout le monde en parle'}${back > 0 ? `, et ${first} ${nAbonnes(back, true)}` : ''}. Vos prochaines vidéos seront très regardées.` });
+  addNotif(g, { k: 'follow', at: t + 1500, text: `${v === 'mariage' ? 'Ton mariage' : v === 'fiancailles' ? 'Tes fiançailles' : 'Ton couple'} avec ${c.name} ${v === 'fiancailles' ? 'font' : 'fait'} jaser : ${fol > 0 ? nAbonnes(fol, true) : 'tout le monde en parle'}${back > 0 ? `, et ${first} ${nAbonnes(back, true)}` : ''}. Vos prochaines vidéos seront très regardées.` });
   addTrigger(g, `Le joueur et @${c.handle} sont maintenant ${V.ai} : le réseau en parle (fans ravis, jaloux, rumeurs, médias).`, c.id);
   foesNotice(g, c, 'public', t); // 0.15: and whoever cannot stand them takes it badly
   for (const o of mains(g)) {
@@ -2548,7 +2663,8 @@ function addAmbientPost(g, o, at, ts, opts = {}) {
   if (opts.cool) {
     const media = a.startsWith('c:') && g.chars[a.slice(2)] && g.chars[a.slice(2)].kind === 'media';
     const since = Date.now() - (media ? 8 : 3) * 60000;
-    if (g.posts.some((p) => p.cd && p.a === a && p.ts >= since)) return null;
+    // (0.28.1: between two actions; two posts of one author in the same answer both stay: the second may carry a rumor)
+    if (g.posts.some((p) => p.cd && p.a === a && p.ts >= since && !(SRC && p.src === SRC))) return null;
   }
   const base = authorFollowers(g, a);
   const ch = a.startsWith('c:') ? g.chars[a.slice(2)] : null;
@@ -2661,10 +2777,12 @@ function unreadDMs(g, now, exceptId) {
   for (const id in g.dms) if (!skip.includes(id) && unreadDM(g, id, now) > 0) n++;
   return n;
 }
+// 0.28.1: over the last two days of the game, by how many posts carry it and how far they went (likes, reposts); the
+// player's own posts count like anyone's. The number shown is the posts that carry it.
 function trends(g, now) {
-  const counts = new Map();
+  const counts = new Map(), since = now - 48 * 3600000;
   for (const p of g.posts) {
-    if (p.at > now) continue;
+    if (p.at > now || p.at < since || p.pending) continue;
     const tags = p.text.match(TAG_RE);
     if (!tags) continue;
     const seen = new Set();
@@ -2672,12 +2790,13 @@ function trends(g, now) {
       const k = tg.toLowerCase();
       if (seen.has(k)) continue;
       seen.add(k);
-      const e = counts.get(k) || { tag: tg, n: 0 };
-      e.n += 1 + (p.a === 'p' ? 1 : 0);
+      const e = counts.get(k) || { tag: tg, n: 0, w: 0 };
+      e.n += 1;
+      e.w += 1 + Math.log10(1 + num(p.likeT, 0) + 3 * num(p.rpT, 0)) / 2;
       counts.set(k, e);
     }
   }
-  return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 5).map((e) => [e.tag, e.n]);
+  return [...counts.values()].sort((a, b) => b.w - a.w || b.n - a.n).slice(0, 5).map((e) => [e.tag, e.n]);
 }
 function postsWithTag(g, tg, now) {
   const k = tg.toLowerCase();
@@ -2689,9 +2808,11 @@ function applyAbsence(g, away, skip = false) {
   const s = g.stats;
   const hours = Math.min(48, away / 3600000);
   const factor = s.cancelled ? -0.8 : s.reputation >= 40 ? 1 : 0.3;
-  const gain = grow(s.followers, Math.round((0.03 * reachOf(s.followers) + 2 + s.level) * hours * factor)); // 0.20: the bigger, the slower
+  const gain0 = grow(s.followers, Math.round((0.03 * reachOf(s.followers) + 2 + s.level) * hours * factor)); // 0.20: the bigger, the slower
+  const before = s.followers;
+  s.followers = Math.max(0, s.followers + gain0);
+  const gain = s.followers - before; // (0.28.1: what really moved: nobody left to lose is no loss)
   if (!gain) return 0;
-  s.followers = Math.max(0, s.followers + gain);
   addNotif(g, { k: gain > 0 ? 'milestone' : 'unfollow', text: `${skip ? 'En accéléré' : 'Pendant ton absence'} : ${nAbonnes(gain, true)}` });
   checkMilestones(g);
   checkQuests(g);
@@ -2799,7 +2920,7 @@ function pruneGame(g) {
     }
   }
   for (const p of g.posts) if (p.replies.length > 24) p.replies = p.replies.slice(-24);
-  for (const id in g.dms) { const c = g.dms[id]; if (c.msgs.length > 60) c.msgs = c.msgs.slice(-60); }
+  for (const id in g.dms) { const c = g.dms[id]; if (c.msgs.length > 60) { c.msgs = c.msgs.slice(-60); c.trimmed = true; } } // (0.28.1: said at its top)
   const used = new Set();
   const mark = (a) => { if (a && a.startsWith('n:')) used.add(a.slice(2)); };
   for (const p of g.posts) { mark(p.a); if (p.q) mark(p.q.a); for (const r of p.replies) mark(r.a); }
@@ -2850,7 +2971,8 @@ function saveFailed(e) {
   const t = Date.now();
   if (t - saveFailAt < 10 * 60000) return;
   saveFailAt = t;
-  toast('Ta partie n’a pas pu être sauvegardée. Exporte-la pour ne rien perdre.', 'bad', S.game ? { label: 'Exporter', run: () => exportGame(S.game.id) } : null);
+  // (0.28.1: the export works everywhere now: a file in the PC app, the text to copy or download in Claude)
+  toast('Ta partie n’a pas pu être sauvegardée. Exporte-la pour ne rien perdre.', 'bad', S.game ? { label: 'Exporter', run: () => exportAny(S.game.id) } : null);
 }
 /* ---------- quick saves: three slots, plus one taken automatically before a risky action ---------- */
 const SAVE_SLOTS = ['1', '2', '3'];
@@ -2888,8 +3010,9 @@ function snapshotOf(g) {
 }
 async function writeSave(g, slot, label) {
   const meta = { slot, at: Date.now(), label: label || saveLabel(g), lvl: g.stats.level, fol: g.stats.followers, auto: AUTO_SLOTS.includes(slot) };
-  const body = { v: 1, meta, game: snapshotOf(g) };
+  const body = { v: 1, meta, game: snapshotOf(g) }, off0 = g.clockOff || 0;
   await Store.write(`g_${g.id}_save_${slot}`, body);
+  meta.at -= (g.clockOff || 0) - off0; // 0.28.1: the clock jumped while it was written (« Avant d’avancer de 7 jours »): 7 days older
   g.saves = (g.saves || []).filter((x) => x.slot !== slot).concat(meta); // 0.14: listed only once it is really there
 }
 // Before a risky action (a call-out, a release, a date, a long skip): the player can take it back.
@@ -2930,8 +3053,26 @@ function saveGame(g) {
 }
 // Byte caps per document: 230 KB in the db (256 KiB limit), 110 KB in localStorage (~5 MB for every game together).
 const docCap = () => (Store.mode === 'db' ? 230000 : 110000);
-async function writeGame(g, retried = false) {
-  if (deletedIds.has(g.id)) return;
+// 0.28.1: while an answer of the AI is still coming (the tab closed, the page reloaded, a snapshot), what is saved is the
+// game as if it had not been sent yet: a post without what it brought, a present paid without being given never stay.
+function settledGame(g) {
+  const live = [...FLOWS].filter((f) => f.g === g && typeof f.undo === 'function');
+  if (!live.length) return g;
+  const h = cloneJSON(g);
+  for (const f of live) { try { f.undo(h); } catch (e) { console.warn('settle', e && e.message); } }
+  return h;
+}
+// 0.28.1: how many times each open game was saved (another tab or device that saved it since this one read it wins:
+// this one stops saving it, and says so).
+const REV = {};
+const revDoc = (id) => 'g_' + id + '_rev';
+const revLost = new Set();
+async function writeGame(g0, retried = false) {
+  if (deletedIds.has(g0.id) || revLost.has(g0.id)) return;
+  let cur = null;
+  try { cur = await Store.read(revDoc(g0.id)); } catch (e) { cur = null; }
+  if (cur && num(cur.rev, 0) > (REV[g0.id] || 0)) { revLost.add(g0.id); revConflict(g0); return; }
+  const g = settledGame(g0);
   pruneGame(g);
   if (coreSize(g) > docCap()) compactCore(g, docCap() - 2000, () => coreSize(g)); // 0.14: or the whole save would fail
   const { posts, dms, updatedAt, ready, ...core } = g;
@@ -2966,9 +3107,16 @@ async function writeGame(g, retried = false) {
     throw e;
   }
   if (wrote) {
-    g.updatedAt = Date.now();
-    await writeIndex(g);
+    REV[g0.id] = (REV[g0.id] || 0) + 1;
+    try { await Store.write(revDoc(g0.id), { rev: REV[g0.id], at: Date.now() }); } catch (e) { /* (the next save says it again) */ }
+    g0.updatedAt = Date.now();
+    await writeIndex(g0);
   }
+}
+// Another tab or device went further with this game: this tab must not undo it. Reloading takes the newer one.
+function revConflict(g) {
+  if (S.game !== g) return;
+  queueModal({ t: 'revlost', at: Date.now() });
 }
 async function writeIndex(g, force = false) {
   if (!indexOK) return; // never overwrite a list we could not read
@@ -2993,8 +3141,10 @@ async function writeIndex(g, force = false) {
 }
 // Rejects when a document could not be read: the caller must not enter (and later save) a partial game.
 async function loadGameData(id) {
-  const [core, feed, dms] = await Promise.all([Store.read('g_' + id), Store.read('g_' + id + '_feed'), Store.read('g_' + id + '_dms')]);
+  const [core, feed, dms, rev] = await Promise.all([Store.read('g_' + id), Store.read('g_' + id + '_feed'), Store.read('g_' + id + '_dms'), Store.read(revDoc(id)).catch(() => null)]);
   if (!core) return null;
+  REV[id] = rev ? num(rev.rev, 0) : 0; // (0.28.1: what this tab read)
+  revLost.delete(id);
   for (const k of Object.keys(lastWritten)) if (k.startsWith('g_') && !k.startsWith('g_' + id)) delete lastWritten[k]; // only the open game is cached
   lastWritten['g_' + id] = JSON.stringify(core);
   if (feed) lastWritten['g_' + id + '_feed'] = JSON.stringify(feed);
@@ -3011,9 +3161,11 @@ async function exportGameText(id) {
   core.saves = [];
   dropUnplayed(core);
   const media = await mediaExport(g).catch(() => ({})); // the player's own photos travel with the game
-  return JSON.stringify(Object.assign({ format: EXPORT_FORMAT, version: 1, exportedAt: Date.now(), from: AI_NAME, core, feed: { posts }, dms: { dms } }, Object.keys(media).length ? { media } : {}));
+  return JSON.stringify(Object.assign({ format: EXPORT_FORMAT, version: 2, exportedAt: Date.now(), from: AI_NAME, core, sum: exportSum(core), feed: { posts }, dms: { dms } }, Object.keys(media).length ? { media } : {}));
 }
 const exportName = (s) => 'hype-' + String((s && (s.world + '-' + s.name)) || 'partie').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) + '.json';
+// 0.28.1: the export's fingerprint (a file changed by hand no longer matches it: its game keeps its achievements to itself)
+const exportSum = (core) => hashStr('hype-partie·' + JSON.stringify(core)).toString(36);
 // Comes back as a new game (its own id): importing the same file twice gives two games, never a clash.
 async function importGameText(text) {
   let d = null;
@@ -3022,6 +3174,7 @@ async function importGameText(text) {
   if (S.games.length >= MAX_GAMES) throw { code: 'full' };
   const g = migrate(Object.assign({}, d.core, { posts: d.feed && Array.isArray(d.feed.posts) ? d.feed.posts : [], dms: d.dms && d.dms.dms && typeof d.dms.dms === 'object' ? d.dms.dms : {} }));
   g.media = [];
+  if (d.sum == null || d.sum !== exportSum(d.core)) ensureAch(g).cheated = 1; // (0.28.1: no fingerprint, or another one: it may have been changed by hand)
   if (d.media) await mediaImport(g, g, d.media).catch(() => {}); // its photos, as copies of its own
   g.id = uid('g');
   g.saves = [];
@@ -3033,7 +3186,7 @@ async function importGameText(text) {
 // then the list of games is written without it. Resolves true only when all of that is done.
 function deleteGame(id) {
   deletedIds.add(id);
-  const names = ['g_' + id, 'g_' + id + '_feed', 'g_' + id + '_dms', ...SAVE_SLOTS.concat(AUTO_SLOTS).map((k) => `g_${id}_save_${k}`)];
+  const names = ['g_' + id, 'g_' + id + '_feed', 'g_' + id + '_dms', revDoc(id), ...SAVE_SLOTS.concat(AUTO_SLOTS).map((k) => `g_${id}_save_${k}`)];
   const still = async (list) => { try { return (await Promise.all(list.map(async (n) => ((await Store.read(n)) ? n : null)))).filter(Boolean); } catch (e) { return list; } };
   const job = saving.then(async () => {
     // the portraits the player imported live in their own documents

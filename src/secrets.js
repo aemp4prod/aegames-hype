@@ -480,7 +480,8 @@ function SecretModal({ m, g, close }) {
       ${c ? html`<div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${c.name}</b><span>apporte la preuve que c’est vrai</span></div></div>` : null}
       <div class="evidence"><span class="ev-kind">${S0.emoji} ${S0.label}</span><span class="ev-desc">« ${s.t} »</span></div>
       <div class="rewards">${m.rep ? html`<span class="chip bad">${repWord(m.rep / 10)}</span>` : null}${m.loss ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Bad buzz</span></div>
-      <p>Le secret, plus le mensonge : tout le monde t’en veut un peu plus. Des excuses sincères, plus tard, pourraient aider.</p>
+      <p>Le secret, plus le mensonge : tout le monde t’en veut un peu plus. Des excuses sincères pourraient aider.</p>
+      ${(() => { const wait = APOLOGY_COOLDOWN - (Date.now() - (g.apologyAt || 0)); return html`<button class="btn btn-hot" disabled=${wait > 0} onClick=${() => { close(); openCompose({ apology: true }); }}>${wait > 0 ? 'Excuses possibles dans ' + fmtClock(wait) : 'M’excuser'}</button>`; })()}
       <button class="btn btn-ghost" onClick=${close}>Encaisser</button>
     </div>`;
   }

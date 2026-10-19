@@ -162,7 +162,7 @@ function AutoSendBar({ left, cancel }) {
 }
 function RichText({ text, g }) {
   const parts = [];
-  const re = /(@[A-Za-z0-9._]{2,30}|#[\p{L}\p{N}_]{2,40})/gu;
+  const re = /(@[A-Za-z0-9._]{2,30}|#[\p{L}\p{N}_]{2,40}(?![\p{L}\p{N}_]))/gu; // (0.28.1: longer than 40, it is no hashtag: never cut in two)
   let last = 0, m, k = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push(...emoParts(text.slice(last, m.index), 't' + k++ + '-')); // 0.17: our stickers
@@ -209,6 +209,8 @@ function goTab(t) {
 function openLayer(l) {
   const top = S.stack[S.stack.length - 1];
   if (top && top.t === l.t && top.id === l.id) return;
+  const open = S.stack.find((x) => x.t === l.t && x.id === l.id); // 0.28.1: already open lower down: it comes to the front
+  if (open) { raiseLayer(open); if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now(); return; }
   const docked = S.dock.find((x) => x.t === l.t && x.id === l.id); // 0.27.7: put aside: it comes back as it was left
   if (docked) { unminLayer(docked); return; }
   const out = (S.os || []).find((x) => x.t === l.t && x.id === l.id); // 0.27.9: out of the game: that window comes to the front
@@ -219,10 +221,12 @@ function openLayer(l) {
   update(false);
 }
 const resetComposeExtras = () => Object.assign(S.drafts, { photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [] });
-function closeLayer() {
+// which: the window whose « Retour » or veil was clicked (0.28.1: that one, not the top one); none (Échap): the top one.
+function closeLayer(which) {
   const o = osActive(); // 0.27.9: a close asked from a window out of the game closes that one
   if (o) { osClose(o); return; }
-  const l = S.stack.pop();
+  const k = which && which.key ? S.stack.indexOf(which) : -1;
+  const l = k >= 0 ? S.stack.splice(k, 1)[0] : S.stack.pop();
   if (l && l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
   if (l && l.t === 'compose') resetComposeExtras();
   if (S.ideas && (!l || l.t === 'compose' || S.ideas.key === l.id)) S.ideas = null;
@@ -245,6 +249,9 @@ function closeAllLayers() {
    resizes, but stays in front, blocks the rest, and is never put aside. On a phone: put aside only. ---------- */
 const WinCtx = createContext(null);
 const WIN_MIN_W = 320, WIN_MIN_H = 240;
+const WIN_MIN_HT = { dm: 380, thread: 360 }; // 0.28.1: a conversation keeps room for its messages above its box
+const winMinH = (t) => WIN_MIN_HT[t] || WIN_MIN_H;
+const WIN_GRAB = 240; // 0.28.1: pushed to the left, its logo and its title stay in view to catch it back
 const winWide = () => typeof window !== 'undefined' && window.innerWidth >= 720; // (0.27.9: from a small laptop or a zoomed app on, not only big screens)
 let winWas = winWide(); // (0.27.9: the game window resized across the line: the windows' buttons follow)
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => { const w = winWide(); if (w !== winWas) { winWas = w; update(false); } });
@@ -260,16 +267,17 @@ const layerCovers = () => S.stack.some((l) => !winFloats(l)); // a window over t
 // Where a kind of window floats: where it was left, always reachable on this screen.
 // A window's own place once moved (l.win); a new one takes its kind's, a step aside from the others of its kind.
 function winOf(l) {
-  if (l.win) return winRect(null, l.win);
+  if (l.win) return winRect(l.t, l.win);
   const n = S.stack.filter((x) => x !== l && x.t === l.t && S.stack.indexOf(x) < S.stack.indexOf(l) && winFloats(x)).length;
   const R = winRect(l.t);
-  return n ? winRect(null, Object.assign({}, R, { x: R.x + 28 * n, y: R.y + 28 * n })) : R;
+  return n ? winRect(l.t, Object.assign({}, R, { x: R.x + 28 * n, y: R.y + 28 * n })) : R;
 }
 function winRect(t, own) {
   const W = own || winStore()[t] || {}, V = viewBox(), vw = V.w, vh = V.h; // (0.27.10: under Hype's bar in the PC app)
+  const mh = winMinH(t);
   const w = clamp(Math.round(W.w || Math.min(600, vw - 80)), WIN_MIN_W, Math.max(WIN_MIN_W, vw - 16));
-  const h = clamp(Math.round(W.h || Math.min(760, vh - 60)), WIN_MIN_H, Math.max(WIN_MIN_H, vh - 16));
-  const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), 120 - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - WIN_BAR));
+  const h = clamp(Math.round(W.h || Math.min(760, vh - 60)), mh, Math.max(mh, vh - 16));
+  const x = clamp(Math.round(W.x != null ? W.x : (vw - w) / 2), WIN_GRAB - w, vw - 120), y = clamp(Math.round(W.y != null ? W.y : (vh - h) / 2), 0, Math.max(0, vh - WIN_BAR));
   return { x, y, w, h, float: !!W.float };
 }
 function minLayer(l) {
@@ -301,7 +309,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -336,7 +344,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the Claude version keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -521,12 +529,13 @@ function tabBadge(g, id, now) {
   return 0;
 }
 // Among the modals that are due, the most important first: a cancel before a level-up.
-const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
+const MODAL_RANK = { revlost: 0, confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
 function dueModal(now) {
   if (now < S.modalGapUntil) return null;
   let best = null;
   const playing = inMiniGame(); // 0.18: nobody knocks during a shoot or a date being played (0.27.6: and nothing else pops up over it but what the player asked: a confirmation, the saves)
-  for (const m of S.modals) if (m.at <= now && !(playing && (MODAL_RANK[m.t] ?? 9) > 0) && (!best || (MODAL_RANK[m.t] ?? 9) < (MODAL_RANK[best.t] ?? 9))) best = m;
+  const top = S.stack[S.stack.length - 1], talking = !!(top && (top.t === 'dm' || top.t === 'compose')); // 0.28.1: a level-up and the like wait for the conversation or the post in front (its card, its « Accepter »)
+  for (const m of S.modals) if (m.at <= now && !(playing && (MODAL_RANK[m.t] ?? 9) > 0) && !(talking && (MODAL_RANK[m.t] ?? 9) >= 3) && (!best || (MODAL_RANK[m.t] ?? 9) < (MODAL_RANK[best.t] ?? 9))) best = m;
   return best;
 }
 function closeModal(m) { S.modals = S.modals.filter((x) => x !== m); S.modalGapUntil = Date.now() + 700; update(false); }
@@ -567,10 +576,13 @@ function enterGame(g, restore = {}) {
   osDropAll();
   g.ready = true;
   syncEnergy(g);
+  const kept = !restore.hot && S.deskBy && S.deskBy[g.id]; // 0.28.1: back from « Mes parties »: what was being written, the windows put aside
+  if (S.deskBy) delete S.deskBy[g.id];
+  TOAST_Q.length = 0;
   Object.assign(S, {
-    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], dock: [], pubDrafts: {}, setupDrafts: {}, modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
+    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], dock: kept ? kept.dock : [], pubDrafts: kept ? kept.pubDrafts : {}, setupDrafts: kept ? kept.setupDrafts : {}, modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
     feedSeenAt: t, feedAtTop: true, lastToastAt: t, notifSeenBefore: g.notifReadAt,
-    drafts: { post: '', photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], reply: {}, dm: {}, confess: null, secAns: null, conf: {} }, replyTo: {}, autoSkip: {}, catchup: null,
+    drafts: kept ? kept.drafts : { post: '', photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], reply: {}, dm: {}, confess: null, secAns: null, conf: {} }, replyTo: kept ? kept.replyTo : {}, autoSkip: {}, catchup: null,
   });
   refreshTrends(g, t);
   for (const k in SCROLL) delete SCROLL[k];
@@ -588,7 +600,12 @@ function enterGame(g, restore = {}) {
 }
 function leaveGame() {
   const g = S.game;
-  if (g) g.lastSeenAt = Date.now();
+  if (g) { // 0.28.1: kept for this visit, for when the game is opened again (« Rien ne se perd »)
+    g.lastSeenAt = Date.now();
+    if (!S.deskBy) S.deskBy = {};
+    S.deskBy[g.id] = { drafts: S.drafts, pubDrafts: S.pubDrafts || {}, setupDrafts: S.setupDrafts || {}, replyTo: S.replyTo || {}, dock: S.dock.filter((l) => !l.os) };
+  }
+  TOAST_Q.length = 0;
   osDropAll();
   Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -597,6 +614,7 @@ function leaveGame() {
 }
 async function removeGame(g) {
   const id = g.id;
+  if (S.deskBy) delete S.deskBy[id];
   osDropAll();
   Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -625,6 +643,7 @@ async function renameGameById(id, name) {
 async function removeGameById(id) {
   if (S.game && S.game.id === id) return removeGame(S.game);
   const sm = S.games.find((x) => x.id === id) || null;
+  if (S.deskBy) delete S.deskBy[id]; // (0.28.1: what was kept of it for this visit)
   deletedIds.add(id);
   S.games = S.games.filter((x) => x.id !== id); // out of the list at once
   update(false);
@@ -649,9 +668,10 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
+      if (S.fileBox) { S.fileBox = null; update(false); return; } // (0.28.1: the export or import window)
       const m = S.phase === 'game' ? dueModal(Date.now()) : null;
       if (m) { if (!STICKY_MODALS.includes(m.t)) closeModal(m); } // 0.18: a visit is not closed that way
-      else if (S.stack.length) closeLayer();
+      else if (S.stack.length) { const top = S.stack[S.stack.length - 1]; if (top.onBack) top.onBack(); else closeLayer(); } // (0.28.1: a page of its own, a photo open: back to the grid first)
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -663,7 +683,7 @@ function App() {
   else if (S.phase === 'game' && S.game) main = html`<${Game} g=${S.game} now=${now} />`;
   else if (S.phase === 'atelier') main = html`<${Atelier} now=${now} />`;
   else main = html`<${Splash} />`;
-  const body = html`${main}<${HostModal} /><${Toasts} now=${now} />`;
+  const body = html`${main}<${HostModal} /><${FileBox} /><${Toasts} now=${now} />`;
   return APP_FRAMED && !APP_ST.full ? html`<${AppBar} /><div class="app-body">${body}</div>` : APP_FRAMED ? html`<div class="app-body">${body}</div>` : body; // (0.27.10)
 }
 function Splash() {
@@ -673,20 +693,55 @@ function Splash() {
 // conversation, a thread), so they never cover the clock or a conversation's header, nor what is being typed.
 function toastBottom() {
   if (typeof document === 'undefined' || typeof window === 'undefined') return null;
-  const layers = document.querySelectorAll('.layer');
+  if (document.querySelector('.modal .modal-card')) return 16; // (0.28.1: a window in front: under it, where there is room, see toastHold)
+  const layers = document.querySelectorAll('.layer:not(.min)'); // (0.28.1: a window put aside is not the one in front)
   const top = layers.length ? layers[layers.length - 1] : null;
   const fab = top ? null : document.querySelector('.shell .fab:not(.away)'); // (the pen: just above it)
   const bar = top ? top.querySelector('.layer-foot') : fab && fab.offsetParent ? fab : document.querySelector('.shell .tabbar');
-  if (!bar || !bar.offsetParent) return 24;
-  return Math.max(12, Math.round(window.innerHeight - bar.getBoundingClientRect().top + 10));
+  let b = !bar || !bar.offsetParent ? 24 : Math.max(12, Math.round(window.innerHeight - bar.getBoundingClientRect().top + 10));
+  const dock = (!top || top.classList.contains('float')) && document.querySelector('.win-dock'); // 0.28.1: above the windows put aside, too
+  const dr = dock ? dock.getBoundingClientRect() : null;
+  if (dr && dr.height) b = Math.max(b, Math.round(window.innerHeight - dr.top + 10));
+  return b;
+}
+// 0.28.1: the toasts wait their turn: two at a time, the others after (their time starts when they show), an
+// achievement or a quest first. None over the buttons of a window in front (they wait for it), none lost in a burst.
+const TOAST_ON = 2;
+const TOAST_BUSY = 3500; // (others waiting: the ones on screen make room after that long)
+const TOAST_STALE = 20000; // (waited that long: old news, its notification stays in the tab; never an achievement or a quest)
+const TOAST_Q = []; // the notifications' toasts, let in as room is made (the game keeps four at most)
+const toastFirst = (x) => !!(x.pri || (x.action && x.action.ach) || /^Quête réussie/.test(x.text || ''));
+// A modal whose buttons would be under the toasts (no room left under its card): they wait for it to close.
+function toastHold() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+  const card = document.querySelector('.modal .modal-card');
+  return !!card && window.innerHeight - card.getBoundingClientRect().bottom < 140;
+}
+// What must be read whatever the rush: an achievement, a quest, and a warning with something to do (« Exporter »)
+const toastKeep = (x) => toastFirst(x) || !!(x.action && x.kind === 'bad');
+function toastsOn(now) {
+  const shown = S.phase === 'game' ? dmsShown() : [];
+  const hold = toastHold(), wait = [];
+  let on = [];
+  for (const x of S.toasts) {
+    if (x.from > now || (x.action && x.action.dm && shown.includes(x.action.dm))) continue; // (no « X t’a écrit » over X’s conversation)
+    if (!x.seen) x.seen = now;
+    if (x.on && !hold) { if (x.until > now) on.push(x); }
+    else if (!x.on && !toastKeep(x) && now - x.seen > TOAST_STALE) x.until = 0; // (gone with the next tick)
+    else wait.push(x);
+  }
+  if (wait.length && !hold) { for (const x of on) if (!toastKeep(x)) x.until = Math.min(x.until, x.from + TOAST_BUSY); on = on.filter((x) => x.until > now); }
+  wait.sort((a, b) => (toastFirst(b) - toastFirst(a)) || (toastFirst(a) ? b.seen - a.seen : 0)); // (an achievement or a quest first, the latest first; the rest in order)
+  while (!hold && on.length < TOAST_ON && wait.length) { const x = wait.shift(), d = x.until - x.from; Object.assign(x, { on: true, from: now, until: now + d }); on.push(x); }
+  for (const x of wait) { const d = x.until - x.from; x.from = now; x.until = now + d; } // (waiting: their time has not started)
+  return on;
 }
 function Toasts({ now }) {
-  const shown = S.phase === 'game' ? dmsShown() : [];
-  const list = S.toasts.filter((t) => t.from <= now && t.until > now && !(t.action && t.action.dm && shown.includes(t.action.dm))).slice(-2); // no « X t’a écrit » over X’s conversation
+  const list = toastsOn(now);
   if (!list.length) return null;
   const b = toastBottom();
   return html`<div class="toasts" role="status" aria-live="polite" style=${b == null ? undefined : 'bottom:' + b + 'px'}>${list.map((t) => html`<div key=${t.id} class=${'toast ' + t.kind} onClick=${() => { t.until = 0; update(false); }}>
-    <span>${emoParts(t.text)}</span>
+    ${t.action && t.action.ach && ACH_BY[t.action.ach] ? html`${achIcon(ACH_BY[t.action.ach], 24, 'toast-ic')}<span>${emoParts(t.text.replace(/^🏆\s*/, ''))}</span>` : html`<span>${emoParts(t.text)}</span>`}
     ${t.action ? html`<button onClick=${stop(() => { t.until = 0; t.action.run(); update(false); })}>${t.action.label}</button>` : null}
   </div>`)}</div>`;
 }
@@ -726,8 +781,83 @@ async function importGame() {
   try { f = await HOST.openFile(); } catch (e) { f = null; }
   if (!f || !f.text) return;
   try { const g = await importGameText(f.text); toast(`Partie importée : ${g.world.emoji} ${g.world.name}.`, 'good'); }
-  catch (e) { toast(e && e.code === 'full' ? `Tu as déjà ${MAX_GAMES} parties : supprime-en une d’abord.` : e && e.code === 'invalid' ? 'Ce fichier n’est pas une partie Hype.' : 'L’import n’a pas marché. Réessaie.', 'bad'); }
+  catch (e) { toast(importErr(e), 'bad'); }
   update(false);
+}
+const importErr = (e, what = 'Ce fichier') => (e && e.code === 'full' ? `Tu as déjà ${MAX_GAMES} parties : supprime-en une d’abord.` : e && e.code === 'invalid' ? `${what} n’est pas une partie Hype.` : 'L’import n’a pas marché. Réessaie.');
+// 0.28.1: without the app's files (the Claude version), the game as text: copied, or downloaded where the page may,
+// and back by pasting it or picking its file. (canFiles still means the app's own files: a failed save offers « Exporter »
+// only with them.)
+function exportAny(id) {
+  if (canFiles()) { exportGame(id); return; }
+  S.fileBox = { mode: 'export', id, text: null, err: null, note: null };
+  update(false);
+  exportGameText(id).then((t) => { if (S.fileBox && S.fileBox.id === id) { S.fileBox.text = t; update(false); } },
+    () => { if (S.fileBox && S.fileBox.id === id) { S.fileBox.err = 'L’export n’a pas marché. Réessaie.'; update(false); } });
+}
+function importAny() {
+  if (canFiles()) { importGame(); return; }
+  S.fileBox = { mode: 'import', text: '', err: null, file: false, busy: false };
+  update(false);
+}
+function FileBox() {
+  const b = S.fileBox;
+  const [dl, setDl] = useState(null); // the page's downloads, where it has them
+  const mode = b ? b.mode : null;
+  useEffect(() => {
+    let on = true;
+    const c = typeof window !== 'undefined' ? window.claude : null;
+    if (mode === 'export' && c && typeof c.use === 'function') Promise.resolve().then(() => c.use('downloads')).then((d) => { if (on) setDl(d || null); }, () => {});
+    return () => { on = false; };
+  }, [mode]);
+  if (!b) return null;
+  const close = () => { S.fileBox = null; update(false); };
+  const note = (t) => { b.note = t; update(false); };
+  const sm = () => S.games.find((x) => x.id === b.id) || (S.game && S.game.id === b.id ? summarize(S.game) : null);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(b.text); note('Copié : colle-le là où tu veux la garder.'); }
+    catch (e) { const el = document.querySelector('.file-box .fb-text'); if (el) { el.focus(); el.select(); } note('Le texte est sélectionné : copie-le.'); }
+  };
+  const save = async () => {
+    try { await dl.save({ filename: exportName(sm()), data: b.text }); note('Partie téléchargée : « Importer une partie » la reprend, dans Hype pour Claude ou pour ChatGPT.'); }
+    catch (e) { note('Le téléchargement n’a pas pu se faire : copie le texte à la place.'); }
+  };
+  const pick = (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { Object.assign(b, { text: String(r.result || ''), err: null, file: true }); update(false); };
+    r.onerror = () => { b.err = 'Impossible de lire ce fichier.'; update(false); };
+    r.readAsText(f);
+  };
+  const go = async () => {
+    if (b.busy || !b.text.trim()) return;
+    b.busy = true;
+    update(false);
+    try { const g = await importGameText(b.text.trim()); S.fileBox = null; toast(`Partie importée : ${g.world.emoji} ${g.world.name}.`, 'good'); }
+    catch (e) { b.err = importErr(e, b.file ? 'Ce fichier' : 'Ce texte'); }
+    b.busy = false;
+    update(false);
+  };
+  const card = b.mode === 'export' ? html`<div class="modal-card">
+      <div class="modal-title">Exporter la partie</div>
+      <p>Garde ce texte : « Importer une partie » le reprend, dans Hype pour Claude ou pour ChatGPT.</p>
+      ${b.err ? html`<p class="err">${b.err}</p>` : b.text == null ? html`<${Typing} />` : html`<textarea class="input fb-text" rows="5" readOnly value=${b.text} aria-label="Le texte de ta partie" onFocus=${(e) => e.target.select()}></textarea>`}
+      <button class="btn btn-hot" onClick=${copy} disabled=${!b.text}>Copier</button>
+      ${dl && typeof dl.save === 'function' ? html`<button class="btn btn-ghost" onClick=${save} disabled=${!b.text}><${Icon} n="download" s=${16} /> Télécharger</button>` : null}
+      ${b.note ? html`<small class="muted">${b.note}</small>` : null}
+      <button class="btn btn-ghost" onClick=${close}>Fermer</button>
+    </div>` : html`<div class="modal-card">
+      <div class="modal-title">Importer une partie</div>
+      <p>Colle le texte d’une partie exportée, ou choisis son fichier. Elle arrive à côté des autres, sans rien remplacer.</p>
+      <textarea class="input fb-text" rows="5" value=${b.text} placeholder="Le texte de ta partie" aria-label="Le texte de ta partie" onInput=${(e) => { Object.assign(b, { text: e.target.value, err: null, file: false }); update(false); }}></textarea>
+      <label class="btn btn-ghost btn-sm fb-file"><${Icon} n="upload" s=${15} /> Choisir un fichier<input type="file" accept=".json,application/json" onChange=${pick} /></label>
+      ${b.err ? html`<small class="err">${b.err}</small>` : null}
+      <button class="btn btn-hot" onClick=${go} disabled=${b.busy || !b.text.trim()}>${b.busy ? html`<${Typing} />` : 'Importer'}</button>
+      <button class="btn btn-ghost" onClick=${close}>Annuler</button>
+    </div>`;
+  return html`<div class="modal file-box" role="dialog" aria-modal="true" aria-label=${b.mode === 'export' ? 'Exporter la partie' : 'Importer une partie'} onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>${card}</div>`;
 }
 
 /* ---------- ChatGPT (desktop app): the way in, the account, the plan in use ---------- */
@@ -846,14 +976,14 @@ function Home({ now }) {
           <button class="save-del" onClick=${() => setDel({ s, at: Date.now() })} disabled=${S.busy.load} aria-label=${`Supprimer la partie ${s.world} · ${s.name}`} title="Supprimer cette partie"><${Icon} n="trash" s=${18} /></button>
         </div>`)}</div>
         ${full ? html`<p class="muted">Tu as atteint ${MAX_GAMES} parties. Pour en créer une autre, supprime-en une avec la corbeille.</p>` : null}
-        ${canFiles() || (creatorOn() && atelierHere()) ? html`<div class="row">${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${importGame} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>` : null}
+        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${importAny} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>
       </section>`
       : html`<section class="hero">
         <span class="wm wm-xl">hype<i></i></span>
         <h1 class="h-xl">Ta vie en ligne, version jeu.</h1>
         <p class="lede">Crée ton perso, choisis un monde et poste. Tout le monde est une IA sauf toi : on te répond, on s’abonne, on s’attache… ou on te cancel.</p>
         ${HOST ? html`<${GptPanel} />` : null}
-        <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button>${canFiles() ? html`<button class="btn btn-ghost" onClick=${importGame} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
+        <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button><button class="btn btn-ghost" onClick=${importAny} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
       </section>
       <section class="preview" aria-label="Aperçu d’une partie">
         <div class="preview-tag"><span>Aperçu · exemple de partie</span><span>Académie Lumen</span></div>
@@ -883,6 +1013,8 @@ function validatePersona(P) {
   if (normHandle(P.handle).length < 3) e.handle = 'Ton pseudo doit faire au moins 3 caractères.';
   if (str(P.identity, 200).length < 4) e.identity = 'Dis en quelques mots qui tu es dans ce monde.';
   if (!P.adult) e.adult = 'Hype est réservé aux 18 ans et plus : coche la case pour continuer.';
+  // 0.28.1: a secret too short to keep is said, not dropped without a word (what cleanSecrets keeps: 6 characters)
+  if ((P.secrets || []).some((x) => { const t = str(x && x.t, 200).replace(/^[«"“]\s*|\s*[»"”]$/g, ''); return t.length > 0 && t.length < 6; })) e.secrets = 'Ton secret : quelques mots, au moins 6 caractères.';
   return e;
 }
 function obBack() {
@@ -891,14 +1023,14 @@ function obBack() {
   if (ob.step === 'world') { S.ob = null; S.phase = 'home'; }
   else if (ob.step === 'persona') ob.step = 'world';
   else if (ob.step === 'creating' && ob.error) { ob.step = 'persona'; ob.error = null; }
-  else if (ob.step === 'cast' && ob.resumed) { S.ob = null; S.phase = 'home'; }
+  else if (ob.step === 'cast') { S.ob = null; S.phase = 'home'; } // (0.28.1: always: the game waits there, « À finir »)
   update(false);
 }
 function Onboarding({ now }) {
   const ob = S.ob;
   if (!ob) return null;
   const idx = { world: 0, persona: 1, creating: 2, cast: 2 }[ob.step] || 0;
-  const canBack = ob.step === 'world' || ob.step === 'persona' || (ob.step === 'creating' && ob.error) || (ob.step === 'cast' && ob.resumed);
+  const canBack = ob.step === 'world' || ob.step === 'persona' || (ob.step === 'creating' && ob.error) || ob.step === 'cast';
   let body;
   if (ob.step === 'world') body = html`<${WorldStep} />`;
   else if (ob.step === 'persona') body = html`<${PersonaStep} />`;
@@ -1021,6 +1153,7 @@ function PersonaStep() {
       <input id="pb" class="input" maxlength="140" value=${P.bio} onInput=${(e) => set('bio', e.target.value)} placeholder="Ce qu’on lit sur ton profil" autocomplete="off" />
     </div>
     <${SecretsField} list=${P.secrets || []} onChange=${(v) => set('secrets', v)} />
+    ${errs.secrets ? html`<span class="err secrets-err">${errs.secrets}</span>` : null}
     <div class="field">
       <span class="lbl">Point de départ</span>
       <div class="starts">${Object.entries(START).map(([k, v]) => html`<button type="button" key=${k} class=${'start' + (P.start === k ? ' on' : '')} onClick=${() => set('start', k)} aria-pressed=${P.start === k ? 'true' : 'false'}><b>${v.label}</b><span>${v.desc}</span><em>${nAbonnes(v.followers)}</em></button>`)}</div>
@@ -1123,7 +1256,7 @@ function CastStep() {
       <header><${Avatar} who=${author(g, 'c:' + c.id)} size=${40} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></header>
     </article>`)}</div></section>` : null}
     ${story.length ? html`<section class="stack"><h2 class="h-md">Tes premières quêtes</h2>${story.map((q) => html`<div class="notice" key=${q.id}><${Icon} n="trophy" /><div class="stack" style="gap:2px"><b style="color:var(--ink)">${q.title}</b><p>${q.desc}</p></div></div>`)}</section>` : null}
-    <div class="cast-cta"><button class="btn btn-hot btn-block" disabled=${!picked} onClick=${() => enterNewGame(pickId)}>${picked ? `Entrer avec ${picked.name.split(' ')[0]} comme premier abonné` : 'Choisis ton premier abonné'}</button></div>`;
+    <div class="cast-cta"><button class="btn btn-hot btn-block" disabled=${!picked} onClick=${() => enterNewGame(pickId)}>${picked ? `Entrer avec ${picked.name.split(' ')[0]} comme ${gx(picked.g, 'premier abonné', 'première abonnée', 'premier·e abonné·e')}` : 'Choisis ton premier abonné'}</button></div>`;
 }
 
 /* ---------- game shell ---------- */
@@ -1154,6 +1287,22 @@ function Rail({ g, now }) {
     <button class="rail-me" onClick=${() => goTab('profile')} aria-label="Mon profil"><${Avatar} who=${author(g, 'p')} size=${40} /><div><b>${g.player.name}</b><span>@${g.player.handle}</span></div></button>
   </nav>`;
 }
+// 0.28.1: a number where room is short (the header, a card, a total): « 12,3 k », « 2,7 M », « 1 000 Md »; in full under 10 000
+const nfShort = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+function fmtShort(n) {
+  n = Math.round(num(n));
+  const a = Math.abs(n);
+  if (a < 10000) return fmtPlain(n);
+  const [d, u] = a < 1e6 ? [1e3, 'k'] : a < 1e9 ? [1e6, 'M'] : [1e9, 'Md'];
+  const x = n / d;
+  return (Math.abs(x) >= 100 ? fmtPlain(x) : nfShort.format(x)) + ' ' + u;
+}
+// And money: in full under a million, then « 2,7 M€ », « 1 000 Md€ » (the world's coin: « 2,7 M écus »).
+function fmtMoneyShort(g, n) {
+  if (Math.abs(num(n)) < 1e6) return fmtMoney(g, n, false);
+  const W = g && g.world && WORLD_MONEY[g.world.preset];
+  return fmtShort(n) + (W ? ' ' + W.sym : '€');
+}
 // Only this chip ticks every second while cafés regenerate (not the whole page).
 // The cafés: the AI budget left today (the ring empties as the day's budget goes).
 function EnergyChip({ g, label }) {
@@ -1161,7 +1310,7 @@ function EnergyChip({ g, label }) {
   const frac = e.unlimited ? 1 : e.max ? clamp(e.left / e.max, 0, 1) : 0;
   const low = !e.unlimited && e.left <= e.max * 0.2;
   return html`<button class=${'res-chip' + (low ? ' low' : '')} onClick=${() => queueModal({ t: 'budget', at: Date.now() })} title=${e.unlimited ? 'Budget IA sans limite' : `Budget IA du jour : ${fmtCafes(e.left)} cafés sur ${e.max} · recharge à minuit`} aria-label=${e.unlimited ? 'Budget IA sans limite' : `${fmtCafes(e.left)} cafés sur ${e.max} aujourd’hui`}>
-    <span class="ring" style=${'--p:' + frac.toFixed(3)}><${Icon} n="coffee" s=${14} /></span><b>${fmtCafes(e.left)}</b>${e.unlimited ? null : html`<small>/${e.max}${label ? ' cafés' : ''}</small>`}
+    <span class="ring" style=${'--p:' + frac.toFixed(3)}><${Icon} n="coffee" s=${14} /></span><b>${e.unlimited || label ? fmtCafes(e.left) : fmtShort(Math.floor(e.left + 1e-9))}</b>${e.unlimited ? null : html`<small>/${label ? e.max : fmtShort(e.max)}${label ? ' cafés' : ''}</small>`}
   </button>`;
 }
 function TopBar({ g }) {
@@ -1172,7 +1321,7 @@ function TopBar({ g }) {
     <h1 class="topbar-title">${TITLES[S.tab]}</h1>
     <span class="lvl" title=${s.xp + ' / ' + xpNeed(s.level) + ' XP'}>Niv. ${s.level}</span>
     <${EnergyChip} g=${g} />
-    <button class="res-chip" onClick=${openShop} aria-label=${s.gems + ' gemmes'}><span class="gem-dot"><${Icon} n="gem" s=${14} /></span><b>${s.gems}</b></button>
+    <button class="res-chip" onClick=${openShop} aria-label=${fmtPlain(s.gems) + ' gemmes'}><span class="gem-dot"><${Icon} n="gem" s=${14} /></span><b>${fmtShort(s.gems)}</b></button>
     <button class="iconbtn save-btn" onClick=${openSaves} aria-label="Sauvegardes" title="Sauvegarder ou revenir en arrière"><${Icon} n="save" s=${20} /></button>
     <button class="iconbtn save-btn gear-btn" onClick=${() => openLayer({ t: 'settings' })} aria-label="Réglages de la partie" title="Réglages"><${Icon} n="gear" s=${20} /></button>
     <div class="xpline" title=${`Niveau ${s.level} : ${s.xp} / ${xpNeed(s.level)} XP`} aria-hidden="true"><i style=${'--p:' + Math.round((s.xp / xpNeed(s.level)) * 100) + '%'}></i></div>
@@ -1182,9 +1331,11 @@ function TabView({ g, now }) {
   const ref = useRef(null);
   VIEW_EL.current = ref.current;
   useLayoutEffect(() => { VIEW_EL.current = ref.current; if (ref.current) { ref.current.scrollTop = SCROLL[S.tab] || 0; S.scrollY = ref.current.scrollTop; } }, [S.tab, g.id]);
+  const tab = S.tab; // 0.28.1: the tab on screen (a scroll still running after a click elsewhere is this one's, not the next's)
   const onScroll = (e) => {
     const el = e.currentTarget;
-    SCROLL[S.tab] = el.scrollTop;
+    if (tab !== S.tab) return; // (the next tab is drawn at the next frame: its own place then)
+    SCROLL[tab] = el.scrollTop;
     // 0.15: the pen steps aside while the player scrolls down (it hid likes and texts), and comes back on the way up
     const y = el.scrollTop, dy = y - (S.scrollY || 0);
     if (Math.abs(dy) > 6 || y < 60) {
@@ -1221,7 +1372,7 @@ function Side({ g, now }) {
       ${s.cancelled ? html`<span class="chip bad">Tu es cancel</span>` : null}
       ${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(g.pbb.until - now)}</span>` : null}
     </section>
-    ${tr.length ? html`<section class="panel"><h3>Tendances</h3>${tr.map(([tg, n]) => html`<button class="trend" key=${tg} onClick=${() => openTag(tg)}><small>Tendance · ${g.world.name}</small><b>${tg}</b><small>${n} ${plural(n, 'post', 'posts')}</small></button>`)}</section>` : null}
+    ${tr.length ? html`<section class="panel"><h3>Tendances</h3>${tr.map(([tg]) => { const n = postsWithTag(g, tg, now).length; return html`<button class="trend" key=${tg} onClick=${() => openTag(tg)}><small>Tendance · ${g.world.name}</small><b>${tg}</b>${n ? html`<small>${n} ${plural(n, 'post', 'posts')}</small>` : null}</button>`; })}</section>` : null}
     <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}</span></div></button>`)}</section>
   </aside>`;
 }
@@ -1278,13 +1429,14 @@ function PostResult({ p, g, now }) {
   return html`<${ResChips} r=${p.res} now=${now} apology=${!!p.apology} ev=${p.ev} />
     ${liked.length ? html`<div class="liked-by"><span class="avs">${liked.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${20} />`)}</span><span>Aimé par ${liked[0].name}${liked.length + others > 1 ? ` et ${fmtN(liked.length - 1 + others)} ${plural(liked.length - 1 + others, 'autre', 'autres')}` : ''}</span></div>` : null}`;
 }
+const rpCost = () => (S.game ? costLabel(S.game, 'repost') : 1); // 0.28.1: a repost has its author react (an AI call): its cost said
 function PostActions({ p, now, onReply }) {
   const me = p.a === 'p';
   const likes = shownLikes(p, now), rps = shownReposts(p, now);
   const nrep = Math.max(p.replies.reduce((n, r) => n + (r.at <= now ? 1 : 0), 0), shownReplies(p, now));
   return html`<div class="post-actions">
     <button class="act" onClick=${stop(onReply)} aria-label="Répondre"><${Icon} n="msg" s=${18} /><span>${nrep ? fmtN(nrep) : ''}</span></button>
-    <button class=${'act act-rp' + (p.reposted ? ' on' : '')} disabled=${me} onClick=${stop(() => toggleRepost(p))} aria-label="Reposter" aria-pressed=${p.reposted ? 'true' : 'false'}><${Icon} n="repeat" s=${18} /><span>${rps ? fmtN(rps) : ''}</span></button>
+    <button class=${'act act-rp' + (p.reposted ? ' on' : '')} disabled=${me} onClick=${stop(() => toggleRepost(p))} aria-label=${p.reposted ? 'Ne plus reposter' : `Reposter · ≈ ${rpCost()} ${plural(rpCost(), 'café', 'cafés')}`} title=${p.reposted || me ? undefined : `Reposter · ≈ ${rpCost()} ☕`} aria-pressed=${p.reposted ? 'true' : 'false'}><${Icon} n="repeat" s=${18} /><span>${rps ? fmtN(rps) : ''}</span></button>
     <button class="act act-q" disabled=${me} onClick=${stop(() => openCompose({ quote: p.id }))} aria-label="Citer ce post"><${Icon} n="quote" s=${16} /></button>
     <button class=${'act act-like' + (p.liked ? ' on' : '')} disabled=${me} onClick=${stop(() => toggleLike(p))} aria-label="J’aime" aria-pressed=${p.liked ? 'true' : 'false'}><${Icon} n="heart" s=${18} fill=${p.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
   </div>`;
@@ -1321,6 +1473,15 @@ function Evidence({ p, g }) {
     ${caps.map((x, k) => html`<${EvidenceCard} key=${k} ev=${{ kind: 'dm', real: true, desc: `« ${x.text} » — @${g && g.chars[x.c] ? g.chars[x.c].handle : '…'}` }} />`)}
   </div>`;
 }
+// 0.28.1: a post's name and @ lead to its author, as on a real network (not to the post)
+function AuthorName({ au, children }) {
+  const go = () => openAuthor(au);
+  return html`<span class="post-name to-author" role="button" tabindex="0" onClick=${stop(go)} onKeyDown=${onKeys(go)}>${au.name}${children}</span>`;
+}
+function AuthorHandle({ au }) {
+  const go = () => openAuthor(au);
+  return html`<span class="post-handle to-author" role="button" tabindex="0" onClick=${stop(go)} onKeyDown=${onKeys(go)}>@${au.handle}</span>`;
+}
 function PostRow({ g, p, now, repost }) {
   const au = author(g, p.a);
   const viral = p.res && p.res.viral && revealed(p, now);
@@ -1330,7 +1491,7 @@ function PostRow({ g, p, now, repost }) {
     ${viral ? html`<span class="stamp">VIRAL</span>` : null}
     <${Avatar} who=${au} onClick=${stop(() => openAuthor(au))} />
     <div class="post-body">
-      <div class="post-head"><span class="post-name">${au.name}</span>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><span class="post-handle">@${au.handle}</span><span class="post-time">· ${fmtAgo(p.ts, now)}</span></div>
+      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(p.ts, now)}</span></div>
       ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
       ${p.deny ? html`<div class="post-flag"><${Icon} n="megaphone" s=${13} /> Démenti</div>` : null}
       ${p.rumor ? html`<div class="post-flag bad"><span aria-hidden="true">🗣️</span> Rumeur</div>` : null}
@@ -1360,7 +1521,7 @@ function ReplyRow({ g, p, r, now, depth, parent }) {
   return html`<article id=${'r-' + r.id} class=${'post reply-row' + (depth ? ' nested' : '') + (picked ? ' picked' : '')} style="cursor:default">
     <${Avatar} who=${au} size=${depth ? 36 : 44} onClick=${() => openAuthor(au)} />
     <div class="post-body">
-      <div class="post-head"><span class="post-name">${au.name}</span>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${r.a} now=${now} /><span class="post-handle">@${au.handle}</span><span class="post-time">· ${fmtAgo(r.ts, now)}</span></div>
+      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${r.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(r.ts, now)}</span></div>
       ${parent ? html`<div class="reply-to">En réponse à <span class="mention">@${author(g, parent.a).handle}</span></div>` : null}
       <p class="post-text"><${RichText} text=${r.text} g=${g} /></p>
       ${eventsAt(g, (x) => x.r === r.id).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} compact=${true} />`)}
@@ -1418,11 +1579,14 @@ function LowBanner({ g, now, compose }) {
     <button class="btn btn-ghost btn-sm" onClick=${stopLowProfile}>Arrêter</button>
   </div>`;
 }
+const FEED_PAGE = 30; // 0.28.1: the feed shows its last 30 posts, then « Voir plus » (coming back to it stays quick)
 function FeedTab({ g, now }) {
+  const [pages, setPages] = useState(1);
   const all = revealedPosts(g, now);
   const seen = S.feedAtTop ? now : S.feedSeenAt;
-  const visible = all.filter((p) => p.at <= seen || p.a === 'p');
-  const fresh = all.length - visible.length;
+  const every = all.filter((p) => p.at <= seen || p.a === 'p');
+  const visible = every.slice(0, FEED_PAGE * pages), more = every.length - visible.length;
+  const fresh = all.length - every.length;
   const s = g.stats;
   const tr = trends(g, now);
   const low = lowActive(g, now);
@@ -1454,10 +1618,10 @@ function FeedTab({ g, now }) {
     </div>` : null}
     ${fresh > 0 ? html`<button class="pill-new" onClick=${scrollFeedTop}><${Icon} n="up" s=${15} /> ${fresh} ${plural(fresh, 'nouveau post', 'nouveaux posts')}</button>` : null}
     ${visible.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`)}
-    <div class="feed-end">
+    ${more > 0 ? html`<div class="feed-more"><button class="btn btn-ghost btn-sm" onClick=${() => setPages(pages + 1)}><${Icon} n="chevdown" s=${15} /> Voir plus · ${more} ${plural(more, 'post', 'posts')}</button></div>` : html`<div class="feed-end">
       <span>${visible.length ? 'Tu es à jour.' : 'Ton fil est vide.'} Publie ou actualise pour faire bouger ton monde.</span>
       <div class="row" style="justify-content:center"><button class="btn btn-hot btn-sm" onClick=${() => openCompose()}>Publier</button><button class="btn btn-ghost btn-sm" onClick=${() => refreshFeed(0)} disabled=${S.busy.refresh}>Actualiser</button></div>
-    </div>`;
+    </div>`}`;
 }
 // 0.23.1: the network living on its own says where it is: the next news in about N minutes, or paused (and why).
 // 0.25.3: the morning after a night together: where the player is, until they go home.
@@ -1482,9 +1646,36 @@ const NOTIF_ICON = {
   advice: ['bulb', 'flash'], trust: ['trust', 'good'], trustup: ['trust', 'good'], trustdown: ['trust', 'bad'], secret: ['lock', 'hot'],
   standdown: ['trend', 'bad'], standup: ['trend', 'good'], echo: ['sparkles', 'flash'],
   train: ['train', 'flash'], trainstart: ['train', 'flash'], // 0.17
+  rumor: ['megaphone', 'bad'], // 0.28.1
 };
+// 0.28.1: the achievements' window, at one of them (brought into view and shown off a moment: R17)
+function openAch(id) {
+  openLayer({ t: 'ach' });
+  const A = id && S.game ? ACH_BY[id] : null;
+  if (!A) return;
+  const name = achName(S.game, A);
+  let tries = 0;
+  const find = () => {
+    const docs = [document].concat((S.os || []).map((l) => { try { return l.os.w.document; } catch (e) { return null; } }).filter(Boolean)); // (its window may be out of the game)
+    for (const d of docs) {
+      for (const el of d.querySelectorAll('.ach-row')) {
+        const b = el.querySelector('.mid > b');
+        if (el.dataset.ach ? el.dataset.ach !== id : !b || b.textContent !== name) continue;
+        el.scrollIntoView({ block: 'center' });
+        el.classList.add('ach-hl');
+        setTimeout(() => el.classList.remove('ach-hl'), 2600);
+        return;
+      }
+    }
+    if (++tries < 12) setTimeout(find, 80);
+  };
+  setTimeout(find, 60);
+}
 function openNotif(n) {
   const g = S.game;
+  if (n.k === 'ach') return openAch(n.a); // 0.28.1: an achievement: its window; a skill: its tree
+  if (n.k === 'skill' && n.sk) return openLayer({ t: 'skill', id: n.sk });
+  if (n.k === 'rumor' && n.p && g.posts.some((p) => p.id === n.p)) return openPost(n.p); // (0.28.1: the rumor's post, where it can be denied)
   if ((n.k === 'dm' || n.k === 'seen') && n.c && g.chars[n.c]) return openDM(n.c);
   if ((n.k === 'advice' || n.k === 'secret') && !n.p && n.c && g.chars[n.c]) return openDM(n.c);
   if (n.p && g.posts.some((p) => p.id === n.p)) return openPost(n.p);
@@ -1499,8 +1690,9 @@ function NotifsTab({ g, now }) {
   if (!list.length) return html`<div class="empty"><b>Rien pour l’instant</b><span>Publie un post : les réactions arriveront ici.</span></div>`;
   return list.map((n) => {
     const [ic, tone] = NOTIF_ICON[n.k] || ['bell', ''];
+    const A = n.k === 'ach' && n.a ? ACH_BY[n.a] : null; // (0.28.1: an achievement shows its icon)
     return html`<button key=${n.id} class=${'notif' + (n.at > S.notifSeenBefore ? ' unread' : '')} onClick=${() => openNotif(n)}>
-      <span class=${'nic ' + tone}><${Icon} n=${ic} s=${18} /></span><p>${emoParts(n.text)}</p><time>${fmtAgo(n.at, now)}</time></button>`;
+      <span class=${'nic ' + (A ? 'ach' : tone)}>${A ? achIcon(A, 30) : html`<${Icon} n=${ic} s=${18} />`}</span><p>${emoParts(n.text)}</p><time>${fmtAgo(n.at, now)}</time></button>`;
   });
 }
 function DMsTab({ g, now }) {
@@ -1521,12 +1713,13 @@ function DMsTab({ g, now }) {
       <div class="starters">${starters.map((c) => html`<button key=${c.id} class="starter" onClick=${() => openDM(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><span>${c.name.split(' ')[0]}</span></button>`)}</div>` : null}`;
 }
 function ShopItem({ it, g }) {
-  const active = (it.id === 'reach' && g.boosts.reach) || (it.id === 'viral' && g.boosts.viral);
+  const active = (it.id === 'reach' && g.boosts.reach) || (it.id === 'viral' && g.boosts.viral) || (it.id === 'push' && g.boosts.push); // (0.28.1: the release's push too)
   const miss = it.price - g.stats.gems;
   return html`<div class="shop-item">
     <span class=${'nic ' + it.tone}><${Icon} n=${it.icon} s=${18} /></span>
-    <div><b>${it.label}</b><span>${active ? 'Actif sur ton prochain post.' : it.desc}</span>${!active && miss > 0 ? html`<small class="miss">Il te manque ${miss} ${plural(miss, 'gemme', 'gemmes')}</small>` : null}</div>
-    <button class="btn btn-sm btn-ink price" onClick=${() => buy(it.id)} disabled=${active || miss > 0} aria-label=${'Acheter ' + it.label + ' pour ' + it.price + ' gemmes'}><${Icon} n="gem" s=${14} /> ${it.price}</button>
+    <div><b>${it.label}</b><span>${active ? (it.id === 'push' ? 'Actif sur ta prochaine sortie.' : 'Actif sur ton prochain post.') : it.desc}</span>${!active && miss > 0 ? html`<small class="miss">Il te manque ${miss} ${plural(miss, 'gemme', 'gemmes')}</small>` : null}</div>
+    ${active ? html`<button class="btn btn-sm btn-ghost price is-on" disabled aria-label=${it.label + ' : actif'}><${Icon} n="check" s=${14} /> Actif</button>`
+      : html`<button class="btn btn-sm btn-ink price" onClick=${() => buy(it.id)} disabled=${miss > 0} aria-label=${'Acheter ' + it.label + ' pour ' + it.price + ' gemmes'}><${Icon} n="gem" s=${14} /> ${it.price}</button>`}
   </div>`;
 }
 function questActions(g, q) {
@@ -1539,7 +1732,7 @@ function questActions(g, q) {
   const post = () => A.push({ label: 'Publier', icon: 'pen', run: () => openCompose() });
   switch (q.kind) {
     case 'followers': case 'likes': case 'viral': post(); break;
-    case 'rep': if (g.stats.cancelled) A.push({ label: 'M’excuser', icon: 'shield', run: () => openCompose({ apology: true }) }); else post(); break;
+    case 'rep': if (g.stats.cancelled || playerBadBuzz(g)) A.push({ label: 'M’excuser', icon: 'shield', run: () => openCompose({ apology: true }) }); else post(); break;
     case 'rel': case 'vibe': if (ok) { dm(); mention(); } break;
     case 'dm': if (ok) dm(); break;
     case 'mention': if (ok) mention(); break;
@@ -1551,7 +1744,7 @@ function questActions(g, q) {
     }
     case 'story':
       if (ok) { dm(); mention(); }
-      A.push({ label: 'Des idées', icon: 'sparkles', run: () => { openCompose(); loadIdeas(null, null, q); } });
+      A.push({ label: `Des idées · ≈ ${costLabel(g, 'ideas')} ☕`, icon: 'sparkles', run: () => { openCompose(); loadIdeas(null, null, q); } });
       break;
     default: break;
   }
@@ -1575,7 +1768,7 @@ function QuestCard({ q, g, now }) {
       <div class="row" style="gap:6px"><span class="chip hot">+${q.reward.xp} XP</span><span class="chip flash"><${Icon} n="gem" s=${12} /> ${q.reward.gems}</span></div>
     </footer>
     ${acts.length ? html`<div class="quest-acts">${acts.map((a) => html`<button key=${a.label} class="btn btn-ghost btn-sm" onClick=${a.run}><${Icon} n=${a.icon} s=${15} /> ${a.label}</button>`)}</div>` : null}
-    ${(q.kind === 'story' || q.kind === 'vibe') && !done ? html`<div><button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Abandonner cette quête ?', text: `« ${q.title} » disparaîtra de ta liste.`, ok: 'Abandonner', danger: true, run: () => abandonQuest(g, q) })}>Abandonner cette quête</button></div>` : null}
+    ${!done ? html`<div><button class="linkbtn quiet" onClick=${() => askConfirm({ title: 'Abandonner cette quête ?', text: `« ${q.title} » disparaîtra de ta liste.`, ok: 'Abandonner', danger: true, run: () => abandonQuest(g, q) })}>Abandonner cette quête</button></div>` : null}
   </article>`;
 }
 function QuestsTab({ g, now }) {
@@ -1653,20 +1846,25 @@ function ProfileTab({ g, now }) {
 }
 
 /* ---------- announced releases: countdown, shoot (mini-game), publish or postpone ---------- */
-function askPostpone(g, r) {
+// 0.28.1: postponing picks the new time; well ahead of time it is free (earlyMove), at the last minute it costs.
+function askPostpone(g, r) { if (canPostpone(r)) openLayer({ t: 'later', id: r.id }); }
+// The cost of a last-minute postponement, as said before choosing.
+function postponeCost(g, r) {
   const n = r.delays + 1;
-  askConfirm({
-    title: `Repousser ${ta(r)} de 30 min ?`,
-    text: `${n === 1 ? 'Premier' : n === 2 ? 'Deuxième' : 'Dernier'} report : ${repWord(repTry(g, postponePlan(n)))}${n >= 2 ? ' et des abonnés qui partent' : ''}. ${['On trouvera ça moyen pro.', 'Ça commence à faire amateur.', 'Beaucoup diront que tu te défiles.'][r.delays]}`,
-    ok: 'Repousser', danger: true,
-    run: () => { if (postponeRelease(g, r)) { dropLayers((l) => l.t === 'minigame' && l.id === r.id); toast(`${cap1(ta(r))} sort dans 30 min. Ton public s’impatiente.`, 'bad'); update(); } },
-  });
+  return `${n === 1 ? 'Premier' : n === 2 ? 'Deuxième' : 'Dernier'} report : ${repWord(repTry(g, postponePlan(n)))}${n >= 2 ? ' et des abonnés qui partent' : ''}.`;
 }
 function askDrop(g, r) {
   askConfirm({
     title: `Abandonner ${ta(r)} ?`, text: `Tout le monde l’attendait : ${repWord(repTry(g, DROP_PLAN))} et des abonnés qui partent.`, ok: 'Abandonner', danger: true,
     run: () => { dropRelease(g, r); dropLayers((l) => l.t === 'minigame' && l.id === r.id); update(); },
   });
+}
+// 0.28.1: a text cut at its last whole word, with « … » (never in the middle of a word)
+function wordCut(s, n) {
+  const t = str(s, 400);
+  if (t.length <= n) return t;
+  const head = t.slice(0, n + 1), k = head.lastIndexOf(' ');
+  return (k >= n / 2 ? head.slice(0, k) : t.slice(0, n)).replace(/[\s,;:.!?…'’«-]+$/, '') + '…';
 }
 // Where « jusqu’à la sortie » goes, read when the jump really happens (it may wait for the characters to finish).
 const relDue = (r) => () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; };
@@ -1684,9 +1882,9 @@ function ReleaseCard({ g, now }) {
         ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> Avancer jusqu’à la sortie`}</button>`
           : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
         ${left > 0 && !r.series ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>` : null}
-        ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+        ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
       </div>
-      ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${str(x.topic, 28)} » ${fmtWhen(x.due, now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
+      ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${wordCut(x.topic, 28)} » ${fmtWhen(x.due, now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
     </div>
   </div>`;
 }
@@ -1701,7 +1899,7 @@ function askCancelDate(g, ev) {
   askConfirm({
     title: `Annuler ton rendez-vous avec ${c ? c.name.split(' ')[0] : 'cette personne'} ?`,
     text: hurt === 0 ? 'Tu préviens bien à l’avance : ça devrait bien passer.' : hurt >= -3 ? 'Tu préviens un peu tard : ça risque de piquer un peu.' : hurt >= -6 ? 'À quelques heures près : ça va mal passer.' : 'À la dernière minute : ça va très mal passer.',
-    ok: 'Annuler le rendez-vous', danger: true,
+    ok: 'Annuler le rendez-vous', cancel: 'Garder le rendez-vous', danger: true,
     run: () => { cancelDate(g, ev); update(); },
   });
 }
@@ -2145,7 +2343,7 @@ function ShootPlay({ r, now, outcomes, icon, onScore }) {
       <p class="muted">${MG_RULE[kind](clockSec(total), game)}</p>
       <p class="muted mg-tiers">${outcomes || tierRule(`${laW(r)} cartonne`, `${whatF(r) ? 'elle' : 'il'} marche moyen`, 'flop')}</p>
       ${crew.length ? html`<p class="mg-crew">${crew.map((k) => STAFF_ROLES[k].emoji).join(' ')} Ton équipe est là${crew.includes('monteur') || crew.includes('scenariste') ? ` : +${Math.round((staffMult(g, 'time', r.what, crew) - 1) * 100)} % de temps` : ''}${hints ? `, ${hints} ${plural(hints, 'indice', 'indices')}` : ''}.</p>` : null}
-      <p class="mg-clock-note">⏱️ Une fois lancé, le chrono ne s’arrête plus, même si tu fermes ou réduis la fenêtre.</p>
+      <p class="mg-clock-note">⏱️ Une fois lancé, ${PER_ROUND[kind] ? 'le chrono de la question en cours' : 'le chrono'} ne s’arrête plus, même si tu ${g && eventOf(g, r.id) ? 'fermes' : 'fermes ou réduis'} la fenêtre.</p>
       <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n=${icon || 'clapper'} s=${16} /> C’est parti</button>
     </div>`;
   }
@@ -2169,9 +2367,10 @@ function MgAnswers({ game }) {
 // Before the shoot: the topic (the player's, editable) and the difficulty, which sets the time and the rewards.
 function ShootSetup({ r }) {
   const d0 = (S.setupDrafts && S.setupDrafts[r.id]) || {}; // 0.27.7: what was typed before the window was closed
-  const [topic, setTopic0] = useState(d0.topic != null && !r.devis ? d0.topic : r.topic);
+  const fixed = !!r.series; // 0.28.1: an episode of a challenge: the challenge's topic and difficulty (it was paid for them)
+  const [topic, setTopic0] = useState(d0.topic != null && !r.devis && !fixed ? d0.topic : r.topic);
   const [plot, setPlot0] = useState(d0.plot != null ? d0.plot : r.plot || '');
-  const [diff, setDiff0] = useState(d0.diff || r.diff || 'moyen');
+  const [diff, setDiff0] = useState(fixed ? r.diff || 'moyen' : d0.diff || r.diff || 'moyen');
   const keep = (k, v) => { if (!S.setupDrafts) S.setupDrafts = {}; S.setupDrafts[r.id] = Object.assign({}, S.setupDrafts[r.id], { [k]: v }); };
   const setTopic = (v) => { keep('topic', v); setTopic0(v); }, setPlot = (v) => { keep('plot', v); setPlot0(v); }, setDiff = (v) => { keep('diff', v); setDiff0(v); };
   const W = WHATS[r.what] || WHATS.vidéo;
@@ -2183,8 +2382,8 @@ function ShootSetup({ r }) {
     ${g ? html`<${GearBlocker} g=${g} r=${r} now=${Date.now()} />` : null}
     <div class="field">
       <label class="lbl" for="rl-topic">Le sujet</label>
-      <textarea id="rl-topic" class="input" rows="2" maxlength="120" value=${topic} readOnly=${!!(r.devis && g && !easyGear())} onInput=${(ev) => setTopic(ev.target.value)}></textarea>
-      <small class="muted">${r.devis && g && !easyGear() ? 'Le sujet de ton devis : c’est celui-là que tu tournes.' : 'Corrige-le si ce n’est pas ce que tu voulais dire : le mini-jeu portera sur ce sujet.'}</small>
+      <textarea id="rl-topic" class="input" rows="2" maxlength="120" value=${topic} readOnly=${!!(fixed || (r.devis && g && !easyGear()))} onInput=${(ev) => setTopic(ev.target.value)}></textarea>
+      <small class="muted">${fixed ? 'Le sujet de ton défi : c’est celui-là que tu tournes.' : r.devis && g && !easyGear() ? 'Le sujet de ton devis : c’est celui-là que tu tournes.' : 'Corrige-le si ce n’est pas ce que tu voulais dire : le mini-jeu portera sur ce sujet.'}</small>
     </div>
     <div class="field">
       <label class="lbl" for="rl-plot">Ce qui se passe dans ${laW(r)} <span class="muted">(facultatif)</span></label>
@@ -2193,9 +2392,9 @@ function ShootSetup({ r }) {
     </div>
     <div class="field">
       <span class="lbl" id="diff-lbl">Difficulté</span>
-      <small class="muted diff-note">Le chiffre multiplie les j’aime, les abonnés et l’XP de ta sortie, sauf si le tournage est raté.</small>
+      <small class="muted diff-note">${fixed ? 'Celle de ton défi, la même pour chaque épisode. ' : ''}Le chiffre multiplie les j’aime, les abonnés et l’XP de ta sortie, sauf si le tournage est raté.</small>
       <div class="diff-list" role="radiogroup" aria-labelledby="diff-lbl">
-        ${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}>
+        ${(fixed ? DIFFS.filter((d) => d.id === diffOf(diff).id) : DIFFS).map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '') + (fixed ? ' fixed' : '')} onClick=${() => { if (!fixed) setDiff(d.id); }}>
           <span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b><small>${d.desc}</small></span><span class="d-mult">${fmtMult(d.mult)}</span>
         </button>`)}
       </div>
@@ -2219,7 +2418,7 @@ function ShootResult({ r, g, now }) {
     <${StudioSteps} g=${g} r=${r} now=${now} />
     ${tier !== 'top' && !r.series && r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost" onClick=${() => askPostpone(g, r)}>Repousser pour retenter · ${repWord(repTry(g, postponePlan(r.delays + 1)))}</button>` : null}
     ${tier !== 'top' && !r.series && r.delays >= MAX_DELAYS ? html`<small class="muted">Tu as déjà repoussé ${MAX_DELAYS} fois : publie ou abandonne.</small>` : null}
-    ${r.delays >= MAX_DELAYS && !r.series ? html`<button class="btn btn-ghost" onClick=${() => askDrop(g, r)}>Abandonner</button>` : null}
+    ${!r.series ? html`<button class="btn btn-ghost" onClick=${() => askDrop(g, r)}>Abandonner</button>` : null}
   </div>`;
 }
 // 0.27.8: a failed shoot is not the end while the edit can still lift it (up to 15 points, never for a live)
@@ -2238,24 +2437,29 @@ function DateSetup({ ev, g, now }) {
   useEffect(() => { if (due && care) prepDate(ev); }, [due, care, ev.id]); // « Rendez-vous soignés »: written while you read this
   const other = datesClash(g, ev);
   const oc = other && g.chars[other.c];
+  const wed = dateKind(c, ev) === 'wedding'; // 0.28.1: the big day is no ordinary date
+  const talkCafes = Math.round(costGuess(g, 'talk') * (TALK_TURNS + 2));
   return html`<div class="mg-setup">
-    <div class="date-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${56} /><div><h3>${eventLabel(g, ev)}</h3><span>« ${ev.what} » · ${early > 0 ? fmtWhen(ev.due, now) : late > 15 * 60000 ? `tu as ${Math.round(late / 60000)} min de retard` : 'c’est maintenant'}</span></div></div>
+    <div class="date-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${56} /><div><h3>${wed ? `💒 Le grand jour avec ${c.name.split(' ')[0]}` : eventLabel(g, ev)}</h3><span>« ${ev.what} » · ${early > 0 ? fmtWhen(ev.due, now) : late > 15 * 60000 ? `tu as ${Math.round(late / 60000)} min de retard` : 'c’est maintenant'}</span></div></div>
     ${X ? html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Exigence ${D.label}</b><small>Ce soir, ça dépend de ce que vous vivez, pas des abonnés.</small></span><span class="d-mult">${fmtMult(D.mult)}</span></div>
       ${X.why.length ? html`<div class="ex-why">${X.why.map((w) => html`<span key=${w} class="chip">${w}</span>`)}</div>` : null}`
-      : html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Difficulté ${D.label}</b><small>${c.name} a ${fmtN(c.followers)} ${plural(c.followers, 'abonné', 'abonnés')} : plus on est connu, plus on est exigeant.</small></span><span class="d-mult">${fmtMult(D.mult)}</span></div>`}
-    ${isTalk(g, ev) ? null : html`<small class="muted diff-note">Le chiffre multiplie ce que le rendez-vous rapporte (relation, XP), sauf s’il est raté.</small>`}
-    ${isTalk(g, ev) ? html`<p class="date-late talk-note"><${Icon} n="msg" s=${15} /> Cette fois, pas de mini-jeu : vous vous parlez pour de vrai, et tu réponds avec tes mots (${TALK_TURNS} échanges, ≈ ${Math.round(costGuess(g, 'talk') * (TALK_TURNS + 2))} cafés).</p>` : null}
+      : html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Difficulté ${D.label}</b><small>${wed ? 'Votre mariage, devant vos proches.' : `${c.name} a ${fmtN(c.followers)} ${plural(c.followers, 'abonné', 'abonnés')} : plus on est connu, plus on est exigeant.`}</small></span><span class="d-mult">${fmtMult(D.mult)}</span></div>`}
+    ${isTalk(g, ev) ? null : html`<small class="muted diff-note">${wed ? 'Le chiffre multiplie ce que la cérémonie rapporte (relation, XP), sauf si elle tourne mal.' : 'Le chiffre multiplie ce que le rendez-vous rapporte (relation, XP), sauf s’il est raté.'}</small>`}
+    ${isTalk(g, ev) ? html`<p class="date-late talk-note"><${Icon} n="msg" s=${15} /> Cette fois, pas de mini-jeu : vous vous parlez pour de vrai, et tu réponds avec tes mots (${TALK_TURNS} échanges, ≈ ${talkCafes} ${plural(talkCafes, 'café', 'cafés')}).</p>` : null}
     ${late > 15 * 60000 ? html`<p class="date-late"><${Icon} n="clock" s=${15} /> Tu arrives en retard : la soirée démarre mal (un cran plus dur).</p>` : null}
     ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${partnerOf(g, c).name.split(' ')[0]}, n’est pas au courant… pour l’instant.</p>` : null}
     ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${oc.name.split(' ')[0]} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
     ${early > 0 ? html`<button class="btn btn-hot" onClick=${() => skipTime(early + 1000, () => ev.due)} disabled=${!!heldRel(g, now)}><${Icon} n="ffwd" s=${16} /> Avancer jusqu’au rendez-vous</button>${heldRel(g, now) ? html`<small class="muted why-off">${heldWhy(heldRel(g, now))}</small>` : null}`
-      : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
-    ${due && care ? html`<small class="muted prep-note">${S.busy.prep === ev.id ? html`<${Typing} /> La soirée se prépare et se relit (rendez-vous soignés)…` : ev.prep ? '💘 Soirée prête, relue pour coller à votre histoire.' : ''}</small>` : null}
-    <button class="btn btn-ghost" onClick=${() => askCancelDate(g, ev)}>Annuler le rendez-vous</button>
+      : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${wed ? '💒' : MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
+    ${due && care ? html`<small class="muted prep-note">${S.busy.prep === ev.id ? html`<${Typing} /> ${wed ? 'La cérémonie se prépare' : 'La soirée se prépare'} et se relit (rendez-vous soignés)…` : ev.prep ? (wed ? '💒 Cérémonie prête, relue pour coller à votre histoire.' : '💘 Soirée prête, relue pour coller à votre histoire.') : ''}</small>` : null}
+    <button class="btn btn-ghost" onClick=${() => askCancelDate(g, ev)}>${wed ? 'Annuler la cérémonie' : 'Annuler le rendez-vous'}</button>
   </div>`;
 }
+// 0.28.1: the wedding's own words (a yes, unless it all goes wrong)
+const WED = { tiers: ['Vous vous êtes dit oui', 'Vous vous êtes dit oui', 'Tout tourne mal'], lines: ['Une cérémonie inoubliable.', 'Quelques fausses notes, mais l’essentiel est là.', 'Rien ne se passe comme prévu.'], end: 'Voir la suite', ending: 'La fête continue…', outcomes: tierRule('une cérémonie inoubliable', 'quelques fausses notes', 'tout tourne mal') };
+const meetWords = (c, ev) => (c && dateKind(c, ev) === 'wedding' ? Object.assign({}, MEET.love, WED, { emoji: '💒' }) : MEET[meetKind(c, ev)]);
 function DateResult({ ev, g }) {
-  const tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff), M = MEET[meetKind(g.chars[ev.c], ev)], ix = tierIx(tier);
+  const tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff), M = meetWords(g.chars[ev.c], ev), ix = tierIx(tier);
   return html`<div class=${'mg-result ' + tier}>
     <span class="eyebrow">${M.tiers[ix]}</span>
     <div class="mg-score">${pctOf(ev.played.score)} %</div>
@@ -2266,7 +2470,7 @@ function DateResult({ ev, g }) {
 }
 function DateLayer({ ev, g, now, i }) {
   const c = g.chars[ev.c];
-  const M = MEET[meetKind(c, ev)];
+  const M = meetWords(c, ev);
   let body;
   if (!c || ev.state !== 'scheduled') body = html`<div class="empty"><b>Ce rendez-vous est passé</b></div>`;
   else if (S.busy.ev === ev.id) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>${M.ending}</b><${Typing} /></div>`;
@@ -2275,7 +2479,7 @@ function DateLayer({ ev, g, now, i }) {
   else if (ev.game) body = html`<${ShootPlay} key=${ev.id + ':' + (ev.tries || 0)} r=${ev} now=${now} icon=${M.icon} outcomes=${M.outcomes} />`;
   else if (S.busy.mg === ev.id || (S.busy.prep === ev.id && ev.go)) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>Tu te prépares…</b><span>${S.busy.review === ev.id ? 'L’IA relit la soirée pour qu’elle colle à votre histoire' : `« ${ev.what} »`}</span><${Typing} /></div>`;
   else body = html`<${DateSetup} ev=${ev} g=${g} now=${now} />`;
-  return html`<${LayerShell} i=${i} title=${'Rendez-vous · ' + (c ? c.name.split(' ')[0] : '')}>${body}<//>`;
+  return html`<${LayerShell} i=${i} title=${(c && dateKind(c, ev) === 'wedding' ? 'Le grand jour · ' : 'Rendez-vous · ') + (c ? c.name.split(' ')[0] : '')}>${body}<//>`;
 }
 function MiniGameLayer({ l, g, now, i }) {
   const evd = eventOf(g, l.id);
@@ -2295,6 +2499,7 @@ function MiniGameLayer({ l, g, now, i }) {
 function LayerShell({ i, title, head, foot, children, onBack, dark }) {
   const l = useContext(WinCtx), panel = useRef(null);
   if (l && typeof title === 'string' && title) l.title = title; // (the dock shows it)
+  if (l) l.onBack = onBack || null; // (0.28.1: Échap takes it too)
   if (l && l.os) { // 0.27.9: a window out of the game: the whole window, Hype's bar on top (it moves the window), the system's frame gone
     const ctl = (act) => { try { HOST.winCtl(l.os.name, act); } catch (e) { /* (closing) */ } };
     return html`<div class="os-shell"><section ref=${panel} class=${'layer-panel os-panel' + (dark ? ' dark' : '')} role="dialog" aria-label=${title}>
@@ -2334,11 +2539,11 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
         document.body.classList.add('win-dragging');
       }
       const vw = V.w, vh = V.h;
-      if (mode === 'move') { cur.x = clamp(base.x + dx, 120 - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - WIN_BAR)); }
+      if (mode === 'move') { cur.x = clamp(base.x + dx, WIN_GRAB - base.w, vw - 120); cur.y = clamp(base.y + dy, 0, Math.max(0, vh - WIN_BAR)); }
       else { // (0.27.9: by any edge, like a real window: right, left, bottom, the corners)
         if (mode.includes('e')) cur.w = clamp(base.w + dx, WIN_MIN_W, Math.max(WIN_MIN_W, vw - base.x - 4));
         if (mode.includes('w')) { const w = clamp(base.w - dx, WIN_MIN_W, Math.max(WIN_MIN_W, base.x + base.w)); cur.x = base.x + base.w - w; cur.w = w; }
-        if (mode.includes('s')) cur.h = clamp(base.h + dy, WIN_MIN_H, Math.max(WIN_MIN_H, vh - base.y - 4));
+        if (mode.includes('s')) cur.h = clamp(base.h + dy, winMinH(l.t), Math.max(winMinH(l.t), vh - base.y - 4));
       }
       Object.assign(el.style, { left: cur.x + 'px', top: cur.y + 'px', width: cur.w + 'px', height: cur.h + 'px' });
     };
@@ -2394,11 +2599,11 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
     update(false);
   };
   const cls = 'layer' + (float ? ' float' : '') + (float && modal ? ' held' : '') + (l && l.min ? ' min' : '') + (l && l.back ? ' back' : '');
-  return html`<div class=${cls} style=${'z-index:' + (20 + (i || 0))} aria-hidden=${l && l.min ? 'true' : undefined} onClick=${(e) => { if (!float && e.target === e.currentTarget) closeLayer(); }}>
+  return html`<div class=${cls} style=${'z-index:' + (20 + (i || 0))} aria-hidden=${l && l.min ? 'true' : undefined} onClick=${(e) => { if (!float && e.target === e.currentTarget) closeLayer(l); }}>
     <section ref=${panel} class=${'layer-panel' + (dark ? ' dark' : '')} role="dialog" aria-modal=${float && !modal ? 'false' : 'true'} aria-label=${title}
       style=${float ? `left:${R.x}px;top:${R.y}px;width:${R.w}px;height:${R.h}px` : ''} onPointerDown=${float && l ? () => raiseLayer(l) : undefined}>
       <header class=${'layer-head' + (wide || osOut ? ' movable' : '') + (float ? ' hypebar' : '')} onPointerDown=${wide ? (e) => drag(e, 'move') : osOut ? tear : undefined}>
-        ${float && !onBack ? html`<span class="hb-logo" aria-hidden="true">hype</span>` : html`<button class="iconbtn" onClick=${onBack || closeLayer} aria-label="Retour"><${Icon} n="back" /></button>`}${head || html`<h2>${title}</h2>`}
+        ${float && !onBack ? html`<span class="hb-logo" aria-hidden="true">hype</span>` : html`<button class="iconbtn" onClick=${onBack || (() => closeLayer(l))} aria-label="Retour"><${Icon} n="back" /></button>`}${head || html`<h2>${title}</h2>`}
         ${l ? html`<span class="win-btns">
           ${modal ? null : html`<button type="button" class="win-btn win-min" onClick=${() => minLayer(l)} aria-label="Réduire la fenêtre" title=${l && MG_LAYERS.includes(l.t) ? 'Réduire (le chrono continue)' : 'Réduire (tout ce que tu as rempli est gardé)'}><${Icon} n="minus" s=${18} /></button>`}
           ${wide ? html`<button type="button" class="win-btn win-float" onClick=${toggleFloat} aria-label=${float ? 'Remettre la fenêtre au centre' : 'Détacher la fenêtre'} title=${float ? 'Remettre au centre' : 'Détacher : la déplacer et la redimensionner'}><${Icon} n=${float ? 'dock' : 'detach'} s=${18} /></button>` : null}
@@ -2426,6 +2631,7 @@ function Layer(props) {
   if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
+  if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
   if (t === 'cheat') return html`<${ModeMenuLayer} ...${props} />`; // 0.27.4: the hidden menu
   if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
   if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
@@ -2528,11 +2734,11 @@ function ReplyBox({ p, g, now, focus }) {
       <button type="button" class="iconbtn" style="width:30px;height:30px" onClick=${() => { delete S.replyTo[p.id]; update(false); }} aria-label="Répondre au post plutôt qu’à ce commentaire"><${Icon} n="x" s=${15} /></button>
     </div>` : null}
     <div class="foot-tools">
-      <button class="linkbtn row" style="gap:4px" onClick=${() => loadIdeas(p, tr)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${14} /> Des idées ?</button>
+      <button class="linkbtn row" style="gap:4px" onClick=${() => loadIdeas(p, tr)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${14} /> Des idées ? <span class="cost-tag">≈ ${costLabel(g, 'ideas')} ☕</span></button>
       <${WriteBtn} w=${{ kind: 'reply', key: 'reply:' + p.id, p, r: tr, draft: val.trim() }} onText=${(t) => { S.drafts.reply[p.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} />
       <${VoiceChip} />
       ${em.btn}
-      <span>${busy ? 'Ta réaction précédente est encore en cours…' : canAfford(g, 'reply') ? `≈ ${costLabel(g, 'reply')} café par réponse · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span>
+      <span>${busy ? 'Ta réaction précédente est encore en cours…' : canAfford(g, 'reply') ? `≈ ${costLabel(g, 'reply')} ${plural(costLabel(g, 'reply'), 'café', 'cafés')} par réponse${e.unlimited ? '' : ` · il t’en reste ${fmtCafes(e.left)}`}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span>
     </div>
     ${mn.view}
     ${em.panel}
@@ -2580,7 +2786,7 @@ function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
   return html`<${LayerShell} i=${i} title="Post" foot=${html`<${ReplyBox} p=${p} g=${g} now=${now} focus=${l.focus} />`}>
     <article class=${'post post-big' + (viral ? ' is-viral' : '')}>
       ${viral ? html`<span class="stamp">VIRAL</span>` : null}
-      <div class="post-head"><${Avatar} who=${au} size=${48} onClick=${() => openAuthor(au)} /><div class="who"><span class="post-name">${au.name}${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /></span><span class="post-handle">@${au.handle}</span></div></div>
+      <div class="post-head"><${Avatar} who=${au} size=${48} onClick=${() => openAuthor(au)} /><div class="who"><${AuthorName} au=${au}>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><//><${AuthorHandle} au=${au} /></div></div>
       ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
       <${AccuseFlag} g=${g} p=${p} />
       ${p.text ? html`<p class="post-text"><${RichText} text=${p.text} g=${g} /></p>` : null}
@@ -2691,7 +2897,7 @@ function CharFile({ c, g, now }) {
     ${fk ? html`<p class=${'fake-status' + (fk.state === 'busted' ? ' bad' : '')}><${Icon} n="mask" s=${14} /><span>${fkText}</span></p>` : null}
     <div class="accuse-row">
       <button class="btn btn-sm btn-danger-solid" disabled=${bb || wait > 0} onClick=${() => openCompose({ accuse: c.id })}><${Icon} n="megaphone" s=${15} /> Lancer un bad buzz</button>
-      <small class="muted">${bb ? `${first} est déjà en plein bad buzz.` : wait > 0 ? `Encore ${fmtClock(wait)} avant de pouvoir recommencer.` : `≈ ${costLabel(g, 'accuse')} cafés. Si tes arguments tiennent (des captures de DM aident), ${first} prend cher. Sinon, c’est toi. Tu peux aussi fabriquer une fausse preuve… à tes risques.`}</small>
+      <small class="muted">${bb ? `${first} est déjà en plein bad buzz.` : wait > 0 ? `Encore ${fmtClock(wait)} avant de pouvoir recommencer.` : `≈ ${costLabel(g, 'accuse')} ${plural(costLabel(g, 'accuse'), 'café', 'cafés')}. Si tes arguments tiennent (des captures de DM aident), ${first} prend cher. Sinon, c’est toi. Tu peux aussi fabriquer une fausse preuve… à tes risques.`}</small>
     </div>
   </section>`;
 }
@@ -2725,7 +2931,7 @@ function DMBox({ c, g, now }) {
   useEffect(() => { if (ref.current && window.matchMedia && window.matchMedia('(pointer: fine)').matches) ref.current.focus(); }, []);
   const val = S.drafts.dm[c.id] || '';
   const e = energyNow(g, now);
-  const busy = !!S.busy.dm;
+  const busy = dmBusy(c.id); // (0.28.1: only this conversation waits for its answer)
   const can = !!val.trim() && !busy && canAfford(g, 'dm');
   const first = c.name.split(' ')[0];
   const adv = isMain(c) && !!(S.drafts.adv && S.drafts.adv[c.id]); // « 💡 Conseil »: the message is advice
@@ -2741,7 +2947,7 @@ function DMBox({ c, g, now }) {
   };
   const send = async () => {
     const text = (S.drafts.dm[c.id] || '').trim();
-    if (!text || S.busy.dm) return;
+    if (!text || dmBusy(c.id)) return;
     const advice = adv, confide = conf && !conf.out ? conf.id : null;
     S.drafts.dm[c.id] = '';
     if (ref.current) ref.current.style.height = '';
@@ -2757,7 +2963,7 @@ function DMBox({ c, g, now }) {
   // 0.28: a present, bought now and given in the conversation (they react to it, their way)
   const [gift, setGift] = useState(null);
   const cash = Math.floor(num(g.career && g.career.cash, 0)), gWhat = gift ? str(gift.what, 60) : '', gPrice = gift ? Math.round(num(gift.price, 0)) : 0;
-  const giftWhy = !gift ? '' : !gWhat ? 'Écris ce que tu offres.' : !(gPrice >= 1) ? 'Choisis un prix.' : gPrice > cash ? `Il te manque ${fmtMoney(g, gPrice - cash)}.` : busy ? `Attends la réponse de ${first}.` : !canAfford(g, 'dm') ? 'Budget IA épuisé pour aujourd’hui.' : '';
+  const giftWhy = !gift ? '' : !gWhat ? 'Écris ce que tu offres.' : !(gPrice >= 1) ? 'Choisis un prix.' : gPrice > cash ? `Il te manque ${fmtMoney(g, gPrice - cash)}.` : busy ? `${first} est en train de te répondre…` : !canAfford(g, 'dm') ? 'Budget IA épuisé pour aujourd’hui.' : '';
   const giveNow = async (what, price) => { setGift(null); const ok = await sendDM(c.id, '🎁 Je t’offre : ' + what, { gift: { what, price } }); if (ok === false) setGift({ what, price }); };
   const give = () => {
     if (giftWhy) return;
@@ -2769,7 +2975,7 @@ function DMBox({ c, g, now }) {
   const em = useEmoji('dm:' + c.id, ref, () => S.drafts.dm[c.id] || '', (v) => { S.drafts.dm[c.id] = v; force((x) => x + 1); if (ref.current) autosize(ref.current); }, DM_MAX); // 0.17
   return html`<div>
     <${AutoSendBar} left=${left} cancel=${cancel} />
-    <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}${isMain(c) && !c.cut ? html`<button type="button" class=${'voice-chip gift-toggle' + (gift ? ' on' : '')} aria-pressed=${gift ? 'true' : 'false'} onClick=${() => setGift(gift ? null : { what: '', price: 100 })}><span aria-hidden="true">🎁</span> Cadeau</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} café par message · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
+    <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}${isMain(c) && !c.cut ? html`<button type="button" class=${'voice-chip gift-toggle' + (gift ? ' on' : '')} aria-pressed=${gift ? 'true' : 'false'} onClick=${() => setGift(gift ? null : { what: '', price: 100 })}><span aria-hidden="true">🎁</span> Cadeau</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} ${plural(costLabel(g, 'dm'), 'café', 'cafés')} par message${e.unlimited ? '' : ` · il t’en reste ${fmtCafes(e.left)}`}` : html`Budget IA épuisé ·<button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
     ${adv ? html`<div class="voice-hint adv-hint"><${Icon} n="bulb" s=${15} /><span>Ton message est un conseil : ${first} décide de le suivre ou non. ${adviceHint(c)}</span></div>` : null}
     ${c.cut ? html`<div class="voice-hint cut-hint"><span aria-hidden="true">🚫</span><span>${first} a coupé les ponts : tes messages ne lui parviennent plus.</span></div>` : null}
     ${conf && !conf.out ? html`<div class="voice-hint conf-hint"><span aria-hidden="true">🤫</span><span>Tu confies à ${first} : « ${str(conf.t, 80)} ». ${first} saura. Ce qu’${gx(c.g, 'il', 'elle', 'iel')} en fera, c’est son choix.</span><button type="button" class="iconbtn" onClick=${() => setConf(null)} aria-label="Ne plus confier ce secret"><${Icon} n="x" s=${15} /></button></div>` : null}
@@ -2778,7 +2984,7 @@ function DMBox({ c, g, now }) {
       <div class="gift-h"><b>🎁 Un cadeau pour ${first}</b><button type="button" class="iconbtn" onClick=${() => setGift(null)} aria-label="Fermer le cadeau"><${Icon} n="x" s=${16} /></button></div>
       <input class="input" maxlength="60" aria-label="Ce que tu offres" placeholder="Ce que tu offres (un bouquet de pivoines, un week-end à la mer…)" value=${gift.what} onInput=${(ev) => setGift(Object.assign({}, gift, { what: ev.target.value }))} />
       <div class="gift-prices" role="group" aria-label="Le prix">${[30, 100, 300, 1000, 3000].map((p) => html`<button type="button" key=${p} class=${'chip-btn' + (gPrice === p ? ' on' : '')} onClick=${() => setGift(Object.assign({}, gift, { price: p }))}>${fmtMoney(g, p)}</button>`)}
-        <label class="gift-own">ou <input class="input" type="number" min="1" max="1000000" step="1" inputmode="numeric" aria-label="Ton prix, en euros" value=${gift.price} onInput=${(ev) => setGift(Object.assign({}, gift, { price: ev.target.value }))} /> €</label></div>
+        <label class="gift-own">ou <input class="input" type="text" inputmode="numeric" maxlength="15" aria-label=${'Ton prix, en ' + (WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros')} value=${gift.price} onInput=${(ev) => { const v = String(ev.target.value).replace(/\D/g, '').slice(0, 15); if (ev.target.value !== v) ev.target.value = v; setGift(Object.assign({}, gift, { price: v })); }} /> ${WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : '€'}</label></div>
       <div class="gift-foot"><small class="muted">Il te reste ${fmtMoney(g, cash)}. ${first} réagit à sa façon.</small><button type="button" class="btn btn-hot btn-sm" disabled=${!!giftWhy} onClick=${give}>Offrir${gPrice >= 1 ? ' · ' + fmtMoney(g, gPrice) : ''}</button></div>
       ${giftWhy ? html`<small class="why-off">${giftWhy}</small>` : null}
     </div>` : null}
@@ -2794,7 +3000,7 @@ function DMLayer({ l, g, now, i }) {
   const c = g.chars[l.id];
   const convo = g.dms[l.id];
   const msgs = convo ? convo.msgs.filter((m) => m.at <= now) : [];
-  const typing = S.busy.dm === l.id || !!(convo && convo.msgs.some((m) => m.at > now && m.at - now < 60000)); // (an answer hours away is not « typing » yet)
+  const typing = dmBusy(l.id) || !!(convo && convo.msgs.some((m) => m.at > now && m.at - now < 60000)); // (an answer hours away is not « typing » yet)
   const ref = useRef(null);
   useEffect(() => {
     if (convo) convo.readAt = Math.max(convo.readAt || 0, Date.now());
@@ -2814,6 +3020,7 @@ function DMLayer({ l, g, now, i }) {
     foot=${html`<${DMBox} c=${c} g=${g} now=${now} />`}>
     <div class="bubbles" ref=${ref}>
       <div class="dm-intro"><${Avatar} who=${au} size=${64} /><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span><span>${c.kind === 'brand' ? 'Un contact pro : parle chiffres, négocie, demande un devis.' : c.kind === 'cand' ? 'Une candidature : pose tes questions, négocie son tarif.' : 'Ce qui se dit ici reste entre vous… en principe. Une capture est vite faite.'}</span></div>
+      ${convo && (convo.trimmed || convo.msgs.length >= 60) ? html`<div class="dm-trim">Seuls les 60 derniers messages sont gardés.</div>` : null}
       ${msgs.map((m, k) => m.sys === 'deal' ? (msgs.slice(k + 1).some((x) => x.sys === 'deal' && x.deal === m.deal) ? html`<div key=${m.id} class="dm-card dl-old"><span class="evt-kind">📄 Proposition remplacée par la suivante</span></div>` : html`<${DealCard} key=${m.id} g=${g} d=${dealOf(g, m.deal)} now=${now} inDM=${true} />`) : m.sys === 'advice' ? html`<${AdviceCard} key=${m.id} m=${m} />` : m.sys === 'invite' ? html`<${InviteCard} key=${m.id} g=${g} m=${m} now=${now} />`
         : m.sys === 'visit' ? html`<div key=${m.id} class=${'dm-card visit ' + (MOODS[m.mood] && MOODS[m.mood].good ? 'top' : MOODS[m.mood] && MOODS[m.mood].bad ? 'flop' : 'mid')}><span class="evt-kind">🚪 Visite surprise</span>${m.title ? html`<b>${m.title}</b>` : null}<p>${m.text}</p></div>`
         : m.sys === 'file' ? html`<${FileCard} key=${m.id} m=${m} />` // 0.23: a file sent for an order (role-play)
@@ -2823,7 +3030,7 @@ function DMLayer({ l, g, now, i }) {
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + c.name.split(' ')[0]}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
-          <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
+          <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
           <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
         : html`<div key=${m.id} class=${'bubble ' + (m.me ? 'me' : 'them') + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`)}
       ${seenShown && !typing && !lost ? html`<div class="seen-tag">Vu</div>` : null}
@@ -2837,6 +3044,14 @@ function DMLayer({ l, g, now, i }) {
   <//>`;
 }
 // A character asks the player out (0.9.4): accept puts it on the agenda, decline answers politely; no answer, no blame.
+// 0.28.1: a moment gone by, for people: « aujourd’hui 20 h 30 », « hier 20 h 30 », « mardi 20 h 30 », « le 12 octobre »
+function fmtPast(ts, now = Date.now()) {
+  const days = -dayDiff(ts, now), d = gameDate(ts);
+  if (days <= 0) return 'aujourd’hui ' + hourOf(ts);
+  if (days === 1) return 'hier ' + hourOf(ts);
+  if (days < 7) return d.toLocaleDateString('fr-FR', { weekday: 'long' }) + ' ' + hourOf(ts);
+  return `le ${d.getDate() === 1 ? '1er' : d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
 const INVITE_DONE = { accepted: ['✅ Invitation acceptée', 'top'], declined: ['Invitation déclinée', 'past'], expired: ['Invitation restée sans réponse', 'past'], replaced: ['Remplacée par un autre rendez-vous', 'past'], off: ['Invitation sans suite', 'past'] };
 function InviteCard({ g, m, now }) {
   const iv = inviteOf(g, m.inv);
@@ -2852,11 +3067,14 @@ function InviteCard({ g, m, now }) {
   return html`<div class=${'dm-card ' + cls}>
     <span class="evt-kind">${label}</span>
     <b>${iv.what}</b>
-    <p>${cap1(fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${cc.name.split(' ')[0]} à ce moment-là` : ''}</p>
+    <p>${cap1(iv.due <= now ? fmtPast(iv.due, now) : fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${cc.name.split(' ')[0]} à ce moment-là` : ''}</p>
     ${foe ? html`<p class="collab-foe">💔 ${foe.name.split(' ')[0]} ne supporte pas ${c.name.split(' ')[0]} : ça risque de mal passer.</p>` : null}
     ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineInvite(g, iv); update(); }}>Décliner</button></div>` : null}
   </div>`;
 }
+// 0.28.1: a post's limit, in characters as they are seen (an emoji is one): what the counter says is what is kept
+const POST_MAX = 280;
+const postCut = (v) => { const s = String(v || ''); if (s.length <= POST_MAX) return s; const gs = graphemes(s); return gs.length > POST_MAX ? gs.slice(0, POST_MAX).join('') : s; };
 // Placeholders of the fake proof form, per kind.
 const FAKE_HINTS = {
   dm: (c) => `ex : @${c.handle} qui écrit « personne doit savoir, efface ce message »`,
@@ -2871,9 +3089,9 @@ function ComposeLayer({ g, now, i }) {
   const d = S.drafts;
   const val = d.post;
   const e = energyNow(g, now);
-  const remaining = 280 - val.length;
+  const remaining = POST_MAX - graphemes(val).length; // 0.28.1: an emoji counts for one, as the limit itself
   const low = lowActive(g, now);
-  const apology = d.apology && g.stats.cancelled;
+  const apology = d.apology && (g.stats.cancelled || playerBadBuzz(g, now)); // (0.28.1: in a bad buzz of one's own too)
   const hasPhoto = d.photo != null;
   const seeOn = !!(d.see && S.vision > 0 && (d.pics || []).length); // the characters see the images: no description needed
   const photoOK = hasPhoto && (d.photo.trim().length >= 3 || seeOn);
@@ -2939,7 +3157,7 @@ function ComposeLayer({ g, now, i }) {
       ? html`<span><b>Tu bluffes.</b> Un faux précis et qui colle à ${first} a plus de chances de passer, surtout glissé parmi de vrais indices.</span>`
       : html`<span><b>Accuse avec des arguments.</b> Si c’est crédible, @${target.handle} prend un bad buzz. Sinon, c’est toi qui passes pour ${px(g, 'un menteur', 'une menteuse', 'un·e menteur·se')}.</span>`}</div>` : null}
     ${apology ? html`<div class="apology-hint"><${Icon} n="shield" s=${16} /><span><b>La sincérité compte.</b> Des excuses sincères font remonter ta réputation, des excuses de façade l’enfoncent.</span></div>` : null}
-    ${g.stats.cancelled && !apology && !accuse && !rumor && !low ? html`<div class="apology-hint cancel-nudge"><${Icon} n="shield" s=${16} /><span><b>Tu es cancel :</b> ce post te coûtera des abonnés. Des excuses sincères peuvent t’en sortir.</span>
+    ${(g.stats.cancelled || playerBadBuzz(g, now)) && !apology && !accuse && !rumor && !low ? html`<div class="apology-hint cancel-nudge"><${Icon} n="shield" s=${16} /><span>${g.stats.cancelled ? html`<b>Tu es cancel :</b> ce post te coûtera des abonnés. Des excuses sincères peuvent t’en sortir.` : html`<b>Tu es en plein bad buzz.</b> Des excuses sincères peuvent calmer le jeu.`}</span>
       <button type="button" class="btn btn-hot btn-sm" disabled=${sorryWait > 0} onClick=${() => { S.drafts.apology = true; force((x) => x + 1); if (ref.current) ref.current.focus(); }}>${sorryWait > 0 ? 'Excuses dans ' + fmtClock(sorryWait) : 'M’excuser'}</button></div>` : null}
     ${secAns ? html`<div class="accuse-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>« ${secAns.s.t} »</b> ${STANCES[secAns.stance].hint}</span><button type="button" class="iconbtn" onClick=${() => unMode('secAns')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${conf ? html`<div class="apology-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>Tu avoues : « ${conf.t} »</b> (${sevOf(conf).label.toLowerCase()}). Sincère et assumé, ça coûte bien moins cher que de te faire griller. Pour le buzz, ça passe mal.</span><button type="button" class="iconbtn" onClick=${() => unMode('confess')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
@@ -2949,8 +3167,8 @@ function ComposeLayer({ g, now, i }) {
     <div class="composer">
       <${Avatar} who=${author(g, 'p')} />
       <div class="composer-main">
-        <textarea ref=${ref} id="compose" maxlength="280" placeholder=${accuse ? 'Ce que tu reproches, et pourquoi c’est grave…' : secAns ? STANCES[secAns.stance].ph : conf ? 'Dis-le avec tes mots…' : apology ? 'Explique-toi, sincèrement…' : hasPhoto && d.diapo && (d.pics || []).length >= 2 ? 'Le titre de ton diapo' : hasPhoto ? 'Une légende ? (facultatif)' : quote ? 'Ajoute ton avis…' : 'Quoi de neuf dans ton monde ?'} value=${val}
-          onInput=${(ev) => { arm(); S.drafts.post = ev.target.value; force((x) => x + 1); }}
+        <textarea ref=${ref} id="compose" placeholder=${accuse ? 'Ce que tu reproches, et pourquoi c’est grave…' : secAns ? STANCES[secAns.stance].ph : conf ? 'Dis-le avec tes mots…' : apology ? 'Explique-toi, sincèrement…' : hasPhoto && d.diapo && (d.pics || []).length >= 2 ? 'Le titre de ton diapo' : hasPhoto ? 'Une légende ? (facultatif)' : quote ? 'Ajoute ton avis…' : 'Quoi de neuf dans ton monde ?'} value=${val}
+          onInput=${(ev) => { arm(); const v = postCut(ev.target.value); if (v !== ev.target.value) ev.target.value = v; S.drafts.post = v; force((x) => x + 1); }}
           onClick=${mn.refresh} onKeyUp=${(ev) => { if (/^(Arrow(Left|Right)|Home|End)$/.test(ev.key)) mn.refresh(); }}
           onKeyDown=${(ev) => { if (mn.onKey(ev)) return; if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); publish(); } }}></textarea>
         ${mn.view}
@@ -2958,7 +3176,7 @@ function ComposeLayer({ g, now, i }) {
         ${hasPhoto ? html`<div class="photo-input">
           <label for="photo-desc"><${Icon} n="camera" s=${15} /> ${seeOn ? 'Ce qu’on voit (facultatif : les persos voient tes images)' : (d.pics || []).length ? 'Ce qu’on voit (c’est ce que lisent les persos)' : 'Décris ta photo'}</label>
           <div class="row" style="gap:6px;flex-wrap:nowrap">
-            <input id="photo-desc" class="input" maxlength="140" placeholder=${seeOn ? 'ex : c’est mon perso, à Tokyo pour la fashion week' : (d.pics || []).length ? 'ex : moi en terrasse avec mes potes, lunettes de soleil' : 'ex : mon café renversé sur ma veste préférée'} value=${d.photo} onInput=${(ev) => { S.drafts.photo = ev.target.value; force((x) => x + 1); }} />
+            <input id="photo-desc" class="input" maxlength="140" placeholder=${seeOn ? 'ex : mon perso, à Tokyo' : (d.pics || []).length ? 'ex : en terrasse avec mes potes' : 'ex : mon café renversé sur ma veste'} value=${d.photo} onInput=${(ev) => { S.drafts.photo = ev.target.value; force((x) => x + 1); }} />
             <button type="button" class="iconbtn" onClick=${() => { S.drafts.photo = null; for (const id of S.drafts.pics || []) mediaDel(id); markDrafts(null, S.drafts.pics || []); S.drafts.pics = []; S.drafts.diapo = false; S.drafts.see = false; S.drafts.pfp = null; force((x) => x + 1); }} aria-label="Retirer la photo"><${Icon} n="x" s=${16} /></button>
           </div>
           <${PicsBox} />
@@ -2982,7 +3200,7 @@ function ComposeLayer({ g, now, i }) {
     <div class="composer-meta">
       <span>${S.busy.act ? 'Ton post précédent est encore en train de buzzer…'
         : !canAfford(g, costKind) ? html`<span class="err">Budget IA du jour épuisé. </span><button class="linkbtn" onClick=${budgetBlocked}>Options</button>`
-          : `≈ ${cost} ${plural(cost, 'café', 'cafés')} · il t’en reste ${fmtCafes(e.left)} aujourd’hui.`}</span>
+          : `≈ ${cost} ${plural(cost, 'café', 'cafés')}${e.unlimited ? '.' : ` · il t’en reste ${fmtCafes(e.left)} aujourd’hui.`}`}</span>
       <span class=${'count' + (remaining < 20 ? ' warn' : '')}>${remaining}</span>
     </div>
     ${HOST ? html`<div class="composer-plan"><${GptPlanLine} /></div>` : null}
@@ -2992,7 +3210,7 @@ function ComposeLayer({ g, now, i }) {
     <div class="ideas">
       <div class="row">
         ${!hasPhoto && !accuse ? html`<button class="btn btn-ghost btn-sm" onClick=${addPhoto}><${Icon} n="camera" s=${15} /> Photo</button>` : null}
-        <button class="btn btn-ghost btn-sm" onClick=${() => loadIdeas(null)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${15} /> ${S.ideas && S.ideas.key === 'post' && S.ideas.list.length ? 'D’autres idées' : 'Des idées ?'}</button>
+        <button class="btn btn-ghost btn-sm" onClick=${() => loadIdeas(null)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${15} /> ${S.ideas && S.ideas.key === 'post' && S.ideas.list.length ? 'D’autres idées' : 'Des idées ?'} <span class="cost-tag">≈ ${costLabel(g, 'ideas')} ☕</span></button>
         <${WriteBtn} w=${{ kind: 'post', key: 'post', draft: val.trim() }} onText=${pickIdea} />
         <${VoiceChip} />
         ${em.btn}
@@ -3065,7 +3283,7 @@ function SaveRow({ g, x, close }) {
   </div>`;
 }
 // « il y a 5 min », in game time (a skip makes a save older).
-const agoLabel = (ts, now = Date.now()) => { const a = fmtAgo(ts, now); return /^\d/.test(a) ? 'il y a ' + a : a; };
+const agoLabel = (ts, now = Date.now()) => { const a = fmtAgo(ts, now); return /^\d+ (s|min|h|j)$/.test(a) ? 'il y a ' + a : /^\d/.test(a) ? 'le ' + a : a; }; // (0.28.1: « le 19 oct. », a date is no duration)
 async function loadSave(slot) {
   const g = S.game;
   if (!g || S.busy.save) return;
@@ -3083,6 +3301,7 @@ async function loadSave(slot) {
     snap.clockOff = (typeof snap.clockOff === 'number' ? snap.clockOff : num(snap.stats && snap.stats.skipped, 0)) - away;
   }
   achKeep(snap, g); // 0.28: an achievement, once there, stays
+  if (g.budget) snap.budget = g.budget; // 0.28.1: the cafés follow the real hour: those spent stay spent (today's and the whole game's)
   const ng = migrate(Object.assign(snap, { id: g.id, saves: g.saves, ready: true }));
   enterGame(ng, { tab: 'feed', hot: true });
   saveNow();
@@ -3134,7 +3353,7 @@ function Modal({ m, g }) {
       <div class="modal-big" style="color:var(--bad)">Cancel</div>
       <p>Ta réputation est tombée sous 150. Tant qu’elle ne remonte pas à 350, chaque post te coûte des abonnés. Comment tu gères ?</p>
       <${CancelPaths} g=${g} close=${close} />
-      <button class="btn btn-ghost" onClick=${() => { unlockAch(g, 'owned-the-bad-buzz'); close(); }}>J’assume</button>
+      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
     </div>`;
   } else if (m.t === 'busted') {
     const c = g.chars[m.charId];
@@ -3145,7 +3364,15 @@ function Modal({ m, g }) {
       <p>${m.late ? 'Quelqu’un a creusé. ' : 'Le réseau a tout de suite vu le montage. '}${K.f ? 'Ta' : 'Ton'} ${evLabel(m.kind)} contre ${c ? c.name : 'ta cible'} était ${K.f ? 'fausse' : 'faux'}, et maintenant tout le monde le sait.</p>
       <div class="rewards">${m.loss > 0 ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Réputation au plus bas</span><span class="chip bad">Cancel</span>${c ? html`<span class="chip bad">${c.name.split(' ')[0]} ne te le pardonnera pas</span>` : null}</div>
       <${CancelPaths} g=${g} close=${close} />
-      <button class="btn btn-ghost" onClick=${() => { unlockAch(g, 'owned-the-bad-buzz'); close(); }}>J’assume</button>
+      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
+    </div>`;
+  } else if (m.t === 'revlost') { // 0.28.1: this game went further in another tab or on another device
+    card = html`<div class="modal-card">
+      <span class="eyebrow" style="color:var(--bad)">Partie ouverte ailleurs</span>
+      <div class="modal-big" style="font-size:40px" aria-hidden="true">🔀</div>
+      <p>Cette partie a avancé dans un autre onglet ou sur un autre appareil. Pour ne pas effacer ce qui s’y est passé, cet onglet ne la sauvegarde plus.</p>
+      <button class="btn btn-hot" onClick=${() => { close(); const id = g.id; leaveGame(); openGame(id); }}>Reprendre la plus récente</button>
+      <button class="btn btn-ghost" onClick=${() => { close(); leaveGame(); }}>Mes parties</button>
     </div>`;
   } else if (m.t === 'uncancel') {
     card = html`<div class="modal-card">
@@ -3231,13 +3458,13 @@ function Modal({ m, g }) {
       <div class="modal-title">${m.title}</div>
       ${m.text ? html`<p>${m.text}</p>` : null}
       <button class=${'btn ' + (m.danger ? 'btn-danger-solid' : 'btn-hot')} onClick=${() => { if (!armed()) return; close(); m.run(); }}>${m.ok || 'Confirmer'}</button>
-      <button class="btn btn-ghost" onClick=${close}>Annuler</button>
+      <button class="btn btn-ghost" onClick=${close}>${m.cancel || 'Annuler'}</button>
     </div>`;
   }
   if (!card) { Promise.resolve().then(close); return null; }
   return html`<div class=${'modal' + (STICKY_MODALS.includes(m.t) ? ' sticky' : '')} role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget && !STICKY_MODALS.includes(m.t)) close(); }}>${card}</div>`;
 }
-const STICKY_MODALS = ['visit', 'pfp']; // 0.18: someone at the door: talk, or « pas maintenant » ; 0.25.1: a new profile photo, shown off or not
+const STICKY_MODALS = ['visit', 'pfp', 'revlost']; // 0.18: someone at the door: talk, or « pas maintenant » ; 0.25.1: a new profile photo, shown off or not
 
 /* =========================================================
    Clock, toasts for arrivals, boot
@@ -3262,32 +3489,47 @@ let achTickAt = 0;
 function tick() {
   const t = Date.now();
   S.now = t;
-  if (S.toasts.length) S.toasts = S.toasts.filter((x) => x.until > t);
+  if (S.toasts.length) { toastsOn(t); S.toasts = S.toasts.filter((x) => x.until > t); } // (0.28.1: those waiting their turn keep their time)
   let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
   const g = S.game;
   if (S.phase === 'game' && g) {
     if (t - achTickAt > 4000) { achTickAt = t; tickAch(g, t); } // 0.28: the achievements read what stands
     const shown = dmsShown(); // (0.27.9: a conversation out of the game is being read too)
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
+    // (0.28.1: and their toasts come after it: the time of the last toast only moves on outside a game)
     const playing = topIsGame(); // (0.27.6: a practice round, a commissioned edit too)
+    const achs = []; // 0.28.1: several achievements at once: one toast for all of them
     for (const n of playing ? [] : g.notifs) {
       if (n.at > S.lastToastAt && n.at <= t && n.k in TOAST_KINDS && !((n.k === 'dm' || n.k === 'seen') && shown.includes(n.c))) {
         const cId = n.c;
         const tg = n.k === 'trend' ? n.tg : null;
         const sk = n.k === 'skill' ? n.sk : null;
-        toast(n.text, TOAST_KINDS[n.k], (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : n.k === 'ach' ? { label: 'Voir', run: () => openLayer({ t: 'ach' }) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null);
+        if (n.k === 'ach') { achs.push(n); continue; }
+        TOAST_Q.push({ text: n.text, kind: TOAST_KINDS[n.k], pri: n.k === 'questnew' || n.k === 'questprog', at: t, action: (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null });
       }
     }
+    if (achs.length >= 3) { const a0 = achs[0].a; TOAST_Q.push({ text: `🏆 ${achs.length} succès débloqués`, kind: TOAST_KINDS.ach, pri: true, at: t, action: { label: 'Voir', run: () => openAch(a0) } }); }
+    else for (const n of achs) TOAST_Q.push({ text: n.text, kind: TOAST_KINDS.ach, pri: true, at: t, action: { label: 'Voir', ach: n.a, run: () => openAch(n.a) } });
     // answers that arrive in a conversation the player has left
     for (const id in playing ? {} : g.dms) {
       if (shown.includes(id)) continue;
       const msgs = g.dms[id].msgs;
       for (let k = msgs.length - 1; k >= Math.max(0, msgs.length - 4); k--) {
         const m = msgs[k];
-        if (m.r && m.at > S.lastToastAt && m.at <= t) { const c = g.chars[id]; if (c) toast(`${c.name} t’a répondu`, '', { label: 'Lire', dm: id, run: () => openDM(id) }); break; }
+        if (m.r && m.at > S.lastToastAt && m.at <= t) { const c = g.chars[id]; if (c) TOAST_Q.push({ text: `${c.name} t’a répondu`, kind: '', at: t, action: { label: 'Lire', dm: id, run: () => openDM(id) } }); break; }
       }
     }
-    S.lastToastAt = t;
+    if (!playing) S.lastToastAt = t;
+    if (TOAST_Q.length) { // (let in as room is made: the first ones first, an achievement or a quest before the rest)
+      TOAST_Q.sort((a, b) => ((b.pri ? 1 : 0) - (a.pri ? 1 : 0)) || (a.pri ? (b.at || 0) - (a.at || 0) : 0));
+      while (TOAST_Q.length && S.toasts.length < 4) {
+        const q = TOAST_Q.shift();
+        if (!q.pri && t - (q.at || t) > TOAST_STALE) continue; // (old news: its notification stays in the tab)
+        toast(q.text, q.kind, q.action);
+        const x = S.toasts[S.toasts.length - 1];
+        if (q.pri && x) x.pri = true;
+      }
+    }
     if (g.low) { const before = g.low.gain; syncLow(g, t); if (!g.low || g.low.gain !== before) update(); fast = true; }
     if (g.fakes && g.fakes.length && checkFakes(g, t)) update(); // a counter-investigation that was due
     const onScreen = (id) => S.stack.some((l) => l.t === 'minigame' && l.id === id); // 0.27.6: being played: never pulled away
@@ -3467,7 +3709,10 @@ if (window.__HYPE_TEST__) {
     theft, nextLaunchAt, gearIssues, outagePostpone, easyGear, usable, subOn, hasBonus, firstBill,
     promptDevis, readDevis, makeDevis, devisTotal, genDevis, payDevis, devisNeeded, pitchBrand, ownsItem, devisKey, devisStock, sameThing, bigWords, devisDeals,
     SCAM_KINDS, CRITIC, scamChance, scamOffer, brandSheet, sheetLine, payTerms, AGENT_CEIL, dealSize, agentReview, dealHard, agentGamble, scamBeforeSign, scamAfterSign,
+    parseMoney, moneyIn, MONEY_MAX, laterChoices, earlyMove, canPostpone, keptToInv, prodMult, prodLine, giftMem, FIXES, REP_IDS, noJson, dmBusy, PR_CAP, lightTier, settledGame, exportSum, ACH_ICONS, achIcon, writeForMe, TAG_RE, // 0.28.1 (the studio's tests)
+    toastsOn, toastHold, TOAST_Q, TOAST_ON, openAch, fmtPast, wordCut, fmtShort, fmtMoneyShort, postCut, POST_MAX, exportAny, importAny, importErr, winMinH, WIN_GRAB, meetWords, agoLabel, FEED_PAGE, postsWithTag, revealedPosts, // 0.28.1: the screens
     penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MAKERS, MERCH_MIN, merchOK, merchOf, openDrop, lastDrop, prepDrop, cancelDrop, launchDrop, sellDay, tickMerch, restock, stopDrop, merchCtx, merchLine, priceRatio, unitCost, stockCost,
+    prepEnd, END_PREP, removeGameById, // 0.28.1: the end of a date written ahead; a game removed
   };
 }
 const markSeen = () => { if (S.game) S.game.lastSeenAt = Date.now(); saveNow(); };
@@ -3479,7 +3724,7 @@ window.addEventListener('pagehide', markSeen);
 (function start() {
   const hot = window.claude && window.claude.hot;
   try {
-    if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => (S.game && S.game.ready ? { game: cloneJSON(S.game), tab: S.tab } : {}));
+    if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => (S.game && S.game.ready ? { game: cloneJSON(settledGame(S.game)), tab: S.tab } : {})); // (0.28.1: as if what is still on its way had not been sent)
   } catch (e) { /* optional */ }
   let started = false;
   const go = (d) => { if (started) return; started = true; boot(d || {}); };

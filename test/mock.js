@@ -355,6 +355,8 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
   // 0.11: the reaction the AI picks (window.__mockReacts: a queue for a test), from the player's words otherwise
   function reactFor(said) {
     if (Array.isArray(window.__mockReacts) && window.__mockReacts.length) return window.__mockReacts.shift();
+    // (0.28.1) pushing someone who asked for time makes them uneasy: « allez », « réponds stp », « allô ? »
+    if (/(?:^|[\s,«])(?:allez|allô)(?![a-zà-ÿ])|pourquoi tu (?:ne )?réponds|réponds(?:-moi)?\s*(?:stp|!|\?|»|$)|sérieux\s*\?|dis oui|tu es là\s*\?/i.test(said)) return 'gene';
     return /😏|haha|taquin|mdr/i.test(said) ? 'charme' : /nul|ennui|bof/i.test(said) ? 'refroidi' : 'amuse';
   }
   const TALK_OPEN = L(
@@ -536,6 +538,7 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
   async function sample(input, opts = {}) {
     const prompt = typeof input === 'string' ? input : input.map((m) => m.content).join('\n');
     window.__prompts.push(prompt);
+    (window.__opts = window.__opts || []).push({ tier: opts.modelTier || null, effort: opts.effort || null }); // 0.28.1: the tier and the effort asked
     if (opts.images) { // the player's images (0.9.2): what was sent, and a refusal on demand
       const list = Array.isArray(opts.images) ? opts.images : [opts.images];
       (window.__imgs = window.__imgs || []).push({ n: list.length, types: list.map((b) => b && b.type), sizes: list.map((b) => b && b.size), blobs: list.every((b) => b instanceof Blob) });

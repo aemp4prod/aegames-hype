@@ -11,7 +11,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-dates');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -209,6 +209,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
 
   // ---------- the option in the settings ----------
   await closeAll(page);
+  await sleep(800); await dismiss(page); // (0.28.1: what waited for the conversation to close shows now)
   await page.click('.gear-btn:visible');
   await page.waitForSelector('.layer .section');
   const box = page.locator('.layer .check-card', { hasText: 'Rendez-vous soignés' });

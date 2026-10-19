@@ -190,22 +190,24 @@ function BUY_LINE(g, c, geste) {
   const first = c.name.split(' ')[0], W = WORLD_MONEY[g.world.preset], sym = moneyWord(g), cash = Math.max(0, Math.floor(g.career.cash));
   return `- ${geste ? 'Le joueur paie : ajoute' : 'Seulement si, dans ce message, le joueur achète, offre ou paie pour de vrai quelque chose qui coûte de l’argent (des fleurs, un cadeau, l’addition, un verre, une tournée, des places, un taxi…), maintenant :'} une ligne {"t":"buy","what":"≤ 60 caractères : ce qu’il paie","kind":"cadeau","price":40}. kind : cadeau (offert à ${first}), sortie (ce qu’ils consomment ou font ensemble et qu’il paie : l’addition, une tournée, des places), perso (pour lui), pro (pour son travail). Pour perso et pro, ajoute "obj":true si c’est un objet qu’il garde (vêtement, accessoire, gadget, matériel…). price : le vrai prix${W ? `, en ${sym} (les prix de ce monde)` : ', en euros, en France (≈ un café 3, une tournée 25, un bouquet 40, un dîner pour deux 90, un bijou 150 à 800)'}, selon le lieu et ce qu’il choisit. Le joueur a ${fmtPlain(cash)} ${sym} : si c’est plus cher, sa carte est refusée (joue-le), et la ligne porte "refused":true. Une promesse (« je t’offrirai… ») n’est pas un achat.`;
 }
-const buyPrice = (v) => { const m = /(\d+(?:[.,]\d+)?)/.exec(String(v == null ? '' : v).replace(/\s/g, '')); return m ? Math.round(Number(m[1].replace(',', '.')) * 100) / 100 : 0; };
+const buyPrice = (v) => { const x = moneyIn(v); return Number.isFinite(x) ? Math.round(x * 100) / 100 : 0; }; // (0.28.1: « 1e+22 », « 2 millions »…)
 /* The purchase: the price the AI gave, the skill's discount, a chance it is offered (gifts and outings), the card
    refused when the account cannot pay. Returns the receipt (kept in g.buys), or null when there is nothing to pay. */
 function applyBuy(g, c, o, where, at = later()) {
   const kind = normBuyKind(o.kind), K = BUY_KINDS[kind], what = str(o.what, 80) || 'un achat';
-  const price = clamp(buyPrice(o.price), 0, 1000000);
+  const p0 = buyPrice(o.price), price = Number.isFinite(p0) && p0 > 0 ? p0 : 0; // (0.28.1: no ceiling: the card says no when the money is not there)
   if (!(price > 0)) return null;
   const off = clamp(skillFx(g, K.off), 0, 0.5), freeP = K.free ? clamp(skillFx(g, K.free), 0, 0.5) : 0;
-  const asked = o.refused === true || o.refused === 'true';
-  const free = !asked && freeP > 0 && roll() < freeP;
+  // 0.28.1: the game decides whether the card goes through (the model's « refused » was often wrong, either way)
+  const free = freeP > 0 && roll() < freeP;
   const due = free ? 0 : Math.round(price * (1 - off) * 100) / 100;
-  const refused = asked || (due > 0 && due > g.career.cash + 1e-9);
+  const refused = due > 0 && due > g.career.cash + 1e-9;
   const R = { id: uid('b'), at, c: c.id, what, kind, price, paid: refused ? 0 : due, off: refused || free ? 0 : off, free, refused, where };
+  if (refused) R.left = Math.max(0, g.career.cash); // (the receipt says what was left then, not now)
   if (!refused && due > 0) pay(g, due, `${K.emoji} ${cap1(what)} (${c.name.split(' ')[0]})`, 'buy');
-  if (!refused && (kind === 'cadeau' || kind === 'sortie')) addMem(g, c, kind === 'cadeau' ? `le joueur m’a offert ${what}` : `le joueur a payé ${what}`);
-  if (!refused && (kind === 'perso' || kind === 'pro') && (o.obj === true || o.obj === 'true')) invAdd(g, { kind: 'buy', name: what, emoji: K.emoji, value: price, cond: 'neuf', at, from: { how: 'achat', c: c.id } }); // 0.26: kept, in the inventory
+  if (!refused && kind === 'cadeau') { giftMem(g, c, what); giftCounted(g, c, R.paid, at); } // (0.28.1: « Coin coin » counts the gifts paid in a message too)
+  if (!refused && kind === 'sortie') addMem(g, c, `le joueur a payé ${what}`, `Tu as payé ${what}`);
+  if (!refused && (kind === 'perso' || kind === 'pro') && (o.obj === true || o.obj === 'true')) invAdd(g, { kind: 'buy', name: what, emoji: K.emoji, value: R.paid, cond: 'neuf', at, from: { how: 'achat', c: c.id } }); // 0.26: kept, in the inventory (0.28.1: worth what it cost)
   if (!Array.isArray(g.buys)) g.buys = [];
   g.buys.push(R);
   if (g.buys.length > 60) g.buys.splice(0, g.buys.length - 60);
@@ -219,7 +221,7 @@ function buyText(g, b) {
 // The receipt, as the player sees it.
 function buyLabel(g, b) {
   const K = BUY_KINDS[b.kind] || BUY_KINDS.cadeau;
-  if (b.refused) return `💳 Carte refusée : ${b.what} (${fmtMoney(g, b.price)}, il te reste ${fmtMoney(g, Math.max(0, g.career.cash))})`;
+  if (b.refused) return `💳 Carte refusée : ${b.what} (${fmtMoney(g, b.price)}, il te restait ${fmtMoney(g, b.left != null ? b.left : Math.max(0, g.career.cash))})`;
   if (b.free) return `${K.emoji} ${cap1(b.what)} : offert ! (${SKILL_TREE[K.skill].label.toLowerCase()})`;
   return `${K.emoji} ${cap1(b.what)} : ${fmtMoney(g, b.paid)}${b.off ? ` au lieu de ${fmtMoney(g, b.price)} (${SKILL_TREE[K.skill].label.toLowerCase()} −${Math.round(b.off * 100)} %)` : ''}`;
 }

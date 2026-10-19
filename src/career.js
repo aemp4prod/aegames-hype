@@ -181,6 +181,9 @@ function pay(g, amount, label, kind) {
 }
 // What is owed whatever the cash (a fine, a penalty, a refund): the account can go below zero.
 function charge(g, amount, label, kind) { if (!(amount > 0)) return; g.career.cash -= amount; ledger(g, label, -amount, kind || 'out'); }
+// 0.28.1: what a move did to the reputation, in a notice, between pre and post: nothing when it did not move (never
+// « +0 de réputation »)
+const repBit = (dr, pre = '', post = '') => (repPts(dr) ? `${pre}${repWord(dr)}${post}` : '');
 
 /* ---------- the partner programs: what unlocks the platform's own money ---------- */
 const sumLog = (g, days, pick) => { const from = Date.now() - days * DAY_MS; return g.career.log.reduce((n, x) => (x.at >= from ? n + (pick(x) || 0) : n), 0); };
@@ -218,10 +221,10 @@ function checkProgram(g, t) {
   const refused = g.stats.reputation < 25 || (g.pbb && t - g.pbb.at < 7 * DAY_MS);
   if (refused) {
     c.prog = { state: 'refused', at: t, retry: t + 7 * DAY_MS };
-    addNotif(g, { k: 'money', text: `Refusé au ${P ? P.name : 'programme'} : ta chaîne est jugée trop sulfureuse pour les annonceurs. Retente dans 7 jours, avec une meilleure réputation.` });
+    addNotif(g, { k: 'money', text: `${px(g, 'Refusé', 'Refusée', 'Refusé·e')} au ${P ? P.name : 'programme'} : ta chaîne est jugée trop sulfureuse pour les annonceurs. Retente dans 7 jours, avec une meilleure réputation.` });
   } else {
     c.prog = { state: 'on', at: t };
-    addNotif(g, { k: 'money', text: `Accepté·e au ${P ? P.name : 'programme'} ! Tes ${platformOf(g) === 'twitch' ? 'lives' : 'contenus'} rapportent de l’argent maintenant.` });
+    addNotif(g, { k: 'money', text: `${px(g, 'Accepté', 'Acceptée', 'Accepté·e')} au ${P ? P.name : 'programme'} ! Tes ${platformOf(g) === 'twitch' ? 'lives' : 'contenus'} rapportent de l’argent maintenant.` });
     queueModalFor(g, { t: 'money', what: 'program' });
   }
   return true;
@@ -554,13 +557,23 @@ function dealFee(g, what) {
 }
 const CONTACT_FIRST = { f: ['Inès', 'Clara', 'Maëlle', 'Sarah', 'Léa', 'Yasmine', 'Chloé', 'Nora', 'Jade', 'Lina'], m: ['Hugo', 'Karim', 'Maxime', 'Théo', 'Samir', 'Lucas', 'Adam', 'Nathan', 'Malik', 'Enzo'] };
 const CONTACT_LAST = ['Moreau', 'Benali', 'Laurent', 'Petit', 'Garnier', 'Haddad', 'Roussel', 'Faure', 'Lemaire', 'Da Silva', 'Ndiaye', 'Morel'];
+// 0.28.1: the first names already worn (the main characters, the player): never given to someone new.
+const takenFirsts = (g) => [...new Set(mains(g, false).map((c) => c.name.split(' ')[0]).concat(String((g.player && g.player.name) || '').split(' ')[0]))].filter(Boolean);
+const firstsLine = (g, who) => { const L = takenFirsts(g); return L.length ? `Prénoms déjà pris, à ne pas reprendre${who ? ` pour ${who}` : ''} : ${L.slice(0, 24).join(', ')}.` : null; };
 // Someone the player can write to (a brand's partnerships manager, a job candidate…).
 function addContact(g, o) {
   const gd = o.g === 'm' || o.g === 'f' || o.g === 'x' ? o.g : pick(['f', 'm']);
-  const taken = (n) => Object.values(g.chars).some((c) => c.name.toLowerCase() === n.toLowerCase());
-  let name = str(o.name, 40) || `${pick(CONTACT_FIRST[gd === 'x' ? pick(['f', 'm']) : gd])} ${pick(CONTACT_LAST)}`;
-  for (let k = 0; k < 12 && !o.name && taken(name); k++) name = `${pick(CONTACT_FIRST[gd === 'x' ? pick(['f', 'm']) : gd])} ${pick(CONTACT_LAST)}`; // 0.20: more offers, more names
-  if (taken(name)) return null;
+  // 0.28.1: a name the game draws never takes the first name of a main character (or the player's): « Iris prend ses
+  // distances » next to « Iris Vasquez t’a écrit ». A name the AI chose stays (its message may say it): its prompt lists the first
+  // names taken (takenFirsts); only the very same full name is refused, as before.
+  const first = (n) => foldAcc(String(n).trim().split(/\s+/)[0]);
+  const firsts = new Set(takenFirsts(g).map(first));
+  const same = (n) => Object.values(g.chars).some((c) => c.name.toLowerCase() === n.toLowerCase());
+  const taken = (n) => same(n) || firsts.has(first(n));
+  const draw = () => `${pick(CONTACT_FIRST[gd === 'x' ? pick(['f', 'm']) : gd])} ${pick(CONTACT_LAST)}`;
+  let name = str(o.name, 40) || draw();
+  for (let k = 0; k < 12 && !o.name && taken(name); k++) name = draw(); // 0.20: more offers, more names
+  if (o.name ? same(name) : taken(name)) return null;
   const h = uniqueHandle(g, normHandle(o.handle) || normHandle(name.split(' ')[0] + '.' + str(o.brand || o.tag || 'pro', 20).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 9)) || 'contact' + randi(10, 99));
   const id = 'c' + (++g.seq);
   const c = {
@@ -590,7 +603,9 @@ function makeOffer(g, o = {}) {
   const banned = o.scam ? false : o.brand ? BANNED_RE.test(textAll) : Math.random() < 0.08; // (0.20: a scam asked for is not a forbidden product)
   const shady = !banned && (o.shady === true || (o.shady == null && Math.random() < 0.12));
   const S0 = banned ? (BANNED.find((x) => new RegExp(x.id.slice(0, 5), 'i').test(textAll)) || pick(BANNED)) : SECTORS.find((x) => x.id === o.sector) || SECTORS.find((x) => x.id === pickSector(g)) || pick(SECTORS); // 0.21: what the creator makes
-  const brand = str(o.brand, 30) || pick(S0.brands);
+  const fresh = S0.brands.filter((b) => !brandBurnt(g, b)); // 0.28.1: a brand that scammed the player, or was exposed, never writes again
+  const brand = str(o.brand, 30) || (fresh.length ? pick(fresh) : '');
+  if (!brand || brandBurnt(g, brand)) return null;
   if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return null;
   const via = o.via || (o.pitched ? 'pitch' : 'direct'), ag = hasStaff(g, 'agent'); // 0.20: who brought it
   let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady ? 1.5 : 1) * (banned ? 2 : 1) * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1);
@@ -666,14 +681,17 @@ function agentCut(g, amount, brand) {
   const m = hasStaff(g, 'agent');
   if (!m || !(amount > 0)) return 0;
   const cut = Math.round(amount * m.rate) / 100;
-  charge(g, cut, `Commission de ${g.chars[m.c] ? g.chars[m.c].name.split(' ')[0] : 'ton agent'} (${brand})`, 'staff');
+  charge(g, cut, `Commission ${g.chars[m.c] ? deN(g.chars[m.c].name.split(' ')[0]) : 'de ton agent'} (${brand})`, 'staff'); // (0.28.1: « d’Iris »)
   return cut;
 }
 // 0.27.6: a down payment that goes back takes the agent's cut on it back too (they kept it before).
+// 0.28.1: money given back is no money earned: « gagnés depuis le début » loses the deposit, and the cut that comes back
+// is a cost undone, not a gain.
 function refundUpfront(g, d) {
   if (!(d.upfront > 0)) return 0;
   charge(g, d.upfront, `Remboursement de l’acompte ${d.brand}`, 'deal');
-  if (d.upCut > 0) { earn(g, d.upCut, `Commission rendue par ton agent (${d.brand})`, 'staff'); d.upCut = 0; }
+  g.career.earned = Math.max(0, (g.career.earned || 0) - d.upfront);
+  if (d.upCut > 0) { g.career.cash += d.upCut; ledger(g, `Commission rendue par ton agent (${d.brand})`, d.upCut, 'staff'); d.upCut = 0; }
   return d.upfront;
 }
 // What a brand bills when a signed contract breaks on the player's side: the gear it sent, the products it sent (0.27.6:
@@ -694,7 +712,7 @@ function exclusiveBreach(g, x, d) {
   if (pen) charge(g, pen, `Pénalité d’exclusivité ${x.brand}`, 'deal');
   const dr = repMove(g, { pro: -12 }, `exclusivité de ${x.brand} pas respectée`);
   if (c) { applyRel(g, c, -18, `a signé avec ${d.brand} malgré l’exclusivité`, later(), 25); addIncomingDM(g, c, `On vient de voir ton partenariat avec ${d.brand}… Notre contrat était exclusif. ${x.state === 'broken' ? 'On arrête là, et tu recevras la facture.' : 'Tu vas recevoir la facture de la pénalité.'}`, later() + 4000, { max: 300 }); }
-  addNotif(g, { k: 'money', text: `⚖️ ${x.brand} : exclusivité pas respectée${x.state === 'broken' ? ', contrat rompu' : ''} (−${fmtMoney(g, pen + back)}, ${repWord(dr)}).` });
+  addNotif(g, { k: 'money', text: `⚖️ ${x.brand} : exclusivité pas respectée${x.state === 'broken' ? ', contrat rompu' : ''} (−${fmtMoney(g, pen + back)}${repBit(dr, ', ')}).` });
 }
 function signDeal(g, d, o = {}) {
   if (!d || d.state !== 'offer') return false;
@@ -748,7 +766,7 @@ function applyDealLine(g, c, o) {
       const dr = repMove(g, { pro: -8 }, `${d.brand} rompt votre contrat (son cadeau revendu)`);
       applyRel(g, c, -15, 'a revendu notre cadeau avant de livrer', later(), 20);
       const owed = [back ? `l’acompte (${fmtMoney(g, back)})` : '', billed ? `ce qu’ils t’avaient envoyé (${fmtMoney(g, billed)})` : ''].filter(Boolean).join(' et ');
-      addNotif(g, { k: 'reldown', c: c.id, text: `💔 ${d.brand} rompt votre contrat${owed ? ` : tu rembourses ${owed}` : ''} (${repWord(dr)}).` });
+      addNotif(g, { k: 'reldown', c: c.id, text: `💔 ${d.brand} rompt votre contrat${owed ? ` : tu rembourses ${owed}` : ''}${repBit(dr, ' (', ')')}.` });
     }
     return;
   }
@@ -809,7 +827,8 @@ function deliverDeal(g, d, post, mention, perf) {
   repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
   if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
   const c = g.chars[d.contact];
-  if (c) applyRel(g, c, d.shady && mention ? -5 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : 'contente du partenariat', later() + 3000, 10);
+  const bare = !d.shady && !mention; // 0.28.1: an honest contract asked for the mention: delivered without it, the brand is not happy (no bonus)
+  if (c) applyRel(g, c, d.shady && mention ? -5 : bare ? -10 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : bare ? 'tu as caché que c’était une pub, le contrat disait le contraire' : 'contente du partenariat', later() + 3000, 10);
   // the law: no mention, or a forbidden product, can be spotted later (a report, a check)
   const p = d.banned ? 0.8 : !mention ? 0.45 : 0;
   if (p && Math.random() < p) d.check = Date.now() + randi(8, 60) * 3600000;
@@ -818,7 +837,7 @@ function deliverDeal(g, d, post, mention, perf) {
   addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? ` : paiement prévu dans ${d.payLate} jours` : inKind}.${fw}` });
   if (!mention) secretFromDeal(g, d); // 0.18: a hidden ad is a secret now (the brand's contact knows)
   dealDelivered(g, d); // 0.18: the one who got the spot on it
-  brandLove(g, d, perf); // 0.20: a release that did very well: a bonus, and the brand comes back
+  if (!bare) brandLove(g, d, perf); // 0.20: a release that did very well: a bonus, and the brand comes back
 }
 // Deadlines, offers that expire, a moral clause after a scandal, and checks on hidden ads.
 function checkDeals(g, t) {
@@ -836,7 +855,7 @@ function checkDeals(g, t) {
       const dr = repMove(g, { pro: -25, cred: -5 }, `contrat ${d.brand} pas livré à temps`);
       const c = g.chars[d.contact];
       if (c) { applyRel(g, c, -20, 'contrat pas respecté', later(), 25); addIncomingDM(g, c, 'On n’a rien vu passer… Le contrat est rompu. Tu recevras la facture de la pénalité.', later() + 1000, { max: 300 }); }
-      addNotif(g, { k: 'money', text: `Contrat ${d.brand} rompu : délai dépassé (−${fmtMoney(g, back + pen + billed)}${billed ? (d.gift ? ', le matos offert facturé' : ', les produits facturés') : ''}, ${repWord(dr)}).` });
+      addNotif(g, { k: 'money', text: `Contrat ${d.brand} rompu : délai dépassé (−${fmtMoney(g, back + pen + billed)}${billed ? (d.gift ? ', le matos offert facturé' : ', les produits facturés') : ''}${repBit(dr, ', ')}).` });
       ch = true;
     } else if (d.state === 'signed' && scandal && !d.moral) {
       d.moral = true; // the moral clause is checked once per scandal
@@ -870,7 +889,7 @@ function sanction(g, d) {
   const pce = addAmbientPost(g, { by: 'contre.enquete', name: 'Contre-Enquête', bio: 'vérifie les screens avant tout le monde', text: law ? `@${h} fait la promo de ${d.product} (${d.brand}). C’est interdit en France depuis 2023. Signalé. ${tag}` : `@${h} vend ${d.product} de ${d.brand} sans dire que c’est payé. Pas de mention « Collaboration commerciale » = pratique commerciale trompeuse. ${tag}` }, at, at);
   at += randi(4000, 8000);
   addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `donc on se fait vendre des trucs en douce par @${h} ${tag} 💀` }, at, at);
-  addNotif(g, { k: 'money', text: `⚖️ ${law ? 'Promotion interdite' : 'Publicité cachée'} repérée (${d.brand}) : amende de ${fmtMoney(g, fine)}, ${repWord(dr)}, −${nAbonnes(loss)}.` });
+  addNotif(g, { k: 'money', text: `⚖️ ${law ? 'Promotion interdite' : 'Publicité cachée'} repérée (${d.brand}) : amende de ${fmtMoney(g, fine)}${repBit(dr, ', ')}, −${nAbonnes(loss)}.` });
   addChronicle(g, `${g.player.name} a été ${px(g, 'épinglé', 'épinglée', 'épinglé·e')} pour ${law ? 'une promotion interdite' : 'une publicité cachée'} (${d.brand}).`);
   addTrigger(g, `Le joueur s’est fait épingler pour ${law ? 'une promotion interdite par la loi' : 'une publicité cachée'} (${d.brand}, ${d.product}) : le réseau s’indigne, se moque, ressort ses anciens posts.`);
   queueModalFor(g, { t: 'money', what: 'fine', amount: fine, law, brand: d.brand, rep: repPts(dr) });
@@ -929,7 +948,7 @@ function payCrew(g, r) {
     const R = STAFF_ROLES[m.role];
     if (!R || R.pay !== 'video' || !R.fmts.includes(r.what)) continue;
     const c = g.chars[m.c];
-    if (pay(g, m.rate, `${roleName(m.role, c && c.g)} · ${str(r.topic, 30)}`, 'staff')) crew.push(m.role);
+    if (pay(g, m.rate, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}`, 'staff')) crew.push(m.role);
     else missed.push(c ? c.name.split(' ')[0] : roleName(m.role));
   }
   r.crew = crew;
@@ -947,7 +966,7 @@ function payroll(g, t) {
     if (pay(g, m.rate, `Salaire de ${c.name.split(' ')[0]} (${roleName(m.role, c.g).toLowerCase()})`, 'staff')) { m.unpaid = 0; repMove(g, { pro: 1.5 }, 'ton équipe payée à l’heure'); continue; }
     m.unpaid = (m.unpaid || 0) + 1;
     if (m.unpaid >= 2) { quitStaff(g, m, 'unpaid'); continue; }
-    applyRel(g, c, -12, 'pas payé·e cette semaine', later(), 15);
+    applyRel(g, c, -12, `pas ${gx(c.g, 'payé', 'payée', 'payé·e')} cette semaine`, later(), 15);
     addIncomingDM(g, c, `Euh… mon virement de la semaine n’est pas arrivé. Je bosse pas gratuitement, hein. Encore une fois et j’arrête.`, later() + 1500, { max: 300 });
   }
   return ch;
@@ -960,21 +979,21 @@ function quitStaff(g, m, why) {
   c.role = `Ex-${roleName(m.role, c.g).toLowerCase()}`;
   if (why === 'unpaid') {
     c.rel = clamp(c.rel - 30, -100, 100);
-    addMem(g, c, 'le joueur ne m’a pas payé·e : je suis parti·e');
-    addIncomingDM(g, c, 'Deux semaines sans être payé·e. C’est fini, je démissionne. Et je vais pas me gêner pour le dire.', later() + 1000, { max: 300 });
+    addMem(g, c, `le joueur ne m’a pas ${gx(c.g, 'payé : je suis parti', 'payée : je suis partie', 'payé·e : je suis parti·e')}`);
+    addIncomingDM(g, c, `Deux semaines sans être ${gx(c.g, 'payé', 'payée', 'payé·e')}. C’est fini, je démissionne. Et je vais pas me gêner pour le dire.`, later() + 1000, { max: 300 });
     addAmbientPost(g, { by: c.handle, text: `petit conseil : bossez pas pour @${g.player.handle}, ça paie pas ses factures. deux semaines que j’attends. #BalanceTonClient` }, later() + randi(60000, 240000));
-    const dr = repMove(g, { pro: -25, kind: -10 }, `${c.name} pas payé·e, et le dit partout`);
-    addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne (pas payé·e) et le fait savoir : ${repWord(dr)}.` });
+    const dr = repMove(g, { pro: -25, kind: -10 }, `${c.name} pas ${gx(c.g, 'payé', 'payée', 'payé·e')}, et le dit partout`);
+    addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne (pas ${gx(c.g, 'payé', 'payée', 'payé·e')}) et le fait savoir${repBit(dr, ' : ')}.` });
   } else if (why === 'fired') {
     c.rel = clamp(c.rel - 15, -100, 100);
-    addMem(g, c, 'le joueur m’a viré·e');
+    addMem(g, c, `le joueur m’a ${gx(c.g, 'viré', 'virée', 'viré·e')}`);
     addNotif(g, { k: 'money', c: c.id, text: `Tu te sépares de ${c.name}.` });
   } else if (why === 'scandal') { // 0.9.4: they do not want their name next to the player's scandal
     c.rel = clamp(c.rel - 10, -100, 100);
     addIncomingDM(g, c, `${gx(c.g, 'Désolé', 'Désolée', 'Désolé·e')}, je ne veux pas être ${gx(c.g, 'associé', 'associée', 'associé·e')} à tout ça. Je préfère arrêter là.`, later() + 1000, { max: 300 });
     addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne : ${gx(c.g, 'il', 'elle', 'iel')} ne veut pas être ${gx(c.g, 'associé', 'associée', 'associé·e')} à ton scandale.` });
   } else addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne.` });
-  addChronicle(g, `${c.name} ne travaille plus pour ${g.player.name}${why === 'unpaid' ? ' (pas payé·e)' : ''}.`);
+  addChronicle(g, `${c.name} ne travaille plus pour ${g.player.name}${why === 'unpaid' ? ` (pas ${gx(c.g, 'payé', 'payée', 'payé·e')})` : ''}.`);
 }
 function hireStaff(g, c) {
   const o = c && c.cand;
@@ -1016,6 +1035,7 @@ function addCandidate(g, role, o = {}) {
   const c = addContact(g, { kind: 'cand', minAge: 19 + years, name: o.name, handle: o.handle, g: o.g, tag: role, emoji: cleanEmoji(o.emoji) || R.emoji, role: `${roleName(role, o.g)} · ${tierName(tier, o.g)}`,
     personality: str(o.personality, 240) || 'motivé·e, veut décrocher le poste', voice: str(o.voice, 140) || 'naturelle, directe', bio: str(o.pitch, 170) || `${years} ans d’expérience · ${pick(CAND_PITCH[role] || ['de l’expérience'])}`, rel: 15, followers: randi(150, 4000) * (tier + 1) });
   if (!c) return null;
+  c.role = `${roleName(role, c.g)} · ${tierName(tier, c.g)}`; // 0.28.1: the gender drawn for them (o.g is often none)
   const rate = R.pay === 'cut' ? candPrice(role, tier) : niceRound(candPrice(role, tier) * standMult(g, 'cand')); // 0.9.4: a scandal costs more, the top less
   c.cand = { role, tier, years, rate, pitch: str(o.pitch, 170) || c.bio, at: Date.now() };
   const hello = str(o.hello, 300) || `Salut ! J’ai vu que tu cherchais ${gx(c.g, 'un', 'une', 'un·e')} ${roleName(role, c.g).toLowerCase()}. ${years} ans d’expérience, dispo tout de suite. On en parle ?`;
@@ -1110,7 +1130,7 @@ function seriesMissed(g, r) {
   if (s.hard || s.ep >= s.days) { endSeries(g, s); return; }
   scheduleEpisode(g, s, nextAt(s.hour, s.min));
   const dr = repMove(g, { cred: -10, pro: -5 }, `épisode ${s.ep} de ton défi manqué`);
-  addNotif(g, { k: 'delay', text: `Épisode ${s.ep}/${s.days} manqué : ton bonus de défi retombe à ×1, ${repWord(dr)}. On commence à se moquer.` });
+  addNotif(g, { k: 'delay', text: `Épisode ${s.ep}/${s.days} manqué : ton bonus de défi retombe à ×1${repBit(dr, ', ')}. On commence à se moquer.` });
 }
 // The verdict: rewards, a flop (« bide »), or a bad buzz when it went really wrong.
 function endSeries(g, s, quit) {
@@ -1130,7 +1150,7 @@ function endSeries(g, s, quit) {
     s.reward = { gems, fol };
     g.career.offerAt = 0; // a brand noticed: an offer comes right away
     s.bonusOffer = true;
-    addNotif(g, { k: 'milestone', text: `🏆 Défi réussi : ${s.days} jours${s.hard ? ' en hardcore' : ''} ! +${gems} gemmes, ${nAbonnes(fol, true)}, et une marque t’a remarqué·e.` });
+    addNotif(g, { k: 'milestone', text: `🏆 Défi réussi : ${s.days} jours${s.hard ? ' en hardcore' : ''} ! +${gems} gemmes, ${nAbonnes(fol, true)}, et une marque t’a ${px(g, 'remarqué', 'remarquée', 'remarqué·e')}.` });
     addChronicle(g, `${g.player.name} a tenu son défi : ${s.days} jours de suite${s.hard ? ' en mode hardcore' : ''}. Respect.`);
     addTrigger(g, `Le joueur a réussi son défi de ${s.days} jours${s.hard ? ' en mode hardcore' : ''} : bravos, mèmes admiratifs, certains n’en reviennent pas.`);
   } else if (bb) {
@@ -1142,7 +1162,7 @@ function endSeries(g, s, quit) {
     s.reward = { loss, rep: repPts(dr) };
     let at = t + randi(2000, 5000);
     for (const fn of [(x) => `le « défi » de @${x} : annoncé en grande pompe, raté dans les grandes largeurs #DailyUploadRaté`, (x) => `@${x} qui promet ${s.days} jours et qui tient pas la moitié 💀 #DailyUploadRaté`]) { addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: fn(h) }, at, at); at += randi(4000, 9000); }
-    addNotif(g, { k: 'cancel', text: `Défi raté en beauté : c’est le bad buzz (−${nAbonnes(loss)}, ${repWord(dr)}).` });
+    addNotif(g, { k: 'cancel', text: `Défi raté en beauté : c’est le bad buzz (−${nAbonnes(loss)}${repBit(dr, ', ')}).` });
     addChronicle(g, `${g.player.name} a lamentablement raté son défi de ${s.days} jours.`);
     addTrigger(g, `Le défi « Daily Upload » du joueur a tourné au fiasco : moqueries, mèmes, « il a craqué ».`);
     checkCancel(g);
@@ -1152,7 +1172,7 @@ function endSeries(g, s, quit) {
     const dr = repMove(g, { cred: -15, image: -5 }, 'ton défi Daily Upload, pas tenu');
     s.reward = { loss, rep: repPts(dr) };
     addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: `le défi de @${h}… on dira que c’était l’intention qui comptait #DailyUploadRaté` }, Date.now() + randi(2000, 6000));
-    addNotif(g, { k: 'delay', text: `Défi pas tenu : un petit bide (−${nAbonnes(loss)}, ${repWord(dr)}).` });
+    addNotif(g, { k: 'delay', text: `Défi pas tenu : un petit bide (−${nAbonnes(loss)}${repBit(dr, ', ')}).` });
     addChronicle(g, `${g.player.name} n’a pas tenu son défi de ${s.days} jours.`);
   }
   queueModalFor(g, { t: 'series', sid: s.id });
@@ -1184,7 +1204,7 @@ function addRumor(g, by, text, sev, postId) {
   g.rumors.push(r);
   if (g.rumors.length > 12) g.rumors.splice(0, g.rumors.length - 12);
   g.rumorAt = t;
-  addNotif(g, { k: 'cancel', c: c.id, text: `🗣️ ${c.name} fait courir une fausse rumeur sur toi : « ${str(text, 90)} »` });
+  addNotif(g, { k: 'rumor', c: c.id, p: post ? post.id : undefined, text: `🗣️ ${c.name} fait courir une fausse rumeur sur toi : « ${str(text, 90)} »` });
   addChronicle(g, `${c.name} fait courir une rumeur sur ${g.player.name} : « ${str(text, 100)} ».`);
   addMem(g, c, 'j’ai lancé une rumeur sur le joueur');
   // an ally warns the player in private
@@ -1211,7 +1231,7 @@ function tickRumors(g, t) {
     trialsOnRumor(g, 'stuck');
     const dr = repMove(g, { cred: -8 * r.sev, image: -5 * r.sev }, 'une rumeur s’est installée', { noCheck: true });
     const c = g.chars[r.by];
-    addNotif(g, { k: 'cancel', c: r.by, text: `La rumeur de ${c ? c.name : 'ton ennemi'} s’est installée : beaucoup y croient maintenant (${repWord(dr)}).` });
+    addNotif(g, { k: 'cancel', c: r.by, text: `La rumeur de ${c ? c.name : 'ton ennemi'} s’est installée : beaucoup y croient maintenant${repBit(dr, ' (', ')')}.` });
     addChronicle(g, `La rumeur sur ${g.player.name} (« ${str(r.text, 80)} ») a fini par s’installer.`);
     checkCancel(g);
     ch = true;
@@ -1227,7 +1247,7 @@ function rumorResult(g, r, cred, post) {
     trialsOnRumor(g, 'debunked'); // 0.12: someone was waiting for this before committing
     const dr = repMove(g, { cred: 10 * r.sev, image: 4 * r.sev }, 'tu as démonté une rumeur', { noCheck: true });
     if (c) { c.followers = Math.max(0, Math.round(c.followers * 0.95)); addMem(g, c, 'le joueur a démonté ma rumeur en public'); }
-    addNotif(g, { k: 'relup', p: post && post.id, text: `Rumeur démontée : tout le monde a vu que ${c ? c.name : 'l’autre'} mentait (${repWord(dr)}).` });
+    addNotif(g, { k: 'relup', p: post && post.id, text: `Rumeur démontée : tout le monde a vu que ${c ? c.name : 'l’autre'} mentait${repBit(dr, ' (', ')')}.` });
     addChronicle(g, `${g.player.name} a démonté la rumeur lancée par ${c ? c.name : 'un ennemi'}.`);
     addTrigger(g, `Le joueur vient de démonter la fausse rumeur de @${c ? c.handle : 'quelqu’un'} avec des arguments solides : le menteur se fait ridiculiser, il enrage.`, c && c.id);
   } else if (cred >= 4) {
@@ -1266,7 +1286,7 @@ function turnAgainst(g, by, who, d, text) {
   applyRel(g, c, delta, `${n.name.split(' ')[0]} lui parle mal de toi`, later() + 2000, 10);
   applyTrust(g, c, -Math.ceil(Math.abs(delta) / 2), `${n.name.split(' ')[0]} sème le doute sur toi`, later() + 2400);
   const al = allies(g).find((a) => a !== c && a !== n);
-  if (al && Math.random() < 0.6) addIncomingDM(g, al, `Je préfère te prévenir : @${n.handle} est allé·e voir @${c.handle} pour te descendre. ${str(text, 120) ? `Genre « ${str(text, 120)} ».` : ''}`, later() + randi(5000, 15000), { max: 400 });
+  if (al && Math.random() < 0.6) addIncomingDM(g, al, `Je préfère te prévenir : @${n.handle} est ${gx(n.g, 'allé', 'allée', 'allé·e')} voir @${c.handle} pour te descendre. ${str(text, 120) ? `Genre « ${str(text, 120)} ».` : ''}`, later() + randi(5000, 15000), { max: 400 });
   return true;
 }
 // DM intel: what the player said in private, kept by a character (and passed around).
@@ -1307,7 +1327,7 @@ function leakIntel(g, o, postId) {
   s.followers = Math.max(0, s.followers - loss);
   for (const c of mentionedChars(g, it.quote)) if (c !== by) { applyRel(g, c, -10 * it.w, 'a lu ce que tu dis de lui en privé', at + 2000, 25); applyTrust(g, c, -6 * it.w, 'a lu ce que tu dis de lui en privé', at + 2400); }
   if (it.w >= 3) { const t = Date.now(); g.pbb = { at: t, until: t + Math.round(45 * 60000 * staffMult(g, 'bb')), c: by.id, kind: 'leak' }; }
-  addNotif(g, { k: 'screen', c: by.id, p: p && p.id, at, text: `📸 ${by.name} publie une capture de tes DM : « ${str(it.quote, 70)} » (${repWord(dr)}${loss ? `, −${nAbonnes(loss)}` : ''}).` });
+  addNotif(g, { k: 'screen', c: by.id, p: p && p.id, at, text: `📸 ${by.name} publie une capture de tes DM : « ${str(it.quote, 70)} »${((b) => (b ? ` (${b})` : ''))([repBit(dr), loss ? `−${nAbonnes(loss)}` : ''].filter(Boolean).join(', '))}.` });
   addChronicle(g, `${by.name} a publié une capture des messages privés de ${g.player.name}.`);
   addTrigger(g, `@${by.handle} vient de publier une vraie capture des DM du joueur (« ${str(it.quote, 90)} ») : tout le monde commente, certains sont choqués, d’autres en rient.`, by.id);
   queueModalFor(g, { t: 'leak', iid: it.id, by: by.id });
@@ -1384,6 +1404,7 @@ function refreshCareerLines(g, t = Date.now()) {
     out.push(`- Une marque fictive de ce monde contacte le joueur pour un partenariat, logique avec ce qu’il publie (secteurs les plus probables : ${sectorHint(g)}) : {"t":"sponsor","brand":"nom inventé","emoji":"🥤","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","product":"le produit à mettre en avant, ≤ 70 caractères","what":"${PF(g).fmts.join('" ou "')}","contact":"Prénom Nom de la personne chargée des partenariats","g":"f","text":"son premier message privé au joueur, ≤ 220 caractères"} ("what" = le format qu’elle veut, sur ${pfName(g, platformOf(g))}).`);
   }
   if (fanLineOK(g, t)) out.push(FAN_LINE); // 0.21: a fan writes to the player
+  if (out.some((x) => x === FAN_LINE || (typeof x === 'string' && x.includes('{"t":"sponsor"')))) { const L = firstsLine(g, 'une personne nouvelle (le contact d’une marque, un abonné)'); if (L) out.push('- ' + L); } // 0.28.1
   if (activeTrends(g, t).length < 4) out.push(`- Facultatif : une nouvelle tendance sur ${pfName(g, platformOf(g))} qui colle à ce monde : {"t":"trend","kind":"${trendKindsFor(platformOf(g)).join('" ou "')}","name":"≤ 40 caractères (un son inventé, un #défi ou un sujet)","emoji":"🎵"}.`);
   return { ctx, lines: out };
 }
@@ -1415,6 +1436,7 @@ function promptCandidates(g, role) {
     `Le joueur (créateur sur ${pfName(g, platformOf(g))}, ${fmtPlain(g.stats.followers)} abonnés, niche ${nicheOf(g).label.toLowerCase()}) recrute : ${R.m.toLowerCase()} (ce que fait ce poste : ${R.desc}).`,
     `Invente 3 candidats crédibles dans ce monde, de niveaux différents : ${famous ? 'un confirmé (tier 1, 3 à 5 ans), un expert (tier 2, 6 à 10 ans) et une star du métier (tier 3, plus de 10 ans)' : 'un débutant (tier 0, 1 ou 2 ans), un confirmé (tier 1, 3 à 5 ans) et un expert (tier 2, 6 à 10 ans)'}.`,
     'Des personnes adultes, fictives, aux noms originaux et variés (genres, styles, caractères). Leurs références sont inventées dans ce monde (jamais de vraie personne ni de vraie chaîne). Chacun a sa personnalité : un ambitieux, un anxieux, un cash…',
+    firstsLine(g), // 0.28.1
     lv < 0 ? `Le joueur ${lv === -2 ? 'est en plein scandale' : 'traverse une mauvaise passe'} et les candidats le savent : certains hésitent, posent des conditions ou demandent plus cher ; dis-le dans leur message.` : lv === 2 ? 'Le joueur est au sommet : les candidats rêvent de travailler avec lui, et le disent.' : null,
     '', FORMAT, 'Trois lignes :',
     '{"t":"cand","name":"Prénom Nom","handle":"pseudo","emoji":"🎬","g":"f","tier":1,"years":4,"pitch":"≤ 150 caractères : son parcours et ses références","personality":"≤ 120 caractères","voice":"≤ 80 caractères : sa façon d’écrire","hello":"≤ 220 caractères : son message de candidature au joueur, dans sa voix"}'].filter((x) => x !== null).join('\n');
@@ -1475,16 +1497,20 @@ async function writeForMe(w) {
   const cost = WRITE_COST[w.kind] || 2;
   if (g.stats.gems < cost) { toast(`Il te faut ${cost} gemmes pour que ${AI_NAME} écrive à ta place.`, 'bad'); return null; }
   S.busy.write = w.key || w.kind;
+  // (0.28.1) paid when asked, given back if nothing comes: the gems can't be spent twice while the model writes
+  g.stats.gems -= cost;
   update(false);
   const f = startFlow(g);
+  f.undo = (h) => { h.stats.gems += cost; };
   let text = '';
   const long = !!(w.c && g.deals.some((x) => x.contact === w.c.id && DEAL_OPEN.includes(x.state)));
   try {
-    await aiStream(promptWrite(g, Object.assign({ long }, w)), (o) => { if (o.t === 'write' && !text) text = str(o.text, w.kind === 'dm' ? DM_MAX : 280); }, { signal: f.ctl.signal, kind: 'write' });
+    await aiStream(promptWrite(g, Object.assign({ long }, w)), (o) => { if (o.t === 'write' && !text) text = str(o.text, w.kind === 'dm' ? DM_MAX : 280); }, { signal: f.ctl.signal, kind: 'write', tier: lightTier() });
   } catch (e) { reportAiError(e, null, 'act'); }
   S.busy.write = null;
   endFlow(f);
-  if (text && S.game === g) { g.stats.gems -= cost; toast(`${AI_NAME} a écrit pour toi · −${cost} gemmes. Relis avant d’envoyer.`, 'good'); }
+  if (text && S.game === g) toast(`${AI_NAME} a écrit pour toi · −${cost} gemmes. Relis avant d’envoyer.`, 'good');
+  else g.stats.gems += cost;
   update();
   return text || null;
 }
@@ -1566,7 +1592,7 @@ function releaseCareer(ctx) {
   const book = bookRelease(g, r, vs, post, ads);
   if (gx.claim && book.money > 0) { // the music was not free: the money of this one goes to the rights holders
     g.career.est = Math.max(0, g.career.est - book.money);
-    ledger(g, `Réclamation de droits d’auteur sur ${ta(r)} « ${str(r.topic, 30)} »`, -book.money, 'est');
+    ledger(g, `Réclamation de droits d’auteur sur ${ta(r)} « ${wordCut(r.topic, 30)} »`, -book.money, 'est');
     book.money = 0;
   }
   Object.assign(post.video, { views: vs, money: book.money, plat: platformOf(g), title: str(form.title, 100), thumb: form.thumb || '', thumbLook: form.thumbLook || null, thumbImg: form.thumbImg || '', sound: '', hook: str(form.hook, 80) });
@@ -1592,7 +1618,7 @@ function releaseCareer(ctx) {
     if (d) { post.video.sponsor = { brand: d.brand, emoji: d.emoji, mention: form.mention !== false, fit }; deliverDeal(g, d, post, form.mention !== false, { tier: v.tier, viral: !!(post.res && post.res.viral), fit }); }
     if (d && (v.tier === 'flop' || fit === -1)) unlockAch(g, 'cashed-the-check'); // 0.28: a sponsored piece that went down badly
   }
-  if ((form.thumb === 'choc' || form.thumbChoc) && v.tier === 'flop') { const dr = repMove(g, { cred: -10 }, 'miniature putaclic sur une vidéo ratée'); addNotif(g, { k: 'reldown', p: post.id, text: `Miniature putaclic sur une vidéo ratée : « encore un piège à clics », ${repWord(dr)}.` }); }
+  if ((form.thumb === 'choc' || form.thumbChoc) && v.tier === 'flop') { const dr = repMove(g, { cred: -10 }, 'miniature putaclic sur une vidéo ratée'); addNotif(g, { k: 'reldown', p: post.id, text: `Miniature putaclic sur une vidéo ratée : « encore un piège à clics »${repBit(dr, ', ')}.` }); }
   if (r.series) seriesEpisode(g, r, v.tier);
   if (r.fanQ) fanVideoDone(g, r, post); // 0.21: a fan becomes a regular
   if (mLive && membDelivered(g, 'live')) post.video.memb = 'live'; // 0.22: a promise kept to the members

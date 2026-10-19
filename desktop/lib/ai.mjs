@@ -3,6 +3,7 @@
 
 // The game's « intelligence des personnages » setting → reasoning effort (models that do not take it are asked without).
 export const EFFORT = { quick: 'minimal', default: 'low', complex: 'medium' };
+const NEXT_EFFORT = { minimal: 'low' }; // (0.28.1: a model that refuses « minimal » gets « low »; any other refused value: asked without it)
 
 const REAUTH = ['sign_in_required', 'invalid_grant', 'invalid_refresh_token', 'token_expired', 'refresh_token_expired', 'refresh_token_invalidated',
   'refresh_token_reused', 'invalid_token', 'invalid_api_key', 'invalid_id_token', 'account_mismatch', 'subscription_sharing_invalid_user', 'reauth_required'];
@@ -49,12 +50,19 @@ export class AiRunner {
       const effort = EFFORT[tier] || EFFORT.default;
       const imgs = Array.isArray(images) ? images : [];
       const input = imgs.length ? [{ role: 'user', content: [{ type: 'input_text', text: prompt }, ...imgs.map((u) => ({ type: 'input_image', image_url: u, detail: 'low' }))] }] : prompt;
-      const ask = (withEffort) => client.streamResponse({ model, input, ...(withEffort ? { reasoning: { effort } } : {}), signal: ctl.signal, onDelta: delta });
-      let res;
-      try { res = await ask(!this.noReasoning.has(model)); }
-      catch (e) {
-        if (!sent && reasoningRefused(e)) { this.noReasoning.add(model); res = await ask(false); }
-        else throw e;
+      // 0.28.1: a value the model refuses (« minimal » where it only knows low / medium / high) is remembered for that
+      // model and that value only (the other levels keep theirs): « minimal » becomes « low », any other is dropped
+      const key = (e) => model + '|' + e;
+      let eff = effort;
+      while (eff && this.noReasoning.has(key(eff))) eff = NEXT_EFFORT[eff] || null;
+      const ask = (e) => client.streamResponse({ model, input, ...(e ? { reasoning: { effort: e } } : {}), signal: ctl.signal, onDelta: delta });
+      let res = null;
+      for (;;) {
+        try { res = await ask(eff); break; }
+        catch (e) {
+          if (!sent && eff && reasoningRefused(e)) { this.noReasoning.add(key(eff)); eff = NEXT_EFFORT[eff] || null; while (eff && this.noReasoning.has(key(eff))) eff = NEXT_EFFORT[eff] || null; continue; }
+          throw e;
+        }
       }
       const text = res && typeof res.text === 'string' ? res.text : '';
       // a completed answer without any text: the model declined (its refusal is not output text)

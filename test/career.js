@@ -10,7 +10,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-career');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -37,7 +37,8 @@ async function clickText(page, sel, text) {
     } catch (e) {
       if (attempt < 2 && !sel.startsWith('.modal') && (await page.$('.modal'))) continue;
       // a toast over the button (a DM, a mention…): put the toasts away and try again
-      if (attempt < 2 && (await page.$('.toast'))) { await page.evaluate(() => { const H = window.__hype; if (H) { H.S.toasts.forEach((t) => { t.until = 0; }); H.update(false); } }); await sleep(200); continue; }
+      // (0.28.1: the toasts wait their turn now: one may have just gone, another may come; clear them all, and the queue)
+      if (attempt < 2) { await page.evaluate(() => { const H = window.__hype; if (H) { H.S.toasts.forEach((t) => { t.until = 0; }); if (H.TOAST_Q) H.TOAST_Q.length = 0; H.update(false); } }); await sleep(200); continue; }
       await page.screenshot({ path: path.join(OUT, 'fail.png') }).catch(() => {});
       throw new Error(`clickText(${sel}, ${text}): ${e.message.split('\n')[0]}`);
     }

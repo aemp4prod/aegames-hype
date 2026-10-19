@@ -115,7 +115,7 @@ function TrainCard({ g, m, close }) {
     <div class="train-name">Le train de la ${hyWord(tr.lvl)}</div>
     <${TrainLevels} lvl=${tr.lvl} />
     <p>Il s’arrête au niveau ${tr.lvl} sur ${TRAIN_TOP}, après ${tr.posts} ${plural(tr.posts, 'post', 'posts')} à bord.</p>
-    <div class="rewards"><span class="chip hot">+${tr.xp} XP</span>${tr.fol > 0 ? html`<span class="chip good">${nAbonnes(tr.fol, true)} pendant le voyage</span>` : null}${tr.brands ? html`<span class="chip flash">Les marques t’ont remarqué</span>` : null}</div>
+    <div class="rewards"><span class="chip hot">+${tr.xp} XP</span>${tr.fol > 0 ? html`<span class="chip good">${nAbonnes(tr.fol, true)} pendant le voyage</span>` : null}${tr.brands ? html`<span class="chip flash">Les marques t’ont ${px(g, 'remarqué', 'remarquée', 'remarqué·e')}</span>` : null}</div>
     <button class="btn btn-ink" onClick=${close}>Descendre du train</button>
   </div>`;
   const on = trainOn(g);

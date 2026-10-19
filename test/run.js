@@ -7,7 +7,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -591,9 +591,9 @@ async function studioSteps(page, thumb) {
   await sleep(300);
   const rep1 = await G(page, () => window.__hype.S.game.stats.reputation);
   await clickText(page, '.mg-result button', 'Repousser');
-  await page.waitForSelector('.modal-title');
+  await page.waitForSelector('.layer .move-opts .chip-btn'); // (0.28.1: the player picks the new time; at its time, it costs)
   await sleep(500);
-  await page.click('.modal .btn-danger-solid');
+  await clickText(page, '.layer .move-opts .chip-btn', '30 min plus tard');
   await sleep(900);
   const post1 = await G(page, () => { const g = window.__hype.S.game; const r = g.releases.slice(-1)[0]; return { delays: r.delays, left: Math.round((r.due - Date.now()) / 60000), rep: g.stats.reputation, played: r.played, game: r.game, layer: window.__hype.S.stack.some((l) => l.t === 'minigame') }; });
   await sleep(7000);
@@ -613,7 +613,7 @@ async function studioSteps(page, thumb) {
   await shot(page, 'shoot-setup-expert');
   await clickText(page, '.mg-setup > .btn', 'Lancer le tournage');
   await page.waitForSelector('.mg-intro', { timeout: 20000 });
-  const setup2 = await G(page, () => { const r = window.__hype.S.game.releases.slice(-1)[0]; const pr = window.__prompts.filter((x) => x.includes('LE MINI-JEU DU TOURNAGE')).slice(-1)[0] || ''; return { topic: r.topic, diff: r.diff, gameDiff: r.game && r.game.diff, inPrompt: pr.includes('« Les votes achetés par Léandre au conseil des maisons »') && pr.includes('Difficulté choisie : Expert') && pr.includes('"tri" : 7 éléments'), intro: document.querySelector('.mg-intro .chip').textContent,
+  const setup2 = await G(page, () => { const r = window.__hype.S.game.releases.slice(-1)[0]; const pr = window.__prompts.filter((x) => x.includes('LE MINI-JEU DU TOURNAGE')).slice(-1)[0] || ''; return { topic: r.topic, diff: r.diff, gameDiff: r.game && r.game.diff, inPrompt: pr.includes('« Les votes achetés par Léandre au conseil des maisons »') && pr.includes('Difficulté choisie : Expert') && +((/"tri" : (\d+) éléments/.exec(pr) || [])[1] || 0) >= 7, intro: document.querySelector('.mg-intro .chip').textContent,
     plot: r.plot, plotPrompt: pr.includes('Ce qui se passe dedans, raconté par le joueur : « je montre le procès-verbal du conseil, puis les messages de Léandre qui achète trois voix, et je finis devant la salle du vote ». Le mini-jeu porte sur CE contenu-là.') }; });
   check('shoot setup: the player fixes the topic and picks Expert', setup2.topic === 'Les votes achetés par Léandre au conseil des maisons' && setup2.diff === 'expert' && setup2.gameDiff === 'expert' && setup2.inPrompt && /Expert/.test(setup2.intro), setup2);
   check('shoot setup: « Ce qui se passe dans la vidéo » (optional, 300 characters): the mini-game is written from it', !!plotField && /Ce qui se passe dans la vidéo/.test(plotField.label) && /facultatif/.test(plotField.label) && /^ex : /.test(plotField.ph) && plotField.max === '300' && setup2.plot === 'je montre le procès-verbal du conseil, puis les messages de Léandre qui achète trois voix, et je finis devant la salle du vote' && setup2.plotPrompt, { plotField, plot: setup2.plot, plotPrompt: setup2.plotPrompt });
@@ -1176,6 +1176,7 @@ async function studioSteps(page, thumb) {
   await dismiss(page);
   await shot(page, 'desktop-dark-feed');
   await overflowCheck(page, 'desktop feed');
+  for (let k = 0; k < 6 && !(await page.locator('.post', { hasText: 'lunettes de soleil' }).count()); k++) { await page.click('.feed-more button'); await sleep(300); } // (0.28.1: the feed shows 30 posts, then « Voir plus »)
   await page.locator('.post', { hasText: 'lunettes de soleil' }).first().click();
   await sleep(600);
   const align = await G(page, () => { const a = document.querySelector('.col').getBoundingClientRect(); const b = document.querySelector('.layer-panel').getBoundingClientRect(); return { col: Math.round(a.left), panel: Math.round(b.left) }; });

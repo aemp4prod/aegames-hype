@@ -77,7 +77,7 @@ function addVisit(g, o, at = later()) {
 /* ---------- the conversation ---------- */
 function visitTranscript(g, v) {
   const c = g.chars[v.c], first = c.name.split(' ')[0], P = g.player.name;
-  return v.lines.map((x) => (x.who === 'c' ? `${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}` : `${P} : « ${x.text} »`));
+  return v.lines.map((x) => (x.who === 'c' ? `${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}` : `${P} : « ${noJson(x.text)} »`));
 }
 function promptVisit(g, v, said) {
   const c = g.chars[v.c], first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), U = URGES[v.urge] || URGES.tranquille;
@@ -91,7 +91,7 @@ function promptVisit(g, v, said) {
     ...secretDMLines(g, c, null),
     '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c, 10, 5),
     '', '## CE QUI S’EST DIT DEPUIS SON ARRIVÉE', ...visitTranscript(g, v),
-    '', '## LA RÉPLIQUE DU JOUEUR', `« ${said} »`,
+    '', '## LA RÉPLIQUE DU JOUEUR', `« ${noJson(said)} »`,
     '', `## COMMENT ${first.toUpperCase()} LE PREND`,
     `- ${first} est venu·e pour ça : le joueur l’écoute-t-il vraiment, répond-il à ce qui le ou la travaille, ou esquive-t-il ?`,
     `- Sincérité : s’il ment, minimise ou change de sujet alors que ${first} sait ou a vu des choses (ce qu’${il} retient, ce qu’${il} a vu passer), ça se sent.`,
@@ -134,7 +134,7 @@ async function visitTurn(v, text) {
       else if (o.t === 'mem' && !mem) mem = str(o.text, 110);
       else if (o.t === 'vibe' && !vibe) vibe = { vibe: o.vibe, why: str(o.why, 70) };
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', use: 'visit' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', use: 'visit', effort: 'low' });
   } catch (e) { if (!says) ok = false; if (!e || e.code !== 'cancelled') reportAiError(e, null, 'visit'); }
   S.busy.visit = null;
   endFlow(f);

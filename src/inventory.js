@@ -102,16 +102,23 @@ function tickInvGear(g, t = Date.now()) {
 const warm01 = (g) => clamp(warmOf(g) / 100, 0, 1);
 const fame01 = (g) => clamp(Math.log10(Math.max(1, g.stats.followers)) / 6, 0, 1);
 const fanBoost = (g) => 0.4 * warm01(g) * fame01(g); // fans pay more for what comes from their creator
+// 0.28.1: something the player bought lately (for themselves, or gear): no fans' premium on it, and nobody pays more than
+// it cost (bought, then sold dearer within days: money from nothing). A brand's gift, a present, older things: as before.
+const RECENT_BUY = 30 * DAY_MS;
+const boughtAt = (x) => (x.kind === 'buy' ? x.at : x.kind === 'gear' && x.gear && x.gear.it && !(x.from && x.from.how === 'marque') ? x.gear.it.at : 0);
+const recentBuy = (x, t = Date.now()) => { const at = boughtAt(x); return !!at && t - at < RECENT_BUY; };
+const boostOf = (g, x) => (recentBuy(x) ? 0 : fanBoost(g));
+const overCost = (x, price) => recentBuy(x) && price > x.value; // (its price new: what was paid for it)
 const fairOf = (g, x) => Math.max(1, x.value * (COND[x.cond] || COND.bon).k);
-const suggestOf = (g, x) => roundPrice(fairOf(g, x) * (1 + fanBoost(g)));
+const suggestOf = (g, x) => roundPrice(fairOf(g, x) * (1 + boostOf(g, x)));
 const resaleDemand = (g) => (0.5 + 0.5 * warm01(g)) * (0.6 + 0.25 * Math.log10(1 + g.stats.followers / 1000));
 // 0.27.6: three times what it is worth (fans included) or more, nobody buys (before: 3 % of the pace, whatever the price:
 // a thing listed at ten million sold within weeks)
 const priceK = (r) => (r <= 0.6 ? 3 : r >= 3 ? 0 : clamp(Math.pow(2, (1 - r) * 4), 0, 3));
 // How it should go, in words (the sell sheet).
 function saleSpeed(g, x, price) {
-  const r = price / (fairOf(g, x) * (1 + fanBoost(g))), k = priceK(r), h = 1 / Math.max(1e-6, SALE_RATE * resaleDemand(g) * k);
-  if (!(k > 0)) return 'ne partira pas : beaucoup trop cher pour ce que c’est';
+  const r = price / (fairOf(g, x) * (1 + boostOf(g, x))), k = overCost(x, price) ? 0 : priceK(r), h = 1 / Math.max(1e-6, SALE_RATE * resaleDemand(g) * k);
+  if (!(k > 0)) return overCost(x, price) ? 'ne partira pas : plus cher que neuf' : 'ne partira pas : beaucoup trop cher pour ce que c’est';
   return h <= 12 ? 'part dans la journée' : h <= 48 ? 'part en un ou deux jours' : h <= 24 * 6 ? 'peut prendre plusieurs jours' : 'risque de ne jamais partir';
 }
 function listItem(g, id, price) {
@@ -133,7 +140,7 @@ function tickResale(g, t = Date.now()) {
     if (!s || x.sold) continue;
     const from = s.last || s.at, hrs = (t - from) / 3600000;
     if (hrs < 0.25) continue;
-    const r = s.price / (fairOf(g, x) * (1 + fanBoost(g))), d = resaleDemand(g), k = priceK(r);
+    const r = s.price / (fairOf(g, x) * (1 + boostOf(g, x))), d = resaleDemand(g), k = overCost(x, s.price) ? 0 : priceK(r);
     s.views += Math.round(hrs * (3 + 12 * d) * rand(0.6, 1.4));
     s.favs = (s.favs || 0) + hrs * 0.35 * d * k * rand(0.5, 1.5); // (0.27.6: kept with its fractions, shown whole)
     s.last = t;
@@ -237,7 +244,7 @@ function SellLayer({ l, g, now, i }) {
   const sug = x ? suggestOf(g, x) : 0;
   const [price, setPrice] = useState(() => String(x && x.sale ? x.sale.price : sug));
   if (!x || x.sold) return html`<${LayerShell} i=${i} title="Vendre"><div class="empty"><b>${x && x.sold ? 'Déjà vendu' : 'Objet introuvable'}</b></div><//>`;
-  const app = resaleName(g), p = Math.round(num(price, 0)), w = warmWord(warmOf(g)), boost = Math.round(fanBoost(g) * 100);
+  const app = resaleName(g), p = Math.round(num(price, 0)), w = warmWord(warmOf(g)), boost = Math.round(boostOf(g, x) * 100); // (0.28.1: none on a recent purchase)
   const picks = [['Vendre vite', roundPrice(sug * 0.8)], ['Prix conseillé', sug], ['Prix fort', roundPrice(sug * 1.25)]];
   const go = () => { if (listItem(g, x.id, p)) { toast(x.sale && x.sale.at < Date.now() - 1000 ? 'Prix mis à jour.' : `En vente sur ${app} : ${fmtMoney(g, p)}.`, 'good'); closeLayer(); update(); } };
   return html`<${LayerShell} i=${i} title=${x.sale ? 'Ton annonce' : 'Vendre sur ' + app}><div class="lpad sell">
@@ -272,7 +279,7 @@ function ResaleLayer({ g, now, i }) {
           <small>${x.sold ? `Vendu ${fmtAgo(x.sold.at, now)}${x.sold.fan ? ' · à quelqu’un qui te suit' : ''}` : x.sale ? `${COND[x.cond].label} · ${fmtN(x.sale.views)} vues · ♡ ${fmtN(Math.floor(x.sale.favs || 0))}` : `${COND[x.cond].label} · prix conseillé`}</small>
         </button>`)}</div>`
         : html`<div class="empty"><b>${tab === 'on' ? 'Rien en vente' : tab === 'sold' ? 'Pas encore de vente' : 'Ton inventaire est vide'}</b><span>${tab === 'add' ? 'Les cadeaux des marques, ton ancien matos et ce qu’on t’offre arrivent dans ton inventaire.' : 'Mets en vente ce que tu n’utilises plus, depuis ton inventaire.'}</span></div>`}
-      <p class="muted rs-note">Une appli de seconde main de ${g.world.name}. Ce qui vient de toi part plus vite et plus cher quand ta commu est chaleureuse.</p>
+      <p class="muted rs-note">Une appli de seconde main ${g.world.inName || deN(g.world.name)}. Ce qui vient de toi part plus vite et plus cher quand ta commu est chaleureuse.</p>
     </div>
   <//>`;
 }

@@ -374,7 +374,7 @@ function buyGear(g, k, t) {
   if (!G || !(price > 0)) return false;
   const cur = G.items[k];
   if (usable(cur) && !(cur.crack) && tierOfItem(cur) >= t) { toast(cur.sp || cur.t > t ? 'Tu as déjà mieux.' : 'Tu l’as déjà.'); return false; }
-  if (!pay(g, price, `Achat : ${gearName(g, k, t).toLowerCase()}`, 'gear')) { toast(`Il te faut ${fmtMoney(g, price)} (tu as ${fmtMoney(g, g.career.cash)}).`, 'bad'); return false; }
+  if (!pay(g, price, `Achat : ${gearName(g, k, t)}`, 'gear')) { toast(`Il te faut ${fmtMoney(g, price)} (tu as ${fmtMoney(g, g.career.cash)}).`, 'bad'); return false; }
   swapItem(g, k, mkItem(t), `${gearName(g, k, t)} ${boughtWord(gearName(g, k, t))} : ${fmtMoney(g, price)}`);
   addChronicle(g, `${g.player.name} s’est offert du matos : ${gearName(g, k, t).toLowerCase()}.`);
   if (t >= 3) addTrigger(g, `Le joueur vient de s’offrir du matériel haut de gamme (${gearName(g, k, t).toLowerCase()}, ${fmtMoney(g, price)}) : certains sont impressionnés, d’autres trouvent qu’il frime.`);
@@ -412,19 +412,19 @@ function repairGear(g, k, express) {
   else { it.fixAt = Date.now() + randi(1, 3) * DAY_MS; toast(`Chez le réparateur : retour ${fmtWhen(it.fixAt)}.`); }
   return true;
 }
-const repairExtra = (g, x) => { const X = NEW_BY_ID[x.id], cost = subOn(g, 'assur') ? franchiseOf(X.price) : niceRound(X.price * 0.25); if (!pay(g, cost, `Réparation : ${newName(g, X).toLowerCase()}`, 'repair')) { toast(`Il te faut ${fmtMoney(g, cost)}.`, 'bad'); return false; } x.broken = 0; return true; };
+const repairExtra = (g, x) => { if (!x || !x.broken) return false; const X = NEW_BY_ID[x.id], cost = subOn(g, 'assur') ? franchiseOf(X.price) : niceRound(X.price * 0.25); if (!pay(g, cost, `Réparation : ${newName(g, X).toLowerCase()}`, 'repair')) { toast(`Il te faut ${fmtMoney(g, cost)}.`, 'bad'); return false; } x.broken = 0; return true; };
 // The other fixes: cleaning an overheating computer, a virus, the wifi pirated, the neighbours, the box after a storm.
 const FIXES = {
-  hot: { cost: 40, label: 'Nettoyer l’ordinateur', run: (G) => { G.items.pc.hot = 0; } },
-  virus: { cost: 60, label: 'Le faire désinfecter', run: (G) => { G.items.pc.virus = 0; } },
-  virusSelf: { cost: 0, label: 'Tout réinstaller toi-même (un jour)', run: (G) => { G.items.pc.virusEnd = Date.now() + DAY_MS; } },
-  hack: { cost: 0, label: 'Changer le mot de passe du wifi', run: (G) => { G.net.hack = 0; } },
-  noisy: { cost: NOISE_FIX, label: 'Isoler ta pièce', run: (G) => { G.noisy = 0; } },
-  storm: { cost: 90, label: 'Dépannage express', run: (G) => { G.net.out = 0; G.net.outWhy = ''; G.net.storm = 0; } },
+  hot: { cost: 40, label: 'Nettoyer l’ordinateur', need: (G) => G.items.pc && G.items.pc.hot, run: (G) => { G.items.pc.hot = 0; } },
+  virus: { cost: 60, label: 'Le faire désinfecter', need: (G) => G.items.pc && G.items.pc.virus, run: (G) => { G.items.pc.virus = 0; } },
+  virusSelf: { cost: 0, label: 'Tout réinstaller toi-même (un jour)', need: (G) => G.items.pc && G.items.pc.virus && !G.items.pc.virusEnd, run: (G) => { G.items.pc.virusEnd = Date.now() + DAY_MS; } },
+  hack: { cost: 0, label: 'Changer le mot de passe du wifi', need: (G) => G.net && G.net.hack, run: (G) => { G.net.hack = 0; } },
+  noisy: { cost: NOISE_FIX, label: 'Isoler ta pièce', need: (G) => G.noisy, run: (G) => { G.noisy = 0; } },
+  storm: { cost: 90, label: 'Dépannage express', need: (G) => G.net && (G.net.out || G.net.storm), run: (G) => { G.net.out = 0; G.net.outWhy = ''; G.net.storm = 0; } },
 };
 function fixGear(g, id) {
   const F = FIXES[id], G = g.gear;
-  if (!F || !G) return false;
+  if (!F || !G || !F.need(G)) return false; // (0.28.1: a burst of taps pays once: once fixed, nothing left to fix)
   if (F.cost && !pay(g, F.cost, F.label, 'repair')) { toast(`Il te faut ${fmtMoney(g, F.cost)}.`, 'bad'); return false; }
   F.run(G);
   update();

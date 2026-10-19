@@ -21,6 +21,7 @@ const MAKERS = {
   usine: { label: 'Usine en ligne', k: 1, note: 'en stock, le moins cher' },
 };
 const MERCH_QTY = [50, 100, 250, 500, 1000];
+const MERCH_FLOOR = 5; // 0.28.1: the lowest price of a piece (no ceiling)
 const DESIR_K = [0, 0.3, 0.6, 1, 1.6, 2.4]; // the AI's verdict on the launch: how much people want it
 const merchOf = (g) => { const c = g.career; if (!c.merch || !Array.isArray(c.merch.drops)) c.merch = { drops: [] }; return c.merch; };
 const openDrop = (g) => merchOf(g).drops.find((d) => d.state === 'ready' || d.state === 'live') || null;
@@ -38,7 +39,9 @@ function prepDrop(g, o, t = Date.now()) {
   if (openDrop(g)) return { ok: false, why: 'Un drop à la fois.' };
   const maker = MAKERS[o && o.maker] ? o.maker : 'pod';
   const items = (o && Array.isArray(o.items) ? o.items : []).filter((x, i, all) => MERCH[x.k] && all.findIndex((y) => y.k === x.k) === i).slice(0, 3)
-    .map((x) => ({ k: x.k, price: clamp(Math.round(num(x.price) || MERCH[x.k].fair), 5, 300), qty: maker === 'pod' ? 0 : (MERCH_QTY.includes(x.qty) ? x.qty : 100) }));
+    .map((x) => ({ k: x.k, price: Math.min(MONEY_MAX, Math.round(num(x.price))), qty: maker === 'pod' ? 0 : (MERCH_QTY.includes(x.qty) ? x.qty : 100) })); // 0.28.1: no ceiling (sales follow the price: an absurd one sells nothing)
+  const cheap = items.find((x) => !(x.price >= MERCH_FLOOR));
+  if (cheap) return { ok: false, why: `${MERCH[cheap.k].label} : ${fmtMoney(g, MERCH_FLOOR)} au moins.` }; // (0 was the fair price, silently)
   const design = str(o && o.design, 90);
   if (!items.length) return { ok: false, why: 'Choisis au moins une pièce.' };
   if (design.length < 3) return { ok: false, why: 'Décris ton design.' };
@@ -112,7 +115,7 @@ function badBatch(g, d, t) {
   if (refund) charge(g, refund, 'Boutique : remboursements (merch défectueux)', 'merch');
   warmMove(g, -5, 'la qualité de ton merch', t);
   const dr = repMove(g, { pro: -6 }, 'un merch de mauvaise qualité');
-  addNotif(g, { k: 'reldown', text: `😬 Des acheteurs se plaignent de ton merch : impressions qui craquellent, tissu qui déteint. Tu rembourses les pires cas (−${fmtMoney(g, refund)}), ${repWord(dr)}.` });
+  addNotif(g, { k: 'reldown', text: `😬 Des acheteurs se plaignent de ton merch : impressions qui craquellent, tissu qui déteint. ${refund ? `Tu rembourses les pires cas (−${fmtMoney(g, refund)})` : 'Tu t’excuses'}${repBit(dr, ', ')}.` });
   addTrigger(g, 'Des acheteurs du merch du joueur se plaignent de sa qualité (impressions qui craquellent, tissu qui déteint), photos à l’appui : certains se moquent, d’autres le défendent.');
 }
 function endDrop(g, d, t) {
@@ -187,12 +190,13 @@ function BoutiqueSection({ g, now }) {
   const on = Object.keys(F.items).filter((k) => F.items[k].on);
   const setItem = (k, patch) => setF(Object.assign({}, F, { items: Object.assign({}, F.items, { [k]: Object.assign({ on: false, price: MERCH[k].fair, qty: 100 }, F.items[k], patch) }) }));
   const o = { maker: F.maker, design: F.design, items: on.map((k) => ({ k, price: F.items[k].price, qty: F.items[k].qty })) };
-  const cost = stockCost(o), can = on.length > 0 && F.design.trim().length >= 3 && (!cost || g.career.cash >= cost);
+  const cost = stockCost(o), can = on.length > 0 && F.design.trim().length >= 3 && on.every((k) => F.items[k].price >= MERCH_FLOOR) && (!cost || g.career.cash >= cost);
   return html`<section class="section boutique">${head}
     <p class="muted">Jusqu’à trois pièces, ton design, tes prix. Tu le lances avec un post, et les ventes durent quelques semaines.</p>
     <div class="tr-chips">${Object.keys(MERCH).map((k) => html`<button type="button" key=${k} class=${'chip-btn' + (on.includes(k) ? ' on' : '')} disabled=${!on.includes(k) && on.length >= 3} onClick=${() => setItem(k, { on: !on.includes(k) })}>${MERCH[k].emoji} ${MERCH[k].label}</button>`)}</div>
     ${on.map((k) => html`<div class="mi-line" key=${k}><span>${MERCH[k].emoji} ${MERCH[k].label}</span>
-      <label class="mi-price">Prix <input class="input" type="number" min="5" max="300" step="1" value=${F.items[k].price} onInput=${(ev) => setItem(k, { price: Math.round(num(ev.target.value)) || 0 })} /> €</label>
+      <label class="mi-price">Prix <input class="input" type="number" min=${MERCH_FLOOR} step="1" value=${F.items[k].price} onInput=${(ev) => setItem(k, { price: Math.round(num(ev.target.value)) || 0 })} /> €</label>
+      ${!(F.items[k].price >= MERCH_FLOOR) ? html`<small class="muted why-off">${fmtMoney(g, MERCH_FLOOR)} au moins</small>` : null}
       <small class="muted">fabrication : ${fmtMoney(g, unitCost(F.maker, k))} la pièce</small>
       ${F.maker !== 'pod' ? html`<${Seg} items=${MERCH_QTY.map((q) => [q, String(q)])} value=${F.items[k].qty} onPick=${(q) => setItem(k, { qty: q })} label=${'Quantité de ' + MERCH[k].label} />` : null}</div>`)}
     <div class="field"><label class="lbl" for="mi-design">Ton design</label><input id="mi-design" class="input" maxlength="90" value=${F.design} placeholder="ex : ta phrase culte « on lâche rien » en lettres néon" onInput=${(ev) => setF(Object.assign({}, F, { design: ev.target.value }))} /></div>

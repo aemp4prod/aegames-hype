@@ -1,4 +1,4 @@
--- Hype 0.28.0 : les définitions de ses succès pour Æ Games Launcher (table achievement_definitions).
+-- Hype 0.28.1 : les définitions de ses succès pour Æ Games Launcher (table achievement_definitions).
 -- Écrit par tools/achievements-sql.mjs à partir de src/succes.js : 60 succès, en 6 groupes
 -- (Les premiers pas, Relations, Drama et réputation, Avancement, Carrière et argent, Extrêmement rare).
 -- À exécuter dans le SQL Editor de Supabase, après 202610190003_hype_achievements.sql.

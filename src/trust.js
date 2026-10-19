@@ -29,7 +29,7 @@ function trustLabel(t, gd) {
   if (t >= 90) return 'Confiance aveugle';
   if (t >= 70) return 'Te fait confiance';
   if (t >= 40) return 'À l’écoute';
-  if (t >= 15) return gx(gd, 'Méfiant', 'Méfiante', 'Méfiant·e');
+  if (t >= 15) return 'Pas encore'; // (0.28.1: not « Méfiant » above someone who « fait vite confiance »: it is just early)
   return 'Aucune confiance';
 }
 const gardeLabel = (c) => ({ 1: 'Fait vite confiance', 2: gx(c.g, 'Prudent', 'Prudente', 'Prudent·e'), 3: gx(c.g, 'Très méfiant', 'Très méfiante', 'Très méfiant·e') })[gardeOf(c)];
@@ -305,7 +305,7 @@ const canConfide = (c) => !!(c && isMain(c) && c.secret && !c.secretOut && !c.se
 // For the DM: who they are toward the player, beyond the relation.
 function trustDMLine(c) {
   const t = trustOf(c);
-  return `confiance ${t}/100 (${trustLabel(t, c.g).toLowerCase()}) ; ${gardeLabel(c).toLowerCase()} : ${gardeWhy(c)}${fameNote(c) ? ' ; ' + fameNote(c) : ''}`;
+  return `confiance ${t}/100 (${(t >= 15 && t < 40 ? gx(c.g, 'méfiant', 'méfiante', 'méfiant·e') : trustLabel(t, c.g)).toLowerCase()}) ; ${gardeLabel(c).toLowerCase()} : ${gardeWhy(c)}${fameNote(c) ? ' ; ' + fameNote(c) : ''}`;
 }
 // The player gives advice: the rule of the game, written for the model, and the line it answers with.
 function adviceAsk(g, c) {
@@ -340,7 +340,7 @@ function TrustSection({ g, c, now }) {
   const fame = fameNote(c);
   return html`<section class="section trust-sec">
     <div class="section-h"><h3>Sa confiance en toi</h3><span class="mono">${t}/100</span></div>
-    <div class="trust-head"><span class=${'chip ' + (t >= 70 ? 'good' : t >= 40 ? 'hot' : '')}><${Icon} n="trust" s=${14} /> ${trustLabel(t, c.g)}</span><span class="trust-garde"><b>${gardeLabel(c)}</b> · ${gardeWhy(c)}${fame ? ' · ' + fame : ''}</span></div>
+    <div class="trust-head"><span class=${'chip ' + (t >= 70 ? 'good' : t >= 40 ? 'hot' : '')}><${Icon} n="trust" s=${14} /> ${trustLabel(t, c.g)}</span>${t >= 40 ? html`<span class="trust-garde"><b>${gardeLabel(c)}</b> · ${gardeWhy(c)}${fame ? ' · ' + fame : ''}</span>` : null}</div>
     <${TrustMeter} t=${t} />
     <div class="trust-steps" aria-hidden="true">${[[40, 'petits conseils'], [70, 'gros conseils, secrets'], [90, 'confiance aveugle']].map(([s, lb]) => html`<span key=${s} class=${t >= s ? 'on' : ''}>${s} · ${lb}</span>`)}</div>
     <p class="muted trust-next">${trustNext(c)} ${TRUST_HOW}</p>

@@ -12,7 +12,7 @@ Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son pr
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.27.10 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.28.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -177,6 +177,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   vidéo annoncée dans un post, il arrive au tournage. C’est là qu’on associe une marque déjà signée, ou qu’on en démarche une.
   Depuis la 0.27, il connaît ton inventaire et tes partenariats : ce qu’une marque t’a envoyé, un cadeau, ce que tu t’es
   offert couvre un besoin sans rien payer (« Déjà là »), et ce que le tournage consomme quitte l’inventaire.
+  Depuis la 0.28.1, plus de plafond : une ligne coûte ce qu’elle coûte vraiment (même des millions), un gros devis
+  demande confirmation, et le budget se voit à l’écran : un contenu qui a coûté cher pour la taille de ton compte
+  attire plus de monde. Ce que tu as acheté pour le garder va dans ton inventaire une fois le contenu sorti (ou
+  abandonné). Une sortie se repousse à l’heure de ton choix (gratuit bien à l’avance) et s’abandonne à tout moment.
   Avant chaque tournage, tu peux raconter **ce qui se passe dans ta vidéo** : le mini-jeu, les réactions et la suite de
   la partie s’en servent. Après le tournage, **le montage** (couper au rythme, ou trier les rushes) fait gagner ou
   perdre jusqu’à 15 points à ta vidéo, puis **la miniature** des vidéos longues : tu la composes (fond, tête, texte,
@@ -330,9 +334,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Les succès** (0.28) : 60 succès en six familles (Les premiers pas, Relations, Drama et réputation, Avancement,
   Carrière et argent, Extrêmement rare), du « Premier post » au « Ruby Play Button ». Ils viennent de ce que tu vis
   vraiment dans ta partie (tes posts, tes rendez-vous, tes relations, ta réputation, tes contrats, tes ventes, ton
-  équipe, tes tournages) ; certains restent cachés jusqu’au jour où ils tombent. Chacun arrive avec une notification ;
-  ceux qui se comptent montrent où tu en es (« 3 / 10 »). Ton profil montre les derniers, « Tous les succès » la liste
-  complète. Revenir à une sauvegarde ne retire pas un succès déjà débloqué.
+  équipe, tes tournages) ; certains restent cachés jusqu’au jour où ils tombent. Chacun a son icône, dessinée dans le
+  style des autocollants du jeu (0.28.1), et arrive avec une notification ; ceux qui se comptent montrent où tu en es
+  (« 3 / 10 », ou ton record). Ton profil montre les derniers, « Tous les succès » la liste complète. Revenir à une
+  sauvegarde ne retire pas un succès déjà débloqué.
 - **Offrir un cadeau** (0.28) : dans une conversation, le bouton cadeau : ce que tu offres et son prix (de 30 à
   3 000 €, ou le tien), payé tout de suite et montré dans la conversation ; la personne réagit à sa façon et s’en
   souvient. Un gros cadeau (plus de 1 000 €, ou plus de la moitié de ton argent) demande confirmation.

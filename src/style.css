@@ -569,12 +569,19 @@ p { margin: 0; }
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 .fab:active { transform: scale(0.94); }
-.fab.away { transform: translateY(calc(100% + 32px)); opacity: 0; pointer-events: none; } /* 0.15: out of the way while scrolling down */
+.fab.away { transform: translateY(calc(var(--tabbar-h) + 16px)); opacity: 0; pointer-events: none; } /* 0.15: out of the way while scrolling down (0.28.1: never past the bottom: the page no longer grows) */
 @media (max-width: 400px) {
   .topbar { gap: 6px; padding-inline: 10px; }
   .topbar .lvl { display: none; }
   .topbar .lvl-dot { display: grid; }
   .res-chip { padding-right: 9px; }
+  .topbar .res-chip small { display: none; } /* 0.28.1: the ring says how much of the day is left */
+}
+/* 0.28.1: a phone's header never spills over: the chips may shrink; on the narrowest, the saves are in the settings */
+@media (max-width: 370px) { .topbar .save-btn:not(.gear-btn) { display: none; } }
+@media (max-width: 420px) {
+  .topbar .res-chip { min-width: 0; flex: 0 1 auto; }
+  .topbar .res-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 .nudge {
   margin: 12px 16px 4px;
@@ -953,6 +960,10 @@ p { margin: 0; }
 @media (max-width: 719px) { .layer { background: transparent; } }
 @media (min-width: 720px) { .layer { padding-left: 84px; } }
 @media (min-width: 1120px) { .layer { padding-left: 250px; padding-right: 330px; } }
+/* 0.28.1: on a computer the veil starts after the menu (the shell is centred: the menu ends at max(84px, 50vw − 258px),
+   at max(250px, 50vw − 340px) when wide): one click in the menu goes there, and leaving the tab closes the profile */
+@media (min-width: 720px) { .layer:not(.float) { clip-path: inset(0 0 0 max(84px, calc(50vw - 258px))); } }
+@media (min-width: 1120px) { .layer:not(.float) { clip-path: inset(0 0 0 max(250px, calc(50vw - 340px))); } }
 .layer-head {
   display: flex;
   align-items: center;
@@ -1814,6 +1825,9 @@ body.win-dragging, body.win-dragging * { cursor: grabbing !important; user-selec
 .clock-btn b { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
 .clock-btn span { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock-btn .ic:last-child { color: var(--hot); flex: none; }
+.clock-btn .ic, .clock-btn b { flex: none; } /* 0.28.1: the clock never shrinks, however much money stands beside it */
+.cash-chip { min-width: 0; flex: 0 1 auto; }
+.cash-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cal-chip { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font-weight: 600; text-align: center; }
 .cal-chip.quiet { color: var(--ink-3); font-weight: 500; }
 /* 0.9.4: the player's standing (a scandal, the top) and the characters' temperaments */
@@ -2611,6 +2625,12 @@ svg.watch:active { cursor: grabbing; }
 .dv-miss { margin: 0; font-size: 13px; color: var(--bad); font-weight: 600; }
 .dv-pitch { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .dv-pitch small { color: var(--ink-2); font-size: 12.5px; }
+/* 0.28.1: a long button or a giant amount wraps inside the card (never out of it) */
+.dv-pitch .btn, .devis-step .btn { white-space: normal; height: auto; min-height: 36px; max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+.dv-lines b { flex: 0 1 auto; max-width: 60%; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+.dv-total { gap: 10px; }
+.dv-total b { min-width: 0; overflow-wrap: anywhere; text-align: right; }
+.dv-miss { overflow-wrap: anywhere; }
 .devis-step { display: flex; flex-direction: column; gap: 10px; }
 .dl-sheet { font-size: 13px; color: var(--ink-2); }
 .dl-sheet summary { cursor: pointer; font-weight: 600; color: var(--ink); }
@@ -2919,16 +2939,40 @@ body.os-win { overflow: hidden; }
 .gift-own { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .gift-own .input { width: 110px; height: 32px; padding: 0 8px; }
 .gift-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gift-foot .btn, .gift-foot small { white-space: normal; height: auto; min-height: 32px; max-width: 100%; overflow-wrap: anywhere; } /* 0.28.1: a giant amount wraps */
+/* 0.28.1: the new bits of the screens */
+.dm-trim { align-self: center; margin: 2px 0 6px; padding: 4px 12px; border-radius: 999px; background: var(--hover); color: var(--ink-2); font-size: 12.5px; text-align: center; }
+.feed-more { display: flex; justify-content: center; padding: 14px 16px 28px; }
+.cost-tag { color: var(--ink-3); font-weight: 500; white-space: nowrap; }
+.to-author { cursor: pointer; }
+.to-author:hover { text-decoration: underline; }
+.to-author:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; border-radius: 4px; }
+.shop-item .price.is-on { color: var(--good); opacity: 1; }
+.secrets-err { margin-top: -6px; }
+.file-box .fb-text { width: 100%; min-height: 96px; font-family: var(--f-mono); font-size: 12px; line-height: 1.4; resize: vertical; word-break: break-all; }
+.file-box .fb-file { align-self: flex-start; cursor: pointer; }
+.file-box .fb-file input { display: none; }
+.file-box .err { color: var(--bad); }
 .dm-card.gift.mine { align-self: flex-end; }
 .ach-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
 .ach-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--hover); font-size: 13px; font-weight: 600; }
 .ach-intro { margin: 4px 16px 0; font-size: 13px; }
-.ach-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; opacity: 0.6; }
+.ach-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; } /* 0.28.1: locked, only the icon is dimmed (its text says how to get it, readable) */
 .ach-row + .ach-row { border-top: 1px solid var(--line); }
-.ach-row.got { opacity: 1; }
+.ach-row:not(.got) .ach-emo:not(.has-ic) { opacity: 0.6; }
+.ach-row.ach-hl { margin-inline: -10px; padding-inline: 10px; border-radius: 12px; animation: ach-hl 2.6s ease-out; } /* 0.28.1: the one « Voir » leads to */
+@keyframes ach-hl { 0%, 55% { background: color-mix(in srgb, var(--hot) 18%, transparent); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ach-row.ach-hl { animation: none; background: color-mix(in srgb, var(--hot) 12%, transparent); } }
 .ach-row .mid { display: flex; flex-direction: column; min-width: 0; }
 .ach-row small { color: var(--ink-2); font-size: 12.5px; }
-.ach-emo { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--hover); font-size: 22px; }
+.ach-emo { position: relative; width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--hover); font-size: 22px; }
+.ach-emo.has-ic { background: none; } /* 0.28.1: the icon, a sticker of its own */
+.ach-ic { display: block; flex: none; }
+.ach-ic.locked { filter: grayscale(1); opacity: .45; }
+.ach-lock { position: absolute; right: -3px; bottom: -3px; font-style: normal; font-size: 14px; line-height: 1; }
+.ach-chip .ach-ic { width: 22px; height: 22px; margin: -2px 0; }
+.nic.ach { background: none; }
+.toast .toast-ic { margin: -4px -2px -4px -4px; }
 .ach-row.got .ach-emo { background: color-mix(in srgb, var(--hot) 16%, transparent); }
 .ach-when { color: var(--ink-3); }
 .ach-prog { display: flex; align-items: center; gap: 8px; margin-top: 4px; }

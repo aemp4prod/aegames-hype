@@ -10,14 +10,14 @@ const fmtCafes = (x) => (x === Infinity ? '∞' : fmtPlain(Math.floor(x + 1e-9))
 
 /* ---------- the strip under the top bar: the game clock, the moment, the money ---------- */
 // 0.27.8: what the ads pay this month, against the year’s average (« Pubs +10 % », not « ×1,1 »)
-const adWord = (k) => { const p = Math.round((k - 1) * 100); return p ? `Pubs ${p > 0 ? '+' : '−'}${Math.abs(p)} %` : 'Pubs normales'; };
+const adWord = (k, w = 'Pubs') => { const p = Math.round((k - 1) * 100); return p ? `${w} ${p > 0 ? '+' : '−'}${Math.abs(p)} %` : `${w} normales`; }; // (0.28.1: the brands too, « marques +5 % »)
 function StatusStrip({ g, now }) {
   const ck = fmtGameClock(now), d = ck.d, m = calMoment(d), c = g.career;
   return html`<div class="status-strip">
     <button class="clock-btn" onClick=${openWatch} aria-label=${`Il est ${ck.time}, ${ck.day}. Avancer le temps`} title="Avancer le temps"><${Icon} n="clock" s=${15} /><b>${ck.time}</b><span>${ck.day}</span><${Icon} n="ffwd" s=${13} /></button>
     ${standLv(g) ? html`<${StandChip} g=${g} />` : m ? html`<span class="cal-chip" title=${cap1(m.E.mood)}>${m.E.emoji} ${cap1(calWord(m))}</span>`
       : html`<span class="cal-chip quiet" title=${cap1(SEASON_WORD(d))}>${seasonEmoji(d)} ${adWord(adSeason(d))}</span>`}
-    <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => { goTab('studio'); tapCash(); }} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoney(g, c.cash, false)}</b></button>
+    <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => { goTab('studio'); tapCash(); }} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoneyShort(g, c.cash)}</b></button>
   </div>`;
 }
 
@@ -25,9 +25,22 @@ function StatusStrip({ g, now }) {
 function openWatch() { if (S.game) queueModal({ t: 'skip', at: Date.now() }); }
 const WATCH_PRESETS = [[15, '+15 min'], [60, '+1 h'], [180, '+3 h'], ['soir', 'Ce soir 20 h'], ['matin', 'Demain 9 h'], [1440, '+1 jour'], [10080, '+1 semaine']];
 function minsUntil(hour, t = Date.now()) { return Math.round((nextAt(hour, 0, t, 5 * 60000) - t) / 60000); }
+// 0.28.1: « +1 jour », « +1 semaine »: the same hour on the clock, a change of time on the way included (like « Demain 9 h »)
+function minsDays(n, t = Date.now()) { const d = gameDate(t), x = new Date(d.getTime()); x.setDate(x.getDate() + n); return Math.round((x - d) / 60000); }
+// 0.28.1: what a skip would carry past its deadline: a contract signed, a job promised to someone (said, never stopped).
+function deadlinesIn(g, from, to) {
+  const out = signedDeals(g).filter((d) => d.due > from && d.due <= to).map((d) => ({ at: d.due, text: `Ton contrat avec ${d.brand} est à livrer avant ${fmtGameAt(d.due)}.` }));
+  for (const j of jobsDueIn(g, from, to)) { const c = g.chars[j.c], K = JOB_KINDS[j.kind]; if (c && K) out.push({ at: j.due, text: `${cap1(K.noun)} pour ${c.name.split(' ')[0]} est à rendre avant ${fmtGameAt(j.due)}.` }); }
+  return out.sort((a, b) => a.at - b.at).slice(0, 3).map((x) => x.text);
+}
 function fmtSpan(mins) {
   const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
   return [d ? `${d} j` : '', h ? `${h} h` : '', m || (!d && !h) ? `${String(m).padStart(d || h ? 2 : 1, '0')} min` : ''].filter(Boolean).join(' ');
+}
+// 0.28.1: whole calendar days say so (« 7 j »), even across a change of hour (169 h that week)
+function spanWord(mins, t = Date.now()) {
+  const n = Math.round(mins / 1440);
+  return n >= 1 && Math.abs(n * 1440 - mins) <= 60 && minsDays(n, t) === mins ? `${n} j` : fmtSpan(mins);
 }
 function WatchCard({ g, close }) {
   const t0 = Date.now();
@@ -61,6 +74,7 @@ function WatchCard({ g, close }) {
     if (step) { ev.preventDefault(); set(mins + step); }
   };
   const arrive = t0 + mins * 60000, aD = gameDate(arrive), aud = audienceAt(aD), am = calMoment(aD);
+  const dues = deadlinesIn(g, t0, arrive); // 0.28.1
   const mAng = (mins % 60) * 6; // a timer: one turn of the hand is one hour
   const go = (m, until) => { close(); skipTime(m * 60000, until); };
   const narrate = mins * 60000 >= SKIP_QUIET;
@@ -77,7 +91,7 @@ function WatchCard({ g, close }) {
       <span><b>${Math.floor(mins / 1440)}</b> ${plural(Math.floor(mins / 1440), 'jour', 'jours')}</span>
       <button type="button" class="iconbtn" onClick=${() => set(mins + 1440)} disabled=${mins + 1440 > maxMins} aria-label="Un jour de plus">+</button>
     </div>
-    <svg class="watch" viewBox="0 0 220 220" role="slider" tabindex="0" aria-label="Durée à avancer" aria-valuemin="1" aria-valuemax=${maxMins} aria-valuenow=${mins} aria-valuetext=${fmtSpan(mins)}
+    <svg class="watch" viewBox="0 0 220 220" role="slider" tabindex="0" aria-label="Durée à avancer" aria-valuemin="1" aria-valuemax=${maxMins} aria-valuenow=${mins} aria-valuetext=${spanWord(mins, t0)}
       onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onUp} onKeyDown=${onKey}>
       <circle cx="110" cy="110" r="104" class="w-rim" />
       <circle cx="110" cy="110" r="94" class="w-face" />
@@ -87,20 +101,21 @@ function WatchCard({ g, close }) {
       <line x1="110" y1="110" x2=${110 + Math.sin(mAng * Math.PI / 180) * 78} y2=${110 - Math.cos(mAng * Math.PI / 180) * 78} class="w-min" />
       <circle cx=${110 + Math.sin(mAng * Math.PI / 180) * 78} cy=${110 - Math.cos(mAng * Math.PI / 180) * 78} r="11" class="w-knob" />
       <circle cx="110" cy="110" r="5" class="w-pin" />
-      <text x="110" y="146" class="w-turns">${Math.floor(mins / 60) ? `${Math.floor(mins / 60)} h` : ''}</text>
+      <text x="110" y="146" class="w-turns">${/ j$/.test(spanWord(mins, t0)) ? spanWord(mins, t0) : Math.floor(mins / 60) ? `${Math.floor(mins / 60)} h` : ''}</text>
     </svg>
-    <div class="watch-read"><b>+ ${fmtSpan(mins)}</b><span>Arrivée ${fmtGameAt(arrive)}</span><small>${cap1(audienceWord(aud))}${am ? ' · ' + am.E.emoji + ' ' + calWord(am) : ''}</small></div>
+    <div class="watch-read"><b>+ ${spanWord(mins, t0)}</b><span>Arrivée ${fmtGameAt(arrive)}</span><small>${cap1(audienceWord(aud))}${am ? ' · ' + am.E.emoji + ' ' + calWord(am) : ''}</small></div>
     <div class="watch-fine">
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(mins - 60)} disabled=${mins <= 60}>− 1 h</button>
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(mins - 5)} disabled=${mins <= 5}>− 5 min</button>
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(mins + 5)} disabled=${mins + 5 > maxMins}>+ 5 min</button>
       <button type="button" class="btn btn-ghost btn-sm" onClick=${() => set(mins + 60)} disabled=${mins + 60 > maxMins}>+ 1 h</button>
     </div>
-    <div class="watch-presets">${WATCH_PRESETS.map(([v, lb]) => { const m = v === 'soir' ? minsUntil(20) : v === 'matin' ? minsUntil(9) : v; return html`<button key=${lb} type="button" class=${'chip-btn' + (m === mins ? ' on' : '')} disabled=${m > maxMins} onClick=${() => set(m)}>${lb}</button>`; })}</div>
+    <div class="watch-presets">${WATCH_PRESETS.map(([v, lb]) => { const m = v === 'soir' ? minsUntil(20) : v === 'matin' ? minsUntil(9) : v >= 1440 && v % 1440 === 0 ? minsDays(v / 1440) : v; return html`<button key=${lb} type="button" class=${'chip-btn' + (m === mins ? ' on' : '')} disabled=${m > maxMins} onClick=${() => set(m)}>${lb}</button>`; })}</div>
     ${stops.length ? html`<div class="paths">${stops.slice(0, 2).map((x) => html`<button key=${x.label} class="path" onClick=${() => go(Math.ceil((x.at - Date.now()) / 60000), x.due)}><b>${x.short}</b><span>${fmtGameAt(x.at)} · le temps ne peut pas aller plus loin</span></button>`)}</div>` : null}
     ${nowDate ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> ${(g.chars[nowDate.c] || { name: '…' }).name.split(' ')[0]} t’attend en ce moment : si tu avances trop, tu lui poses un lapin.</p>` : null}
+    ${dues.map((w) => html`<p class="date-late" key=${w}><${Icon} n="clock" s=${15} /> ${w}</p>`)}
     <p class="muted watch-note">Le réseau vit pendant que tu avances${narrate ? ` : ${AI_NAME} raconte ce qui s’est passé (≈ ${costLabel(g, 'skip')} ☕)` : ''}. Tes cafés, eux, suivent la vraie heure.</p>
-    <button class="btn btn-hot" onClick=${() => go(mins)}><${Icon} n="ffwd" s=${16} /> Avancer de ${fmtSpan(mins)}</button>
+    <button class="btn btn-hot" onClick=${() => go(mins)}><${Icon} n="ffwd" s=${16} /> Avancer de ${spanWord(mins, t0)}</button>
     <button class="btn btn-ghost" onClick=${close}>Annuler</button>
   </div>`;
 }
@@ -119,7 +134,7 @@ function BudgetCard({ g, m, close }) {
     <span class="eyebrow">Ton budget IA du jour</span>
     <div class="budget-big"><span aria-hidden="true">☕</span><b>${unlimited(g) ? '∞' : fmtCafes(left)}</b>${unlimited(g) ? null : html`<small>/ ${fmtPlain(budgetMax(g))}</small>`}</div>
     ${out ? html`<p><b>Ton budget du jour est épuisé.</b> L’IA se met en pause pour ne pas manger tout ton abonnement ${AI_NAME}. Tu peux toujours lire ton fil et gérer ton studio.</p>`
-      : m && m.blocked ? html`<p><b>Pas assez de cafés pour cette action.</b> Elle coûte environ ${costLabel(g, 'post')} ☕ et il t’en reste ${fmtCafes(left)}.</p>` : null}
+      : m && m.blocked && !unlimited(g) ? html`<p><b>Pas assez de cafés pour cette action.</b> Elle coûte environ ${costLabel(g, 'post')} ☕ et il t’en reste ${fmtCafes(left)}.</p>` : null}
     <p class="muted">Aujourd’hui : ${fmtDec(b.used, 1)} ☕ utilisés ≈ ${fmtPlain(budgetTokens(b.chars))} tokens de ton abonnement ${AI_NAME}. ${unlimited(g) ? 'Pas de limite réglée : le jeu compte, mais ne t’arrête jamais.' : `Le budget revient à minuit (dans ${fmtDur(e.nextIn)}).`}</p>
     <p class="muted" style="font-size:13px">1 café ≈ 4 500 tokens. Un post qui fait réagir tout le monde ≈ ${costLabel(g, 'post')} ☕, un message privé ≈ ${costLabel(g, 'dm')} ☕. C’est une estimation : ni Claude ni ChatGPT ne disent à une appli ce qu’il te reste vraiment.</p>
     <${CafeUses} g=${g} />
@@ -143,9 +158,11 @@ function BudgetPicker({ g }) {
 function CafeUses({ g }) {
   const [all, setAll] = useState(false);
   const list = usesOf(g, all), top = list.length ? list[0][1] : 1, sum = list.reduce((n, x) => n + x[1], 0);
+  const shown = list.length > 8 ? list.slice(0, 7) : list, rest = list.slice(shown.length); // 0.28.1: what is not listed is in « Le reste », so the lines add up to the total
+  const line = (k, label, n) => html`<li key=${k}><span class="cu-what">${label}</span><span class="cu-bar"><i style=${'width:' + Math.min(100, Math.max(3, Math.round((n / top) * 100))) + '%'}></i></span><span class="cu-n">${fmtDec(n, 1)} ☕</span></li>`;
   return html`<div class="cafe-uses">
     <div class="cu-head"><b>Où passent tes cafés</b><${Seg} items=${[[false, 'Aujourd’hui'], [true, 'Toute la partie']]} value=${all} onPick=${(v) => setAll(v)} label="Période" /></div>
-    ${list.length ? html`<ul>${list.slice(0, 8).map(([k, n]) => html`<li key=${k}><span class="cu-what">${USE_LABELS[k] || USE_LABELS.autre}</span><span class="cu-bar"><i style=${'width:' + Math.max(3, Math.round((n / top) * 100)) + '%'}></i></span><span class="cu-n">${fmtDec(n, 1)} ☕</span></li>`)}</ul>
+    ${list.length ? html`<ul>${shown.map(([k, n]) => line(k, USE_LABELS[k] || USE_LABELS.autre, n))}${rest.length ? line('rest', `· Le reste (${rest.length})`, rest.reduce((n, x) => n + x[1], 0)) : null}</ul>
       <small class="muted">${fmtDec(sum, 1)} ☕ en tout${all ? ' depuis que le jeu les compte' : ' aujourd’hui'}.</small>`
       : html`<small class="muted">${all ? 'Rien de compté pour l’instant.' : 'Rien d’utilisé aujourd’hui.'}</small>`}
   </div>`;
@@ -230,7 +247,7 @@ function SettingsLayer({ g, i, l }) {
       <div class="section-h"><h3>Partie</h3><span>${S.store === 'db' ? (HOST ? 'Sauvegardée sur cet ordi' : 'Sauvegardée sur ton compte') : S.store === 'local' ? 'Sauvegardée dans ce navigateur' : 'Non sauvegardée'}</span></div>
       <div class="row">
         <button class="btn btn-ghost btn-sm" onClick=${openSaves}><${Icon} n="save" s=${15} /> Sauvegardes</button>
-        ${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${() => exportGame(g.id)}><${Icon} n="download" s=${15} /> Exporter</button>` : null}
+        <button class="btn btn-ghost btn-sm" onClick=${() => exportAny(g.id)}><${Icon} n="download" s=${15} /> Exporter</button>
         <button class="btn btn-ghost btn-sm" onClick=${leaveGame}><${Icon} n="grid" s=${15} /> Mes parties</button>
       </div>
     </section>
@@ -452,20 +469,20 @@ function menuLines(g, path, now) {
       { k: 'num', label: 'Gemmes', desc: 'Tes gemmes.', get: () => s.gems, set: (x) => menuApply(g, { gems: x }), step: () => 10, fmt: fmtN, min: 0 },
       { k: 'num', label: 'Niveau', desc: 'Monter fait arriver les personnages du niveau ; descendre ne les retire pas.', get: () => s.level, set: (x) => menuApply(g, { level: x }), step: () => 1, min: 1, max: 300 },
       { k: 'act', label: 'Faire venir une marque', desc: 'Une marque t’écrit en privé tout de suite (dès 800 abonnés, deux offres ouvertes au plus).',
-        run: () => { if (s.followers < 800) { toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); return; } const d = makeOffer(g, {}); toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); } },
+        run: () => { if (s.followers < 800) { toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); return; } const d = makeOffer(g, {}); if (d) ensureAch(g).cheated = 1; toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); } },
     ];
   }
   if (top === 'rep') {
     return REP_IDS.map((k) => ({ k: 'num', label: `${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}`, desc: `Sur 1000. Ta réputation : ${rep1000(s.reputation)}/1000 (${repLabel(s.reputation)}).`,
       get: () => rep1000(P[k]), set: (x) => menuApply(g, { rep: { [k]: x } }), step: () => 25, min: 0, max: 1000 }))
-      .concat(playerBadBuzz(g, now) ? [{ k: 'act', label: 'Arrêter le bad buzz', desc: 'Ton bad buzz s’arrête tout de suite.', run: () => { g.pbb = null; toast('Bad buzz terminé.', 'good'); } }] : []);
+      .concat(playerBadBuzz(g, now) ? [{ k: 'act', label: 'Arrêter le bad buzz', desc: 'Ton bad buzz s’arrête tout de suite.', run: () => { g.pbb = null; ensureAch(g).cheated = 1; toast('Bad buzz terminé.', 'good'); } }] : []); // (0.28.1: what the menu gives keeps its achievements in the game)
   }
   if (top === 'temps') {
     const at = () => gameDate(Date.now()).getTime(), move = (ms) => menuApply(g, { at: at() + ms });
     return [
       { k: 'num', label: 'Jour', desc: '← → : un jour de plus ou de moins. Seule l’horloge bouge ; un nouveau mois déclenche une fois la paie et les factures.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * DAY_MS), fmt: () => cap1(gameDate(Date.now()).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })) },
       { k: 'num', label: 'Heure', desc: '← → : un quart d’heure de plus ou de moins.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * 15 * 60000), fmt: () => timeField(gameDate(Date.now())) },
-      { k: 'act', label: 'Revenir à l’heure de ton PC', desc: 'L’horloge du jeu reprend l’heure de ton ordinateur.', run: () => { menuClock(g, Date.now()); toast('Le jeu est à l’heure de ton PC.', 'good'); } },
+      { k: 'act', label: 'Revenir à l’heure de ton PC', desc: 'L’horloge du jeu reprend l’heure de ton ordinateur.', run: () => { if (g.clockOff) ensureAch(g).cheated = 1; menuClock(g, Date.now()); toast('Le jeu est à l’heure de ton PC.', 'good'); } },
     ];
   }
   if (top === 'jeux') {
@@ -475,7 +492,7 @@ function menuLines(g, path, now) {
       { k: 'pick', label: 'Difficulté', desc: 'Cauchemar, c’est le quiz de vraies questions, rien d’autre.', opts: DIFFS.filter((d) => !d.real || kind === 'quiz').map((d) => [d.id, `${d.emoji} ${d.label}`]), get: () => diff, set: (d) => { S.menuDiff = d; } },
       { k: 'act', label: 'Jouer maintenant', desc: `Un entraînement : rien ne compte dans ta partie${ai ? ` (≈ ${costLabel(g, 'shoot')} ☕)` : ''}.`, off: !!S.busy.mg, run: () => startPractice(g, kind, diff) },
       { k: 'tog', label: 'Imposer au tournage', desc: g.mgNext ? `Le prochain tournage aura : ${(MENU_GAMES.find((x) => x[0] === g.mgNext) || [0, g.mgNext])[1]} (sauf en Cauchemar).` : 'Oui : le prochain tournage aura ce mini-jeu. Non : il le tire au sort.',
-        get: () => g.mgNext === kind, set: (on) => { if (on) g.mgNext = kind; else delete g.mgNext; } },
+        get: () => g.mgNext === kind, set: (on) => { if (on) { g.mgNext = kind; ensureAch(g).cheated = 1; } else delete g.mgNext; } }, // (0.28.1: the easiest game for a Mythic shoot: marked)
     ];
   }
   if (top === 'skills') {
@@ -610,13 +627,13 @@ function StudioTab({ g, now }) {
         <div><small>Revenus ${deMonth(MONTHS[d.getMonth()])} (estimés)</small><b>${fmtMoney(g, c.est + c.owed)}</b></div>
       </div>
       <p class="muted money-note">${c.est + c.owed > 0 ? (pf === 'youtube' && c.est + c.owed < 70 ? `Versés début ${nextMonth} dès 70 € cumulés (le seuil de paiement de YouTube).` : `Versés début ${nextMonth}.`) : prog && !monetized(g) ? 'Tes contenus ne rapportent pas encore : rejoins le programme de ta plateforme, ou signe avec des marques.' : !prog ? `Sur ${pfName(g, pf)}, pas de partage des revenus pubs : tu gagnes ta vie avec les marques${pf === 'spotify' ? ' et les écoutes de tes sons' : ''}.` : 'Publie : chaque sortie rapporte selon ses vues.'}</p>
-      <div class="season-line"><span>${seasonEmoji(d)}</span><span>${cap1(SEASON_WORD(d))}. Pubs ×${fmtDec(adSeason(d))}, marques ×${fmtDec(sponsorSeason(d))}.</span></div>
+      <div class="season-line"><span>${seasonEmoji(d)}</span><span>${cap1(SEASON_WORD(d))}. ${adWord(adSeason(d))}, ${adWord(sponsorSeason(d), 'marques')}.</span></div>
       ${c.ledger.length ? html`<details class="ledger"><summary>Historique</summary><ul>${c.ledger.slice(-12).reverse().map((x, k) => html`<li key=${k}><span>${x.label}</span><b class=${x.amount < 0 ? 'neg' : x.kind === 'est' ? 'est' : 'pos'}>${x.amount > 0 ? '+' : x.amount < 0 ? '−' : ''}${fmtMoney(g, Math.abs(x.amount))}${x.kind === 'est' ? ' (estimé)' : ''}</b></li>`)}</ul></details>` : null}
     </section>
     <${GearSection} g=${g} now=${now} />
     <${InvSection} g=${g} now=${now} />
     ${prog ? html`<section class="section">
-      <div class="section-h"><h3>${prog.name}</h3><span class=${'prog-state ' + (susp ? 'refused' : c.prog.state)}>${susp ? 'Pubs coupées' : { on: 'Monétisé·e ✓', review: 'Candidature en cours', refused: 'Refusé·e', none: prog.ok ? 'Tu peux postuler' : 'Pas encore' }[c.prog.state] || ''}</span></div>
+      <div class="section-h"><h3>${prog.name}</h3><span class=${'prog-state ' + (susp ? 'refused' : c.prog.state)}>${susp ? 'Pubs coupées' : { on: px(g, 'Monétisé ✓', 'Monétisée ✓', 'Monétisé·e ✓'), review: 'Candidature en cours', refused: px(g, 'Refusé', 'Refusée', 'Refusé·e'), none: prog.ok ? 'Tu peux postuler' : 'Pas encore' }[c.prog.state] || ''}</span></div>
       ${c.prog.state !== 'on' ? html`${prog.needs.map((n) => html`<div class="need" key=${n.label}><div class="kv"><span>${n.label}</span><b class="mono">${fmtN(Math.min(n.cur, n.goal))}${n.unit ? ' ' + n.unit : ''} / ${fmtN(n.goal)}</b></div><${Meter} frac=${n.cur / n.goal} tone=${n.cur >= n.goal ? 'good' : ''} /></div>`)}
         ${c.prog.state === 'review' ? html`<p class="muted">Réponse ${fmtWhen(c.prog.until, now)}.</p>`
           : c.prog.state === 'refused' && now < (c.prog.retry || 0) ? html`<p class="muted">Tu pourras retenter ${fmtWhen(c.prog.retry, now)}.</p>`
@@ -642,7 +659,7 @@ function StudioTab({ g, now }) {
       <div class="section-h"><h3>Ton équipe</h3><span>${g.staff.length ? `${g.staff.length} ${plural(g.staff.length, 'personne', 'personnes')}` : 'personne pour l’instant'}</span></div>
       ${g.staff.map((m) => { const p = g.chars[m.c]; if (!p) return null; const R = STAFF_ROLES[m.role]; return html`<div class="staff-row" key=${m.id}>
         <${Avatar} who=${author(g, 'c:' + p.id)} size=${44} onClick=${() => openDM(p.id)} />
-        <div class="mid"><b>${p.name}</b><span>${R.emoji} ${roleName(m.role, p.g)} · ${tierName(m.tier, p.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ' · pas payé·e !' : ''}</span><small>${R.fx(m.tier + 1)}</small></div>
+        <div class="mid"><b>${p.name}</b><span>${R.emoji} ${roleName(m.role, p.g)} · ${tierName(m.tier, p.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ` · pas ${gx(p.g, 'payé', 'payée', 'payé·e')} !` : ''}</span><small>${R.fx(m.tier + 1)}</small></div>
         <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)} aria-label=${'Écrire à ' + p.name.split(' ')[0]} title=${'Écrire à ' + p.name.split(' ')[0]}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${p.name.split(' ')[0]} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
       </div>`; })}
       <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'recruit' })}><${Icon} n="userplus" s=${15} /> Recruter</button>
@@ -720,7 +737,7 @@ function DealCard({ g, d, now, inDM }) {
     <${DealExtra} g=${g} d=${d} />
     ${d.state === 'offer' ? html`<div class="row">
       <button class="btn btn-hot btn-sm" onClick=${() => trySign(g, d)}>${d.costs ? `Signer et payer ${fmtMoney(g, d.costs)}` : d.brief ? 'Télécharger et signer' : 'Signer'}</button>
-      <button class="btn btn-ghost btn-sm" onClick=${nego}>Négocier en message</button>
+      <button class="btn btn-ghost btn-sm" onClick=${nego}>${inDM ? 'Négocier' : 'Négocier en message'}</button>
       <button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Refuser l’offre de ${d.brand} ?`, text: 'Cette proposition sera perdue.', ok: 'Refuser', danger: true, run: () => { declineDeal(g, d); update(); } })}>Refuser</button>
       <small class="muted">${left > 0 ? `Offre valable ${fmtDur(left)}` : ''}</small>
     </div>` : d.state === 'signed' ? html`<p class="muted dl-note">À livrer ${fmtWhen(d.due, now)} : choisis ce sponsor au moment de publier ${d.what === 'vidéo' ? 'ta prochaine vidéo' : `ton prochain ${dealWhat(g, d)}`}.${d.gift && !d.giftSent ? ' Ton matos doit arriver dans les prochains jours.' : ''}</p>`
@@ -738,7 +755,7 @@ function PlanRow({ g, r, first, now }) {
     <div class="acts">
       ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>`)
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
-      ${r.series ? null : r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+      ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
     </div>
   </div>`;
 }
@@ -751,6 +768,26 @@ function MoveLayer({ l, g, i, now }) {
   return html`<${LayerShell} i=${i} title="Sortir plus tôt">
     <div class="mg-setup">
       <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. Choisis une heure plus tôt : aucun malus, ton public l’aura juste plus vite.</p>
+      <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
+      <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
+    </div>
+  <//>`;
+}
+// 0.28.1: a release postponed: the new time is the player's; well ahead of time it costs nothing.
+function LaterLayer({ l, g, i, now }) {
+  const r = (g.releases || []).find((x) => x.id === l.id);
+  if (!r || !canPostpone(r, now)) return html`<${LayerShell} i=${i} title="Repousser"><div class="empty"><b>${r && r.state === 'scheduled' ? 'Tu ne peux plus la repousser' : 'Cette sortie n’est plus prévue'}</b>${r && r.state === 'scheduled' && !r.series ? html`<small>Publie-la, ou abandonne-la.</small>` : null}</div><//>`;
+  const early = earlyMove(r, now), opts = laterChoices(g, r, now);
+  const go = (o) => {
+    const late = !earlyMove(r);
+    if (!postponeRelease(g, r, o.at)) return;
+    dropLayers((x) => x.t === 'minigame' && x.id === r.id);
+    toast(`${cap1(ta(r))} sort ${fmtWhen(r.due)}.${late ? ' Ton public s’impatiente.' : ''}`, late ? 'bad' : 'good');
+    closeLayer(l); update();
+  };
+  return html`<${LayerShell} i=${i} title="Repousser">
+    <div class="mg-setup">
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. ${early ? 'Bien à l’avance : aucun malus, ton public patientera.' : postponeCost(g, r) + ' Choisis la nouvelle heure.'}</p>
       <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
       <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
     </div>
@@ -816,13 +853,27 @@ function RecruitLayer({ g, now, i }) {
 }
 
 /* ---------- the daily upload sheet (and a single programmed release) ---------- */
+// 0.28.1: a single release's day, counted from today on the game clock (« Demain » is tomorrow, whatever the hour: « +1
+// jour » after an hour already past was the day after tomorrow).
+const DAY_PICKS = [0, 1, 2, 3, 7];
+const PLAN_HOURS = [8, 12, 17, 18, 19, 20, 21, 22];
+function dayDue(d, h, t = Date.now()) { const x = gameDate(t); x.setDate(x.getDate() + d); x.setHours(h, 0, 0, 0); return x.getTime() - clockOff(); }
+const dayFree = (d, h) => dayDue(d, h) > Date.now() + 60000;
+function dayWord(d, t = Date.now()) {
+  if (d < 3) return ['Aujourd’hui', 'Demain', 'Après-demain'][d];
+  const x = gameDate(t);
+  x.setDate(x.getDate() + d);
+  const w = cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }));
+  return d === 7 ? `${w} prochain` : w;
+}
 function SeriesLayer({ l, g, i }) {
   const single = l.id === 'single';
   const P = PF(g);
   const [what, setWhat] = useState(() => makeableWhat(g, P.main)); // 0.20: what the gear allows
   const [days, setDays] = useState(7);
   const [hour, setHour] = useState(18);
-  const [day, setDay] = useState(0); // single release: 0 today (or tomorrow if past), 1 tomorrow…
+  const [day, setDay] = useState(() => (dayFree(0, 18) ? 0 : 1)); // single release: 0 today, 1 tomorrow… (0.28.1: from today)
+  const lock = useRef(false); // 0.28.1: two quick taps program (and pay) once
   const fq0 = single && l.fanQ && g.chars[l.fanQ] && g.chars[l.fanQ].fan ? g.chars[l.fanQ] : null; // 0.21: a fan's question as the topic
   const [fanQ, setFanQ] = useState(fq0 ? fq0.id : '');
   const [theme, setTheme] = useState(fq0 ? qaTopic(fq0) : '');
@@ -835,30 +886,47 @@ function SeriesLayer({ l, g, i }) {
   const o = { what, topic: theme.trim(), days: single ? 0 : days };
   const needDevis = !easyGear(), dv = needDevis ? devisFor(o) : null, dvBusy = S.busy.devis === devisKey(o);
   const total = dv ? devisTotal(dv) : 0;
-  const launch = () => {
-    if (!ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
-    if (needDevis && !dv) { genDevis(o); return; }
-    if (total > 0 && total > g.career.cash) return; // (nothing to pay: even in the red, a content made with what you have)
+  const askQ = needDevis && (!dv || dv.cut), broke = !canAfford(g, 'devis'); // 0.28.1: a quote cut on the way is asked again
+  const dueAt = single ? dayDue(day, hour) : 0, late = single && !dayFree(day, hour);
+  const go = () => { // (what is checked here holds until it is paid: nothing runs in between)
+    if (lock.current || !ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
+    if (dv && (dv.paid || dv.cut || devisFor(o) !== dv)) return; // 0.28.1: a second tap, that quote is paid and gone
+    if (total > 0 && total > g.career.cash) { toast(`Il te faut ${fmtMoney(g, total)}.`, 'bad'); return; } // (nothing to pay: even in the red, a content made with what you have)
     const st = dv && devisStale(g, dv); // 0.27.6: what it counted on was sold, or put on sale, since
     if (st) { staleSay(st, dv); update(false); return; }
     const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
     if (single) {
-      const due = nextAt(hour, 0) + day * DAY_MS;
+      const due = dayDue(day, hour);
+      if (!dayFree(day, hour)) { toast('Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
+      lock.current = true;
       const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '' });
-      if (r) { if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); } toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer(); update(); }
+      if (!r) { lock.current = false; return; }
+      if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); }
+      toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer(); update();
       return;
     }
+    lock.current = true;
     if (startSeries(g, { what, days, hour, min: 0, theme: theme.trim(), diff, hard, devis: paid })) { if (dv) { payDevis(g, dv, `défi « ${theme.trim()} »`); dropDevis(dv); } closeLayer(); goTab('feed'); update(); }
+    else lock.current = false;
   };
+  const launch = () => {
+    if (lock.current || !ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
+    if (askQ) { if (broke) budgetBlocked(); else genDevis(o); return; }
+    if (dv && (dv.paid || devisFor(o) !== dv)) return;
+    if ((total > 0 && total > g.career.cash) || late) return;
+    if (dv && !devisStale(g, dv)) askPayDevis(g, dv, single ? 'Payer et programmer' : 'Payer et lancer le défi', go); // 0.28.1: the question first, over 1 000 € or half the bank
+    else go();
+  };
+  const pickDay = (d) => { setDay(d); if (d === 0 && !dayFree(0, hour)) { const h = PLAN_HOURS.find((x) => dayFree(0, x)); if (h != null) setHour(h); } };
   return html`<${LayerShell} i=${i} title=${single ? 'Programmer une sortie' : 'Défi Daily Upload'}>
     <div class="mg-setup">
       ${single ? null : html`<p class="lede-sm">${days} jours de suite, ${what === 'live' ? 'un live' : `${what === 'vidéo' ? 'une' : 'un'} ${noun(what)}`} par jour à heure fixe. Chaque épisode qui n’est pas raté (même moyen) fait grimper ton bonus de défi (×${fmtDec(1 + step)}, ×${fmtDec(1 + 2 * step)}… jusqu’à ×${cap}) : vues, abonnés et argent. Pas de report possible.</p>`}
       <div class="field"><span class="lbl">Format</span><${Seg} items=${P.fmts.map((f) => [f, cap1(noun(f)), !canMake(g, f).ok])} value=${what} onPick=${setWhat} label="Format" />
         ${P.fmts.filter((f) => !canMake(g, f).ok).map((f) => html`<small class="muted gear-why" key=${f}>${canMake(g, f).why}</small>`)}</div>
-      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><${Seg} items=${[[0, 'Au plus tôt'], [1, '+1 jour'], [2, '+2 jours'], [6, '+1 semaine']]} value=${day} onPick=${setDay} label="Jour" /></div>`
+      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><div class="tr-chips" role="group" aria-label="Jour">${DAY_PICKS.map((d) => html`<button key=${d} type="button" class=${'chip-btn' + (day === d ? ' on' : '')} aria-pressed=${day === d ? 'true' : 'false'} disabled=${d === 0 && !PLAN_HOURS.some((h) => dayFree(0, h))} onClick=${() => pickDay(d)}>${dayWord(d)}</button>`)}</div></div>`
         : html`<div class="field"><span class="lbl">Durée du défi</span><${Seg} items=${SERIES_DAYS.map((n) => [n, n + ' jours'])} value=${days} onPick=${setDays} label="Durée" /></div>`}
       <div class="field"><span class="lbl">Heure de sortie</span>
-        <div class="hour-pick">${[8, 12, 17, 18, 19, 20, 21, 22].map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
+        <div class="hour-pick">${PLAN_HOURS.map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} disabled=${single && day === 0 && !dayFree(0, h)} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
         <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>
       ${single && fanQuestions(g).filter((c) => !fanPlanned(g, c)).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).filter((c) => !fanPlanned(g, c)).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${c.name.split(' ')[0]}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
       <div class="field"><label class="lbl" for="se-theme">${single ? 'Le sujet' : 'Le thème du défi'}</label>
@@ -869,11 +937,13 @@ function SeriesLayer({ l, g, i }) {
       <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le bonus de défi grimpe presque deux fois plus vite (jusqu’à ×4) ; à la fin, deux fois plus de gemmes et +50 % d’abonnés et d’XP. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
       <${SeriesStakes} days=${days} hard=${hard} />`}
       ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; update(false); } : null} />` : null}
-      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${fmtGameAt(nextAt(hour, 0) + (single ? day : 0) * DAY_MS)}</p>
-      <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (total > 0 && total > g.career.cash)}>${needDevis && !dv
-        ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> Demander le devis · ≈ ${costLabel(g, 'devis')} ☕`)
+      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${fmtGameAt(single ? dueAt : nextAt(hour, 0))}</p>
+      <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (askQ ? broke : (total > 0 && total > g.career.cash) || late)}>${askQ
+        ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> ${(dv && dv.cut) || S.devisErr === devisKey(o) ? 'Redemander le devis' : 'Demander le devis'} · ≈ ${costLabel(g, 'devis')} ☕`)
         : html`<${Icon} n="calendar" s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${single ? 'programmer' : 'lancer le défi'}` : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
-      ${!ok ? html`<small class="muted why-off">Écris d’abord ${single ? 'le sujet' : 'le thème du défi'}.</small>` : !planRoom(g) ? html`<small class="muted why-off">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : !single && seriesOn(g) ? html`<small class="muted why-off">Un défi est déjà en cours.</small>` : null}
+      ${!ok ? html`<small class="muted why-off">Écris d’abord ${single ? 'le sujet' : 'le thème du défi'}.</small>` : !planRoom(g) ? html`<small class="muted why-off">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : !single && seriesOn(g) ? html`<small class="muted why-off">Un défi est déjà en cours.</small>`
+        : askQ && broke && !dvBusy ? html`<small class="muted why-off">Ton budget IA du jour est épuisé. <button class="linkbtn" onClick=${budgetBlocked}>Options</button></small>`
+        : !askQ && late ? html`<small class="muted why-off">Cette heure est déjà passée aujourd’hui : choisis-en une autre, ou un autre jour.</small>` : null}
       ${needDevis && !dv ? html`<small class="muted">Le devis dit ce qu’il faut acheter, louer ou payer pour ce contenu (jamais ce que tu as déjà). Il se paie pour programmer.</small>` : null}
     </div>
   <//>`;
@@ -944,12 +1014,12 @@ function PublishForm({ g, r, now }) {
       : html`<div class="audio-prev"><span class="ap-cover" style=${'--h:' + (hashStr(r.topic) % 360)}>${W.emoji}</span><div><b>${f.title || r.topic}</b><span>${g.player.name}</span><span class="ap-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></div>`}
     </div>
     ${kind !== 'vert' ? html`<div class="field"><label class="lbl" for="up-title">Titre</label><input id="up-title" class="input" maxlength="100" value=${f.title} onInput=${(ev) => set('title', ev.target.value)} /></div>` : null}
-    ${kind === 'wide' && T0 ? html`<div class="field"><span class="lbl">Miniature</span><div class="th-chosen"><${ThumbArt} look=${T0.look} img=${T0.img} small=${true} /><div><b>${thumbWord(T0)}</b><small>+${Math.round(T0.ctr * 100)} % de vues${T0.choc ? ' · si c’est raté, « putaclic »' : ''}</small>${T0.kind !== 'staff' ? html`<button type="button" class="linkbtn" onClick=${() => { r.thumb = null; update(); }}>Changer</button>` : null}</div></div></div>` : null}
+    ${kind === 'wide' && T0 ? html`<div class="field"><span class="lbl">Miniature</span><div class="th-chosen"><${ThumbArt} look=${T0.look} img=${T0.img} small=${true} /><div><b>${thumbWord(T0)}</b><small>+${Math.round(T0.ctr * 100)} % de vues${T0.choc ? ' · si c’est raté, « putaclic »' : ''}</small><button type="button" class="linkbtn" onClick=${() => { if (T0.kind === 'staff') r.staffThumb = T0; r.thumb = null; update(); }}>${T0.kind === 'staff' ? 'La faire moi-même' : 'Changer'}</button></div></div></div>` : null}
     ${kind === 'vert' ? html`<div class="field"><label class="lbl" for="up-hook">L’accroche (les 2 premières secondes)</label><input id="up-hook" class="input" maxlength="60" value=${f.hook} onInput=${(ev) => set('hook', ev.target.value)} placeholder="ex : Personne ne m’a cru. Alors j’ai filmé." /><small>Une vraie accroche retient les gens : +12 % de vues.</small></div>
       <div class="field"><span class="lbl">${pf === 'instagram' ? 'Audio tendance' : 'Son tendance'}</span>${trendChips(sounds, 'trend', 'Son original')}</div>
       ${tags.length ? html`<div class="field"><span class="lbl">Défi / hashtag</span>${trendChips(tags, 'trend2', 'Aucun')}</div>` : null}` : null}
     ${kind !== 'vert' && topics.length ? html`<div class="field"><span class="lbl">Surfer sur une tendance</span>${trendChips(topics, 'trend', 'Aucune')}</div>` : null}
-    ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>Seul·e</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${c.name.split(' ')[0]}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
+    ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>${px(g, 'Seul', 'Seule', 'Seul·e')}</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${c.name.split(' ')[0]}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
     ${deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsor</span>
       <div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.deal ? ' on' : '')} onClick=${() => set('deal', '')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (f.deal === d.id ? ' on' : '')} onClick=${() => set('deal', d.id, { mention: !d.shady })}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div>
       <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
@@ -960,7 +1030,7 @@ function PublishForm({ g, r, now }) {
       <small>${f.decl.length ? 'Déclaré : des pubs limitées, sans avertissement.' : 'Rien de coché : toutes les pubs, si c’est vrai. Un contenu caché qui se voit : démonétisé, et un avertissement.'}</small></div>` : null}
     ${mbOK && kind !== 'live' && mb.perks.includes('avant') ? html`<label class=${'mention-toggle up-memb' + (f.membAvant ? '' : ' off')}><input type="checkbox" checked=${f.membAvant} onChange=${(ev) => set('membAvant', ev.target.checked)} /><span><b>👑 En avant-première pour tes membres</b><small>${f.membAvant ? 'Tes membres la voient 48 h avant tout le monde : ta promesse du mois est tenue.' : 'Tu as promis une avant-première par mois à tes membres.'}</small></span></label>` : null}
     ${mbOK && kind === 'live' && mb.perks.includes('live') ? html`<label class=${'mention-toggle up-memb' + (f.membLive ? '' : ' off')}><input type="checkbox" checked=${f.membLive} onChange=${(ev) => set('membLive', ev.target.checked)} /><span><b>👑 Réservé à tes membres</b><small>${f.membLive ? 'Seuls tes membres le voient : bien moins de spectateurs, mais un vrai moment avec eux.' : 'Tu as promis un live réservé par mois à tes membres.'}</small></span></label>` : null}
-    <div class="up-est"><span>≈ ${fmtN(lo)} à ${fmtN(hi)} ${unit}</span><span>${cap1(audienceWord(aud))}${g.boosts.push ? ' · mise en avant ×2' : ''}${r.series ? ` · bonus de défi ×${fmtDec(seriesMult(g))}` : ''}${(r.crew || []).length ? ' · ton équipe a bossé dessus' : ''}</span></div>
+    <div class="up-est"><span>≈ ${fmtN(lo)} à ${fmtN(hi)} ${unit}${kind === 'live' ? ' au total' : ''}</span><span>${cap1(audienceWord(aud))}${g.boosts.push ? ' · mise en avant ×2' : ''}${r.series ? ` · bonus de défi ×${fmtDec(seriesMult(g))}` : ''}${(r.crew || []).length ? ' · ton équipe a bossé dessus' : ''}</span></div>
     <label class="lbl" for="rl-cap">Ton post d’annonce sur le réseau</label>
     <textarea id="rl-cap" class="input" maxlength="280" rows="2" value=${f.caption} onInput=${(ev) => set('caption', ev.target.value)}></textarea>
     <button class="btn btn-hot" onClick=${() => publishRelease(r, f.caption, f)} disabled=${!!S.busy.act || !canAfford(g, 'post')}>${kind === 'live' ? 'Lancer le live' : 'Publier ' + laW(r)} · ≈ ${costLabel(g, 'post')} <${Icon} n="coffee" s=${15} /></button>
@@ -1013,7 +1083,7 @@ function WriteBtn({ w, onText }) {
   const cost = WRITE_COST[w.kind] || 2, key = w.key || w.kind;
   const busy = S.busy.write === key;
   return html`<button type="button" class="linkbtn row write-btn" style="gap:4px" disabled=${!!S.busy.write || g.stats.gems < cost} title=${g.stats.gems < cost ? `Il te faut ${cost} gemmes` : `${AI_NAME} écrit à ta place (tu relis avant d’envoyer)`}
-    onClick=${async () => { const t = await writeForMe(Object.assign({}, w, { key })); if (t) onText(t); }}>${busy ? html`<${Typing} />` : html`<${Icon} n="pen" s=${14} />`} Écrire pour moi · ${cost} <${Icon} n="gem" s=${12} /></button>`;
+    onClick=${async () => { const t = await writeForMe(Object.assign({}, w, { key })); if (t) onText(t); }}>${busy ? html`<${Typing} />` : html`<${Icon} n="pen" s=${14} />`} Écrire pour moi · ${cost} <${Icon} n="gem" s=${12} /><small class="muted">${` · ≈ ${costLabel(g, 'write')} ☕`}</small></button>`;
 }
 
 /* ---------- real screenshots of private messages, as proof ---------- */
@@ -1142,7 +1212,7 @@ function PfpCard({ g, m, close }) {
     <span class="eyebrow">Nouvelle photo de profil</span>
     <span class="pfp-big" aria-hidden="true">${src ? html`<img src=${src} alt="" />` : null}</span>
     <label class="pfp-field" for="pfp-desc">Ce qu’on y voit <small>(facultatif)</small></label>
-    <input id="pfp-desc" class="input" maxlength="140" placeholder="ex : moi en terrasse, lunettes de soleil, sourire en coin" value=${desc} onInput=${(ev) => setDesc(ev.target.value)} />
+    <input id="pfp-desc" class="input" maxlength="140" placeholder="ex : en terrasse, lunettes de soleil" value=${desc} onInput=${(ev) => setDesc(ev.target.value)} />
     <p class="muted">Les persos connaîtront ta photo par ces mots : de quoi te complimenter… ou te vanner.</p>
     <button class="btn btn-hot" onClick=${() => go(true)}>📸 L’annoncer en post</button>
     <button class="btn btn-ghost" onClick=${() => go(false)}>Juste la changer</button>
@@ -1196,7 +1266,7 @@ function CareerModal({ m, g, close }) {
       <p>« ${r.text} »</p>
       <p class="muted">C’est faux, mais ça circule. Tant que tu ne la démens pas, ta réputation et tes abonnés s’effritent, et dans 3 heures elle s’installera.</p>
       <button class="btn btn-hot" onClick=${() => { close(); openCompose({ debunk: r.id }); }}><${Icon} n="megaphone" s=${16} /> Démentir maintenant</button>
-      ${hasStaff(g, 'avocat') ? html`<button class="btn btn-ghost" onClick=${() => { close(); lawyerNotice(g, r); update(); }}>⚖️ Mise en demeure par ton avocat·e</button>` : null}
+      ${hasStaff(g, 'avocat') ? html`<button class="btn btn-ghost" onClick=${() => { close(); lawyerNotice(g, r); update(); }}>⚖️ Mise en demeure par ${(() => { const L = hasStaff(g, 'avocat'), c = L && g.chars[L.c]; return gx(c && c.g, 'ton avocat', 'ton avocate', 'ton avocat·e'); })()}</button>` : null}
       <button class="btn btn-ghost" onClick=${close}>Plus tard</button>
     </div>`;
   }
@@ -1218,9 +1288,9 @@ function CareerModal({ m, g, close }) {
     if (!s) return null;
     return html`<div class=${'modal-card' + (s.state === 'won' ? ' viral' : s.state === 'badbuzz' ? ' busted' : '')}>
       <span class="eyebrow">Défi Daily Upload · ${s.days} jours${s.hard ? ' · hardcore' : ''}</span>
-      ${s.state === 'won' ? html`<div class="burst">DÉFI RÉUSSI</div><div class="rewards"><span class="chip flash"><${Icon} n="gem" s=${12} /> +${s.reward.gems} gemmes</span><span class="chip good">${nAbonnes(s.reward.fol, true)}</span><span class="chip hot">Une marque t’a repéré·e</span></div><p>Meilleure série : ${s.best} d’affilée. Respect.</p>`
-        : s.state === 'badbuzz' ? html`<div class="burst">FIASCO</div><div class="rewards"><span class="chip bad">−${nAbonnes(s.reward.loss)}</span><span class="chip bad">${s.reward.rep != null ? repWord(s.reward.rep / 10) : '−150 de réputation'}</span><span class="chip bad">Bad buzz</span></div><p>Tout le monde a vu le défi s’effondrer. Ça va se moquer un moment.</p>`
-          : html`<div class="modal-big" aria-hidden="true">😬</div><div class="rewards"><span class="chip bad">−${nAbonnes(s.reward.loss)}</span><span class="chip bad">${s.reward.rep != null ? repWord(s.reward.rep / 10) : '−60 de réputation'}</span></div><p>Pas tenu jusqu’au bout : un petit bide, ça passera.</p>`}
+      ${s.state === 'won' ? html`<div class="burst">DÉFI RÉUSSI</div><div class="rewards"><span class="chip flash"><${Icon} n="gem" s=${12} /> +${s.reward.gems} gemmes</span><span class="chip good">${nAbonnes(s.reward.fol, true)}</span><span class="chip hot">Une marque t’a ${px(g, 'repéré', 'repérée', 'repéré·e')}</span></div><p>Meilleure série : ${s.best} d’affilée. Respect.</p>`
+        : s.state === 'badbuzz' ? html`<div class="burst">FIASCO</div><div class="rewards"><span class="chip bad">−${nAbonnes(s.reward.loss)}</span>${s.reward.rep != null && !repPts(s.reward.rep / 10) ? null : html`<span class="chip bad">${s.reward.rep != null ? repWord(s.reward.rep / 10) : '−150 de réputation'}</span>`}<span class="chip bad">Bad buzz</span></div><p>Tout le monde a vu le défi s’effondrer. Ça va se moquer un moment.</p>`
+          : html`<div class="modal-big" aria-hidden="true">😬</div><div class="rewards"><span class="chip bad">−${nAbonnes(s.reward.loss)}</span>${s.reward.rep != null && !repPts(s.reward.rep / 10) ? null : html`<span class="chip bad">${s.reward.rep != null ? repWord(s.reward.rep / 10) : '−60 de réputation'}</span>`}</div><p>Pas tenu jusqu’au bout : un petit bide, ça passera.</p>`}
       <${SeriesCard} g=${g} s=${s} now=${Date.now()} />
       <button class="btn btn-hot" onClick=${close}>Continuer</button>
     </div>`;
@@ -1228,7 +1298,7 @@ function CareerModal({ m, g, close }) {
   if (m.t === 'money') {
     if (m.what === 'program') return html`<div class="modal-card viral"><span class="eyebrow">Monétisation</span><div class="modal-big" aria-hidden="true">💶</div><p><b>Tu es ${px(g, 'accepté', 'acceptée', 'accepté·e')} au programme de ${pfName(g, platformOf(g))} !</b> Tes contenus rapportent de l’argent maintenant, selon leurs vues, ta niche et la saison.</p><button class="btn btn-hot" onClick=${() => { close(); goTab('studio'); }}>Voir mon studio</button><button class="btn btn-ghost" onClick=${close}>Continuer</button></div>`;
     if (m.what === 'payout') return html`<div class="modal-card viral"><span class="eyebrow">Jour de paie</span><div class="modal-big">+${fmtMoney(g, m.amount)}</div><p>${pfName(g, platformOf(g))} te verse tes revenus ${deMonth(m.month)}.</p><button class="btn btn-hot" onClick=${close}>Encaisser</button></div>`;
-    if (m.what === 'fine') return html`<div class="modal-card busted"><span class="eyebrow">${m.law ? 'Promotion interdite' : 'Publicité cachée'}</span><div class="burst">AMENDE</div><div class="rewards"><span class="chip bad">−${fmtMoney(g, m.amount)}</span><span class="chip bad">${m.rep != null ? repWord(m.rep / 10) : `−${m.law ? 250 : 150} de réputation`}</span><span class="chip bad">Bad buzz</span></div><p>${m.law ? `La promo de ${m.brand} était interdite par la loi : tu as été ${px(g, 'signalé', 'signalée', 'signalé·e')}.` : `Ton partenariat avec ${m.brand} n’avait pas la mention « Collaboration commerciale » : c’est de la pratique commerciale trompeuse.`}</p><button class="btn btn-ghost" onClick=${close}>J’assume</button></div>`;
+    if (m.what === 'fine') return html`<div class="modal-card busted"><span class="eyebrow">${m.law ? 'Promotion interdite' : 'Publicité cachée'}</span><div class="burst">AMENDE</div><div class="rewards"><span class="chip bad">−${fmtMoney(g, m.amount)}</span>${m.rep != null && !repPts(m.rep / 10) ? null : html`<span class="chip bad">${m.rep != null ? repWord(m.rep / 10) : `−${m.law ? 250 : 150} de réputation`}</span>`}<span class="chip bad">Bad buzz</span></div><p>${m.law ? `La promo de ${m.brand} était interdite par la loi : tu as été ${px(g, 'signalé', 'signalée', 'signalé·e')}.` : `Ton partenariat avec ${m.brand} n’avait pas la mention « Collaboration commerciale » : c’est de la pratique commerciale trompeuse.`}</p><button class="btn btn-ghost" onClick=${close}>J’assume</button></div>`;
   }
   return null;
 }

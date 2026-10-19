@@ -21,7 +21,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-v277');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -186,7 +186,7 @@ async function newGame(page, identity) {
     out.critic = { quiet, named, state: nul.state };
     // the agent's view once the trap is out of the contract
     fresh();
-    const cl = H.makeOffer(g, { legit: true, what: 'vidéo', gift: false, brand: 'Marque Test 6' }); cl.flagged = true;
+    const cl = H.makeOffer(g, { legit: true, shady: false, what: 'vidéo', gift: false, brand: 'Marque Test 6' }); cl.flagged = true; // (0.28.1: never shady by chance: 12 % of runs failed)
     const agc = g.chars[g.staff.find((m) => m.role === 'agent').c];
     out.warn = H.dmCareerCtx(g, agc).join(' ').includes('a sauté du contrat');
     // the exclusivity: asked first, then signed anyway, at a price

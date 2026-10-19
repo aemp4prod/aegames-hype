@@ -77,6 +77,26 @@ function applyEdit(g, r, m, by) {
   r.played.tier = tierOf(s1);
   r.editGame = null;
 }
+// 0.28.1: the team's edit is the default; the player may still make their own (from the shoot's own score), or take
+// the team's back.
+function selfEdit(g, r) {
+  const e = r && r.edit;
+  if (!e || e.by !== 'staff' || !r.played) return false;
+  r.staffEdit = e;
+  r.played.score = e.s0;
+  r.played.tier = tierOf(e.s0);
+  r.edit = null;
+  r.editGame = null;
+  r.render = null;
+  return true;
+}
+function staffEditBack(g, r) {
+  const e = r && r.staffEdit;
+  if (!e || r.edit || !r.played) return false;
+  applyEdit(g, r, e.m, 'staff');
+  if (r.edit) r.edit.who = e.who || r.edit.who;
+  return true;
+}
 function editWord(r) {
   const e = r.edit, d = Math.round((r.played.score - e.s0) * 100);
   const delta = d ? ` (${d > 0 ? '+' : '−'}${Math.abs(d)} ${Math.abs(d) > 1 ? 'points' : 'point'})` : '';
@@ -92,9 +112,32 @@ const THUMB_FACES = ['😱', '🤯', '😂', '🥹', '😎', '🤔', '😍', '�
 const THUMB_DECOS = [['none', 'Aucun'], ['fleche', 'Une flèche'], ['cercle', 'Un cercle'], ['avap', 'Avant · Après']];
 const PRESET_CTR = { choc: 0.3, mystere: 0.18, propre: 0.08 };
 const firstWords = (s, n) => String(s || '').replace(/[«»"“”()]/g, ' ').split(/\s+/).filter(Boolean).slice(0, n).join(' ');
+// 0.28.1: the words of a topic that say what it is about, for a thumbnail (« jeu de société magique », not « je teste
+// un »): the one who speaks and their verb go (« je teste », « j’ai testé »), the little words at both ends too.
+const TH_SUBJ = new Set(['je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles']);
+const TH_OBJ = new Set(['me', 'te', 'se', 'le', 'la', 'les', 'lui', 'leur', 'vous', 'nous', 'y', 'en']);
+const TH_SMALL = new Set(['un', 'une', 'des', 'le', 'la', 'les', 'de', 'du', 'au', 'aux', 'a', 'à', 'en', 'et', 'ou', 'pour', 'avec', 'sur', 'dans', 'par', 'chez', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses', 'notre', 'nos', 'votre', 'vos', 'leur', 'leurs', 'ce', 'cet', 'cette', 'ces', 'qui', 'que', 'quand', 'mais', 'ne', 'pas']);
+function thumbWords(s, n = 4) {
+  let w = String(s || '').replace(/[«»"“”()!?.,;:…]/g, ' ').split(/\s+/).filter(Boolean);
+  const low = (x) => x.toLowerCase(), small = (x) => TH_SMALL.has(low(x));
+  if (w.length > 2) {
+    let i = 0;
+    const el = /^j['’](.+)$/i.exec(w[0]);
+    if (TH_SUBJ.has(low(w[0]))) { i = 1; while (i < w.length - 1 && (TH_OBJ.has(low(w[i])) || /^[mtsl]['’]/i.test(w[i]))) i++; i++; } // je (vous) montre…
+    else if (el) i = low(el[1]) === 'ai' ? 2 : 1; // j’adore…, j’ai testé…
+    if (i < w.length) w = w.slice(i);
+  }
+  while (w.length > 1 && small(w[0])) w.shift();
+  if (w.length && /^[ldjqmts]['’]./i.test(w[0])) w[0] = w[0].replace(/^[ldjqmts]['’]/i, ''); // (l’ascension → ascension)
+  w = w.slice(0, n);
+  const tail = () => { while (w.length > 1 && small(w[w.length - 1])) w.pop(); };
+  tail();
+  while (w.length > 1 && w.join(' ').length > 24) { w.pop(); tail(); }
+  return w.join(' ') || firstWords(s, 3);
+}
 function presetLook(k, r, title) {
   const W = WHATS[r.what] || WHATS.vidéo;
-  if (k === 'choc') return { bg: 'rouge', emo: '😱', text: firstWords(title || r.topic, 3), deco: 'fleche' };
+  if (k === 'choc') return { bg: 'rouge', emo: '😱', text: thumbWords(title || r.topic, 3), deco: 'fleche' };
   if (k === 'mystere') return { bg: 'nuit', emo: '🤔', text: '???', deco: 'cercle' };
   return { bg: 'clair', emo: W.emoji, text: '', deco: 'none' };
 }
@@ -118,7 +161,7 @@ const drawnCtr = (sk) => Math.round(clamp(0.06 + 0.1 * Math.min(1, ((sk && sk.co
 const AI_THUMB_CTR = 0.26;
 function staffThumb(g, r) {
   const m = hasStaff(g, 'miniature'), who = m && g.chars[m.c] ? g.chars[m.c].name.split(' ')[0] : '';
-  const look = { bg: pick(['jaune', 'rouge', 'ciel', 'rose']), emo: pick(THUMB_FACES.slice(0, 6)), text: firstWords(r.topic, 3), deco: pick(['fleche', 'cercle', 'none']) };
+  const look = { bg: pick(['jaune', 'rouge', 'ciel', 'rose']), emo: pick(THUMB_FACES.slice(0, 6)), text: thumbWords(r.topic), deco: pick(['fleche', 'cercle', 'none']) };
   return { kind: 'staff', look, ctr: Math.min(lookCtr(look), 0.2), choc: false, who }; // their own bonus comes on top (staffMult)
 }
 const thumbWord = (t) => (t.kind === 'staff' ? `Faite par ${t.who || 'ton graphiste'}` : t.kind === 'ai' ? 'Ton croquis, finalisé par l’IA' : t.kind === 'drawn' ? 'Dessinée à la main' : t.preset ? THUMBS[t.preset].label : 'Ta composition');
@@ -251,6 +294,7 @@ function EditStep({ g, r, now }) {
       <div class="row ss-actions">
         <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n="scissors" s=${16} /> Monter</button>
         <button class="btn btn-ghost" onClick=${() => { applyEdit(g, r, 0.3, 'vite'); scheduleSave(); update(); }}>Passer le montage (−${Math.round((0.5 - 0.3) * EDIT_SWING * 100)} points)</button>
+        ${r.staffEdit ? html`<button class="btn btn-ghost" onClick=${() => { if (staffEditBack(g, r)) { scheduleSave(); update(); } }}>Garder le montage de ${r.staffEdit.who || 'ton équipe'} (${Math.round(r.staffEdit.m * 100)} %)</button>` : null}
       </div>
     </div>`;
   }
@@ -267,7 +311,7 @@ function ThumbStep({ g, r, onDone }) {
   const preset = Object.keys(PRESET_CTR).find((k) => sameLook(look, presetLook(k, r))) || null;
   const ctr = preset ? PRESET_CTR[preset] : lookCtr(look), choc = preset ? preset === 'choc' : lookChoc(look);
   const set = (k, v) => setLook(Object.assign({}, look, { [k]: v }));
-  const words = [...new Set([firstWords(r.topic, 2), firstWords(r.topic, 3), 'JE TESTE', 'ÇA A MAL TOURNÉ', '???', 'INCROYABLE'].map((x) => x.toUpperCase()).filter(Boolean))].slice(0, 6);
+  const words = [...new Set([thumbWords(r.topic, 2), thumbWords(r.topic), 'JE TESTE', 'ÇA A MAL TOURNÉ', '???', 'INCROYABLE'].map((x) => x.toUpperCase()).filter(Boolean))].slice(0, 6);
   const done = (t) => { r.thumb = t; if (onDone) onDone(t); scheduleSave(); update(); }; // (0.23: a thumbnail made for someone else)
   const useCompose = () => done({ kind: 'compose', preset, look, ctr, choc });
   const useSketch = async () => {
@@ -292,6 +336,7 @@ function ThumbStep({ g, r, onDone }) {
   };
   return html`<div class="studio-step thumb-step">
     <span class="eyebrow">La miniature</span>
+    ${r.staffThumb ? html`<p class="ss-edit">🖼️ ${thumbWord(r.staffThumb)} · +${Math.round(r.staffThumb.ctr * 100)} % de vues <button type="button" class="linkbtn" onClick=${() => done(r.staffThumb)}>La garder</button></p>` : null}
     <div class="th-preview">${tab === 'draw' ? null : html`<${ThumbArt} look=${look} label=${'Aperçu de ta miniature'} />`}</div>
     <div class="seg" role="tablist" aria-label="Comment la faire">
       <button type="button" role="tab" aria-selected=${tab === 'compose' ? 'true' : 'false'} class=${tab === 'compose' ? 'on' : ''} onClick=${() => setTab('compose')}>Composer</button>
@@ -363,7 +408,7 @@ function StudioSteps({ g, r, now }) {
   const stages = [['shoot', 'Tournage', true], needsEdit(r) ? ['edit', 'Montage', !!r.edit] : null, needsThumb(r) ? ['thumb', 'Miniature', !!r.thumb] : null, ['publish', 'Publication', false]].filter(Boolean);
   return html`<div class="studio-steps">
     <ol class="ss-dots" aria-label="Les étapes avant la sortie">${stages.map(([k, l, ok]) => html`<li key=${k} class=${ok ? 'ok' : k === step ? 'on' : ''} aria-current=${k === step ? 'step' : null}>${ok ? '✓ ' : ''}${l}</li>`)}</ol>
-    ${r.edit ? html`<p class="ss-edit">✂️ ${editWord(r)}</p>` : null}
+    ${r.edit ? html`<p class="ss-edit">✂️ ${editWord(r)}${r.edit.by === 'staff' ? html` <button type="button" class="linkbtn" onClick=${() => { if (selfEdit(g, r)) { scheduleSave(); update(); } }}>Monter moi-même</button>` : null}</p>` : null}
     ${step === 'edit' ? html`<${EditStep} key=${'ed' + r.id + ':' + (r.crashes || 0)} g=${g} r=${r} now=${now} />` : step === 'render' ? html`<${RenderStep} key=${'rd' + r.id + ':' + (r.crashes || 0)} g=${g} r=${r} />` : step === 'thumb' ? html`<${ThumbStep} key=${'th' + r.id} g=${g} r=${r} />` : html`<${PublishForm} key=${'up' + r.id} g=${g} r=${r} now=${now} />`}
   </div>`;
 }

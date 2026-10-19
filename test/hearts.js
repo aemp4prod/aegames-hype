@@ -15,7 +15,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.OUT || path.join(ROOT, 'test', 'shots-hearts');
 fs.mkdirSync(OUT, { recursive: true });
-const PAGE = fs.readFileSync(path.join(ROOT, 'hype.html'), 'utf8');
+const PAGE = fs.readFileSync(process.env.PAGE || path.join(ROOT, 'hype.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, 'mock.js'), 'utf8');
 const UMD = fs.readFileSync(process.env.UMD, 'utf8');
 const SKELETON = (body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>${body}</body></html>`;
@@ -135,7 +135,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('too fast for a serene heart: the step does not happen, Théo asks to slow down (the AI is told; it was warned beforehand), and remembers it',
     f1.warn && f1.ok === false && f1.vibe === 'crush' && f1.cool === 'frein' && /un peu vite/.test(f1.mem) && f1.told, f1);
   const n1 = [];
-  for (const txt of ['allez, dis oui', 'tu me manques déjà', 'pourquoi tu réponds pas ?']) n1.push(await dm(page, ids.theo, txt, [0.99, 0.99]));
+  for (const txt of ['allez, dis oui', 'allez, tu me manques déjà', 'pourquoi tu réponds pas ?']) n1.push(await dm(page, ids.theo, txt, [0.99, 0.99])); // (0.28.1: pushy, as their reaction says)
   const f2 = await G(page, (id) => { const t = window.__hype.S.game.chars[id]; return { cool: t.cool && t.cool.k, rel: t.rel }; }, ids.theo);
   const n2 = await dm(page, ids.theo, 'allô ?', [0.99, 0.99]);
   const f3 = await G(page, (id) => { const g = window.__hype.S.game, t = g.chars[id], m = g.dms[id].msgs; return { cool: t.cool && t.cool.k, last: m[m.length - 1].text, me: m[m.length - 1].me, seen: g.notifs.some((n) => n.k === 'seen' && n.c === id) }; }, ids.theo);
