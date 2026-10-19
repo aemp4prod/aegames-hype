@@ -52,7 +52,7 @@ function ensureHearts(g) {
     if (!COEURS[c.coeur]) c.coeur = guessCoeur(c);
     if (typeof c.dates !== 'number') c.dates = (g.events || []).filter((e) => e.c === c.id && e.player && e.state === 'done').length;
   }
-  const first = all.slice(0, 5).filter((c) => !noRomance(c)); // 0.17: the challenge is a love one: not someone older
+  const first = all.slice(0, 5); // (0.28: someone older can be the challenge too)
   if (first.length >= 3 && !first.some(isDefi)) {
     const f = first.filter((c) => !ROMANCE.includes(c.vibe) && c.rel < 25 && !c.dates).sort((a, b) => gardeOf(b) - gardeOf(a) || b.followers - a.followers)[0];
     if (f) { f.coeur = f.followers >= 200000 && gardeOf(f) < 3 ? 'inaccessible' : 'forteresse'; if (f.coeur === 'forteresse') f.garde = 3; }
@@ -125,6 +125,7 @@ function paceCheck(g, c, v, t = Date.now()) {
   if (t - paceFrom(c) >= paceNeed(c, v)) return 'ok';
   if (likesSpeed(c)) { applyRel(g, c, 3, 'adore que ça aille vite', later() + 1200, 5); return 'ok'; }
   startCool(g, c, coolOf(c) || 'frein', 'tout va trop vite');
+  unlockAch(g, 'too-fast'); // 0.28: turned down for going too fast
   return 'block';
 }
 const notePace = (c, v, t = Date.now()) => { if (LOVE_STEPS.includes(v)) c.pace = { at: t, v }; };
@@ -320,7 +321,7 @@ function heartBeforeDM(g, c, text) {
   trialBeforeDM(g, c, text, t); // 0.12: a trip kept up; a flirt elsewhere caught by a partner
   const move = loveMove(text);
   if (coolNow(c, t)) { if (!COOLS[c.cool.k].judge || move) bumpInsist(g, c, move ? 2 : 1); return; }
-  if (!move || c.dare || noRomance(c)) return; // 0.17: no daring love move with someone in a role apart
+  if (!move || c.dare) return;
   const gap = moveGap(g, c, move);
   if (gap >= 1) startDare(g, c, move, gap);
   else if (move !== 'rdv' && tooFast(c, nextLove(c), t) && coolOf(c)) startCool(g, c, coolOf(c), 'tu vas trop vite');
@@ -352,6 +353,10 @@ function winDare(g, c, d, at = later()) {
   else if (d.k === 'fianc') forceLove(g, c, 'fiancailles', 'coup de foudre', at + 900);
 }
 function loseDare(g, c, d, at = later()) {
+  // 0.28: turned down for going too fast; a date asked too soon: « Non. »; a declaration to a friend: the friend zone
+  unlockAch(g, 'too-fast', at);
+  if (d.k === 'rdv') unlockAch(g, 'just-no', at);
+  if ((d.k === 'decl' || d.k === 'couple') && VIBES[c.vibe] && VIBES[c.vibe].grp === 'amitie') unlockAch(g, 'friendzone', at);
   applyRel(g, c, -Math.max(1, Math.round(5 * (1 - skillFx(g, 'dareLoss')))), 'tu as voulu aller trop vite', at + 600, 8); // 0.24: boldness, tier 40
   trainSkill(g, 'audace', 2, at + 700); // (dared, at least)
   const k = coolOf(c);
@@ -359,7 +364,6 @@ function loseDare(g, c, d, at = later()) {
 }
 // A crush at first sight jumps the steps before it.
 function forceLove(g, c, v, why, at) {
-  if (noRomance(c)) return false; // 0.17: a role apart
   const before = { flirt: ['crush'], couple: ['crush', 'flirt'], fiancailles: ['crush', 'flirt', 'couple'] }[v] || [];
   for (const p of before) if (loveRank(c.vibe) < loveRank(p)) { c.vibe = p; notePace(c, p); }
   return applyVibe(g, c, v, why, at, true);
@@ -535,7 +539,7 @@ function promptTalk(g, ev, said) {
       `- ${T && T.ex ? 'Puis' : 'D’abord'} : {"t":"scene","text":"≤ 220 caractères : le lieu, l’ambiance, comment ${first} arrive (au présent, sans faire parler le joueur)"}`,
       `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères : ce que dit ${first}","seen":"≤ 50 caractères : ce que le joueur voit de son humeur (un sourire, un regard fuyant…), sans dire ce qu’${il} pense"}`);
   } else if (said.last) { // 0.22.3: the last word, as they part
-    const love = meetKind(c, ev) === 'love' && !noRomance(c);
+    const love = meetKind(c, ev) === 'love';
     L.push('## LE DERNIER MOT DU JOUEUR, au moment de se quitter', `« ${said.text} »`,
       '', `## COMMENT ${first.toUpperCase()} LE PREND`,
       `- Ce que ${first} ressent après cette soirée, son cœur, son rythme et où ils en sont (relation, étape, confiance) : c’est ce qui décide.`,
@@ -662,7 +666,7 @@ async function talkTurn(ev, text, geste) {
    evening ends: at the door, tenderly, if they say yes to more (the AI decides, by their heart, their pace, the evening). */
 const STAY_RE = /rentr\w* (?:avec|ensemble|chez)|chez (?:moi|toi)|(?:rester|reste|restes|restez) (?:dormir|cette nuit|la nuit|avec moi)|dormir (?:avec|ensemble|chez|ici|l[àa])|nuit ensemble|(?:monter|monte|montes) (?:boire|prendre)|dernier verre|finir la soir[ée]e/i;
 function lastWordsFor(g, ev) {
-  const c = g.chars[ev.c], love = meetKind(c, ev) === 'love' && !noRomance(c);
+  const c = g.chars[ev.c], love = meetKind(c, ev) === 'love';
   if (love) return ['Je te raccompagne ?', PARTNER.includes(c.vibe) ? 'Tu restes dormir ?' : 'Tu veux rentrer avec moi ?', 'On se revoit vite ?'];
   return meetKind(c, ev) === 'pro' ? ['On se rappelle pour le projet ?', 'Merci pour ce moment !'] : ['On remet ça bientôt ?', 'Je te raccompagne ?'];
 }
@@ -698,7 +702,7 @@ async function lastWord(ev, text) {
   if (!says) T.lines.push({ who: 'c', text: '…', seen: '' });
   react = capReact(react || 'neutre', text, theirs && theirs.text, before && before.text);
   mine.r = react;
-  const ask = stay || STAY_RE.test(text), yes = stay && meetKind(c, ev) === 'love' && !noRomance(c) && (react === 'charme' || react === 'amuse' || react === 'neutre');
+  const ask = stay || STAY_RE.test(text), yes = stay && meetKind(c, ev) === 'love' && (react === 'charme' || react === 'amuse' || react === 'neutre');
   if (buy) { const R = applyBuy(g, c, buy, 'date'); if (R) T.lines.splice(T.lines.indexOf(mine) + 1, 0, { who: 'b', b: R }); } // 0.24
   if (gift) { const x = receiveGift(g, c, gift); if (x) T.lines.push({ who: 'gf', text: x.name }); } // 0.26
   practiseTalk(g, react, null);
@@ -1090,6 +1094,7 @@ function trialBeforeDM(g, c, text, t = Date.now()) {
   const p = mains(g).find((o) => o !== c && PARTNER.includes(o.vibe));
   if (!p || t - (p.caughtAt || 0) < 24 * HR || roll() >= (p.coeur === 'jaloux' ? 0.45 : 0.2)) return;
   p.caughtAt = t;
+  noteCaught(g, t); // 0.28: the discipline of a charmer starts again
   const first = c.name.split(' ')[0];
   applyRel(g, p, -12, `une capture de tes messages à ${first}`, later() + 4000, 15);
   addMem(g, p, `j’ai vu une capture : le joueur drague ${c.name}`);

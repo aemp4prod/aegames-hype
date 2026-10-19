@@ -388,6 +388,7 @@ function buyNew(g, id) {
   if (X.kind === 'extra') { G.extras.push({ id, at: Date.now(), broken: 0 }); addNotif(g, { k: 'gear', text: `🛒 ${newName(g, X)} acheté : ${fmtMoney(g, X.price)}.` }); }
   else swapItem(g, X.kind, Object.assign(mkItem(3), { sp: id }), `${newName(g, X)} : ${fmtMoney(g, X.price)}`);
   addChronicle(g, `${g.player.name} a craqué pour la nouveauté du moment : ${newName(g, X)}.`);
+  if (NEW_GEAR.slice(0, G.launch.n).every((y) => y.price <= X.price)) unlockAch(g, 'big-spender'); // 0.28: the dearest one out
   addTrigger(g, `Le joueur s’est offert la grosse nouveauté du moment, ${newName(g, X)} (${fmtMoney(g, X.price)}) : ça fait parler, entre admiration, jalousie et « il a trop d’argent ».`);
   return true;
 }

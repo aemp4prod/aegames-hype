@@ -80,7 +80,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.27.10';
+const APP_VERSION = '0.28.0';
 const APP_STAGE = 'alpha';
 // Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
@@ -231,7 +231,6 @@ const VIBE_GOALS = Object.keys(VIBES).filter((v) => VIBES[v].goal);
 function vibeOK(c, v) {
   const V = VIBES[v];
   if (!V) return false;
-  if (ROMANCE.includes(v) && noRomance(c)) return false; // 0.17: an older character has a role apart
   if (V.from && !V.from.includes(c.vibe)) return false; // a stage comes after the one before
   if (!V.dir) return true; // a breakup, an on-and-off: the story decides
   return V.dir > 0 ? c.rel >= V.need : c.rel <= V.need;
@@ -250,7 +249,7 @@ function vibePath(c, goal) {
 }
 /* ---------- 0.17: an age, and a maturity that goes with it ----------
    Everyone is 18 or older, always. On a social network it is mostly 18-25, a few 26-32, and in one game out of two one
-   or two older people (35-55), in roles apart (a mentor, a boss, a teacher, someone's parent): never a romance. The
+   or two older people (35-68; 0.28: any role, romance included: adults, always). The
    maturity is drawn from the age: at 19 one is often immature (trolls, silly jokes, tackles), sometimes very mature. */
 const MATU = {
   tres_immature: { label: 'très immature', ai: 'très immature : rit des blagues bêtes (pipi-caca), trolle et chambre tout le monde, réagit au quart de tour ; s’il ou elle aime piquer, tacle très souvent' },
@@ -260,7 +259,8 @@ const MATU = {
 };
 const MATU_IDS = Object.keys(MATU);
 const MATU_ODDS = [[21, [25, 35, 30, 10]], [26, [10, 30, 45, 15]], [34, [5, 20, 50, 25]], [999, [0, 10, 45, 45]]]; // up to that age: the odds, in MATU order
-const ROMANCE_MAX_AGE = 34; // older: a role apart, no romance with the player
+const OLDER_AGE = 35; // 0.28: from here on, someone older (no role apart any more: romance too, adults always)
+const isOlder = (c) => !!(c && c.age >= OLDER_AGE);
 function drawMatu(age) {
   const w = MATU_ODDS.find(([max]) => age <= max)[1];
   let r = Math.random() * w.reduce((a, b) => a + b, 0);
@@ -273,7 +273,7 @@ function drawCastAges(n = 10) {
   const out = Array.from({ length: n }, drawYoungAge);
   const r = Math.random(), olds = window.__HYPE_TEST__ && window.__castOlds != null ? window.__castOlds : r < 0.5 ? 0 : r < 0.85 ? 1 : 2; // one game out of two: one or two older people (a test may ask for none)
   const slots = [...out.keys()].sort(() => Math.random() - 0.5).slice(0, olds);
-  for (const k of slots) out[k] = randi(35, 55);
+  for (const k of slots) out[k] = randi(35, 68); // (0.28: up to 68, so over 55 happens)
   return out.map((age) => ({ age, matu: drawMatu(age) }));
 }
 // plan: the age decided for them; min: their experience asks for it (a job candidate); pro: someone met through work.
@@ -284,10 +284,9 @@ function initAge(c, plan, o = {}) {
   if (o.min && c.age < o.min) c.age = Math.min(60, o.min + randi(0, 3));
   if (!MATU[c.matu]) c.matu = drawMatu(c.age);
 }
-const noRomance = (c) => !!(c && c.age > ROMANCE_MAX_AGE);
-// For the AI: their age, how mature they are, and a role apart for the older ones.
+// For the AI: their age and how mature they are.
 // short (0.19): the maturity in a word, when the prompt explains the words once (see ctxText).
-const ageText = (c, short = false) => (c && c.age ? `${c.age} ans, ${short ? (MATU[c.matu] || MATU.pose).label : (MATU[c.matu] || MATU.pose).ai}${noRomance(c) ? ' ; rôle à part : jamais de romance avec le joueur' : ''}` : '');
+const ageText = (c, short = false) => (c && c.age ? `${c.age} ans, ${short ? (MATU[c.matu] || MATU.pose).label : (MATU[c.matu] || MATU.pose).ai}` : '');
 // A partner's status, for the people on screen: « Ta copine », « Ton fiancé », « Ta femme ».
 const partnerWord = (c) => (c.vibe === 'mariage' ? gx(c.g, 'Ton mari', 'Ta femme', 'Ton·ta conjoint·e') : c.vibe === 'fiancailles' ? gx(c.g, 'Ton fiancé', 'Ta fiancée', 'Ton·ta fiancé·e') : c.vibe === 'couple' ? gx(c.g, 'Ton copain', 'Ta copine', 'Ton·ta partenaire') : '');
 const WORLDS = [
@@ -1187,6 +1186,7 @@ function fakeBusted(g, c, fk, lateBust, lossNow = 0) {
   fk.state = 'busted';
   fk.bustAt = t;
   s.busts = (s.busts || 0) + 1;
+  unlockAch(g, 'fake-proof-busted', t); // 0.28
   const p = g.posts.find((x) => x.id === fk.post);
   if (p && p.ev) p.ev.busted = true;
   let loss = lossNow;
@@ -1754,6 +1754,7 @@ function cancelDate(g, ev, why) {
   const c = g.chars[ev.c];
   if (!c) return;
   const lead = ev.due - Date.now(), hurt = cancelHurt(lead), t = later();
+  if (lead <= 0) unlockAch(g, 'stood-up', t); // 0.28: called off once it had started (« Lapin »)
   if (hurt) applyRel(g, c, hurt, lead >= 3600000 ? 'tu as annulé votre rendez-vous' : lead > 0 ? 'annulé à la dernière minute' : 'tu lui as posé un lapin', t + 3000, 20);
   if (hurt <= -6) addMem(g, c, `le joueur a annulé notre rendez-vous ${lead > 0 ? 'à la dernière minute' : 'sans prévenir'}`);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
@@ -1922,6 +1923,7 @@ function standUp(g, ev, t = Date.now(), why) {
   ev.state = 'missed';
   const c = g.chars[ev.c];
   if (!c) return;
+  unlockAch(g, 'stood-up', t); // 0.28: « Lapin »
   applyRel(g, c, -15, 'tu lui as posé un lapin', t, 20);
   applyTrust(g, c, -8, 'tu lui as posé un lapin', t + 400);
   addMem(g, c, 'le joueur m’a posé un lapin');
@@ -2015,10 +2017,10 @@ function applyVibe(g, by, v, why, at, force) {
   v = normVibe(v);
   const V = VIBES[v];
   if (!V || c.vibe === v) return false;
-  if (ROMANCE.includes(v) && noRomance(c)) return false; // 0.17: never a romance with an older character, even forced
   if (force ? V.from && !V.from.includes(c.vibe) : !vibeOK(c, v)) return false;
   if (!force && paceCheck(g, c, v) === 'block') return false; // 0.11: too fast for their heart: they slow down, panic, wonder…
   if (!force && trialCheck(g, c, v) === 'trial') return false; // 0.12: a trial first (their bad buzz, a rival, a secret…)
+  if (c.vibe === 'ex' && PARTNER.includes(v)) unlockAch(g, 'ex-comeback', at); // 0.28: back with an ex
   c.vibe = v;
   notePace(c, v);
   if (c.vibeGoal === v) c.vibeGoal = null;
@@ -2051,6 +2053,7 @@ function officialize(g, c, v, at) {
   for (const o of mains(g)) {
     if (o === c || !o.unlocked) continue;
     if (PARTNER.includes(o.vibe)) { // the player was already with someone else
+      noteCaught(g, t); // 0.28: caught: the discipline of a charmer starts again
       applyRel(g, o, -20, `te découvre avec ${first}`, t + 2500, 25);
       addMem(g, o, `le joueur m’a ${gx(o.g, 'trompé', 'trompée', 'trompé·e')} avec ${c.name}`);
       addTrigger(g, `@${o.handle} découvre que le joueur, avec qui ${gx(o.g, 'il', 'elle', 'iel')} était ${VIBES[o.vibe].ai}, s’affiche maintenant avec @${c.handle} : trahison, et tout le réseau le voit.`, o.id);
@@ -2094,7 +2097,6 @@ function dropVibe(g, c) {
 function setVibeGoal(c, v) {
   const g = S.game;
   if (!g || !c || !isMain(c)) return;
-  if (v && ROMANCE.includes(v) && noRomance(c)) return; // 0.17: a role apart
   g.quests = g.quests.filter((q) => !(q.kind === 'vibe' && q.charId === c.id && q.status === 'active'));
   if (!v || !VIBES[v] || c.vibe === v) { c.vibeGoal = null; g.triggers = (g.triggers || []).filter((x) => !x.text.startsWith(`Le joueur aimerait que sa relation avec @${c.handle}`)); update(); return; }
   const V = VIBES[v];

@@ -34,6 +34,7 @@ function trainAfterAct(ctx) {
 function startTrain(g, t = Date.now()) {
   g.train = { state: 'on', at: t, until: t + TRAIN_WIN, lvl: 1, pts: 0, fol: 0, likes: 0, posts: 0, line: pick(MINO_START) };
   g.stats.trains = (g.stats.trains || 0) + 1;
+  unlockAch(g, 'hype-train', t); // 0.28
   addNotif(g, { k: 'trainstart', at: t, text: `🚂 Deux vidéos virales d’affilée : le train de la ${hyWord(1)} est lancé !` });
   addChronicle(g, `${g.player.name} enchaîne deux vidéos virales : le « train de la ${hyWord(1)} » est lancé.`);
   addTrigger(g, `Le joueur enchaîne deux vidéos virales : le « train de la ${hyWord(1)} » est lancé, et le réseau s’emballe. Des personnages montent dans le train (partages, soutien, « tchou tchou »), d’autres se moquent ou jalousent : chacun selon son caractère.`);

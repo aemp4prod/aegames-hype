@@ -348,6 +348,7 @@ function menuClock(g, target) {
 // o: { cash, followers, gems, level, rep: { image, cred, pro, kind } on 1000, skills: { id: level }, at, rel: { charId: -100..100 } }
 function menuApply(g, o) {
   const s = g.stats, c = g.career, done = [];
+  if (['cash', 'followers', 'gems', 'level', 'rep', 'skills', 'at', 'rel'].some((k) => o[k] != null)) ensureAch(g).cheated = 1; // 0.28: its achievements stay in the game
   const n = (k) => (o[k] == null ? null : menuNum(o[k]));
   if (n('cash') !== null) { c.cash = Math.round(n('cash') * 100) / 100; done.push('argent'); }
   if (n('followers') !== null) { s.followers = Math.max(0, Math.round(n('followers'))); checkMilestones(g); done.push('abonnés'); }

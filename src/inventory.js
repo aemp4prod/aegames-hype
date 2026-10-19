@@ -149,6 +149,7 @@ function sellItem(g, x, at = Date.now()) {
   const fans = fan ? fanList(g) : [], who = fans.length && Math.random() < 0.5 ? pick(fans).name : '';
   x.sold = { price: s.price, at, fan, who };
   delete x.sale;
+  { const st = ensureAch(g); st.soldN = Math.max((st.soldN || 0) + 1, invSold(g).length); achProgress(g, 'yard-sale', st.soldN, at); } // 0.28 (counted: the list is trimmed)
   earn(g, s.price, `${app} : ${x.name}`, 'resale');
   addNotif(g, { k: 'money', at, text: `💸 Vendu sur ${app} : ${x.name}, ${fmtMoney(g, s.price)} (${who ? `à ${who}, qui te suit` : fan ? 'à quelqu’un qui te suit' : 'à quelqu’un que tu ne connais pas'}).` });
   if (fan) warmMove(g, 0.5, 'un abonné a acheté un objet du joueur', at);
@@ -163,6 +164,7 @@ function noticeSale(g, x) {
   if (d && c) {
     if (d.resold) return; // (0.27.6: they learn it once; a new ad for the same gift is the same story)
     d.resold = { at: t, what: x.name, price: x.sale.price, after: t - got };
+    unlockAch(g, 'ungrateful', t); // 0.28: and they saw the ad
     const il = gx(c.g, 'il', 'elle', 'iel');
     addTrigger(g, `@${c.handle} (${d.brand}${d.state === 'signed' ? ', contrat pas encore livré' : ''}) tombe sur l’annonce : le joueur revend sur ${app} « ${str(x.name, 40)} », offert il y a ${fmtDur(t - got)}, à ${fmtMoney(g, x.sale.price)}. ${cap1(il)} peut lui en parler en privé, à sa façon.`, c.id); // (0.27.6: short enough to be kept whole)
   } else if (c && isMain(c) && F.how === 'cadeau') {

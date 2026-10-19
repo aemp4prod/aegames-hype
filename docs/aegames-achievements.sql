@@ -1,0 +1,73 @@
+-- Hype 0.28.0 : les définitions de ses succès pour Æ Games Launcher (table achievement_definitions).
+-- Écrit par tools/achievements-sql.mjs à partir de src/succes.js : 60 succès, en 6 groupes
+-- (Les premiers pas, Relations, Drama et réputation, Avancement, Carrière et argent, Extrêmement rare).
+-- À exécuter dans le SQL Editor de Supabase, après 202610190003_hype_achievements.sql.
+-- - Les clés sont une API permanente : ne jamais les renommer ni les réutiliser.
+-- - progress_kind : « binary » pour un succès qui se débloque d'un coup (le jeu envoie « unlock »), « high_watermark »
+--   pour un succès compté (le jeu envoie un total avec « set », la base garde le plus haut).
+-- - first-crush, gaining-traction et worldwide-trend existent déjà : « on conflict » les laisse tels quels.
+insert into public.achievement_definitions (
+  game_key, achievement_key, title, description, icon_key,
+  progress_kind, goal, max_increment, points, is_hidden, sort_order
+) values
+  ('hype', 'first-post', 'Premier post', 'Publier ton premier post.', 'pen-line', 'binary', 1, null, 5, false, 100),
+  ('hype', 'viral-post', 'Carton plein', 'Avoir un post viral.', 'rocket', 'binary', 1, null, 5, false, 110),
+  ('hype', 'flop-post', 'Flop complet', 'Avoir un post qui flop.', 'trending-down', 'binary', 1, null, 5, false, 120),
+  ('hype', 'internet-laughingstock', 'Risée d’internet', 'Avoir un post tellement nul que tout le monde se moque.', 'laugh', 'binary', 1, null, 5, false, 130),
+  ('hype', 'sell-me-this-pen', 'Vends-moi ce stylo', 'Négocier un contrat.', 'pen-tool', 'binary', 1, null, 5, false, 140),
+  ('hype', 'first-contract', 'Les pubs rapportent rien', 'Signer un contrat.', 'file-signature', 'binary', 1, null, 5, false, 150),
+  ('hype', 'worldwide-trend', 'Tout le monde en parle', 'Lancer une tendance : un de tes hashtags, repris par tout le réseau.', 'globe', 'binary', 1, null, 5, true, 160),
+  ('hype', 'first-crush', 'Premier crush', 'Ta première vraie connexion avec quelqu’un.', 'heart', 'binary', 1, null, 10, false, 170),
+  ('hype', 'charro-two', 'Charro', 'Sortir avec deux personnes en même temps.', 'users', 'binary', 1, null, 10, false, 180),
+  ('hype', 'charro-three', 'Charro de luxe', 'Sortir avec trois personnes en même temps.', 'party-popper', 'binary', 1, null, 10, false, 190),
+  ('hype', 'charro-week', 'Charro discipliné', 'Sortir avec trois personnes pendant une semaine sans te faire griller.', 'glasses', 'binary', 1, null, 40, true, 200),
+  ('hype', 'charro-month', 'Charro ninja', 'Sortir avec trois personnes pendant un mois sans te faire griller.', 'eye-off', 'binary', 1, null, 40, true, 210),
+  ('hype', 'coin-coin', 'Coin coin', 'Offrir 1 000 € de cadeaux (ou plus) à ta moitié.', 'gift', 'high_watermark', 1000, null, 10, false, 220),
+  ('hype', 'enemies-to-lovers', 'Enemies to lovers', 'Sortir avec quelqu’un qui t’a déjà détesté au plus haut point.', 'swords', 'binary', 1, null, 10, false, 230),
+  ('hype', 'good-doggy', 'Bon toutou', 'Te faire piquer ta moitié par quelqu’un d’autre.', 'dog', 'binary', 1, null, 10, true, 240),
+  ('hype', 'public-enemy', 'Ennemi public n° 1', 'Être détesté par tout le monde.', 'target', 'binary', 1, null, 10, true, 250),
+  ('hype', 'too-fast', 'Chaud lapin', 'Te faire recaler parce que tu vas trop vite.', 'rabbit', 'binary', 1, null, 10, true, 260),
+  ('hype', 'friendzone', 'Friendzone', '« Non mais je te vois plus comme un frère ou une sœur. »', 'hand-heart', 'binary', 1, null, 10, true, 270),
+  ('hype', 'just-no', 'Indésirable', '« Non. »', 'ban', 'binary', 1, null, 10, true, 280),
+  ('hype', 'milf-lover', 'MILF Lover', 'Sortir avec quelqu’un de plus de 35 ans.', 'wine', 'binary', 1, null, 10, false, 290),
+  ('hype', 'gilf-lover', 'GILF Lover', 'Sortir avec quelqu’un de plus de 55 ans.', 'coffee', 'binary', 1, null, 10, false, 300),
+  ('hype', 'date-from-hell', 'Rendez-vous en enfer', 'Rater trois rendez-vous d’affilée.', 'flame', 'high_watermark', 3, null, 10, false, 310),
+  ('hype', 'stood-up', 'Lapin', 'Laisser quelqu’un en plan à un rendez-vous.', 'calendar-x', 'binary', 1, null, 10, true, 320),
+  ('hype', 'ghosted', 'Ghosté', 'Ne plus avoir de réponse pendant trois jours.', 'ghost', 'binary', 1, null, 10, true, 330),
+  ('hype', 'ex-comeback', 'Le retour de l’ex', 'Te remettre avec ton ex.', 'repeat', 'binary', 1, null, 10, false, 340),
+  ('hype', 'express-wedding', 'Mariage express', 'De la rencontre au mariage en moins d’une semaine.', 'zap', 'binary', 1, null, 40, false, 350),
+  ('hype', 'ungrateful', 'Ingrat', 'Revendre sur Occaz un cadeau… et que la personne tombe sur l’annonce.', 'tag', 'binary', 1, null, 10, true, 360),
+  ('hype', 'engaged', 'Oui !', 'Te fiancer.', 'gem', 'binary', 1, null, 10, false, 370),
+  ('hype', 'married', 'Pour le meilleur et pour le pire', 'Te marier.', 'church', 'binary', 1, null, 10, false, 380),
+  ('hype', 'phoenix', 'Le phénix', 'Remonter de moins de 100 à plus de 700 de réputation.', 'flame-kindling', 'binary', 1, null, 40, false, 390),
+  ('hype', 'fake-proof-busted', 'Le comte de menthe et cristaux', 'Te faire griller avec une fausse preuve.', 'file-warning', 'binary', 1, null, 15, true, 400),
+  ('hype', 'the-crow', 'Le corbeau', 'Une rumeur anonyme que tu as lancée prend.', 'bird', 'binary', 1, null, 15, true, 410),
+  ('hype', 'public-apology', 'Ohh, grand prince', 'T’excuser publiquement.', 'megaphone', 'binary', 1, null, 15, false, 420),
+  ('hype', 'apology-accepted', 'Est-ce que c’est bon pour vous ?', 'Des excuses publiques qui passent.', 'handshake', 'binary', 1, null, 15, false, 430),
+  ('hype', 'secret-out', 'J’fais des trucs un peu malsains', 'Avoir un secret dévoilé sans le vouloir.', 'lock-open', 'binary', 1, null, 15, true, 440),
+  ('hype', 'cashed-the-check', 'Moi j’ai touché le chèque', 'Avoir une sponso mal reçue.', 'banknote', 'binary', 1, null, 15, false, 450),
+  ('hype', 'owned-the-bad-buzz', 'Gngn je pensais pas ça de toi', 'Assumer un bad buzz.', 'shield', 'binary', 1, null, 15, false, 460),
+  ('hype', 'hype-train', 'Il est bien monté le minotaure', 'Monter dans le train de la hyyype.', 'train-front', 'binary', 1, null, 15, false, 470),
+  ('hype', 'cancelled', 'Annulé', 'Te faire annuler par le réseau.', 'circle-slash', 'binary', 1, null, 15, true, 480),
+  ('hype', 'gaining-traction', 'Ça commence à prendre', 'Atteindre 1 000 abonnés.', 'trending-up', 'high_watermark', 1000, null, 15, false, 490),
+  ('hype', 'partner-program', 'Partenaire', 'Débloquer la monétisation.', 'badge-dollar-sign', 'binary', 1, null, 15, false, 500),
+  ('hype', 'silver-play-button', 'Silver Play Button', 'Atteindre 100 000 abonnés.', 'medal', 'binary', 1, null, 15, false, 510),
+  ('hype', 'golden-play-button', 'Golden Play Button', 'Atteindre 500 000 abonnés.', 'trophy', 'binary', 1, null, 15, false, 520),
+  ('hype', 'diamond-play-button', 'Diamant Play Button', 'Atteindre 1 000 000 d’abonnés.', 'diamond', 'binary', 1, null, 40, false, 530),
+  ('hype', 'ruby-play-button', 'Ruby Play Button', 'Atteindre 10 000 000 d’abonnés.', 'crown', 'binary', 1, null, 40, false, 540),
+  ('hype', 'poopy-play-button', 'Poopy Play Button', 'Retomber à 0 abonné. Mais… comment ?', 'trash-2', 'binary', 1, null, 15, true, 550),
+  ('hype', 'pigeon', 'Pigeon', 'Acheter chacun des objets de la boutique (à gemmes).', 'shopping-bag', 'high_watermark', 4, null, 40, false, 560),
+  ('hype', 'in-the-red', 'Dans le rouge', 'Passer à découvert.', 'trending-down', 'binary', 1, null, 15, false, 570),
+  ('hype', 'incorruptible', 'Intègre', 'Refuser 10 offres de marques.', 'hand', 'high_watermark', 10, null, 15, false, 580),
+  ('hype', 'billboard', 'Panneau publicitaire', 'Signer 5 contrats le même mois.', 'presentation', 'high_watermark', 5, null, 15, false, 590),
+  ('hype', 'big-spender', 'Flambeur', 'T’offrir la nouveauté la plus chère du moment.', 'credit-card', 'binary', 1, null, 15, false, 600),
+  ('hype', 'yard-sale', 'Vide-grenier', 'Vendre 10 objets sur Occaz.', 'package', 'high_watermark', 10, null, 15, false, 610),
+  ('hype', 'the-boss', 'Le boss', 'Avoir une équipe de 5 personnes.', 'briefcase', 'high_watermark', 5, null, 15, false, 620),
+  ('hype', 'jail-time', 'Case prison', 'Avoir un partenariat illégal découvert.', 'siren', 'binary', 1, null, 15, true, 630),
+  ('hype', 'tv-show', 'Ça devient la télé', 'Produire une vidéo à plus de 100 000 €.', 'tv', 'binary', 1, null, 15, false, 640),
+  ('hype', 'mrbeast', 'MrBeast', 'Produire une vidéo à plus de 1 000 000 €.', 'clapperboard', 'binary', 1, null, 40, false, 650),
+  ('hype', 'born-to-be-hero', 'Born to be hero', 'Dénoncer un influvoleur.', 'shield-check', 'binary', 1, null, 15, true, 660),
+  ('hype', 'subject-expert', 'Expert en la matière', 'Réussir 10 tournages d’affilée en Cauchemar.', 'graduation-cap', 'high_watermark', 10, null, 50, false, 670),
+  ('hype', 'living-legend', 'Légende vivante', 'Réussir un tournage en Mythique.', 'sparkles', 'binary', 1, null, 50, false, 680),
+  ('hype', 'sleepless-night', 'Nuit blanche', 'Publier entre 3 h et 5 h du matin.', 'moon', 'binary', 1, null, 50, false, 690)
+on conflict (game_key, achievement_key) do nothing;

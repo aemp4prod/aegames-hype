@@ -1,6 +1,6 @@
 // Hype for ChatGPT: the desktop app. The game page runs sandboxed; this main process owns the ChatGPT
 // connection (OpenAI's Sign in with ChatGPT SDK), the game files and the file dialogs.
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, safeStorage, screen, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, safeStorage, screen, session, shell } from 'electron';
 import { readFile, stat, writeFile, mkdir } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,7 @@ import { createChatGPT, CHATGPT_USAGE_URL } from './vendor/siwc-local/dist/index
 import { createCredentialEncryption } from './lib/credential-encryption.mjs';
 import { GameStore } from './lib/store.mjs';
 import { AiRunner } from './lib/ai.mjs';
+import { readConfig as achConfig, createAchievementService, httpTransport } from './lib/achievements.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const RENDERER = join(ROOT, 'renderer');
@@ -225,6 +226,14 @@ function registerIpc() {
     return ai.image({ id: req.id, prompt: req.prompt, sketch });
   });
   handle('hype:ai-cancel', async (event, id) => { ai.cancel(String(id)); return ok(true); });
+  // 0.28: an achievement of the game (it names it; the service adds the ticket): « unlock », « set » a total, « increment »
+  ipcMain.on('hype:ach', (event, op, key, value, saveId) => {
+    if (!win || win.isDestroyed() || event.sender !== win.webContents) return;
+    const md = /^[a-z0-9]{1,40}$/i.test(String(saveId || '')) ? { saveId: String(saveId) } : {};
+    if (op === 'unlock') ach.unlock(key, md);
+    else if (op === 'set') ach.setProgress(key, value, md);
+    else if (op === 'increment') ach.incrementProgress(key, value, md);
+  });
   // 0.27.10: Hype's bar on the game's own window: reduce, enlarge (or back), close; 'state' only answers
   handle('hype:app', async (event, act) => {
     if (!win || win.isDestroyed() || event.sender !== win.webContents) return ok(null);
@@ -310,6 +319,22 @@ function registerIpc() {
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+// 0.28: the achievements of an Æ Games Launcher session (off when Hype is launched on its own). The ticket and the key
+// are read once, then taken out of the environment: they live in the service's memory only.
+const ach = createAchievementService({
+  config: achConfig(process.env),
+  transport: httpTransport((url, o) => net.fetch(url, o)),
+  log: (x) => console.warn(x), // (plain words: never a value of the configuration)
+  meta: { gameVersion: app.getVersion() },
+});
+for (const k of ['AE_GAMES_ACHIEVEMENT_TOKEN', 'AE_GAMES_SUPABASE_KEY']) delete process.env[k];
+let achFlushed = false;
+app.on('before-quit', (e) => { // (a short moment to send what waits: two seconds at most, never more)
+  if (achFlushed || !ach.enabled || !ach.pending) return;
+  achFlushed = true;
+  e.preventDefault();
+  ach.flush(2000).catch(() => {}).finally(() => app.quit());
+});
 app.on('window-all-closed', () => app.quit());
 app.whenReady().then(async () => {
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);

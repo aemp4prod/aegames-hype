@@ -64,4 +64,6 @@ contextBridge.exposeInMainWorld('hypeHost', {
   frameless: process.platform !== 'darwin',
   appCtl: (act) => ipcRenderer.invoke('hype:app', String(act)).then(unwrap),
   onAppState(cb) { if (typeof cb === 'function') appListeners.add(cb); },
+  // 0.28: an achievement for the Æ Games Launcher (sent by the app when it was launched by it; otherwise ignored)
+  ach: (op, key, value, saveId) => ipcRenderer.send('hype:ach', String(op), String(key), value == null ? null : Number(value), saveId == null ? null : String(saveId)),
 });

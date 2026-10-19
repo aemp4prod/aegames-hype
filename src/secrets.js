@@ -142,6 +142,7 @@ function secretOut(g, s, o = {}) {
   if (!post && c) post = addAmbientPost(g, { by: c.handle, text: `Puisque @${g.player.handle} se fait passer pour ${px(g, 'un saint', 'une sainte', 'un·e saint·e')}, je vous dis tout : « ${s.t} ». Et c’est vrai.` }, later() + 1500);
   if (post) post.secret = s.id;
   s.out = { at: t, by: c ? c.id : null, how: aveu ? 'aveu' : o.how || 'revele', post: post ? post.id : null, until: t + OUT_MS, drain: t, answer: aveu ? 'aveu' : null, cred: null, lie: false, rep: dr, fol, state: aveu || o.quiet ? 'done' : 'live' };
+  if (!aveu) unlockAch(g, 'secret-out', t); // 0.28: out, and not by the player's choice
   if (o.quiet) return s; // (the law's fine says it all)
   if (!aveu) {
     addNotif(g, { k: 'cancel', c: c ? c.id : null, p: post ? post.id : null, at: later() + 1200, text: `🤐 ${c ? `${c.name} balance ton secret` : 'Ton secret est sorti'} : « ${str(s.t, 80)} » (${repWord(dr)}${fol ? `, −${nAbonnes(fol)}` : ''}).` });
@@ -214,6 +215,8 @@ function answerResult(g, s, stance, cred, post) {
     else { dr = back(-0.2, 'des excuses de façade'); text = 'Des excuses de façade : ça t’enfonce.'; }
   }
   addNotif(g, { k: cred >= 7 ? 'relup' : cred >= 4 ? 'drama' : 'reldown', p: post ? post.id : null, text: `🤐 ${text} (${repWord(dr)})` });
+  if (stance === 'assume') unlockAch(g, 'owned-the-bad-buzz'); // 0.28
+  else if (stance === 'excuse') { unlockAch(g, 'public-apology'); if (cred >= 7) unlockAch(g, 'apology-accepted'); }
   addChronicle(g, `${g.player.name} a répondu à la révélation de son secret : ${STANCES[stance].label.toLowerCase().replace('m’excuser', 's’excuser')} (${cred >= 7 ? 'ça passe' : cred >= 4 ? 'ça divise' : 'ça passe mal'}).`);
   checkCancel(g);
   return o;

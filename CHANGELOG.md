@@ -5,6 +5,29 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.28.0 — 19 octobre 2026 (build 28000)
+
+**Les succès arrivent : 60 à débloquer en jouant, certains cachés, et ils montent sur Æ Games Launcher. Et aussi : offrir un cadeau en message, la romance à tous les âges adultes, des barres de défilement aux couleurs de Hype.**
+
+### ✨ Nouveautés
+
+- **🏆 60 succès à débloquer** : six familles (Les premiers pas, Relations, Drama et réputation, Avancement, Carrière et argent, Extrêmement rare), du « Premier post » au « Ruby Play Button » (10 millions d’abonnés), en passant par « Charro de luxe », « Le phénix » ou « Expert en la matière ». Ils viennent de ce que tu vis vraiment dans ta partie : tes posts, tes rendez-vous, tes relations, ta réputation, tes contrats, tes ventes, ton équipe, tes tournages. Rien ne se coche tout seul.
+- **❔ Des succès cachés** : certains n’affichent que « Succès caché » jusqu’au jour où ils tombent.
+- **🔔 Une notification à chaque succès**, avec « Voir » pour ouvrir la liste. Ceux qui se comptent montrent où tu en es (« 3 / 10 »), et leurs noms s’accordent avec ton personnage.
+- **👤 Sur ton profil** : le compte et tes derniers succès ; « Tous les succès » ouvre la liste complète, famille par famille, chacun daté.
+- **🎮 Tes succès dans Æ Games Launcher** (appli PC) : quand le launcher lance Hype, tes succès et ton nombre d’abonnés montent sur ton compte Æ Games, et le launcher les affiche.
+- **🎁 Offrir un cadeau** : dans une conversation, le bouton cadeau. Tu dis ce que tu offres et son prix (30, 100, 300, 1 000 ou 3 000 €, ou le tien) ; c’est payé tout de suite et montré dans la conversation, et la personne réagit à sa façon et s’en souvient.
+- **💞 La romance à tous les âges adultes** : les persos plus âgés (de 35 à 68 ans) ne sont plus cantonnés à un « rôle à part », une histoire est possible avec eux comme avec les autres. Tous les personnages ont toujours 18 ans ou plus.
+- **🖱️ Des barres de défilement aux couleurs de Hype** : fines, arrondies, dans la couleur du jeu, partout.
+- **💸 Des devis à la hauteur** : une ligne de devis peut monter jusqu’à 2 000 000 € pour les contenus les plus fous (une voiture de sport, une maison à faire gagner…), au lieu de 50 000 €.
+
+### 💡 Bon à savoir
+
+- **💾 Un succès reste** : revenir à une sauvegarde ne retire pas un succès déjà débloqué.
+- **🔒 Rien de sensible** (appli PC) : pour le launcher, Hype ne reçoit qu’un ticket temporaire, gardé en mémoire, jamais écrit dans un fichier, une sauvegarde ou un journal. Sans le launcher, rien ne change, et ce que tu as débloqué entre-temps part la fois suivante.
+- **📶 Le jeu n’attend jamais le réseau** : hors ligne, les envois réessaient plus tard sans jamais compter deux fois, et à la fermeture Hype prend au plus deux secondes pour finir.
+- **💳 Un gros cadeau** (plus de 1 000 €, ou plus de la moitié de ton argent) demande confirmation, et s’il te manque de l’argent, le bouton dit combien.
+
 ## 0.27.10 — 19 octobre 2026 (build 27010)
 
 **La fenêtre de Hype porte sa propre barre, à la place de celle de Windows, et dans l’appli PC une fenêtre détachée est toujours une vraie fenêtre.**

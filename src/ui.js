@@ -301,7 +301,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -336,7 +336,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'insta', 'tiktok']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the Claude version keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -1473,7 +1473,7 @@ function LiveLine({ g, now }) {
 }
 const NOTIF_ICON = {
   like: ['heart', 'hot'], reply: ['msg', ''], mention: ['at', 'hot'], follow: ['userplus', 'good'], unfollow: ['userminus', 'bad'],
-  relup: ['users', 'good'], reldown: ['users', 'bad'], quest: ['trophy', 'flash'], questnew: ['trophy', ''], questprog: ['trophy', ''], level: ['level', 'hot'], skill: ['level', 'good'],
+  relup: ['users', 'good'], reldown: ['users', 'bad'], quest: ['trophy', 'flash'], ach: ['trophy', 'flash'], questnew: ['trophy', ''], questprog: ['trophy', ''], level: ['level', 'hot'], skill: ['level', 'good'],
   new: ['sparkles', 'hot'], dm: ['msg', 'hot'], viral: ['flame', 'flash'], cancel: ['alert', 'bad'], uncancel: ['shield', 'good'],
   milestone: ['trend', 'good'], drama: ['megaphone', 'bad'], collab: ['megaphone', 'good'], info: ['sparkles', ''],
   vibe: ['heart', 'hot'], seen: ['msg', 'bad'], screen: ['alert', 'bad'], apology: ['shield', ''], low: ['moon', 'good'],
@@ -1614,6 +1614,7 @@ function ProfileTab({ g, now }) {
     <${RepSection} g=${g} now=${now} />
     <${SecretsSection} g=${g} now=${now} />
     <${SkillsSection} g=${g} />
+    <${AchSection} g=${g} />
     <section class="section">
       <div class="section-h"><h3>Relations</h3><span>${fans === 0 ? 'Personne ne te suit encore' : fans === 1 ? '1 te suit' : fans + ' te suivent'}</span></div>
       ${rels.map((c) => html`<button class="rel-row" key=${c.id} onClick=${() => openChar(c.id)}>
@@ -2433,6 +2434,7 @@ function Layer(props) {
   if (t === 'datelog') return html`<${DateLogLayer} ...${props} />`; // 0.22.4
   if (t === 'job') return html`<${JobLayer} ...${props} />`; // 0.23
   if (t === 'skill') return html`<${SkillLayer} ...${props} />`; // 0.24: a skill's tree
+  if (t === 'ach') return html`<${AchLayer} ...${props} />`; // 0.28: the achievements
   if (t === 'inv') return html`<${InvLayer} ...${props} />`; // 0.26: the inventory
   if (t === 'sell') return html`<${SellLayer} ...${props} />`; // 0.26: putting something on sale
   if (t === 'resale') return html`<${ResaleLayer} ...${props} />`; // 0.26: the second-hand app
@@ -2638,7 +2640,7 @@ function CharLayer({ l, g, now, i }) {
       <div class="section-h"><h3>Votre dynamique</h3><span>${V ? V.emoji + ' ' + V.label : 'Rien de défini'}</span></div>
       ${c.vibeGoal && VIBES[c.vibeGoal] ? html`<${VibePath} c=${c} />` : null}
       <p class="muted" style="font-size:13.5px">Ce que tu aimerais que ça devienne :</p>
-      ${VIBE_GROUPS.map(([grp, name]) => grp === 'amour' && noRomance(c) ? html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span><p class="muted vibe-none">${first} a un rôle à part dans ta vie : pas de romance.</p></div>` : html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span>
+      ${VIBE_GROUPS.map(([grp, name]) => html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span>
         <div class="vibe-goals">${VIBE_GOALS.filter((v) => VIBES[v].grp === grp).map((v) => html`<button key=${v} class=${'vibe-opt' + (c.vibeGoal === v ? ' on' : '')} disabled=${c.vibe === v} aria-pressed=${c.vibeGoal === v ? 'true' : 'false'} onClick=${() => setVibeGoal(c, c.vibeGoal === v ? null : v)}>${VIBES[v].emoji} ${VIBES[v].label}</button>`)}</div></div>`)}
       ${c.vibe === 'couple' && (c.officiel === 'secret' || c.officiel === 'pending') ? html`<button class="btn btn-ghost btn-sm couple-out" onClick=${() => { announceCouple(g, c); update(); }}>📣 Annoncer votre couple</button>` : null}
       ${ENDABLE.includes(c.vibe) ? html`<button class="linkbtn quiet vibe-end" onClick=${() => askConfirm({ title: c.vibe === 'mariage' ? `Divorcer de ${first} ?` : `Rompre avec ${first} ?`, text: `${first} va mal le prendre, et ça se saura.`, ok: c.vibe === 'mariage' ? 'Demander le divorce' : 'Rompre', danger: true, run: () => breakUp(g, c) })}>${c.vibe === 'mariage' ? 'Demander le divorce' : c.vibe === 'fiancailles' ? 'Rompre les fiançailles' : 'Rompre'}</button>`
@@ -2752,15 +2754,34 @@ function DMBox({ c, g, now }) {
       force((x) => x + 1);
     }
   };
+  // 0.28: a present, bought now and given in the conversation (they react to it, their way)
+  const [gift, setGift] = useState(null);
+  const cash = Math.floor(num(g.career && g.career.cash, 0)), gWhat = gift ? str(gift.what, 60) : '', gPrice = gift ? Math.round(num(gift.price, 0)) : 0;
+  const giftWhy = !gift ? '' : !gWhat ? 'Écris ce que tu offres.' : !(gPrice >= 1) ? 'Choisis un prix.' : gPrice > cash ? `Il te manque ${fmtMoney(g, gPrice - cash)}.` : busy ? `Attends la réponse de ${first}.` : !canAfford(g, 'dm') ? 'Budget IA épuisé pour aujourd’hui.' : '';
+  const giveNow = async (what, price) => { setGift(null); const ok = await sendDM(c.id, '🎁 Je t’offre : ' + what, { gift: { what, price } }); if (ok === false) setGift({ what, price }); };
+  const give = () => {
+    if (giftWhy) return;
+    const what = gWhat, price = gPrice;
+    if (price > 1000 || price > cash / 2) askConfirm({ title: `Offrir « ${what} » à ${first} ?`, text: `${fmtMoney(g, price)}. Il te restera ${fmtMoney(g, cash - price)}.`, ok: 'Offrir', run: () => giveNow(what, price) });
+    else giveNow(what, price);
+  };
   const [left, cancel, arm] = useAutoSend('dm:' + c.id, val, can, send);
   const em = useEmoji('dm:' + c.id, ref, () => S.drafts.dm[c.id] || '', (v) => { S.drafts.dm[c.id] = v; force((x) => x + 1); if (ref.current) autosize(ref.current); }, DM_MAX); // 0.17
   return html`<div>
     <${AutoSendBar} left=${left} cancel=${cancel} />
-    <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} café par message · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
+    <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}${isMain(c) && !c.cut ? html`<button type="button" class=${'voice-chip gift-toggle' + (gift ? ' on' : '')} aria-pressed=${gift ? 'true' : 'false'} onClick=${() => setGift(gift ? null : { what: '', price: 100 })}><span aria-hidden="true">🎁</span> Cadeau</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} café par message · il t’en reste ${fmtCafes(e.left)}` : html`Budget IA épuisé · <button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
     ${adv ? html`<div class="voice-hint adv-hint"><${Icon} n="bulb" s=${15} /><span>Ton message est un conseil : ${first} décide de le suivre ou non. ${adviceHint(c)}</span></div>` : null}
     ${c.cut ? html`<div class="voice-hint cut-hint"><span aria-hidden="true">🚫</span><span>${first} a coupé les ponts : tes messages ne lui parviennent plus.</span></div>` : null}
     ${conf && !conf.out ? html`<div class="voice-hint conf-hint"><span aria-hidden="true">🤫</span><span>Tu confies à ${first} : « ${str(conf.t, 80)} ». ${first} saura. Ce qu’${gx(c.g, 'il', 'elle', 'iel')} en fera, c’est son choix.</span><button type="button" class="iconbtn" onClick=${() => setConf(null)} aria-label="Ne plus confier ce secret"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${em.panel}
+    ${gift ? html`<div class="gift-sheet">
+      <div class="gift-h"><b>🎁 Un cadeau pour ${first}</b><button type="button" class="iconbtn" onClick=${() => setGift(null)} aria-label="Fermer le cadeau"><${Icon} n="x" s=${16} /></button></div>
+      <input class="input" maxlength="60" aria-label="Ce que tu offres" placeholder="Ce que tu offres (un bouquet de pivoines, un week-end à la mer…)" value=${gift.what} onInput=${(ev) => setGift(Object.assign({}, gift, { what: ev.target.value }))} />
+      <div class="gift-prices" role="group" aria-label="Le prix">${[30, 100, 300, 1000, 3000].map((p) => html`<button type="button" key=${p} class=${'chip-btn' + (gPrice === p ? ' on' : '')} onClick=${() => setGift(Object.assign({}, gift, { price: p }))}>${fmtMoney(g, p)}</button>`)}
+        <label class="gift-own">ou <input class="input" type="number" min="1" max="1000000" step="1" inputmode="numeric" aria-label="Ton prix, en euros" value=${gift.price} onInput=${(ev) => setGift(Object.assign({}, gift, { price: ev.target.value }))} /> €</label></div>
+      <div class="gift-foot"><small class="muted">Il te reste ${fmtMoney(g, cash)}. ${first} réagit à sa façon.</small><button type="button" class="btn btn-hot btn-sm" disabled=${!!giftWhy} onClick=${give}>Offrir${gPrice >= 1 ? ' · ' + fmtMoney(g, gPrice) : ''}</button></div>
+      ${giftWhy ? html`<small class="why-off">${giftWhy}</small>` : null}
+    </div>` : null}
     <div class=${'reply-box' + (adv ? ' adv' : '')}>
       <textarea ref=${ref} id=${'dm-' + c.id} rows="1" maxlength=${DM_MAX} placeholder=${adv ? `Ton conseil à ${first}…` : 'Message à ' + first + '…'} value=${val}
         onInput=${(ev) => { arm(); S.drafts.dm[c.id] = ev.target.value; autosize(ev.target); force((x) => x + 1); }}
@@ -2798,6 +2819,7 @@ function DMLayer({ l, g, now, i }) {
         : m.sys === 'file' ? html`<${FileCard} key=${m.id} m=${m} />` // 0.23: a file sent for an order (role-play)
         : m.sys === 'job' ? html`<${JobCard} key=${m.id} g=${g} c=${c} m=${m} />`
         : m.sys === 'buy' ? html`<${BuyCard} key=${m.id} g=${g} m=${m} />` // 0.24: something paid in the conversation
+        : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${c.name.split(' ')[0]}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + c.name.split(' ')[0]}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
@@ -3060,6 +3082,7 @@ async function loadSave(slot) {
     shiftTime(snap, -away, true);
     snap.clockOff = (typeof snap.clockOff === 'number' ? snap.clockOff : num(snap.stats && snap.stats.skipped, 0)) - away;
   }
+  achKeep(snap, g); // 0.28: an achievement, once there, stays
   const ng = migrate(Object.assign(snap, { id: g.id, saves: g.saves, ready: true }));
   enterGame(ng, { tab: 'feed', hot: true });
   saveNow();
@@ -3111,7 +3134,7 @@ function Modal({ m, g }) {
       <div class="modal-big" style="color:var(--bad)">Cancel</div>
       <p>Ta réputation est tombée sous 150. Tant qu’elle ne remonte pas à 350, chaque post te coûte des abonnés. Comment tu gères ?</p>
       <${CancelPaths} g=${g} close=${close} />
-      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
+      <button class="btn btn-ghost" onClick=${() => { unlockAch(g, 'owned-the-bad-buzz'); close(); }}>J’assume</button>
     </div>`;
   } else if (m.t === 'busted') {
     const c = g.chars[m.charId];
@@ -3122,7 +3145,7 @@ function Modal({ m, g }) {
       <p>${m.late ? 'Quelqu’un a creusé. ' : 'Le réseau a tout de suite vu le montage. '}${K.f ? 'Ta' : 'Ton'} ${evLabel(m.kind)} contre ${c ? c.name : 'ta cible'} était ${K.f ? 'fausse' : 'faux'}, et maintenant tout le monde le sait.</p>
       <div class="rewards">${m.loss > 0 ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Réputation au plus bas</span><span class="chip bad">Cancel</span>${c ? html`<span class="chip bad">${c.name.split(' ')[0]} ne te le pardonnera pas</span>` : null}</div>
       <${CancelPaths} g=${g} close=${close} />
-      <button class="btn btn-ghost" onClick=${close}>J’assume</button>
+      <button class="btn btn-ghost" onClick=${() => { unlockAch(g, 'owned-the-bad-buzz'); close(); }}>J’assume</button>
     </div>`;
   } else if (m.t === 'uncancel') {
     card = html`<div class="modal-card">
@@ -3219,7 +3242,7 @@ const STICKY_MODALS = ['visit', 'pfp']; // 0.18: someone at the door: talk, or �
 /* =========================================================
    Clock, toasts for arrivals, boot
    ========================================================= */
-const TOAST_KINDS = { skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
+const TOAST_KINDS = { ach: 'flash', skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
 let lastSlow = 0, lastQuestTick = 0, lastNeglect = 0;
 // 0.10: in the ChatGPT app (no such thing in Claude, where the AI only answers the player's actions), « Le réseau vit tout
 // seul » (Ultime's default; 0.19: a switch): a refresh every few minutes, only while the player is there and playing.
@@ -3235,6 +3258,7 @@ function livePause(t = Date.now()) {
 const autoLiveDue = (g, t) => !!(HOST && g && g.ready && g.opts && autoLiveOn(g) && !livePause(t)
   && t - (g.lastRefreshAt || 0) >= intensityOf(g).liveMs && !skipBusy() && !S.busy.more && !S.busy.refresh
   && !S.stack.some((l) => l.t === 'minigame') && canAfford(g, 'refresh'));
+let achTickAt = 0;
 function tick() {
   const t = Date.now();
   S.now = t;
@@ -3242,6 +3266,7 @@ function tick() {
   let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
   const g = S.game;
   if (S.phase === 'game' && g) {
+    if (t - achTickAt > 4000) { achTickAt = t; tickAch(g, t); } // 0.28: the achievements read what stands
     const shown = dmsShown(); // (0.27.9: a conversation out of the game is being read too)
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
     const playing = topIsGame(); // (0.27.6: a practice round, a commissioned edit too)
@@ -3250,7 +3275,7 @@ function tick() {
         const cId = n.c;
         const tg = n.k === 'trend' ? n.tg : null;
         const sk = n.k === 'skill' ? n.sk : null;
-        toast(n.text, TOAST_KINDS[n.k], (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null);
+        toast(n.text, TOAST_KINDS[n.k], (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : n.k === 'ach' ? { label: 'Voir', run: () => openLayer({ t: 'ach' }) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null);
       }
     }
     // answers that arrive in a conversation the player has left
@@ -3408,7 +3433,7 @@ if (window.__HYPE_TEST__) {
     isMain, canJoin, joinCast, jobLine, JOIN_REL, candidates, // 0.16: anyone can join the cast
     dateExigence, FAMOUS, // 0.16: the exigence of a date played for real
     // 0.17: ages and maturity, the people who see, the train of the hyyype
-    MATU, drawCastAges, drawMatu, initAge, noRomance, ageText, newcomerAge,
+    MATU, drawCastAges, drawMatu, initAge, isOlder, ageText, newcomerAge,
     noteSeen, seenCheck, seenCtx, seenNeed, seenNow, witnessAct, ignoredFriends,
     trainAfterAct, startTrain, fuelTrain, tickTrain, endTrain, trainOn, trainMult, hyWord, TRAIN_PTS, estLikes,
     addNotif, addIncomingDM, emoParts, emoSearch, emoOnly, EMO_LIST, EMO_BY, emoRecents,
@@ -3430,6 +3455,7 @@ if (window.__HYPE_TEST__) {
     dealOf, dealBounds, dealSummary, applyDealLine, declineDeal, // 0.19.1: contracts
     saveToSlot, leaveGame, openGame, minLayer, unminLayer, closeDocked, raiseLayer, dropLayers, layerOpen, winRect, winOf, winSet, winStore, winModal, winFloats, renameSave, saveName, renameGameById, pubDraft, keepPubDraft, // 0.27.7
     pctOf, tierRule, TIER_STEPS, cutRule, flopWord, heldRel, heldWhy, dealLeft, sectorWord, adWord, seriesMultAt, fbMs, payTerms, MG_LABEL, MG_RULE, jobFrom, closeMemb, openMemb, membOf, declineDeal, fmtMoney, gearIssues, // 0.27.8
+    ACH, ACH_BY, ACH_GROUPS, unlockAch, tickAch, achGot, achCount, ensureAch, achProgress, achKeep, myTrend, dealSignedAch, leftFor, giftCounted, noteCaught, vibeLine, osDesk, OS_KINDS, productFlop, buy, releaseDone, markViral, accusationResult, apologyResult, commitEval, cancelDate, // 0.28: the achievements, a present
     checkDeals, relLimit, fanPlanned, startShoot, menuClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
     plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned

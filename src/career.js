@@ -710,6 +710,7 @@ function signDeal(g, d, o = {}) {
   if (clash) exclusiveBreach(g, clash, d);
   if (c && d.scam !== 'brief') { addIncomingDM(g, c, d.scam === 'frais' ? 'Bienvenue dans la team des ambassadeurs ! 🎉 Ton kit part cette semaine 📦' : d.gift ? (!d.giftSent ? `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} part cette semaine, tu nous diras 📦` : `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} est en route, tu l’as dès aujourd’hui 📦`) : pick(['Top, contrat signé ! On a hâte de voir ça 🙌', 'Parfait, c’est signé. Hâte de voir ce que tu vas en faire !', d.shady ? 'Génial, bienvenue dans la team ! Et comme convenu : on reste discrets 😉' : 'Génial, bienvenue dans la team ! N’oublie pas la mention « Collaboration commerciale » 😉']), later() + 1500, { max: 300 }); touch(c); }
   addChronicle(g, `${g.player.name} a signé un partenariat avec ${d.brand}.`);
+  dealSignedAch(g, t); // 0.28: a first one; how many this month
   penalClause(g, d); // a trap clause of another contract bites
   scamAfterSign(g, d); // the « brief » was a virus
   if (d.state === 'signed') dilemmaOnDeal(g, d); // 0.18: two close friends may want the same spot on it
@@ -729,6 +730,7 @@ function sendGift(g, d) {
 function declineDeal(g, d) {
   if (!d || d.state !== 'offer') return;
   d.state = 'declined';
+  { const st = ensureAch(g); st.declined = (st.declined || 0) + 1; achProgress(g, 'incorruptible', st.declined); } // 0.28: ten refused
   const c = g.chars[d.contact];
   if (c) addIncomingDM(g, c, pick(['Dommage ! Peut-être une prochaine fois.', 'Ok, je comprends. Bonne continuation !', 'Pas de souci, on garde ton contact.']), later() + 1500, { max: 300 });
 }
@@ -790,6 +792,7 @@ function applyDealLine(g, c, o) {
     }
   }
   if (!said.length) return;
+  unlockAch(g, 'sell-me-this-pen'); // 0.28: something negotiated, and the brand agreed
   dmCard(g, c, { sys: 'deal', deal: d.id, upd: true }, later() + 2500);
   const onlyFee = said.length === 1 && d.fee !== fee0;
   addNotif(g, { k: 'money', c: c.id, text: onlyFee ? `${d.brand} ${d.fee > fee0 ? 'monte' : 'revoit'} son offre : ${fmtMoney(g, d.fee)}.` : `${d.brand} ${signed ? 'modifie votre contrat' : 'revoit son offre'} : ${said.join(', ')}.` });
@@ -853,6 +856,7 @@ function checkDeals(g, t) {
 // A hidden ad or a forbidden product, spotted: a fine, and the network piles on.
 function sanction(g, d) {
   const law = !!d.banned;
+  unlockAch(g, 'jail-time'); // 0.28: an illegal partnership, found out
   let fine = law ? Math.max(1500, d.fee * 2) : Math.max(500, d.fee);
   fine = Math.round(fine * (1 - 0.2 * staffPower(g, 'avocat')));
   charge(g, fine, `Amende (${law ? 'promotion interdite' : 'publicité cachée'})`, 'fine');
@@ -1586,6 +1590,7 @@ function releaseCareer(ctx) {
   if (form.deal) {
     const d = dealOf(g, form.deal);
     if (d) { post.video.sponsor = { brand: d.brand, emoji: d.emoji, mention: form.mention !== false, fit }; deliverDeal(g, d, post, form.mention !== false, { tier: v.tier, viral: !!(post.res && post.res.viral), fit }); }
+    if (d && (v.tier === 'flop' || fit === -1)) unlockAch(g, 'cashed-the-check'); // 0.28: a sponsored piece that went down badly
   }
   if ((form.thumb === 'choc' || form.thumbChoc) && v.tier === 'flop') { const dr = repMove(g, { cred: -10 }, 'miniature putaclic sur une vidéo ratée'); addNotif(g, { k: 'reldown', p: post.id, text: `Miniature putaclic sur une vidéo ratée : « encore un piège à clics », ${repWord(dr)}.` }); }
   if (r.series) seriesEpisode(g, r, v.tier);

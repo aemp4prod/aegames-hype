@@ -139,6 +139,7 @@ function agentGamble(g, d) {
     addIncomingDM(g, c, `C’est fait ! J’ai tenu bon avec ${d.brand} : ${fmtMoney(g, nf)}. Franchement, j’y croyais à moitié. Tu n’as plus qu’à signer 😎`, later() + 1500, { max: 300 });
     dmCard(g, g.chars[d.contact] || c, { sys: 'deal', deal: d.id, upd: true }, later() + 2500);
     addNotif(g, { k: 'money', c: c.id, text: `${first} a décroché mieux avec ${d.brand} : ${fmtMoney(g, nf)}.` });
+    unlockAch(g, 'sell-me-this-pen'); // 0.28 (negotiated for the player)
     return 'won';
   }
   d.state = 'withdrawn';
@@ -237,6 +238,7 @@ function productFlop(g, d) {
   g.stats.followers = Math.max(0, g.stats.followers - loss);
   const dr = repMove(g, { cred: -6, image: -3 }, `le produit ${d.brand} que tu as recommandé est nul`);
   const t = Date.now();
+  unlockAch(g, 'cashed-the-check', t); // 0.28: a sponsored product, badly received
   let at = t + randi(2000, 5000);
   for (const fn of [(h) => `j’ai acheté ${d.product} parce que @${h} le recommandait… franchement c’est nul, ça s’est cassé en deux jours`, (h) => `@${h} tu l’as vraiment testé ${d.product} ou t’as juste pris l’argent ?`]) { addAmbientPost(g, { by: pick(CANCEL_NPCS)[0], text: fn(g.player.handle) }, at, at); at += randi(5000, 10000); }
   addNotif(g, { k: 'reldown', text: `👎 Ceux qui ont acheté ${d.product} sur tes conseils sont déçus : c’est de la camelote (${repWord(dr)}, −${nAbonnes(loss)}).` });

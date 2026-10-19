@@ -7,6 +7,7 @@
    ========================================================= */
 const DEVIS_KINDS = { achat: '🛒', location: '🔑', transport: '🚗', service: '🧾', conso: '🧺' };
 const DEVIS_MAX = 6;
+const DEVIS_LINE_MAX = 2000000; // 0.28: a line as dear as a real one can be (a supercar, a house to give away): it was 50 000
 const normItem = (s) => foldAcc(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(le|la|les|un|une|des|du|de|d|l)\b/g, ' ').replace(/\s+/g, ' ').trim();
 // Whether the player already owns something like this item (bought for an earlier video, or in the inventory: 0.27).
 const likeItem = (n, name) => { const m = normItem(name); return m.length >= 3 && (m === n || (m.length >= 6 && n.includes(m)) || (n.length >= 6 && m.includes(n))); };
@@ -102,7 +103,7 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
   let sponsor = null;
   for (const x of objs) {
     if (x.t === 'cost' && items.length < DEVIS_MAX) {
-      const item = str(x.item, 60), price = Math.round(clamp(devisPrice(x.price), 0, 50000));
+      const item = str(x.item, 60), price = Math.round(clamp(devisPrice(x.price), 0, DEVIS_LINE_MAX));
       if (!item || !(price > 0) || boughtBefore(g, item) || items.some((y) => normItem(y.item) === normItem(item))) continue;
       const s = stockLike(stock, item), keep = x.keep === true || x.keep === 'true';
       if (s) { if (!have.some((h) => h.inv === s.x.id)) have.push({ inv: s.x.id, name: s.x.name, emoji: s.x.emoji, from: stockFrom(g, s.x), use: x.kind === 'conso' || (x.kind === 'achat' && !keep) ? 'conso' : 'garde' }); continue; } // (0.27.6: what the inventory covers is used like any « already there »: it was free on every quote, never used up)
@@ -162,6 +163,9 @@ function payDevis(g, dv, label) {
   }
   if (used.length) addNotif(g, { k: 'gear', text: `📦 Pour ton tournage, tu utilises ce que tu avais : ${used.join(', ')}.` });
   dv.paid = Date.now();
+  const per = dv.days ? total / dv.days : total; // (a challenge: what each episode cost)
+  if (per > 100000) unlockAch(g, 'tv-show'); // 0.28
+  if (per > 1000000) unlockAch(g, 'mrbeast');
   return true;
 }
 const devisNeeded = (g, r) => !!(g && r && !easyGear() && !r.legacy && !r.series && !r.devis);

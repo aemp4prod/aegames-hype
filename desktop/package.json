@@ -1,7 +1,7 @@
 {
   "name": "hype-chatgpt",
   "productName": "Hype",
-  "version": "0.27.10",
+  "version": "0.28.0",
   "description": "Hype, le jeu de réseau social où tout le monde est une IA sauf toi, avec ton abonnement ChatGPT.",
   "author": "Le projet Hype",
   "license": "MIT",
@@ -13,7 +13,8 @@
     "build:renderer": "node scripts/build-renderer.mjs",
     "build": "npm run build:sdk && npm run build:renderer",
     "start": "npm run build && electron .",
-    "test": "npm run build && node test/e2e.mjs",
+    "test": "npm run build && node --test test/achievements.test.mjs && node test/e2e.mjs",
+    "test:ach": "node --test test/achievements.test.mjs",
     "dist:win": "npm run build && electron-builder --win --x64",
     "dist:portable": "npm run build && electron-builder --win --x64 --dir",
     "release:launcher": "npm run dist:portable && node scripts/make-release.mjs && node scripts/verify-release.mjs",

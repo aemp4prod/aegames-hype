@@ -333,7 +333,7 @@ function newsLines() {
 }
 
 // 0.17: ages: the age and maturity of each of the ten characters, in order (drawCastAges).
-const agesAsk = (ages) => `   - "age" est imposé, dans l’ordre des dix lignes : ${ages.map((a, k) => `${k + 1}) ${a.age} ans, ${MATU[a.matu].label}`).join(' ; ')}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité : un·e très immature trolle, chambre et rit de tout ; un·e immature réagit à chaud ; un·e posé·e réfléchit avant de poster ; un·e très mature prend du recul et fait parfois la morale. Les 35 ans et plus ont un rôle à part (mentor, patron, prof, parent d’un perso, figure installée du monde) et jamais de romance avec le joueur.`;
+const agesAsk = (ages) => `   - "age" est imposé, dans l’ordre des dix lignes : ${ages.map((a, k) => `${k + 1}) ${a.age} ans, ${MATU[a.matu].label}`).join(' ; ')}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité : un·e très immature trolle, chambre et rit de tout ; un·e immature réagit à chaud ; un·e posé·e réfléchit avant de poster ; un·e très mature prend du recul et fait parfois la morale. Les 35 ans et plus ont la vie de leur âge (métier, histoire, expérience) : tout rôle leur est ouvert.`;
 function promptWorld(spec, persona, ages = null) {
   const st = START[persona.start] || START.anon;
   const chaos = CHAOS[persona.chaos == null ? 1 : persona.chaos] || CHAOS[1];
@@ -393,7 +393,7 @@ const STORY_LINES = (ids) => [
 const VIBE_GLOSS = { flirt: 'attirance réciproque', complique: 'ni ensemble ni séparés', ex: 'rupture', bff: 'inséparables', famille: 'de cœur', confidences: 'se disent leurs secrets', complices: 'font les 400 coups', mentor: 'son mentor, le guide', disciple: 'le joueur est son mentor', partenaires: 'collab ou business', alliance: 'alliés stratégiques', fan: 'fan n°1 du joueur', froid: 'brouillés', nemesis: 'ennemis jurés' };
 const VIBE_FAMS = [['amour', 'amour'], ['amitie', 'amitié'], ['pro', 'pro'], ['conflit', 'conflit']];
 const VIBE_IDS = VIBE_FAMS.map(([k, w]) => `${w} : ` + Object.keys(VIBES).filter((v) => VIBES[v].grp === k).map((v) => v + (VIBE_GLOSS[v] ? ` (${VIBE_GLOSS[v]})` : '')).join(', ')).join(' ; ');
-const VIBE_LINE = (withBy) => `- Facultatif (au plus 1) : {"t":"vibe",${withBy ? '"by":"handle",' : ''}"vibe":"crush","why":"≤ 60 caractères"} seulement si la dynamique entre un personnage et le joueur naît ou change vraiment, et que le personnage le veut aussi. vibe parmi : ${VIBE_IDS}. Une étape à la fois : en couple avant les fiançailles, fiançailles avant le mariage ; une rupture donne ex ou complique.`;
+const VIBE_LINE = (withBy) => `- Facultatif (au plus 1) : {"t":"vibe",${withBy ? '"by":"handle",' : ''}"vibe":"crush","why":"≤ 60 caractères"} seulement si la dynamique entre un personnage et le joueur naît ou change vraiment, et que le personnage le veut aussi. vibe parmi : ${VIBE_IDS}. Une étape à la fois : en couple avant les fiançailles, fiançailles avant le mariage ; une rupture donne ex ou complique. Si le personnage quitte le joueur pour quelqu’un d’autre du réseau, ajoute "pour":"handle de cette personne".`;
 
 /* 0.19: the lines the model only needs when the action calls for them. The rest of the time they were read for nothing:
    a relationship that may change, a meeting or an event with a time, a content the player announces, a compromising
@@ -804,7 +804,7 @@ function promptIdeas(g, target, targetReply, quest) {
 
 // 0.17: a newcomer's age: mostly young; now and then someone older, while the cast has fewer than two.
 function newcomerAge(g) {
-  const age = mains(g, false).filter(noRomance).length < 2 && Math.random() < 0.1 ? randi(35, 55) : drawYoungAge();
+  const age = mains(g, false).filter(isOlder).length < 2 && Math.random() < 0.1 ? randi(35, 68) : drawYoungAge();
   return { age, matu: drawMatu(age) };
 }
 function promptNewChar(g, plan = null) {
@@ -812,7 +812,7 @@ function promptNewChar(g, plan = null) {
   const freeFaces = g.portraits === false ? null : facesAsk(STYLE_OF(g), new Set(Object.values(g.faces || {})));
   return [RULES, '', ctxText(g, { kind: 'light', focus: new Set() }), '', '## TA MISSION',
     `Le joueur vient d’atteindre le niveau ${g.stats.level}. Un nouveau personnage débarque dans le monde et apporte une nouvelle intrigue (rival, allié inattendu, mystère, star venue d’ailleurs…).`,
-    plan ? `Il ou elle a ${plan.age} ans, et sa maturité : ${MATU[plan.matu].ai}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité${plan.age > ROMANCE_MAX_AGE ? ' ; à cet âge, un rôle à part (mentor, patron, prof, parent d’un perso, figure installée), jamais de romance avec le joueur' : ''}.` : null,
+    plan ? `Il ou elle a ${plan.age} ans, et sa maturité : ${MATU[plan.matu].ai}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité.` : null,
     `Son handle doit être différent de : ${taken}.`, freeFaces ? '' : null, freeFaces, freeFaces ? 'Ajoute "face":"identifiant" à la ligne du personnage.' : null, '', FORMAT, 'Deux lignes :',
     `{"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"🦊","g":"f",${plan ? `"age":${plan.age},` : ''}"role":"≤ 40 caractères","bio":"≤ 110 caractères","personality":"≤ 160 caractères","voice":"≤ 90 caractères","followers":12000,"rel":0,` + '"garde":2,"mefiance":"≤ 60 caractères : pourquoi il ou elle donne sa confiance facilement ou non","temper":"opportuniste","temperWhy":"≤ 90 caractères : comment ça se traduit chez lui ou elle","coeur":"prudent","ami":"handle d’un personnage déjà là"} ("garde" de 1, facilement, à 3, très méfiant·e ; "temper" = comment il ou elle réagit quand la réputation du joueur bouge, parmi fidele, integre, opportuniste, detache, envieux, trouble ; "coeur" = comment il ou elle vit l’amour, parmi serein, prudent, anxieux, impulsif, jaloux, forteresse, inaccessible ; "ami" = son ou sa confident·e)',
     '{"t":"post","by":"son handle","text":"son premier post sur le réseau, ≤ 220 caractères"}'].filter((x) => x !== null).join('\n');
@@ -1415,7 +1415,7 @@ function applyActObj(ctx, o) {
       if (ctx.n.mem < 2) { ctx.n.mem++; ctx.effects.push(() => addMem(g, o.by, o.text)); }
       break;
     case 'vibe':
-      if (ctx.n.vibe < 1) { ctx.n.vibe++; const at = Date.now() + rand(5000, 9000); ctx.effects.push(() => applyVibe(g, o.by, o.vibe, o.why, at)); }
+      if (ctx.n.vibe < 1) { ctx.n.vibe++; const at = Date.now() + rand(5000, 9000); ctx.effects.push(() => vibeLine(g, o.by, o, at)); }
       break;
     case 'questprog':
       if (ctx.n.prog < 2) { ctx.n.prog++; ctx.effects.push(() => setQuestProg(g, o.id, o.pct, o.step)); }
@@ -1516,6 +1516,13 @@ function commitEval(ctx) {
   const item = ctx.kind === 'post' ? ctx.post : ctx.mine;
   if (item && item.res) item.res.repD = ctx.repD; // shown with the result
   if (ctx.kind === 'post') { s.bestLikes = Math.max(s.bestLikes, out.likes); if (ctx.men.length) s.mentions = (s.mentions || 0) + 1; }
+  if (ctx.kind === 'post') { // 0.28: what a post can bring (a first one, a flop, the laughingstock, a night owl)
+    unlockAch(g, 'first-post');
+    if (out.fol < 0 || e.reception < 0 || (ctx.video && ctx.video.tier === 'flop')) unlockAch(g, 'flop-post');
+    if (e.reception <= -6) unlockAch(g, 'internet-laughingstock');
+    const hour = gameDate(Date.now()).getHours();
+    if (hour >= 3 && hour < 5) unlockAch(g, 'sleepless-night');
+  }
   if (ctx.targetReply) s.replyc = (s.replyc || 0) + 1;
   practiseAct(g, e, ctx); // 0.24: the skills it showed, practised (a video more)
   if (ctx.kind === 'post' && e.humor >= 8 && skillFx(g, 'warmFun') && g.career.warmFunDay !== gameDay(Date.now())) { g.career.warmFunDay = gameDay(Date.now()); warmMove(g, skillFx(g, 'warmFun'), 'un post qui a fait rire tout le monde'); } // 0.24: humour, tier 20
@@ -1539,6 +1546,8 @@ function apologyResult(ctx) {
     : si >= 4 ? `Tes excuses passent moyen… (${w})`
       : `Les excuses de la honte : personne n’y croit (${w}).`;
   addNotif(g, { k: 'apology', p: ctx.post.id, text });
+  unlockAch(g, 'public-apology'); // 0.28
+  if (si >= 7) unlockAch(g, 'apology-accepted');
   addChronicle(g, `${g.player.name} a publié des excuses publiques, ${si >= 7 ? 'plutôt bien reçues' : si >= 4 ? 'accueillies avec scepticisme' : 'moquées de partout'}.`);
 }
 // A call-out: credible, the target is in a bad buzz; doubtful, it divides; baseless, it backfires on the player.
@@ -1554,6 +1563,7 @@ function accusationResult(ctx) {
     g.fakes.push(rec);
     if (fk.busted) { fakeBusted(g, c, rec, false, Math.max(0, -ctx.outcome.fol)); return; }
     startBadBuzz(g, c, ctx.post.text, Math.max(7, cred), e.exposed, fk.q / 10);
+    if (fk.kind === 'temoin') unlockAch(g, 'the-crow'); // 0.28: an « anonymous witness » of the player's making, and it takes
     applyRel(g, c, -25, 'sait que ta preuve est fausse', at, 30);
     applyTrust(g, c, -50, 'sait que ta preuve est fausse', at + 400);
     addMem(g, c, 'le joueur a publié une fausse preuve contre moi');
@@ -1575,6 +1585,7 @@ function accusationResult(ctx) {
   }
   if (cred >= 7) {
     startBadBuzz(g, c, ctx.post.text, cred, e.exposed, ctx.video ? ctx.video.score : null);
+    unlockAch(g, 'born-to-be-hero'); // 0.28: someone called out for real, with what it takes
     applyRel(g, c, -20, 'ne te pardonnera pas ce bad buzz', at, 25);
     applyTrust(g, c, -30, 'ne te fera plus jamais confiance', at + 400);
     addMem(g, c, 'le joueur a lancé un bad buzz contre moi');
@@ -1602,6 +1613,8 @@ function releaseDone(ctx) {
   addNotif(g, { k: 'release', p: ctx.post.id, text: `${Ta} « ${str(r.topic, 60)} » est en ligne : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.` });
   addChronicle(g, `${g.player.name} a sorti ${sa(r)} « ${str(r.topic, 80)} » : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.`);
   if (v.tier === 'top') addEcho(g, 'release', { text: r.topic, what: ta(r) });
+  if (v.tier === 'top' && v.diff === 'mythique') unlockAch(g, 'living-legend'); // 0.28
+  { const st = ensureAch(g); st.nightmare = v.diff === 'cauchemar' && v.tier === 'top' ? (st.nightmare || 0) + 1 : 0; achProgress(g, 'subject-expert', st.nightmare); } // (ten shoots in a row, all of them in Cauchemar)
   if (!r.series && !r.delays && v.tier !== 'flop') repMove(g, { cred: v.tier === 'top' ? 6 : 3 }, `promesse tenue : ${ta(r)} « ${str(r.topic, 40)} » est sorti${whatF(r) ? 'e' : ''} à l’heure`); // 0.10
 }
 function markViral(ctx) {
@@ -1609,6 +1622,7 @@ function markViral(ctx) {
   if (!p || p.viralMarked) return;
   p.viralMarked = true;
   g.stats.virals++;
+  if (!(ctx.boosts && ctx.boosts.viral)) unlockAch(g, 'viral-post'); // 0.28 (a bought viral moment does not count)
   g.lastViralAt = Date.now(); // 0.9.4: the player is in the light for a while
   const quoteText = p.text || (p.photo ? 'une photo' : '');
   addNotif(g, { k: 'viral', p: p.id, text: `Ton post est viral : « ${quoteText.slice(0, 70)}${quoteText.length > 70 ? '…' : ''} »` });
@@ -1776,6 +1790,10 @@ async function sendDM(charId, text, opts = {}) {
   text = String(text || '').trim().slice(0, DM_MAX);
   if (!text) return null;
   if (!canAfford(g, 'dm')) { budgetBlocked(); return false; }
+  // 0.28: a present for them, bought now (given back if the message does not go)
+  const gift = opts.gift && isMain(c) && !c.cut ? { what: str(opts.gift.what, 60), price: Math.round(num(opts.gift.price, 0)) } : null;
+  if (opts.gift && !(gift && gift.what && gift.price >= 1)) return null;
+  if (gift && !pay(g, gift.price, `Cadeau pour ${c.name.split(' ')[0]} : ${gift.what}`, 'gift')) { toast('Pas assez d’argent pour ce cadeau.', 'bad'); return false; }
   const advice = !!opts.advice && isMain(c);
   // 0.18: a secret of the player told in this message (with the button, or in the player's own words)
   const cs = isMain(c) ? (opts.confide ? secretOf(g, opts.confide) : null) || confidedIn(g, c, text) : null;
@@ -1789,7 +1807,8 @@ async function sendDM(charId, text, opts = {}) {
     heartBeforeDM(g, c, text);
     const quiet = quietDM(g, c, convo, t);
     if (quiet) {
-      convo.msgs.push({ id: uid('m'), me: true, text, ts: t, at: t });
+      convo.msgs.push(Object.assign({ id: uid('m'), me: true, text, ts: t, at: t }, gift ? { gift } : {}));
+      if (gift) { giftCounted(g, c, gift.price, t); addMem(g, c, `le joueur m’a offert ${gift.what}`); } // (received, even unanswered)
       convo.readAt = t;
       touch(c);
       c.dmSent = (c.dmSent || 0) + 1;
@@ -1804,11 +1823,12 @@ async function sendDM(charId, text, opts = {}) {
   const history = convo.msgs.filter((m) => (m.text || m.sys === 'invite') && m.sys !== 'advice').slice(-intensityOf(g).mem.dm);
   const invBefore = isMain(c) ? openInvite(g, c) : null; // their invitation, answered in the player's own words?
   const trig = activeTriggers(g, c.id);
-  const prompt = promptDM(g, c, history, text, trig, advice, confide);
+  const prompt = promptDM(g, c, history, gift ? `${text} (un cadeau d’une valeur d’environ ${fmtPlain(gift.price)} €)` : text, trig, advice, confide);
   const f = startFlow(g);
   const mine = { id: uid('m'), src: f.id, me: true, text, ts: t, at: t };
   if (confide) mine.sec = confide.id; // 0.18: shown as a confidence in the conversation
   if (advice) mine.adv = 1;
+  if (gift) mine.gift = gift; // 0.28: shown as a present
   convo.msgs.push(mine);
   convo.readAt = t;
   touch(c);
@@ -1841,7 +1861,7 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'buy' && !fx.buy && buyTalk(text)) fx.buy = () => { const R = applyBuy(g, c, o, 'dm', t + 1); if (R) convo.msgs.splice(convo.msgs.indexOf(mine) + 1, 0, { id: uid('m'), sys: 'buy', me: true, text: '🧾', buy: R, ts: t + 1, at: t + 1 }); }; // 0.24 (a text, so that the AI reads it with the conversation)
       else if (o.t === 'mem' && !fx.mem) fx.mem = () => addMem(g, c, o.text);
       else if (o.t === 'gift' && !fx.gift && isMain(c) && giftTalk(text, history)) { const when = at; fx.gift = () => { const x = receiveGift(g, c, o, when); if (x) convo.msgs.push({ id: uid('m'), sys: 'gift', me: false, text: '🎁 ' + x.name, gift: x.id, ts: when, at: when }); }; } // 0.26
-      else if (o.t === 'vibe' && !fx.vibe && !daring) { const when = at + 800; fx.vibe = () => applyVibe(g, c, o.vibe, o.why, when); } // a dare decides by itself
+      else if (o.t === 'vibe' && !fx.vibe && !daring) { const when = at + 800; fx.vibe = () => vibeLine(g, c, o, when); } // a dare decides by itself
       else if (o.t === 'judge' && !fx.judge && isMain(c)) fx.judge = normReact(o.react);
       else if (o.t === 'quest' && !fx.quest && o.done !== false) fx.quest = () => completeStoryQuest(g, o.id);
       else if (o.t === 'questprog' && !fx.prog) fx.prog = () => setQuestProg(g, o.id, o.pct, o.step);
@@ -1884,6 +1904,10 @@ async function sendDM(charId, text, opts = {}) {
     if (relD >= 1 && normSkill(relSk) === 'humour' && skillFx(g, 'amuseRel') && isMain(c)) applyRel(g, c, skillFx(g, 'amuseRel'), 'tu l’as fait rire', at + 700, 3); // 0.24: humour
     checkQuests(g);
     dropTriggers(g, trig);
+  }
+  if (gift) { // 0.28: given (counted, remembered), or back in the player's pocket
+    if (ok) { giftCounted(g, c, gift.price, at); addMem(g, c, `le joueur m’a offert ${gift.what}`); }
+    else { g.career.cash += gift.price; ledger(g, `Cadeau non offert : ${gift.what}`, gift.price, 'in'); }
   }
   S.busy.dm = null;
   endFlow(f);
@@ -2593,7 +2617,7 @@ async function endDate(ev) {
       else if (o.t === 'msg' && msgs < 2 && !faded) { const m = str(o.text, 320); if (m) { convo.msgs.push(tag({ id: uid('m'), me: false, r: 1, text: m, ts: at, at })); msgs++; at += 1500 + m.length * 25; } }
       else if (o.t === 'morning' && faded && !morning) morning = { where: o.where === 'p' ? 'p' : 'c', text: str(o.text, 600) }; // 0.25.3
       else if (o.t === 'post' && posts < 2) { if (addAmbientPost(g, o, Date.now() + rand(5000, 15000))) posts++; }
-      else if (o.t === 'vibe' && !fx.vibe) { fx.vibe = 1; const when = at + 900; fx.push(() => applyVibe(g, c, o.vibe, o.why, when)); }
+      else if (o.t === 'vibe' && !fx.vibe) { fx.vibe = 1; const when = at + 900; fx.push(() => vibeLine(g, c, o, when)); }
       else if (o.t === 'mem' && !fx.mem) { fx.mem = 1; fx.push(() => addMem(g, c, o.text)); }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'date' });
@@ -2618,6 +2642,7 @@ async function endDate(ev) {
 }
 function dateOutcome(g, ev, c) {
   const tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff), s = g.stats, t = later();
+  { const st = ensureAch(g); st.dateFlops = tier === 'flop' ? (st.dateFlops || 0) + 1 : 0; achProgress(g, 'date-from-hell', st.dateFlops, t); } // 0.28: three in a row
   const mk = meetKind(c, ev), M = MEET[mk], ix = tierIx(tier);
   const base = { top: 12, mid: 4, flop: -8 }[tier];
   const rel = base > 0 ? Math.round(base * D.mult) : base;
@@ -2643,7 +2668,7 @@ function dateOutcome(g, ev, c) {
     else { applyRel(g, c, -6, 'un mariage gâché', t + 1500, 10); addTrigger(g, `Le mariage du joueur et de @${c.handle} a tourné au fiasco : la cérémonie est reportée, tout le monde en parle.`, c.id); }
   } else if (dk === 'proposal') { // a proposal: yes when the evening was perfect, « let me think » otherwise
     if (tier === 'top') applyVibe(g, c, 'fiancailles', `${gx(c.g, 'il', 'elle', 'iel')} a dit oui`, t + 2200, true);
-    else addTrigger(g, `Le joueur a fait sa demande à @${c.handle}, qui ${tier === 'mid' ? 'a demandé à réfléchir' : 'a dit non'} : malaise.`, c.id);
+    else { addTrigger(g, `Le joueur a fait sa demande à @${c.handle}, qui ${tier === 'mid' ? 'a demandé à réfléchir' : 'a dit non'} : malaise.`, c.id); if (tier !== 'mid') unlockAch(g, 'just-no', t); } // (0.28: « Non. »)
   }
   const romantic = mk === 'love';
   // 0.22.2: seen together (their fans), a photo of them online, recognized in public: the others may know at once.
@@ -2654,6 +2679,7 @@ function dateOutcome(g, ev, c) {
     if (o === c || !o.unlocked || !seen) continue;
     if (PARTNER.includes(o.vibe)) {
       if (!(fol > 0 || Math.random() < 0.6)) continue;
+      noteCaught(g, t); // 0.28
       applyRel(g, o, { couple: -12, fiancailles: -16, mariage: -20 }[o.vibe], `a appris ton rendez-vous avec ${first}`, t + 1800, 25);
       addMem(g, o, `le joueur a eu un rendez-vous avec ${c.name} dans mon dos`);
       addTrigger(g, `@${o.handle} a appris que le joueur, avec qui ${gx(o.g, 'il', 'elle', 'iel')} est ${VIBES[o.vibe].ai}, a eu un rendez-vous avec @${c.handle} : crise, explications, peut-être rupture.`, o.id);
@@ -2794,6 +2820,7 @@ function buy(id) {
     checkCancel(g);
   }
   s.gems -= item.price;
+  { const st = ensureAch(g); st.shop = Object.assign({}, st.shop, { [id]: 1 }); achProgress(g, 'pigeon', SHOP.filter((x) => st.shop[x.id]).length); } // 0.28: each of them, once
   if (id === 'pr') { addChronicle(g, `${g.player.name} a fait appel à une agence de com’.`); checkCancel(g); checkQuests(g); }
   toast(`${item.label} : c’est fait.`, 'good');
   update();

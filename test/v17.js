@@ -105,25 +105,22 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('the draw: one game out of two has older people (never more than two), nobody under 18, a quarter of the 18-21 very immature, never a very immature 35+',
     d1.anyRate > 0.45 && d1.anyRate < 0.55 && !d1.over2 && d1.minAge >= 18 && d1.tmRate > 0.21 && d1.tmRate < 0.29 && !d1.oldTm, d1);
 
-  // ---------- an older character: a role apart ----------
+  // ---------- an older character (0.28: no role apart any more: romance too, adults always) ----------
   const r1 = await G(page, () => {
     const H = window.__hype, g = H.S.game, c = H.charByHandle(g, 'prof.gallant');
     Object.assign(c, { age: 47, matu: 'tres_mature', vibe: null, rel: 60, cool: null, unlocked: true });
-    const v1 = H.vibeOK(c, 'crush'), a = H.applyVibe(g, c, 'crush', 'test'), f = H.forceLove(g, c, 'couple', 'test', Date.now());
-    H.setVibeGoal(c, 'flirt');
-    const goal = c.vibeGoal;
-    const mentor = H.applyVibe(g, c, 'mentor', 'te prend sous son aile');
+    const v1 = H.vibeOK(c, 'crush'), a = H.applyVibe(g, c, 'crush', 'test');
     const dm = H.promptDM(g, c, [], 'bonsoir professeure');
-    return { v1, a, f, goal, mentor, vibe: c.vibe, dm: /47 ans, très mature/.test(dm) && /rôle à part : jamais de romance avec le joueur/.test(dm) };
+    return { v1, a, vibe: c.vibe, dm: /47 ans, très mature/.test(dm) && !/rôle à part/.test(dm) };
   });
-  check('someone older has a role apart: no crush, no forced love, no romance goal; a mentor is fine; the AI knows (their sheet says it)', !r1.v1 && !r1.a && !r1.f && r1.goal !== 'flirt' && r1.mentor && r1.vibe === 'mentor' && r1.dm, r1);
+  check('0.28: someone older can be loved too: a crush is possible, and the AI is no longer told « a role apart » (their age and maturity still)', r1.v1 && r1.a && r1.vibe === 'crush' && r1.dm, r1);
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.S.modals = []; H.openChar(H.charByHandle(H.S.game, 'prof.gallant').id); });
   await page.waitForSelector('.layer .prof', { timeout: 5000 });
   await sleep(400);
   const pf = await page.$eval('.layer', (e) => ({ chips: [...e.querySelectorAll('.prof .chip')].map((x) => x.textContent), none: (e.querySelector('.vibe-none') || {}).textContent || '', love: [...e.querySelectorAll('.vibe-grp')].filter((x) => /Amour/.test(x.textContent)).map((x) => x.querySelectorAll('.vibe-opt').length) }));
   await shot(page, 'older-profile');
   await G(page, () => { window.__hype.S.stack = []; window.__hype.update(); });
-  check('on their profile: their age, and « a role apart » instead of the love goals', pf.chips.includes('47 ans') && /rôle à part dans ta vie : pas de romance/.test(pf.none) && pf.love.length === 1 && pf.love[0] === 0, pf);
+  check('on their profile: their age, and the love goals like anyone (0.28)', pf.chips.includes('47 ans') && !pf.none && pf.love.length === 1 && pf.love[0] > 0, pf);
   const m1 = await G(page, () => {
     const H = window.__hype, g = H.S.game;
     const cand = H.addCandidate(g, 'monteur', { name: 'Hugo Vasseur', g: 'm', tier: 3, years: 14 });
@@ -134,7 +131,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     for (const id in old.chars) { delete old.chars[id].age; delete old.chars[id].matu; }
     H.migrate(old);
     const ms = Object.values(old.chars).filter((c) => c.kind !== 'media');
-    return { candAge: cand && cand.age, years: cand && cand.cand.years, np: /Il ou elle a 41 ans/.test(np) && /rôle à part/.test(np) && np.includes('"age":41'), oldRate: olds / 400, migr: ms.every((c) => c.age >= 18 && c.age <= 34 && c.matu) };
+    return { candAge: cand && cand.age, years: cand && cand.cand.years, np: /Il ou elle a 41 ans/.test(np) && !/rôle à part/.test(np) && np.includes('"age":41'), oldRate: olds / 400, migr: ms.every((c) => c.age >= 18 && c.age <= 34 && c.matu) };
   });
   check('a job candidate is old enough for their experience; a newcomer gets an age too (rarely an older one); a game from before gets ages for everyone, never an older one (a love story may be under way)',
     m1.candAge >= 19 + m1.years && m1.np && m1.oldRate < 0.16 && m1.migr, m1);

@@ -108,8 +108,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   que c’est répété et que tu es connu. Quand ça devient flagrant, chacun réagit à sa façon : une question, une pique,
   une taquinerie, bouder, ou laisser couler.
 - **L’âge des persos** : chacun a un âge (18 ans et plus, toujours) et une maturité qui va avec. À 19 ans on est souvent
-  immature (trolls, blagues bêtes, tacles), parfois très mûr. Une partie sur deux, un ou deux persos plus âgés, dans
-  des rôles à part (mentor, patron, prof…), sans romance.
+  immature (trolls, blagues bêtes, tacles), parfois très mûr. Une partie sur deux, un ou deux persos plus âgés (de 35 à
+  68 ans). Depuis la 0.28, la romance est possible à tout âge adulte : plus de « rôle à part » pour eux.
 - **Tes secrets** : à la création (ou plus tard, depuis ton profil), jusqu’à trois secrets sur ton perso, chacun avec sa
   gravité : gênant, grave ou explosif. Personne ne les connaît… jusqu’à ce qu’ils sortent comme dans la vraie vie : tu en
   confies un en privé (le bouton **« Confier un secret »**, ou tes propres mots), un ennemi fouille dans ton passé, un
@@ -327,6 +327,15 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   ne s’arrête plus une fois lancé ; les compteurs affichent ce que compte le score. Le chiffre d’une difficulté multiplie
   les j’aime, les abonnés et l’XP de la sortie. Refuser une offre, fermer tes adhésions, un gros achat ou une demande en
   fiançailles demandent une confirmation, et un bouton grisé dit pourquoi.
+- **Les succès** (0.28) : 60 succès en six familles (Les premiers pas, Relations, Drama et réputation, Avancement,
+  Carrière et argent, Extrêmement rare), du « Premier post » au « Ruby Play Button ». Ils viennent de ce que tu vis
+  vraiment dans ta partie (tes posts, tes rendez-vous, tes relations, ta réputation, tes contrats, tes ventes, ton
+  équipe, tes tournages) ; certains restent cachés jusqu’au jour où ils tombent. Chacun arrive avec une notification ;
+  ceux qui se comptent montrent où tu en es (« 3 / 10 »). Ton profil montre les derniers, « Tous les succès » la liste
+  complète. Revenir à une sauvegarde ne retire pas un succès déjà débloqué.
+- **Offrir un cadeau** (0.28) : dans une conversation, le bouton cadeau : ce que tu offres et son prix (de 30 à
+  3 000 €, ou le tien), payé tout de suite et montré dans la conversation ; la personne réagit à sa façon et s’en
+  souvient. Un gros cadeau (plus de 1 000 €, ou plus de la moitié de ton argent) demande confirmation.
 - **L’heure du jeu** : une date et une heure visibles, une montre pour avancer le temps de 5 minutes à une semaine.
 - **Les cafés** : ton budget IA du jour, réglable à chaque partie (Découverte, Léger, Normal, Intensif, Marathon, Sans
   limite), avec ce que chaque palier représente en posts et en messages, et lequel choisir selon ton abonnement (avec
@@ -389,7 +398,8 @@ seul (`.github/workflows/release.yml`) ; tout est expliqué dans [docs/DISTRIBUT
 - **Le modèle** : dans les réglages (la roue), tu choisis le modèle ChatGPT et l’« intelligence des personnages » (rapide, normale, maximale).
 - **La taille** : Ctrl + molette, Ctrl + et Ctrl − (Ctrl 0 : taille auto, plus grande sur un écran 4K), ou Réglages → Taille de l’affichage.
 - **Les fenêtres** : « Détacher », ou tirer la barre d’une fenêtre (une conversation, un profil, la publication, l’inventaire…), en fait une vraie fenêtre, qui suit ta souris jusqu’où tu la lâches, même sur un deuxième écran ; « Remettre dans le jeu » la ramène. La fenêtre de Hype elle-même porte la barre de Hype (0.27.10) : on la déplace par cette barre, un double-clic l’agrandit.
-- **Tes parties** restent sur ton ordinateur, dans `%APPDATA%\Hype\parties` (tes photos aussi, chacune dans son fichier). Rien n’est envoyé ailleurs qu’à OpenAI pour faire répondre les personnages, et tes photos seulement quand tu coches « Les persos voient ces images ».
+- **Tes parties** restent sur ton ordinateur, dans `%APPDATA%\Hype\parties` (tes photos aussi, chacune dans son fichier). Rien n’est envoyé ailleurs qu’à OpenAI pour faire répondre les personnages (tes photos seulement quand tu coches « Les persos voient ces images »), et, quand Æ Games Launcher lance Hype, tes succès à ton compte Æ Games.
+- **Æ Games Launcher** (0.28) : lancé par le launcher, Hype envoie tes succès et ton nombre d’abonnés à ton compte Æ Games, et le launcher les affiche. Hype ne reçoit qu’un ticket temporaire, gardé en mémoire : jamais écrit dans un fichier, une sauvegarde ou un journal. Sans le launcher, rien ne change, et ce que tu as débloqué entre-temps part la fois suivante. Hors ligne, le jeu n’attend jamais : les envois réessaient plus tard, et à la fermeture Hype prend au plus deux secondes pour finir.
 - **Ta connexion ChatGPT** est chiffrée par Windows (`%APPDATA%\Hype\chatgpt`). Hype ne voit jamais ton mot de passe ni tes conversations ChatGPT.
 - **Changer d’IA** : Réglages → **Exporter** crée un fichier de ta partie (avec tes photos) ; **Importer une partie** (accueil) la reprend, dans la version Claude ou ChatGPT.
 
@@ -412,7 +422,7 @@ src/                le jeu (commun aux deux versions) : core.js, ai.js, career.j
                     écrans), montage.js (le
                     montage, la miniature et le dessin, après le tournage), photos.js
                     (le pack photos, les séries, les pages façon Insta et TikTok, l’Atelier photos), media.js (les
-                    photos du joueur, gardées sur l’appareil), ui.js, style.css
+                    photos du joueur, gardées sur l’appareil), succes.js (les succès, 0.28), ui.js, style.css
 build.py            fabrique hype.html, la version Claude (artefact)
 test/               tests de la version Claude (Playwright + une fausse IA : test/mock.js) : run.js, career.js, photos.js,
                     trust.js, media.js, dates.js, standing.js, ultime.js, minigames.js, hearts.js, couples.js, whispers.js,
@@ -428,9 +438,13 @@ assets/pack/        le pack photos livré avec le jeu (voir PHOTOS.md ; tools/pa
 desktop/            l’appli Hype pour ChatGPT (Electron)
   main.mjs          processus principal : connexion ChatGPT, fichiers, dialogues
   preload.cjs       le seul pont entre la page du jeu et l’appli
-  lib/              host-adapter.js (le jeu croit parler à Claude), ai.mjs, store.mjs, chiffrement
+  lib/              host-adapter.js (le jeu croit parler à Claude), ai.mjs, store.mjs, chiffrement,
+                    achievements.mjs (0.28 : les succès vers Æ Games Launcher, avec son ticket ; tests :
+                    test/achievements.test.mjs)
   vendor/siwc-local le SDK « Sign in with ChatGPT » d’OpenAI (licence non commerciale, voir plus bas)
   test/             test de bout en bout avec un faux ChatGPT
+tools/achievements-sql.mjs  écrit docs/aegames-achievements.sql, les définitions des succès pour la base
+                    d’Æ Games Launcher, à partir de src/succes.js (les clés sont une API : jamais renommées)
 ```
 
 Le jeu a été écrit pour l’environnement des artefacts Claude (`window.claude.use('sample' | 'db' | 'user')`).

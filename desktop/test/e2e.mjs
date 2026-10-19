@@ -534,6 +534,93 @@ try {
   }
   await app.close();
 
+  // ---------- 0.28: an Æ Games Launcher session: the game's achievements reach its backend (here, a stand-in) ----------
+  {
+    const { createServer } = await import('node:https');
+    const { execFileSync } = await import('node:child_process');
+    const keyF = join(OUT, 'ae-key.pem'), crtF = join(OUT, 'ae-cert.pem');
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', keyF, '-out', crtF, '-days', '2', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost'], { stdio: 'ignore' });
+    const hits = [], fail = new Set(), hang = new Set();
+    const srv = createServer({ key: readFileSync(keyF), cert: readFileSync(crtF) }, (req, res) => {
+      let b = '';
+      req.on('data', (d) => { b += d; });
+      req.on('end', () => {
+        let body = null;
+        try { body = JSON.parse(b); } catch (e) { body = null; }
+        const k = body && body.p_achievement_key;
+        hits.push({ at: Date.now(), url: req.url, method: req.method, headers: req.headers, body });
+        if (fail.has(k)) { fail.delete(k); res.writeHead(503); res.end('{}'); return; }
+        if (hang.has(k)) return; // (never answered: the way out must not wait for it)
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify([{ achievement_key: k, progress: body && body.p_value, newly_unlocked: true, idempotent: false }]));
+      });
+    });
+    await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+    const TOKEN = 'c0ffee'.repeat(10) + 'beef', KEY = 'sb_publishable_E2eLauncherKey2026';
+    const of = (key, op) => hits.filter((h) => h.body && h.body.p_achievement_key === key && (!op || h.body.p_operation === op));
+    const waitHit = async (key, n = 1, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end && of(key).length < n) await sleep(200); return of(key).length >= n; };
+    ({ app, page } = await launch({ AE_GAMES_GAME_ID: 'hype', AE_GAMES_SUPABASE_URL: `https://localhost:${srv.address().port}`, AE_GAMES_SUPABASE_KEY: KEY, AE_GAMES_ACHIEVEMENT_TOKEN: TOKEN, AE_GAMES_ACHIEVEMENT_EXPIRES_AT: new Date(Date.now() + 3600000).toISOString() }));
+    await main(app, ({ session }) => { session.defaultSession.setCertificateVerifyProc((req, cb) => cb(req.hostname === 'localhost' ? 0 : -3)); }); // (the stand-in's own certificate)
+    const envLeft = await main(app, () => ['AE_GAMES_ACHIEVEMENT_TOKEN', 'AE_GAMES_SUPABASE_KEY'].filter((k) => process.env[k]));
+    const version = await main(app, ({ app: a }) => a.getVersion());
+    const [id1, id2] = await G(page, () => window.__hype.S.games.map((x) => x.id));
+    await G(page, (id) => window.__hype.openGame(id), id1);
+    await page.waitForSelector('.post', { timeout: 20000 });
+    await dismiss(page);
+    // a first crush, by the game's own rules (its clock reads it)
+    await G(page, () => { const H = window.__hype, g = H.S.game, c = H.mains(g).find((x) => x.unlocked) || H.mains(g)[0]; c.vibe = 'crush'; });
+    await page.waitForFunction(() => window.__hype.achGot(window.__hype.S.game, 'first-crush'), null, { timeout: 15000 });
+    await waitHit('first-crush');
+    await waitHit('gaining-traction');
+    const fol = await G(page, () => Math.round(window.__hype.S.game.stats.followers));
+    const crush = of('first-crush', 'unlock')[0], trac = of('gaining-traction', 'set')[0];
+    const b = crush && crush.body;
+    check('a launcher session: its backend gets the game’s first crush (« unlock », p_value null) and the followers’ total (« set »), with the ticket and the public key as the contract says, the game version and the game as metadata',
+      !!(crush && trac) && crush.method === 'POST' && crush.url === '/rest/v1/rpc/record_hype_achievement_event' && crush.headers.apikey === KEY && /application\/json/.test(crush.headers['content-type']) && !crush.headers.authorization
+        && b.p_session_token === TOKEN && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(b.p_event_id) && b.p_operation === 'unlock' && b.p_value === null && !Number.isNaN(Date.parse(b.p_client_occurred_at))
+        && JSON.stringify(b.p_metadata) === JSON.stringify({ gameVersion: version, saveId: id1 }) && of('gaining-traction', 'set').some((h) => h.body.p_value === fol),
+      { crush: b && { ...b, p_session_token: b.p_session_token === TOKEN ? '(the ticket)' : 'WRONG' }, trac: trac && trac.body.p_value, fol, n: hits.length });
+    // the ticket and the key: in the main process's memory only (not in its environment, the page, the game's files)
+    const page1 = await G(page, ([t, k]) => { const all = document.documentElement.outerHTML + JSON.stringify(Object.assign({}, localStorage)) + JSON.stringify(Object.keys(window.hypeHost || {})); return all.includes(t) || all.includes(k); }, [TOKEN, KEY]);
+    const filesWith = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? filesWith(join(dir, e.name)) : [join(dir, e.name)])).filter((f) => { try { const x = readFileSync(f, 'latin1'); return x.includes(TOKEN) || x.includes(KEY); } catch (e) { return false; } });
+    await G(page, () => window.__hype.saveNow && window.__hype.saveNow());
+    await sleep(800);
+    const leaked = filesWith(DATA);
+    check('the ticket and the key stay in the main process’s memory: out of its environment once read, never in the page, its storage or the game’s files', envLeft.length === 0 && !page1 && leaked.length === 0, { envLeft, page1, leaked });
+    // a network failure: the same event again, later
+    fail.add('living-legend');
+    await G(page, () => window.__hype.unlockAch(window.__hype.S.game, 'living-legend'));
+    await waitHit('living-legend', 2, 12000);
+    const ll = of('living-legend');
+    check('an answer 503: the same event is sent again a few seconds later, with the same id', ll.length === 2 && ll[0].body.p_event_id === ll[1].body.p_event_id && ll[1].at - ll[0].at >= 1800, ll.map((h) => ({ id: h.body.p_event_id, at: h.at - ll[0].at })));
+    // a game changed by hand (the mode menu) keeps its achievements to itself
+    await G(page, () => window.__hype.leaveGame && window.__hype.leaveGame());
+    await sleep(800);
+    await G(page, (id) => window.__hype.openGame(id), id2);
+    await page.waitForSelector('.post', { timeout: 20000 });
+    await dismiss(page);
+    await sleep(5000); // (its first look: what it has goes to the launcher)
+    const sync2 = hits.filter((h) => h.body && (h.body.p_metadata || {}).saveId === id2).length;
+    const n0 = hits.length;
+    const boss2 = await G(page, () => { const H = window.__hype, g = H.S.game; H.menuApply(g, { gems: g.stats.gems + 1 }); return H.unlockAch(g, 'the-boss') && H.achGot(g, 'the-boss'); });
+    await sleep(5000);
+    const after = hits.slice(n0).filter((h) => h.body && (h.body.p_metadata || {}).saveId === id2);
+    check('a game changed by hand (the mode menu): its achievements stay in the game (« Le boss » unlocked), nothing more goes to the launcher', sync2 > 0 && boss2 && after.length === 0, { sync2, boss2, after: after.map((h) => h.body.p_achievement_key) });
+    // the way out: what waits is sent, two seconds at most (the backend here never answers)
+    await G(page, () => window.__hype.leaveGame && window.__hype.leaveGame());
+    await sleep(800);
+    await G(page, (id) => window.__hype.openGame(id), id1);
+    await page.waitForSelector('.post', { timeout: 20000 });
+    fail.add('married'); hang.add('married');
+    await G(page, () => window.__hype.unlockAch(window.__hype.S.game, 'married'));
+    await waitHit('married', 1, 10000);
+    const t0 = Date.now();
+    await app.close();
+    const took = Date.now() - t0;
+    check('quitting: the event still waiting goes out at once, and the app never waits more than two seconds for it', of('married').length === 2 && took < 4500, { tries: of('married').length, took });
+    srv.closeAllConnections(); srv.close();
+  }
+
   // ---------- the real SDK (no fake): the app starts and offers to connect ----------
   ({ app, page } = await launch({ HYPE_FAKE_AI: '0', HYPE_DATA_DIR: mkdtempSync(join(OUT, 'real-')) }));
   await page.waitForSelector('.gpt-btn', { timeout: 15000 });
