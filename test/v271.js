@@ -76,8 +76,8 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
 
   // ---------- a player who never made a pack ----------
   const fresh = await G(page, async () => { const H = window.__hype; await H.loadAtelier(); return { meta: await H.Store.read('pk_meta').catch(() => null), people: H.S.atelier.meta.people.length, m01: H.PACK.byId.m01.photos.length, f02: H.PACK.byId.f02.photos.length, local: H.PACK.local }; });
-  check('a player who never made a pack: their atelier stays empty (nothing written), the game has every shipped face (Jasmine’s 103 photos, Cloé’s 43)',
-    !fresh.meta && fresh.people === 0 && fresh.m01 === 103 && fresh.f02 === 43 && fresh.local === 0, fresh);
+  check('a player who never made a pack: their atelier stays empty (nothing written), the game has every shipped face (Jasmine’s 150 photos, Cloé’s 43)',
+    !fresh.meta && fresh.people === 0 && fresh.m01 === 150 && fresh.f02 === 43 && fresh.local === 0, fresh);
 
   // ---------- the creator's atelier from before: older copies of Sarah and Jasmine (the same images), a photo of their
   // own under a shipped id, no Cloé, a face of their own ----------
@@ -108,12 +108,12 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
       shipped: A.shipped, saved: ((await H.Store.read('pk_meta')) || { people: [] }).people.length,
       game: { m01: gm.photos.length, local: gm.local, src: H.phSrc(gm, gm.photos.find((x) => x.id === 'm01-61')), mineSrc: H.phSrc(gm, gm.photos.find((x) => x.id === (mine[0] || {}).id)), pt: H.portraitSrc(gm), f02: H.PACK.byId.f02.photos.length, f05: H.PACK.byId.f05 ? H.PACK.byId.f05.photos.length : 0 } };
   }, { SHIPPED, TINY });
-  check('the creator’s atelier from before (Sarah and Jasmine as exported, 17 photos for Jasmine): it takes in the shipped versions — Jasmine’s 103 photos, her new look and profile photo; Cloé, missing, comes in with her 43; the creator’s own face stays; saved; the game shows the same',
-    before.ids === 'f01,m01,f05,f02' && before.m01 === 105 && before.next === 106 && /taches de rousseur/.test(before.look) && before.pt === 'pack/m01-p.webp' && before.first === 'm01-1.webp' && before.desc !== 'ancienne description'
-      && before.f01files === 19 && before.f02 === 43 && before.f02pt === 'pack/f02-p.webp' && before.f05 === 1 && before.shipped && before.shipped.m01 === 202610181400 && before.saved === 4
-      && before.game.m01 === 105 && before.game.local && before.game.src === 'pack/m01-61.webp' && before.game.pt === 'pack/m01-p.webp' && before.game.f02 === 43 && before.game.f05 === 1, before);
+  check('the creator’s atelier from before (Sarah and Jasmine as exported, 17 photos for Jasmine): it takes in the shipped versions — Jasmine’s 150 photos, her new look and profile photo; Cloé and Zoé, missing, come in (43 and 1 photos); the creator’s own face stays; saved; the game shows the same',
+    before.ids === 'f01,m01,f05,f02,f03' && before.m01 === 152 && before.next === 153 && /taches de rousseur/.test(before.look) && before.pt === 'pack/m01-p.webp' && before.first === 'm01-1.webp' && before.desc !== 'ancienne description'
+      && before.f01files === 54 && before.f02 === 43 && before.f02pt === 'pack/f02-p.webp' && before.f05 === 1 && before.shipped && before.shipped.m01 === 202610191945 && before.saved === 5
+      && before.game.m01 === 152 && before.game.local && before.game.src === 'pack/m01-61.webp' && before.game.pt === 'pack/m01-p.webp' && before.game.f02 === 43 && before.game.f05 === 1, before);
   check('the creator’s own photos under shipped ids (another picture): kept, with ids of their own (their image follows), their series apart from the shipped one',
-    before.mine === 'm01-104:s28:,m01-105:s28:' && before.mineImg && !before.oldDoc && before.shippedS3.length > 0 && before.s3now === before.shippedS3 && /^data:image\/webp/.test(before.game.mineSrc || ''), before);
+    before.mine === 'm01-151:s40:,m01-152:s40:' && before.mineImg && !before.oldDoc && before.shippedS3.length > 0 && before.s3now === before.shippedS3 && /^data:image\/webp/.test(before.game.mineSrc || ''), before);
 
   // ---------- on screen: the atelier, no photo goal ----------
   await G(page, () => { const H = window.__hype; H.S.atelier.sel = 'f02'; H.openAtelier(); });
@@ -123,7 +123,7 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
   const ui = await G(page, () => ({ goal: document.querySelector('.atelier .at-goal').textContent, cards: [...document.querySelectorAll('.atelier .at-pcard b')].map((b) => b.textContent), imgs: [...document.querySelectorAll('.atelier .at-photo img')].slice(0, 3).map((i) => i.getAttribute('src')), loaded: [...document.querySelectorAll('.atelier .at-photo img')].slice(0, 3).every((i) => i.complete && i.naturalWidth > 0) }));
   await shot(page, 'atelier-cloe');
   check('on screen: the atelier lists Cloé with her photos (the shipped images, shown), and counts the photos without a goal (no « /135 »)',
-    /Photos 168/.test(ui.goal) && !/\//.test(ui.goal.split('Photos')[1]) && ui.cards.includes('Cloé') && ui.imgs.length === 3 && ui.imgs.every((s) => /^pack\/f02-\d+\.webp$/.test(s)) && ui.loaded, ui);
+    /Photos 251/.test(ui.goal) && !/\//.test(ui.goal.split('Photos')[1]) && ui.cards.includes('Cloé') && ui.cards.includes('Zoé') && ui.imgs.length === 3 && ui.imgs.every((s) => /^pack\/f02-\d+\.webp$/.test(s)) && ui.loaded, ui);
 
   // ---------- a reload: nothing twice; a shipped face removed by the creator does not come back ----------
   const again = await G(page, async () => {
@@ -136,12 +136,12 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
     return { n1, ids: H.S.atelier.meta.people.map((x) => x.id).join(), game: H.PACK.byId.f02 ? { local: H.PACK.byId.f02.local, n: H.PACK.byId.f02.photos.length } : null };
   });
   check('a reload takes nothing in twice; Cloé removed from the atelier does not come back there (the game still has the shipped one)',
-    again.n1 === 'f01:19,m01:105,f05:1,f02:43' && again.ids === 'f01,m01,f05' && again.game && !again.game.local && again.game.n === 43, again);
+    again.n1 === 'f01:54,m01:152,f05:1,f02:43,f03:1' && again.ids === 'f01,m01,f05,f03' && again.game && !again.game.local && again.game.n === 43, again);
 
   // ---------- the export carries the shipped images ----------
   const ex = await G(page, async ({ TINY }) => { const t = JSON.parse(await window.__hype.packExportText()); const m = t.people.find((p) => p.id === 'm01'); return { n: m.photos.length, img: (m.photos[60].img || '').slice(0, 22), size: (m.photos[60].img || '').length, pt: (m.portrait || '').slice(0, 22), mine: m.photos.filter((x) => x.img === TINY).map((x) => x.id).join(), own: t.people.find((p) => p.id === 'f05').photos.length }; }, { TINY });
   check('the exported pack carries every photo, the shipped ones included (their images, the new profile photo), and the creator’s own',
-    ex.n === 105 && ex.img === 'data:image/webp;base64' && ex.size > 2000 && ex.pt === 'data:image/webp;base64' && ex.mine === 'm01-104,m01-105' && ex.own === 1, ex);
+    ex.n === 152 && ex.img === 'data:image/webp;base64' && ex.size > 2000 && ex.pt === 'data:image/webp;base64' && ex.mine === 'm01-151,m01-152' && ex.own === 1, ex);
 
   // ---------- a face of the creator's own under a shipped id; an unreadable image; an older export imported ----------
   const other = await G(page, async ({ TINY }) => {
@@ -155,7 +155,7 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
       oldDoc: !!(await H.Store.read('pk_img_f02-1').catch(() => null)), cloe: cloe ? `${cloe.photos.length}:${cloe.photos[0].file}` : '', game: H.PACK.byId.f02 && H.PACK.byId.f02.photos.length };
   }, { TINY });
   check('a face of the creator’s own under a shipped id (« Léa » as f02): she moves to an id of her own, with her photos and profile photo; Cloé takes f02 (and the other shipped faces come in)',
-    /^f0\d:Léa:2,f01:Sarah:19,m01:Jasmine:103,f02:Cloé:43$/.test(other.ids) && /^(f0\d)-1,\1-2\|\1-p$/.test(other.lea) && !/^f02-/.test(other.lea) && other.leaImg && !other.oldDoc && other.cloe === '43:f02-1.webp' && other.game === 43, other);
+    /^f0\d:Léa:2,f01:Sarah:54,m01:Jasmine:150,f02:Cloé:43,f03:Zoé:1$/.test(other.ids) && /^(f0\d)-1,\1-2\|\1-p$/.test(other.lea) && !/^f02-/.test(other.lea) && other.leaImg && !other.oldDoc && other.cloe === '43:f02-1.webp' && other.game === 43, other);
 
   const e0 = errors.length; // (the unreadable image: one 404, expected)
   const dark = await G(page, async ({ TINY }) => {
@@ -185,7 +185,7 @@ const TINY = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4
     const A = H.S.atelier.meta;
     return { n, ids: A.people.map((x) => `${x.id}:${x.photos.length}`).join(), files: A.people[0].photos.filter((x) => x.file).length, game: H.PACK.byId.m01.photos.length };
   }, { SHIPPED });
-  check('an older export imported (Jasmine with 17 photos): the atelier takes in the faces shipped since (her 103 photos, Sarah, Cloé)', imp.n === 1 && imp.ids === 'm01:103,f01:19,f02:43' && imp.files === 103 && imp.game === 103, imp);
+  check('an older export imported (Jasmine with 17 photos): the atelier takes in the faces shipped since (her 150 photos, Sarah, Cloé, Zoé)', imp.n === 1 && imp.ids === 'm01:150,f01:54,f02:43,f03:1' && imp.files === 150 && imp.game === 150, imp);
 
   // ---------- no real limit to a face's photos ----------
   const lim = await G(page, () => {

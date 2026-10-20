@@ -1,7 +1,33 @@
 /* =========================================================
    UI (Preact + htm)
    ========================================================= */
-const { html, render, useState, useEffect, useLayoutEffect, useRef, createContext, useContext } = window.htmPreact;
+const { html: htmlRaw, h, render, useState, useEffect, useLayoutEffect, useRef, createContext, useContext } = window.htmPreact;
+// 0.29: our stickers in every text the game shows (a status, a chip, a button, a title, a list…), not only in posts and
+// messages: a text child with one of our emojis gets its sticker. What a field, a menu or an attribute shows stays as the
+// system draws it (it cannot hold an image). Each template looks at what it made itself: a part made by another template
+// (or a component's own children, shown by it) was already looked at, or will be.
+const EMO_SKIP = new Set(['textarea', 'option', 'optgroup', 'select', 'title', 'style', 'script', 'text', 'tspan', 'textPath']);
+function emoKids(v) {
+  if (typeof v === 'string') return ANY_EMO.test(v) ? emoNodes(v) : v;
+  if (Array.isArray(v)) {
+    let out = null;
+    for (let i = 0; i < v.length; i++) {
+      const x = emoKids(v[i]);
+      if (x !== v[i] && !out) out = v.slice(0, i);
+      if (out) out.push(x);
+    }
+    return out || v;
+  }
+  if (v && typeof v === 'object' && v.props && !v.__emo) {
+    v.__emo = 1;
+    if (typeof v.type === 'string' && !EMO_SKIP.has(v.type) && v.props.children != null) {
+      const c = v.props.children, n = emoKids(c);
+      if (n !== c) v.props.children = n;
+    }
+  }
+  return v;
+}
+const html = (...a) => emoKids(htmlRaw(...a));
 
 const ICONS = {
   minus: '<path d="M5 12h14"/>', // 0.27.7: the windows
@@ -309,7 +335,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', minigame: '🎬', series: '📅', shop: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', cheat: '🛠️', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -344,8 +370,8 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'cheat', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
-// The PC app, which can open real windows (the Claude version keeps its windows inside the game).
+const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+// The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
 // Where it opens: where this kind was last left, or beside the game (over its right side when the screen has no room).
@@ -468,6 +494,7 @@ const openTag = (tg) => openLayer({ t: 'tag', id: tg });
 // opts: { text } prefills (e.g. a mention), { quote: postId }, { apology: true }, { accuse: charId }
 function openCompose(opts = {}) {
   const d = S.drafts;
+  if (opts.accuse || opts.debunk || opts.confess || opts.secAns || opts.merch || opts.pfp || opts.apology || opts.quote) d.contest = false; // 0.29: a post is one thing at a time
   if (opts.accuse && S.game && S.game.chars[opts.accuse]) {
     const c = S.game.chars[opts.accuse];
     if (d.accuse !== c.id) { d.fake = null; d.caps = []; } // a proof made up against someone else does not follow
@@ -489,7 +516,11 @@ function openCompose(opts = {}) {
   }
   if (opts.merch && S.game) { // 0.22: the post that launches the merch
     const md = openDrop(S.game);
-    if (md && md.id === opts.merch && md.state === 'ready') { Object.assign(d, { merch: md.id, accuse: null, debunk: null, confess: null, secAns: null, apology: false, quote: null, pfp: null }); if (!d.post.trim()) d.post = '🛍️ Mon merch est enfin là ! '; }
+    if (md && md.id === opts.merch && md.state === 'ready') { Object.assign(d, { merch: md.id, accuse: null, debunk: null, confess: null, secAns: null, apology: false, quote: null, pfp: null }); if (!d.post.trim()) d.post = md.items.every((p) => MERCH[p.k].book) ? '📖 Mon livre est enfin là ! ' : '🛍️ Mon merch est enfin là ! '; }
+  }
+  if (opts.contest && S.game) { // 0.29: the post that asks the community for designs
+    Object.assign(d, { contest: true, merch: null, accuse: null, debunk: null, confess: null, secAns: null, apology: false, quote: null, pfp: null });
+    if (!d.post.trim()) d.post = '🎨 Concours ! Proposez-moi le design de mon prochain merch, je choisis le gagnant : ';
   }
   if (opts.pfp && S.game) { // 0.25.1: the post that shows the new profile photo (it takes the draft's photo spot)
     const old = (d.pics || []).filter((x) => x !== opts.pfp.pic);
@@ -523,13 +554,13 @@ function scrollFeedTop() {
 }
 function tabBadge(g, id, now) {
   if (id === 'notifs' && S.tab !== 'notifs') return unreadNotifs(g, now);
-  if (id === 'dms') return unreadDMs(g, now, dmsShown());
+  if (id === 'dms') return unreadDMs(g, now, dmsShown()) + unreadGroups(g, now); // (0.29: and the groups)
   if (id === 'profile') return g.stats.skillPoints;
   if (id === 'studio') return g.deals.filter((d) => d.state === 'offer').length + (programOf(g) && programOf(g).ok && g.career.prog.state === 'none' ? 1 : 0);
   return 0;
 }
 // Among the modals that are due, the most important first: a cancel before a level-up.
-const MODAL_RANK = { revlost: 0, confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
+const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
 function dueModal(now) {
   if (now < S.modalGapUntil) return null;
   let best = null;
@@ -580,7 +611,7 @@ function enterGame(g, restore = {}) {
   if (S.deskBy) delete S.deskBy[g.id];
   TOAST_Q.length = 0;
   Object.assign(S, {
-    game: g, phase: 'game', tab: restore.tab || 'feed', stack: [], dock: kept ? kept.dock : [], pubDrafts: kept ? kept.pubDrafts : {}, setupDrafts: kept ? kept.setupDrafts : {}, modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
+    game: g, phase: 'game', tab: restore.tab || 'feed', storyView: null, stack: [], dock: kept ? kept.dock : [], pubDrafts: kept ? kept.pubDrafts : {}, setupDrafts: kept ? kept.setupDrafts : {}, modals: [], toasts: [], ideas: null, fabAway: false, tipLayer: null,
     feedSeenAt: t, feedAtTop: true, lastToastAt: t, notifSeenBefore: g.notifReadAt,
     drafts: kept ? kept.drafts : { post: '', photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], reply: {}, dm: {}, confess: null, secAns: null, conf: {} }, replyTo: kept ? kept.replyTo : {}, autoSkip: {}, catchup: null,
   });
@@ -607,7 +638,7 @@ function leaveGame() {
   }
   TOAST_Q.length = 0;
   osDropAll();
-  Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null });
+  Object.assign(S, { game: null, phase: 'home', stack: [], dock: [], modals: [], toasts: [], ideas: null, catchup: null, storyView: null });
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   update(false);
   leaving = abortFlows().then(() => saveGame(g)); // each flow finishes or undoes itself on g, then g is saved once
@@ -668,7 +699,6 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (S.fileBox) { S.fileBox = null; update(false); return; } // (0.28.1: the export or import window)
       const m = S.phase === 'game' ? dueModal(Date.now()) : null;
       if (m) { if (!STICKY_MODALS.includes(m.t)) closeModal(m); } // 0.18: a visit is not closed that way
       else if (S.stack.length) { const top = S.stack[S.stack.length - 1]; if (top.onBack) top.onBack(); else closeLayer(); } // (0.28.1: a page of its own, a photo open: back to the grid first)
@@ -683,7 +713,7 @@ function App() {
   else if (S.phase === 'game' && S.game) main = html`<${Game} g=${S.game} now=${now} />`;
   else if (S.phase === 'atelier') main = html`<${Atelier} now=${now} />`;
   else main = html`<${Splash} />`;
-  const body = html`${main}<${HostModal} /><${FileBox} /><${Toasts} now=${now} />`;
+  const body = html`${main}<${HostModal} /><${Toasts} now=${now} />`;
   return APP_FRAMED && !APP_ST.full ? html`<${AppBar} /><div class="app-body">${body}</div>` : APP_FRAMED ? html`<div class="app-body">${body}</div>` : body; // (0.27.10)
 }
 function Splash() {
@@ -767,13 +797,13 @@ function PreviewPost({ p }) {
     </div>
   </article>`;
 }
-/* ---------- moving a game between AIs: one file ---------- */
+/* ---------- a game as one file (to keep, or to take to another computer) ---------- */
 const canFiles = () => !!(HOST && HOST.saveFile && HOST.openFile);
 async function exportGame(id) {
   try {
     const text = await exportGameText(id);
     const sm = S.games.find((x) => x.id === id) || (S.game && S.game.id === id ? summarize(S.game) : null);
-    if (await HOST.saveFile(exportName(sm), text)) toast('Partie exportée : tu peux l’importer dans Hype pour Claude ou pour ChatGPT.');
+    if (await HOST.saveFile(exportName(sm), text)) toast('Partie exportée : « Importer une partie » la reprend, sur cet ordi ou sur un autre.');
   } catch (e) { toast('L’export n’a pas marché. Réessaie.', 'bad'); }
 }
 async function importGame() {
@@ -785,80 +815,9 @@ async function importGame() {
   update(false);
 }
 const importErr = (e, what = 'Ce fichier') => (e && e.code === 'full' ? `Tu as déjà ${MAX_GAMES} parties : supprime-en une d’abord.` : e && e.code === 'invalid' ? `${what} n’est pas une partie Hype.` : 'L’import n’a pas marché. Réessaie.');
-// 0.28.1: without the app's files (the Claude version), the game as text: copied, or downloaded where the page may,
-// and back by pasting it or picking its file. (canFiles still means the app's own files: a failed save offers « Exporter »
-// only with them.)
-function exportAny(id) {
-  if (canFiles()) { exportGame(id); return; }
-  S.fileBox = { mode: 'export', id, text: null, err: null, note: null };
-  update(false);
-  exportGameText(id).then((t) => { if (S.fileBox && S.fileBox.id === id) { S.fileBox.text = t; update(false); } },
-    () => { if (S.fileBox && S.fileBox.id === id) { S.fileBox.err = 'L’export n’a pas marché. Réessaie.'; update(false); } });
-}
-function importAny() {
-  if (canFiles()) { importGame(); return; }
-  S.fileBox = { mode: 'import', text: '', err: null, file: false, busy: false };
-  update(false);
-}
-function FileBox() {
-  const b = S.fileBox;
-  const [dl, setDl] = useState(null); // the page's downloads, where it has them
-  const mode = b ? b.mode : null;
-  useEffect(() => {
-    let on = true;
-    const c = typeof window !== 'undefined' ? window.claude : null;
-    if (mode === 'export' && c && typeof c.use === 'function') Promise.resolve().then(() => c.use('downloads')).then((d) => { if (on) setDl(d || null); }, () => {});
-    return () => { on = false; };
-  }, [mode]);
-  if (!b) return null;
-  const close = () => { S.fileBox = null; update(false); };
-  const note = (t) => { b.note = t; update(false); };
-  const sm = () => S.games.find((x) => x.id === b.id) || (S.game && S.game.id === b.id ? summarize(S.game) : null);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(b.text); note('Copié : colle-le là où tu veux la garder.'); }
-    catch (e) { const el = document.querySelector('.file-box .fb-text'); if (el) { el.focus(); el.select(); } note('Le texte est sélectionné : copie-le.'); }
-  };
-  const save = async () => {
-    try { await dl.save({ filename: exportName(sm()), data: b.text }); note('Partie téléchargée : « Importer une partie » la reprend, dans Hype pour Claude ou pour ChatGPT.'); }
-    catch (e) { note('Le téléchargement n’a pas pu se faire : copie le texte à la place.'); }
-  };
-  const pick = (ev) => {
-    const f = ev.target.files && ev.target.files[0];
-    ev.target.value = '';
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => { Object.assign(b, { text: String(r.result || ''), err: null, file: true }); update(false); };
-    r.onerror = () => { b.err = 'Impossible de lire ce fichier.'; update(false); };
-    r.readAsText(f);
-  };
-  const go = async () => {
-    if (b.busy || !b.text.trim()) return;
-    b.busy = true;
-    update(false);
-    try { const g = await importGameText(b.text.trim()); S.fileBox = null; toast(`Partie importée : ${g.world.emoji} ${g.world.name}.`, 'good'); }
-    catch (e) { b.err = importErr(e, b.file ? 'Ce fichier' : 'Ce texte'); }
-    b.busy = false;
-    update(false);
-  };
-  const card = b.mode === 'export' ? html`<div class="modal-card">
-      <div class="modal-title">Exporter la partie</div>
-      <p>Garde ce texte : « Importer une partie » le reprend, dans Hype pour Claude ou pour ChatGPT.</p>
-      ${b.err ? html`<p class="err">${b.err}</p>` : b.text == null ? html`<${Typing} />` : html`<textarea class="input fb-text" rows="5" readOnly value=${b.text} aria-label="Le texte de ta partie" onFocus=${(e) => e.target.select()}></textarea>`}
-      <button class="btn btn-hot" onClick=${copy} disabled=${!b.text}>Copier</button>
-      ${dl && typeof dl.save === 'function' ? html`<button class="btn btn-ghost" onClick=${save} disabled=${!b.text}><${Icon} n="download" s=${16} /> Télécharger</button>` : null}
-      ${b.note ? html`<small class="muted">${b.note}</small>` : null}
-      <button class="btn btn-ghost" onClick=${close}>Fermer</button>
-    </div>` : html`<div class="modal-card">
-      <div class="modal-title">Importer une partie</div>
-      <p>Colle le texte d’une partie exportée, ou choisis son fichier. Elle arrive à côté des autres, sans rien remplacer.</p>
-      <textarea class="input fb-text" rows="5" value=${b.text} placeholder="Le texte de ta partie" aria-label="Le texte de ta partie" onInput=${(e) => { Object.assign(b, { text: e.target.value, err: null, file: false }); update(false); }}></textarea>
-      <label class="btn btn-ghost btn-sm fb-file"><${Icon} n="upload" s=${15} /> Choisir un fichier<input type="file" accept=".json,application/json" onChange=${pick} /></label>
-      ${b.err ? html`<small class="err">${b.err}</small>` : null}
-      <button class="btn btn-hot" onClick=${go} disabled=${b.busy || !b.text.trim()}>${b.busy ? html`<${Typing} />` : 'Importer'}</button>
-      <button class="btn btn-ghost" onClick=${close}>Annuler</button>
-    </div>`;
-  return html`<div class="modal file-box" role="dialog" aria-modal="true" aria-label=${b.mode === 'export' ? 'Exporter la partie' : 'Importer une partie'} onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>${card}</div>`;
-}
+// (0.29: the app's own files; without them, the page of the tests, there is nothing to export to)
+function exportAny(id) { if (canFiles()) exportGame(id); }
+function importAny() { if (canFiles()) importGame(); }
 
 /* ---------- ChatGPT (desktop app): the way in, the account, the plan in use ---------- */
 const SESSION_ERR = {
@@ -956,7 +915,7 @@ function Home({ now }) {
       <button class="btn btn-hot btn-sm" onClick=${startOnboarding} disabled=${blocked || !hostReady()}><${Icon} n="plus" s=${16} /> Nouvelle partie</button>
     </div>` : null}
     ${HOST && games.length ? html`<${GptPanel} />` : null}
-    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>${HOST ? 'Connecte-toi à ChatGPT pour que les personnages prennent vie.' : 'Ouvre ce jeu dans Claude (sur le web, l’app de bureau ou l’app mobile) pour que les personnages prennent vie.'}</p></div>` : null}
+    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>Connecte-toi à ChatGPT pour que les personnages prennent vie.</p></div>` : null}
     ${S.indexError ? html`<div class="notice bad"><${Icon} n="alert" /><div class="stack" style="gap:8px"><p>Impossible de lire tes parties pour l’instant. Elles ne sont pas perdues.</p><div class="row"><button class="btn btn-hot btn-sm" onClick=${retryIndex}>Réessayer</button></div></div></div>` : null}
     ${games.length ? html`<section class="stack">
         <h1 class="h-lg">Tes parties</h1>
@@ -970,20 +929,20 @@ function Home({ now }) {
           </div>` : html`<button class="save" onClick=${() => openGame(s.id)} disabled=${S.busy.load}>
             <span class="save-tile" style=${'--h:' + (s.hue == null ? 300 : s.hue)}>${s.emoji}</span>
             <span class="save-main"><b>${s.title || s.world}</b><span>${s.title ? s.world + ' · ' : ''}${s.avatar} ${s.name} · @${s.handle}</span></span>
-            <span class="save-meta">${s.setup ? html`<span class="chip hot">À finir</span>` : html`<b>${fmtN(s.followers)}</b><span>${plural(s.followers, 'abonné', 'abonnés')} · niv. ${s.level}</span>`}<span>${fmtAgo(s.updatedAt, now)}</span></span>
+            <span class="save-meta">${s.setup ? html`<span class="chip hot">À finir</span>` : s.over ? html`<span class="chip bad">Fin de partie</span>` : html`<b>${fmtN(s.followers)}</b><span>${plural(s.followers, 'abonné', 'abonnés')} · niv. ${s.level}</span>`}<span>${fmtAgo(s.updatedAt, now)}</span></span>
           </button>`}
           <button class="save-edit" onClick=${() => setRen({ id: s.id, text: s.title || '' })} disabled=${S.busy.load} aria-label=${`Renommer la partie ${s.title || s.world}`} title="Renommer cette partie"><${Icon} n="pen" s=${17} /></button>
           <button class="save-del" onClick=${() => setDel({ s, at: Date.now() })} disabled=${S.busy.load} aria-label=${`Supprimer la partie ${s.world} · ${s.name}`} title="Supprimer cette partie"><${Icon} n="trash" s=${18} /></button>
         </div>`)}</div>
         ${full ? html`<p class="muted">Tu as atteint ${MAX_GAMES} parties. Pour en créer une autre, supprime-en une avec la corbeille.</p>` : null}
-        <div class="row"><button class="btn btn-ghost btn-sm" onClick=${importAny} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>
+        <div class="row">${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${importAny} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>
       </section>`
       : html`<section class="hero">
         <span class="wm wm-xl">hype<i></i></span>
         <h1 class="h-xl">Ta vie en ligne, version jeu.</h1>
         <p class="lede">Crée ton perso, choisis un monde et poste. Tout le monde est une IA sauf toi : on te répond, on s’abonne, on s’attache… ou on te cancel.</p>
         ${HOST ? html`<${GptPanel} />` : null}
-        <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button><button class="btn btn-ghost" onClick=${importAny} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
+        <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button>${canFiles() ? html`<button class="btn btn-ghost" onClick=${importAny} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
       </section>
       <section class="preview" aria-label="Aperçu d’une partie">
         <div class="preview-tag"><span>Aperçu · exemple de partie</span><span>Académie Lumen</span></div>
@@ -1057,8 +1016,7 @@ function WorldStep() {
     </div>
     <div class="worlds">
       ${WORLDS.map((w) => html`<button key=${w.id} class=${'world' + (ob.world === w.id ? ' on' : '')} style=${'--h:' + w.hue} onClick=${() => choose(w.id)}>
-        <span class="world-emoji">${w.emoji}</span><b>${w.name}</b><span class="world-desc">${w.desc}</span>
-        ${w.real ? html`<span class="world-news">${newsFresh() ? 'Actu du ' + new Date(S.news.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : 'Actu pas encore mise à jour'}</span>` : null}</button>`)}
+        <span class="world-emoji">${w.emoji}</span><b>${w.name}</b><span class="world-desc">${w.desc}</span></button>`)}
       <button class=${'world world-custom' + (custom ? ' on' : '')} onClick=${() => setCustom(true)}>
         <span class="world-emoji">✨</span><b>Ton univers</b><span class="world-desc">Une série, un manga, un jeu que tu aimes, ou un monde inventé.</span></button>
     </div>
@@ -1188,7 +1146,7 @@ function PersonaStep() {
       <span><b>J’ai 18 ans ou plus</b><small>Hype est fait pour les adultes : drague, rendez-vous, clashs.</small></span>
     </label>
     ${errs.adult ? html`<span class="err">${errs.adult}</span>` : null}
-    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>${HOST ? 'Connecte-toi à ChatGPT pour que les personnages prennent vie.' : 'Ouvre ce jeu dans Claude pour que les personnages prennent vie.'}</p></div>` : null}
+    ${S.ai === 'unavailable' ? html`<div class="notice bad"><${Icon} n="alert" /><p>Connecte-toi à ChatGPT pour que les personnages prennent vie.</p></div>` : null}
     <div class="row">
       <button class="btn btn-hot" type="submit" disabled=${S.busy.create}>Créer mon monde</button>
       <span class="muted" style="font-size:13px">${AI_NAME} invente tes personnages : compte de 20 secondes à une minute.</span>
@@ -1205,7 +1163,6 @@ function CreatingStep({ now }) {
       <h1 class="h-lg">${e.code === 'thin' ? 'Le monde est resté trop vide' : 'La création a échoué'}</h1>
       <p class="lede">${e.code === 'thin' ? `${AI_NAME} n’a pas créé assez de personnages. Relance la création.` : aiErrorText(e, 'create')}</p>
       <div class="row" style="justify-content:center">
-        ${e.code === 'not_granted' ? html`<button class="btn btn-ghost" onClick=${openPermissions}>Autoriser Claude</button>` : null}
         <button class="btn btn-hot" onClick=${createWorld}>Réessayer</button>
         <button class="btn btn-ghost" onClick=${obBack}>Modifier mon perso</button>
         <button class="btn btn-ghost" onClick=${() => { ob.error = null; ob.step = 'world'; update(false); }}>Changer de monde</button>
@@ -1277,6 +1234,8 @@ function Game({ g, now }) {
     <${OsWindows} g=${g} now=${now} />
     <${Dock} />
     ${modal ? html`<${Modal} key=${modal.id} m=${modal} g=${g} />` : null}
+    ${S.storyView && !g.over ? html`<${StoryView} g=${g} now=${now} />` : null}
+    ${g.over ? html`<${GameOver} g=${g} />` : null}
   </div>`;
 }
 function Rail({ g, now }) {
@@ -1491,7 +1450,7 @@ function PostRow({ g, p, now, repost }) {
     ${viral ? html`<span class="stamp">VIRAL</span>` : null}
     <${Avatar} who=${au} onClick=${stop(() => openAuthor(au))} />
     <div class="post-body">
-      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(p.ts, now)}</span></div>
+      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${TopFanTag} g=${g} a=${p.a} /><${BuzzTag} g=${g} a=${p.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(p.ts, now)}</span></div>
       ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
       ${p.deny ? html`<div class="post-flag"><${Icon} n="megaphone" s=${13} /> Démenti</div>` : null}
       ${p.rumor ? html`<div class="post-flag bad"><span aria-hidden="true">🗣️</span> Rumeur</div>` : null}
@@ -1500,6 +1459,9 @@ function PostRow({ g, p, now, repost }) {
       <${Evidence} p=${p} g=${g} />
       ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
       <${PostMedia} g=${g} p=${p} au=${au} />
+      ${p.fic ? html`<${FicCard} g=${g} p=${p} />` : null}
+      ${p.crit ? html`<${CritCard} g=${g} p=${p} />` : null}
+      ${p.poll ? html`<${PollCard} g=${g} p=${p} now=${now} />` : null}
       ${p.q ? html`<${QuoteCard} g=${g} q=${p.q} />` : null}
       ${p.evt ? html`<${EventCard} evt=${p.evt} />` : null}
       ${p.a === 'p' ? html`<${PostResult} p=${p} g=${g} now=${now} />` : null}
@@ -1518,18 +1480,23 @@ function ReplyRow({ g, p, r, now, depth, parent }) {
   const likes = Math.round((r.likeT || 0) * ease((now - (r.ls || r.at)) / (r.animMs || 30000))) + (r.liked ? 1 : 0);
   const me = r.a === 'p';
   const picked = S.replyTo[p.id] === r.id;
-  return html`<article id=${'r-' + r.id} class=${'post reply-row' + (depth ? ' nested' : '') + (picked ? ' picked' : '')} style="cursor:default">
+  const pinned = p.pin === r.id, tr = !!(r.lang && S.trOn && S.trOn[r.id]); // 0.29: pinned by the player; from abroad, translated on demand
+  return html`<article id=${'r-' + r.id} class=${'post reply-row' + (depth ? ' nested' : '') + (picked ? ' picked' : '') + (pinned ? ' pinned' : '')} style="cursor:default">
     <${Avatar} who=${au} size=${depth ? 36 : 44} onClick=${() => openAuthor(au)} />
     <div class="post-body">
-      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${r.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(r.ts, now)}</span></div>
+      ${pinned ? html`<div class="pin-tag"><span aria-hidden="true">📌</span> Épinglé par toi</div>` : null}
+      <div class="post-head"><${AuthorName} au=${au} />${au.verified ? html`<${Verified} />` : null}<${TopFanTag} g=${g} a=${r.a} /><${BuzzTag} g=${g} a=${r.a} now=${now} /><${AuthorHandle} au=${au} /><span class="post-time">· ${fmtAgo(r.ts, now)}</span></div>
       ${parent ? html`<div class="reply-to">En réponse à <span class="mention">@${author(g, parent.a).handle}</span></div>` : null}
-      <p class="post-text"><${RichText} text=${r.text} g=${g} /></p>
+      <p class="post-text"><${RichText} text=${tr ? r.fr : r.text} g=${g} /></p>
+      ${r.lang ? html`<button type="button" class="linkbtn tr-btn" onClick=${() => { S.trOn = Object.assign({}, S.trOn, { [r.id]: !tr }); update(false); }}>${tr ? `Traduit de ${LANG_NAMES[r.lang] || 'une autre langue'} · Voir l’original` : 'Traduire'}</button>` : null}
+      ${p.ratio === r.id ? html`<span class="ratio-tag">💀 Ratio</span>` : null}
       ${eventsAt(g, (x) => x.r === r.id).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} compact=${true} />`)}
       ${me && !revealed(r, now) ? html`<div class="res"><span class="chip pending"><${Typing} /> On te lit…</span></div>` : null}
       ${me && revealed(r, now) ? html`<${ResChips} r=${r.res} now=${now} />` : null}
       <div class="post-actions" style="max-width:240px">
         <button class=${'act' + (picked ? ' on-reply' : '')} onClick=${() => replyToReply(p, r)} aria-label=${'Répondre à @' + au.handle}><${Icon} n="msg" s=${17} /><span>Répondre</span></button>
         <button class=${'act act-like' + (r.liked ? ' on' : '')} disabled=${me} onClick=${() => { r.liked = !r.liked; update(); }} aria-label="J’aime" aria-pressed=${r.liked ? 'true' : 'false'}><${Icon} n="heart" s=${17} fill=${!!r.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
+        ${p.a === 'p' && !me && !depth ? html`<button class=${'act act-pin' + (pinned ? ' on' : '')} onClick=${() => pinReply(g, p, r)} aria-label=${pinned ? 'Désépingler' : 'Épingler ce commentaire'} aria-pressed=${pinned ? 'true' : 'false'} title=${pinned ? 'Désépingler' : 'Épingler'}><span aria-hidden="true">📌</span></button>` : null}
       </div>
     </div>
   </article>`;
@@ -1598,6 +1565,9 @@ function FeedTab({ g, now }) {
         <button class="btn btn-ghost btn-sm" onClick=${() => refreshFeed(0)} disabled=${S.busy.refresh}>${S.busy.refresh ? html`<${Typing} /> Ça bouge…` : html`<${Icon} n="refresh" s=${15} /> Actualiser`}</button>
       </div>
     </div>
+    <${StoriesBar} g=${g} now=${now} />
+    <${NetBanner} g=${g} now=${now} />
+    <${MemoryCard} g=${g} now=${now} />
     ${stayOn(g, now) ? html`<${StayLine} g=${g} />` : null}
     ${HOST && autoLiveOn(g) ? html`<${LiveLine} g=${g} now=${now} />` : null}
     ${tr.length ? html`<div class="trend-strip" aria-label="Tendances">${tr.map(([tg]) => html`<button key=${tg} class="trend-chip" onClick=${() => openTag(tg)}><${Icon} n="trend" s=${13} /><span>${tg}</span></button>`)}</div>` : null}
@@ -1647,6 +1617,7 @@ const NOTIF_ICON = {
   standdown: ['trend', 'bad'], standup: ['trend', 'good'], echo: ['sparkles', 'flash'],
   train: ['train', 'flash'], trainstart: ['train', 'flash'], // 0.17
   rumor: ['megaphone', 'bad'], // 0.28.1
+  fanfic: ['book', 'hot'], crit: ['clapper', 'bad'], // 0.29
 };
 // 0.28.1: the achievements' window, at one of them (brought into view and shown off a moment: R17)
 function openAch(id) {
@@ -1703,9 +1674,11 @@ function DMsTab({ g, now }) {
   }).filter((x) => x.c && x.last).sort((a, b) => b.last.at - a.last.at);
   const starters = mains(g).filter((c) => !convos.some((x) => x.c.id === c.id));
   return html`
+    <${GroupRows} g=${g} now=${now} />
+    ${liveGroups(g).length && convos.length ? html`<div class="list-h">Messages</div>` : null}
     ${convos.length ? convos.map(({ c, last, n }) => html`<button key=${c.id} class=${'convo' + (n ? ' unread' : '')} onClick=${() => openDM(c.id)}>
         <${Avatar} who=${author(g, 'c:' + c.id)} size=${48} />
-        <div class="mid"><div><b>${c.name}</b><span>${isMain(c) ? relShown(c) + (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' ' + VIBES[c.vibe].emoji : '') : c.role}</span></div><p>${last.me ? 'Toi : ' : ''}${last.sys === 'deal' ? '📄 Proposition de partenariat' : last.sys === 'invite' ? '📅 Invitation : ' + last.title : emoParts(last.text)}</p></div>
+        <div class="mid"><div><b>${c.name}</b><span>${isMain(c) ? relShown(c) + (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' ' + VIBES[c.vibe].emoji : '') : c.role}</span></div><p>${last.me ? 'Toi : ' : ''}${last.sys === 'deal' ? '📄 Proposition de partenariat' : last.sys === 'invite' ? '📅 Invitation : ' + last.title : last.sys === 'leak' ? '📸 Capture du groupe « ' + last.group + ' »' : emoParts(last.text)}</p></div>
         <div class="side-meta"><span>${fmtAgo(last.at, now)}</span>${n ? html`<span class="dot-count">${n}</span>` : null}</div>
       </button>`)
       : html`<div class="empty"><b>Aucun message</b><span>Écris à un personnage : c’est en privé que les alliances se font.</span></div>`}
@@ -1782,6 +1755,33 @@ function QuestsTab({ g, now }) {
     ${SHOP.map((it) => html`<${ShopItem} key=${it.id} it=${it} g=${g} />`)}
     ${done.length ? html`<div class="list-h">Terminées<span>${done.length}</span></div>${done.map((q) => html`<${QuestCard} key=${q.id} q=${q} g=${g} now=${now} />`)}` : null}`;
 }
+// 0.29: the player's bio, written or changed at any time, even when left empty at the creation (the characters read
+// the new one: ai.js, « Sa bio »).
+const BIO_MAX = 140;
+function BioBox({ g }) {
+  const P = g.player, ref = useRef(null);
+  const [ed, setEd] = useState(null); // the bio being typed (null: not being edited)
+  const em = useEmoji('bio', ref, () => ed || '', (v) => setEd(v), BIO_MAX);
+  useEffect(() => { if (ed != null && ref.current && !ref.current.dataset.f) { ref.current.dataset.f = '1'; ref.current.focus(); } }, [ed != null]);
+  const close = () => { if (S.emoOpen === 'bio') S.emoOpen = null; setEd(null); };
+  const ok = () => {
+    const b = str(ed, BIO_MAX);
+    if (b !== (P.bio || '')) { P.bio = b; scheduleSave(); toast(b ? 'Ta bio est à jour.' : 'Ta bio est effacée.', 'good'); }
+    close();
+  };
+  if (ed == null) {
+    return P.bio
+      ? html`<div class="bio-row"><p class="bio">${P.bio}</p><button class="iconbtn bio-ed" onClick=${() => setEd(P.bio)} aria-label="Modifier ta bio" title="Modifier ta bio"><${Icon} n="pen" s=${15} /></button></div>`
+      : html`<button class="linkbtn bio-add" onClick=${() => setEd('')}><${Icon} n="pen" s=${14} /> Ajouter une bio</button>`;
+  }
+  return html`<div class="bio-edit">
+    <textarea ref=${ref} class="input" rows="2" maxlength=${BIO_MAX} value=${ed} placeholder="Ce qu’on lit sur ton profil" aria-label="Ta bio"
+      onInput=${(e) => setEd(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ok(); } else if (e.key === 'Escape') { e.stopPropagation(); close(); } }}></textarea>
+    ${em.panel}
+    <div class="bio-tools">${em.btn}<span class="muted">${ed.length}/${BIO_MAX}</span><span class="sp"></span>
+      <button class="btn btn-ghost btn-sm" onClick=${close}>Annuler</button><button class="btn btn-hot btn-sm" onClick=${ok}>Enregistrer</button></div>
+  </div>`;
+}
 function ProfileTab({ g, now }) {
   const P = g.player, s = g.stats;
   const stamp = (p) => (p.a === 'p' ? p.ts : p.rpAt || p.ts);
@@ -1794,9 +1794,10 @@ function ProfileTab({ g, now }) {
     <div class="prof">
       <div class="prof-top"><${PfpButton} g=${g} /><button class="btn btn-ghost btn-sm" onClick=${leaveGame}><${Icon} n="grid" s=${15} /> Mes parties</button></div>
       <div><h2>${P.name}</h2><span class="handle">@${P.handle}</span></div>
-      ${P.bio ? html`<p class="bio">${P.bio}</p>` : null}
+      <${BioBox} g=${g} />
       <p class="muted" style="font-size:14px">${g.world.emoji} ${g.world.name} · ${P.identity}</p>
       <${PlayerSocialLinks} g=${g} now=${now} />
+      <${ShipsRow} g=${g} />
       <div class="prof-stats"><span><b>${fmtN(s.followers)}</b> ${plural(s.followers, 'abonné', 'abonnés')}</span><span><b>${s.following}</b> ${plural(s.following, 'abonnement', 'abonnements')}</span><span><b>${s.posts}</b> ${plural(s.posts, 'post', 'posts')}</span>${s.cancelled ? html`<span class="chip bad">Cancel</span>` : null}${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz</span>` : null}${isShady(g, now) ? html`<span class="chip bad" title="On se méfie de tes conseils">${px(g, 'Manipulateur', 'Manipulatrice', 'Manipulateur·rice')} · encore ${fmtDur(g.shady.until - now)}</span>` : null}</div>
     </div>
     <section class="section">
@@ -2518,7 +2519,7 @@ function LayerShell({ i, title, head, foot, children, onBack, dark }) {
     </section></div>`;
   }
   // 0.27.10: in the PC app, no window inside the game any more: « Détacher », or its bar dragged, makes it a real window
-  // at once (one that holds the game, a date or a mini-game, stays in the middle). Floating inside: the Claude version.
+  // at once (one that holds the game, a date or a mini-game, stays in the middle). Floating inside: the page of the tests.
   const desk = osDesk(), wide = !!l && winWide() && !desk, modal = winModal(l), R = wide ? winOf(l) : null, float = !!(R && R.float), osOut = osWinOK(l) && !modal;
   // 0.27.7: the title bar moves the window (it floats from the first move); the corner resizes it
   const drag = (e, mode) => {
@@ -2632,7 +2633,7 @@ function Layer(props) {
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
   if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
-  if (t === 'cheat') return html`<${ModeMenuLayer} ...${props} />`; // 0.27.4: the hidden menu
+  if (t === 'palette') return html`<${PaletteLayer} ...${props} />`; // 0.27.4: the palette
   if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
   if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
   if (t === 'insta') return html`<${InstaLayer} ...${props} />`;
@@ -2642,8 +2643,11 @@ function Layer(props) {
   if (t === 'skill') return html`<${SkillLayer} ...${props} />`; // 0.24: a skill's tree
   if (t === 'ach') return html`<${AchLayer} ...${props} />`; // 0.28: the achievements
   if (t === 'inv') return html`<${InvLayer} ...${props} />`; // 0.26: the inventory
+  if (t === 'merch') return html`<${MerchLayer} ...${props} />`; // 0.29: the shop that stays open
   if (t === 'sell') return html`<${SellLayer} ...${props} />`; // 0.26: putting something on sale
   if (t === 'resale') return html`<${ResaleLayer} ...${props} />`; // 0.26: the second-hand app
+  if (t === 'group') return html`<${GroupLayer} ...${props} />`; // 0.29: a group chat
+  if (t === 'storynew') return html`<${StoryNewLayer} ...${props} />`; // 0.29: a story of the player
   return null;
 }
 function IdeaList({ k, onPick }) {
@@ -2762,7 +2766,7 @@ function ThreadLayer({ l, g, now, i }) {
 function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
   const endRef = useRef(null);
   const count = replies.length;
-  const rows = threadOrder(replies);
+  const rows = pinFirst(p, threadOrder(replies)); // (0.29: the comment the player pinned comes first)
   // Ultime: the comments the counter promises are written as soon as the thread opens (once per post; opening it is the player's action)
   useEffect(() => { if (intensityOf(g).autoMore && !p.more && !p.pending && moreDue(p, Date.now()) && canAfford(g, 'more')) moreReplies(p.id); }, []); // Ultime, « Beaucoup de commentaires »
   useEffect(() => {
@@ -2793,6 +2797,9 @@ function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
       <${Evidence} p=${p} g=${g} />
       ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
       <${PostMedia} g=${g} p=${p} au=${au} />
+      ${p.fic ? html`<${FicCard} g=${g} p=${p} />` : null}
+      ${p.crit ? html`<${CritCard} g=${g} p=${p} />` : null}
+      ${p.poll ? html`<${PollCard} g=${g} p=${p} now=${now} />` : null}
       ${p.q ? html`<${QuoteCard} g=${g} q=${p.q} />` : null}
       ${p.evt ? html`<${EventCard} evt=${p.evt} />` : null}
       ${p.a === 'p' ? html`<${PostResult} p=${p} g=${g} now=${now} />` : null}
@@ -2916,9 +2923,10 @@ function NpcLayer({ l, g, now, i }) {
     <div class="prof">
       <div class="prof-top"><${Avatar} who=${au} size=${84} />${n ? html`<button class=${'btn btn-sm ' + (n.youFollow ? 'btn-ghost' : 'btn-ink')} onClick=${() => toggleFollowNpc(n)}>${n.youFollow ? 'Abonné·e' : 'Suivre'}</button>` : null}</div>
       <div><h2>${au.name}</h2><span class="handle">@${au.handle}</span></div>
-      <div class="row" style="gap:6px"><span class="chip">${n && n.regular ? 'Habitué·e du réseau' : 'Compte du public'}</span></div>
+      <div class="row" style="gap:6px"><span class="chip">${n && n.mom ? 'Ta mère' : n && n.fanOf === 'p' ? 'Compte fan' : n && n.regular ? 'Habitué·e du réseau' : 'Compte du public'}</span>${n && n.gone ? html`<span class="chip bad">Compte suspendu</span>` : null}</div>
       ${n && n.bio ? html`<p class="bio">${emoParts(n.bio)}</p>` : null}
       <div class="prof-stats"><span><b>${fmtN(fol)}</b> ${plural(fol, 'abonné', 'abonnés')}</span></div>
+      ${n && !n.mom && !n.gone ? html`<button type="button" class="linkbtn npc-report" onClick=${() => reportNpc(g, n)} disabled=${!!n.reported}>${n.reported ? 'Compte signalé' : 'Signaler ce compte'}</button>` : null}
     </div>
     ${posts.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`)}
     ${reps.length ? html`<div class="list-h">Ses réponses<span>${reps.length}</span></div>${reps.slice(0, 20).map(({ p, r }) => html`<button class="npc-reply" key=${r.id} onClick=${() => openPost(p.id)}><small>En réponse à @${author(g, p.a).handle}</small><span>${emoParts(r.text)}</span></button>`)}` : null}
@@ -3028,11 +3036,12 @@ function DMLayer({ l, g, now, i }) {
         : m.sys === 'buy' ? html`<${BuyCard} key=${m.id} g=${g} m=${m} />` // 0.24: something paid in the conversation
         : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${c.name.split(' ')[0]}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
+        : m.sys === 'leak' ? html`<${LeakCard} key=${m.id} g=${g} m=${m} />` // 0.29: a group without the player
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + c.name.split(' ')[0]}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
           <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
           <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
-        : html`<div key=${m.id} class=${'bubble ' + (m.me ? 'me' : 'them') + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`)}
+        : html`${m.story ? html`<div key=${m.id + 's'} class=${'dm-story ' + (m.me ? 'me' : 'them')}>${m.me ? 'Tu as répondu à sa story' : 'A répondu à ta story'} : « ${m.story.text} »</div>` : null}<div key=${m.id} class=${'bubble ' + (m.me ? 'me' : 'them') + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`)}
       ${seenShown && !typing && !lost ? html`<div class="seen-tag">Vu</div>` : null}
       ${lost ? html`<div class="seen-tag lost">Non distribué</div>` : null}
       ${typing ? html`<div class="bubble them typing-b" aria-label=${c.name + ' écrit'}><${Typing} /></div>` : null}
@@ -3107,7 +3116,8 @@ function ComposeLayer({ g, now, i }) {
   const secAns = saS && saS.out && !saS.out.answer && STANCES[d.secAns.stance] ? { s: saS, stance: d.secAns.stance } : null;
   const md0 = !accuse && !rumor && !secAns && !conf && d.merch ? openDrop(g) : null;
   const drop = md0 && md0.id === d.merch && md0.state === 'ready' ? md0 : null; // 0.22: the post launches the merch
-  const pfp = !accuse && !rumor && !secAns && !conf && !drop && hasPhoto && !!d.pfp && (d.pics || []).includes(d.pfp); // 0.25.1: the new profile photo
+  const contest = !accuse && !rumor && !secAns && !conf && !drop && !!d.contest && !(shopOf(g).contest && shopOf(g).contest.state === 'open'); // 0.29: a design contest
+  const pfp = !accuse && !rumor && !secAns && !conf && !drop && !contest && hasPhoto && !!d.pfp && (d.pics || []).includes(d.pfp); // 0.25.1: the new profile photo
   const costKind = accuse ? 'accuse' : rumor || secAns ? 'debunk' : 'post';
   const cost = Math.max(1, Math.round(costGuess(g, costKind) + (seeOn ? seeCafes(Math.min(S.vision, d.pics.length)) : 0))); // the images seen cost a little more
   const clues = accuse ? (g.clues || []).filter((k) => k.c === target.id && k.at <= now) : [];
@@ -3126,14 +3136,17 @@ function ComposeLayer({ g, now, i }) {
     const extra = { photo: ph, quote: D.quote, apology: D.apology, debunk: D.accuse ? null : D.debunk, caps: (D.caps || []).slice(), accuse: D.accuse ? { c: D.accuse, clues: D.cite.slice(), fake } : null,
       confess: D.accuse || D.debunk ? null : D.confess || null, secret: D.accuse || D.debunk || !D.secAns ? null : Object.assign({}, D.secAns), // 0.18
       merch: D.accuse || D.debunk || D.confess || D.secAns ? null : D.merch || null, // 0.22
+      contest: !!contest, // 0.29
+      poll: pollOn && pollOpts.length >= 2 ? { opts: pollOpts } : null, // 0.29: a poll (the post is its question)
       pfp: D.accuse || D.debunk || D.confess || D.secAns || D.merch || !ph || !ph.own || !ph.own.includes(D.pfp) ? null : D.pfp }; // 0.25.1
-    Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null });
+    Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null, contest: false, poll: null });
     S.ideas = null;
     dropLayers((l) => l.t === 'compose'); // close this layer, not whatever is on top (0.27.7: nor one put aside)
     goFeedTop();
     update(false);
     const ok = await runAct('post', text, null, null, extra);
-    if (ok === false) { Object.assign(S.drafts, { post: text, photo: ph ? ph.desc : null, pics: ph && ph.own ? ph.own : [], diapo: !!(ph && ph.diapo), see: !!(ph && ph.see), quote: extra.quote, apology: extra.apology, debunk: extra.debunk, caps: extra.caps, accuse: extra.accuse ? extra.accuse.c : null, cite: extra.accuse ? extra.accuse.clues : [], fake: extra.accuse ? extra.accuse.fake : null, confess: extra.confess, secAns: extra.secret, merch: extra.merch, pfp: extra.pfp }); openCompose(); }
+    if (ok === false && extra.poll) S.drafts.poll = extra.poll.opts.slice(); // 0.29 (the poll comes back too)
+    if (ok === false) { Object.assign(S.drafts, { post: text, photo: ph ? ph.desc : null, pics: ph && ph.own ? ph.own : [], diapo: !!(ph && ph.diapo), see: !!(ph && ph.see), quote: extra.quote, apology: extra.apology, debunk: extra.debunk, caps: extra.caps, accuse: extra.accuse ? extra.accuse.c : null, cite: extra.accuse ? extra.accuse.clues : [], fake: extra.accuse ? extra.accuse.fake : null, confess: extra.confess, secAns: extra.secret, merch: extra.merch, pfp: extra.pfp, contest: !!extra.contest }); openCompose(); }
   };
   const toggleCite = (id) => { const c = S.drafts.cite; S.drafts.cite = c.includes(id) ? c.filter((x) => x !== id) : [...c, id]; force((x) => x + 1); };
   const toggleCap = (x) => { const c = S.drafts.caps || []; S.drafts.caps = c.some((y) => y.m === x.m) ? c.filter((y) => y.m !== x.m) : [...c, { c: x.c, m: x.m }].slice(-3); force((n) => n + 1); };
@@ -3147,8 +3160,13 @@ function ComposeLayer({ g, now, i }) {
   const em = useEmoji('post', ref, () => S.drafts.post || '', (v) => { S.drafts.post = v; force((x) => x + 1); }); // 0.17
   const sorryWait = APOLOGY_COOLDOWN - (now - (g.apologyAt || 0));
   const [left, cancel, arm] = useAutoSend('post', val, can, publish);
-  const title = accuse ? `Bad buzz contre ${target.name}` : rumor ? 'Démentir la rumeur' : secAns ? STANCES[secAns.stance].title : conf ? 'Avouer un secret' : apology ? 'Excuses publiques' : drop ? 'Lancer ton merch' : pfp ? 'Nouvelle photo de profil' : quote ? 'Citer un post' : 'Nouveau post';
+  const title = accuse ? `Bad buzz contre ${target.name}` : rumor ? 'Démentir la rumeur' : secAns ? STANCES[secAns.stance].title : conf ? 'Avouer un secret' : apology ? 'Excuses publiques' : drop ? (drop.items.every((p) => MERCH[p.k].book) ? 'Lancer ton livre' : 'Lancer ton merch') : contest ? 'Concours de design' : pfp ? 'Nouvelle photo de profil' : quote ? 'Citer un post' : 'Nouveau post';
   const unMode = (k) => { S.drafts[k] = null; force((x) => x + 1); };
+  // 0.29: a poll (2 to 4 choices): only for a plain post, without a photo
+  const pollAllowed = !hasPhoto && !accuse && !rumor && !secAns && !conf && !drop && !contest && !pfp && !apology && !quote;
+  const pollOn = pollAllowed && Array.isArray(d.poll);
+  const pollOpts = pollOn ? d.poll.map((x) => str(x, 40)).filter(Boolean) : [];
+  const setOpt = (k, v) => { S.drafts.poll = d.poll.slice(); S.drafts.poll[k] = v; force((x) => x + 1); };
   const addPhoto = () => { S.drafts.photo = ''; force((x) => x + 1); setTimeout(() => { const el = byId('photo-desc'); if (el) el.focus(); }, 40); };
   return html`<${LayerShell} i=${i} title=${title}
     head=${html`<h2>${title}</h2><button class=${'btn btn-sm ' + (accuse ? 'btn-danger-solid' : 'btn-hot')} onClick=${publish} disabled=${!can}>${accuse ? 'Accuser' : rumor ? 'Démentir' : secAns ? STANCES[secAns.stance].btn : conf ? 'Avouer' : drop ? 'Lancer' : 'Publier'} · ≈ ${cost} <${Icon} n="coffee" s=${15} /></button>`}>
@@ -3161,7 +3179,8 @@ function ComposeLayer({ g, now, i }) {
       <button type="button" class="btn btn-hot btn-sm" disabled=${sorryWait > 0} onClick=${() => { S.drafts.apology = true; force((x) => x + 1); if (ref.current) ref.current.focus(); }}>${sorryWait > 0 ? 'Excuses dans ' + fmtClock(sorryWait) : 'M’excuser'}</button></div>` : null}
     ${secAns ? html`<div class="accuse-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>« ${secAns.s.t} »</b> ${STANCES[secAns.stance].hint}</span><button type="button" class="iconbtn" onClick=${() => unMode('secAns')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${conf ? html`<div class="apology-hint secret-hint"><span aria-hidden="true">🤐</span><span><b>Tu avoues : « ${conf.t} »</b> (${sevOf(conf).label.toLowerCase()}). Sincère et assumé, ça coûte bien moins cher que de te faire griller. Pour le buzz, ça passe mal.</span><button type="button" class="iconbtn" onClick=${() => unMode('confess')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
-    ${drop ? html`<div class="apology-hint merch-hint"><span aria-hidden="true">🛍️</span><span><b>Ton post lance ton merch</b> : ${dropList(g, drop)}. Design : « ${drop.design} ». Ce que le public en pense décide des ventes.</span><button type="button" class="iconbtn" onClick=${() => unMode('merch')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${drop ? html`<div class="apology-hint merch-hint"><span aria-hidden="true">🛍️</span><span><b>Ton post lance ${drop.items.length > 1 ? 'tes produits' : prodYour(drop.items[0])}</b> : ${launchList(g, drop)}. Ce que le public en pense décide des ventes.</span><button type="button" class="iconbtn" onClick=${() => unMode('merch')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
+    ${contest ? html`<div class="apology-hint merch-hint"><span aria-hidden="true">🎨</span><span><b>Ton post lance un concours de design</b> : ta commu te propose des idées en réponse, tu choisis la gagnante dans ta boutique.</span><button type="button" class="iconbtn" onClick=${() => unMode('contest')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${pfp ? html`<div class="apology-hint pfp-hint"><span aria-hidden="true">📸</span><span><b>Ton post montre ta nouvelle photo de profil.</b> Chacun va réagir à sa façon.</span><button type="button" class="iconbtn" onClick=${() => unMode('pfp')} aria-label="Revenir à un post normal"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${rumor ? html`<div class="accuse-hint"><span aria-hidden="true">🗣️</span><span><b>${liar ? liar.name : 'Quelqu’un'} raconte : « ${rumor.text} »</b> Calme, précis, avec des preuves ou des témoins : ça convainc. Agressif ou vague : la rumeur enfle.</span></div>` : null}
     <div class="composer">
@@ -3173,6 +3192,11 @@ function ComposeLayer({ g, now, i }) {
           onKeyDown=${(ev) => { if (mn.onKey(ev)) return; if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); publish(); } }}></textarea>
         ${mn.view}
         ${em.panel}
+        ${pollOn ? html`<div class="poll-edit">
+          <span class="lbl">Sondage · ton post est la question</span>
+          ${d.poll.map((o, k) => html`<div class="row" key=${k} style="gap:6px;flex-wrap:nowrap"><input class="input" maxlength="40" placeholder=${'Choix ' + (k + 1)} value=${o} onInput=${(ev) => setOpt(k, ev.target.value)} />${d.poll.length > 2 ? html`<button type="button" class="iconbtn" onClick=${() => { S.drafts.poll = d.poll.filter((_, j) => j !== k); force((x) => x + 1); }} aria-label=${'Retirer le choix ' + (k + 1)}><${Icon} n="x" s=${15} /></button>` : null}</div>`)}
+          <div class="row" style="gap:6px">${d.poll.length < 4 ? html`<button type="button" class="linkbtn" onClick=${() => { S.drafts.poll = d.poll.concat(''); force((x) => x + 1); }}>+ Un choix</button>` : null}<button type="button" class="linkbtn" onClick=${() => unMode('poll')}>Retirer le sondage</button></div>
+        </div>` : null}
         ${hasPhoto ? html`<div class="photo-input">
           <label for="photo-desc"><${Icon} n="camera" s=${15} /> ${seeOn ? 'Ce qu’on voit (facultatif : les persos voient tes images)' : (d.pics || []).length ? 'Ce qu’on voit (c’est ce que lisent les persos)' : 'Décris ta photo'}</label>
           <div class="row" style="gap:6px;flex-wrap:nowrap">
@@ -3209,7 +3233,8 @@ function ComposeLayer({ g, now, i }) {
     ${g.boosts.reach ? html`<div class="boost-on"><${Icon} n="zap" s=${16} /> Boost de portée activé sur ce post</div>` : null}
     <div class="ideas">
       <div class="row">
-        ${!hasPhoto && !accuse ? html`<button class="btn btn-ghost btn-sm" onClick=${addPhoto}><${Icon} n="camera" s=${15} /> Photo</button>` : null}
+        ${!hasPhoto && !accuse && !pollOn ? html`<button class="btn btn-ghost btn-sm" onClick=${addPhoto}><${Icon} n="camera" s=${15} /> Photo</button>` : null}
+        ${pollAllowed && !pollOn ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { S.drafts.poll = ['', '']; force((x) => x + 1); }}><span aria-hidden="true">📊</span> Sondage</button>` : null}
         <button class="btn btn-ghost btn-sm" onClick=${() => loadIdeas(null)} disabled=${S.busy.ideas}><${Icon} n="sparkles" s=${15} /> ${S.ideas && S.ideas.key === 'post' && S.ideas.list.length ? 'D’autres idées' : 'Des idées ?'} <span class="cost-tag">≈ ${costLabel(g, 'ideas')} ☕</span></button>
         <${WriteBtn} w=${{ kind: 'post', key: 'post', draft: val.trim() }} onText=${pickIdea} />
         <${VoiceChip} />
@@ -3366,14 +3391,6 @@ function Modal({ m, g }) {
       <${CancelPaths} g=${g} close=${close} />
       <button class="btn btn-ghost" onClick=${close}>J’assume</button>
     </div>`;
-  } else if (m.t === 'revlost') { // 0.28.1: this game went further in another tab or on another device
-    card = html`<div class="modal-card">
-      <span class="eyebrow" style="color:var(--bad)">Partie ouverte ailleurs</span>
-      <div class="modal-big" style="font-size:40px" aria-hidden="true">🔀</div>
-      <p>Cette partie a avancé dans un autre onglet ou sur un autre appareil. Pour ne pas effacer ce qui s’y est passé, cet onglet ne la sauvegarde plus.</p>
-      <button class="btn btn-hot" onClick=${() => { close(); const id = g.id; leaveGame(); openGame(id); }}>Reprendre la plus récente</button>
-      <button class="btn btn-ghost" onClick=${() => { close(); leaveGame(); }}>Mes parties</button>
-    </div>`;
   } else if (m.t === 'uncancel') {
     card = html`<div class="modal-card">
       <span class="eyebrow" style="color:var(--good)">Retour en grâce</span>
@@ -3398,6 +3415,8 @@ function Modal({ m, g }) {
           <button class="btn btn-ghost" onClick=${close}>Continuer</button>`}
       </div>`;
     }
+  } else if (m.t === 'psyout') { // 0.29: unmasked
+    card = html`<${PsyOutCard} g=${g} m=${m} close=${close} />`;
   } else if (m.t === 'badbuzz') {
     const c = g.chars[m.charId];
     if (c) {
@@ -3464,14 +3483,14 @@ function Modal({ m, g }) {
   if (!card) { Promise.resolve().then(close); return null; }
   return html`<div class=${'modal' + (STICKY_MODALS.includes(m.t) ? ' sticky' : '')} role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget && !STICKY_MODALS.includes(m.t)) close(); }}>${card}</div>`;
 }
-const STICKY_MODALS = ['visit', 'pfp', 'revlost']; // 0.18: someone at the door: talk, or « pas maintenant » ; 0.25.1: a new profile photo, shown off or not
+const STICKY_MODALS = ['visit', 'pfp']; // 0.18: someone at the door: talk, or « pas maintenant » ; 0.25.1: a new profile photo, shown off or not
 
 /* =========================================================
    Clock, toasts for arrivals, boot
    ========================================================= */
-const TOAST_KINDS = { ach: 'flash', skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
+const TOAST_KINDS = { fanfic: 'flash', crit: '', ach: 'flash', skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
 let lastSlow = 0, lastQuestTick = 0, lastNeglect = 0;
-// 0.10: in the ChatGPT app (no such thing in Claude, where the AI only answers the player's actions), « Le réseau vit tout
+// 0.10: in the ChatGPT app (not on the page of the tests, where the AI only answers the player's actions), « Le réseau vit tout
 // seul » (Ultime's default; 0.19: a switch): a refresh every few minutes, only while the player is there and playing.
 // 0.23.1: at its pace (every 15, 8 or 5 minutes), and paused as soon as Hype is not in front of the player (another app,
 // the window minimized) or nothing was touched for 3 minutes (a click, a key, the wheel): it comes back with them.
@@ -3492,7 +3511,7 @@ function tick() {
   if (S.toasts.length) { toastsOn(t); S.toasts = S.toasts.filter((x) => x.until > t); } // (0.28.1: those waiting their turn keep their time)
   let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
   const g = S.game;
-  if (S.phase === 'game' && g) {
+  if (S.phase === 'game' && g && !g.over) { // (0.29: a game that ended waits on its last screen)
     if (t - achTickAt > 4000) { achTickAt = t; tickAch(g, t); } // 0.28: the achievements read what stands
     const shown = dmsShown(); // (0.27.9: a conversation out of the game is being read too)
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
@@ -3553,12 +3572,12 @@ function tick() {
       if (!inMiniGame()) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
     if (g.stats.cancelled && t - (g.apologyAt || 0) < APOLOGY_COOLDOWN) fast = true;
-    const n = unreadNotifs(g, t) + unreadDMs(g, t, shown);
+    const n = unreadNotifs(g, t) + unreadDMs(g, t, shown) + unreadGroups(g, t);
     const title = n ? `(${n}) Hype` : 'Hype';
     if (document.title !== title) document.title = title;
   } else if (document.title !== 'Hype') document.title = 'Hype';
@@ -3586,7 +3605,7 @@ async function retryIndex() {
   S.phase = 'home';
   update(false);
 }
-async function boot(data) {
+async function boot() {
   if (booted) return;
   booted = true;
   S.voice = loadVoicePref();
@@ -3610,17 +3629,20 @@ async function boot(data) {
   }
   const init = Store.init();
   await Promise.race([init, sleep(2500)]);
-  if (Store.mode === 'pending') { S.phase = 'home'; update(false); await init; } // outside Claude: show the home page without waiting
+  if (Store.mode === 'pending') { S.phase = 'home'; update(false); await init; } // a slow storage: show the home page without waiting
   await loadAtelier();
   await loadIndex();
   sweepDrafts(); // photos of a composer closed without publishing, at an earlier visit
-  loadNews().then(() => update(false)); // the real news, for the « Monde réel » world
-  if (data && data.game && data.game.id && data.game.ready) { enterGame(migrate(data.game), { tab: data.tab, hot: true }); return; }
   if (S.phase !== 'game' && S.phase !== 'onboard') S.phase = 'home';
   update(false);
 }
 if (window.__HYPE_TEST__) {
   window.__hype = {
+    ROLE_TPL, roleChar, criticOf, rebeccaOf, addRoleChar, ensureRoles, roleAskLines, roleLines, roleTag, decoratePost, applyRoleLine, criticAcct, CRIT_GAP, FIC_GAP, packPool, STYLE_OF, // 0.29
+    drawPsy, psyNow, psyStage, psySign, psyKill, psyEscape, psyCore, psyPublicLines, psyAccuseLines, psyAccusation, psyUnmask, tickRoles, psyDeadlyDate, psyDeadlyVisit, nightAt, fleeDate,
+    PSY_DANGER_DAYS, PSY_DANGER_SIGNS, PSY_HOLD_DAYS, PSY_HOLD_SIGNS, ellipseTalk, ELLIPSE_LINE, LATER_LINE, isPsy, summarize, isLiveVisit, resolveAuthor,
+    liveStories, storiesOf, addStory, postStory, openStory, voteStory, reactStory, storyViewers, storyViewsN, promptStory, addGroup, addGroupMsg, sendGroup, leaveGroup, quitGroup, liveGroups, unreadGroups, addLeak, addMom, addFanAcct, addShip, addFake, reportNpc, tickSocial, socialCtx, socialLines, applySocialLine, whoAny, // 0.29
+    decorateSocial, postPoll, pollRes, votePoll, bdayOf, mdOf, dayKey, bdayWish, tickNet, memoryOf, ratioMark, ratioCheck, setMainDay, setOutage, setAlgo, algoMult, outageOn, algoOn, topFanOf, pinReply, netCtx, netLines, applyNetLine, replyLang, WORLD_LINE, addReplyTo,
     S, makeScanner, computeOutcome, cleanEval, normHandle, niceRound, xpNeed, update, energyNow, questProgress, promptWorld, promptAct, promptDM,
     promptRefresh, promptIdeas, promptNewChar, WORLDS, START, mains, charByHandle, cloneJSON, addMem, applyVibe, setVibeGoal, addTrigger,
     activeTriggers, checkCancel, startLowProfile, syncLow, applyAbsence, trends, VIBES, SHOP, FLOWS, Store, lastWritten, addClue, regulars, inBadBuzz, ticsOf, linesOf,
@@ -3698,11 +3720,11 @@ if (window.__HYPE_TEST__) {
     saveToSlot, leaveGame, openGame, minLayer, unminLayer, closeDocked, raiseLayer, dropLayers, layerOpen, winRect, winOf, winSet, winStore, winModal, winFloats, renameSave, saveName, renameGameById, pubDraft, keepPubDraft, // 0.27.7
     pctOf, tierRule, TIER_STEPS, cutRule, flopWord, heldRel, heldWhy, dealLeft, sectorWord, adWord, seriesMultAt, fbMs, payTerms, MG_LABEL, MG_RULE, jobFrom, closeMemb, openMemb, membOf, declineDeal, fmtMoney, gearIssues, // 0.27.8
     ACH, ACH_BY, ACH_GROUPS, unlockAch, tickAch, achGot, achCount, ensureAch, achProgress, achKeep, myTrend, dealSignedAch, leftFor, giftCounted, noteCaught, vibeLine, osDesk, OS_KINDS, productFlop, buy, releaseDone, markViral, accusationResult, apologyResult, commitEval, cancelDate, // 0.28: the achievements, a present
-    checkDeals, relLimit, fanPlanned, startShoot, menuClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
+    checkDeals, relLimit, fanPlanned, startShoot, paletteClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
     plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
-    openMenu, menuKey, menuApply, menuOn, menuNum, tapCash, MENU_CODE, checkPayout, billGear, // 0.27.4: the hidden menu
-    startPractice, MENU_GAMES, menuLines, menuNudge, menuVal, MENU_TITLES, // 0.27.6: the menu’s mini-games (0.27.9: the trainer menu)
+    openPalette, paletteKey, paletteApply, paletteOn, paletteNum, tapCash, SWATCH_ROW, checkPayout, billGear, // 0.27.4: the palette
+    startPractice, PRACTICE_GAMES, paletteLines, paletteNudge, paletteVal, PALETTE_TITLES, // 0.27.6: the practice rounds (0.27.9: the palette's window)
     // 0.20: the gear, the connection, the subscriptions, the start
     GEAR, GEAR_KINDS, NETS, SUBS, NEW_GEAR, PERKS, FLAWS, newGear, legacyGear, migrateGear, mkItem, netNow, canMake, canMakeR, makeableWhat, gearBrief, gearViewsMult, gearPostMult, gearEdit,
     gearOnRelease, gearWear, breakItem, buyGear, buyNew, repairGear, repairCost, fixGear, subscribe, unsubscribe, payCut, subOffer, monthlyCost, billGear, tickGear, launchGear, rollGearHour,
@@ -3711,8 +3733,11 @@ if (window.__HYPE_TEST__) {
     SCAM_KINDS, CRITIC, scamChance, scamOffer, brandSheet, sheetLine, payTerms, AGENT_CEIL, dealSize, agentReview, dealHard, agentGamble, scamBeforeSign, scamAfterSign,
     parseMoney, moneyIn, MONEY_MAX, laterChoices, earlyMove, canPostpone, keptToInv, prodMult, prodLine, giftMem, FIXES, REP_IDS, noJson, dmBusy, PR_CAP, lightTier, settledGame, exportSum, ACH_ICONS, achIcon, writeForMe, TAG_RE, // 0.28.1 (the studio's tests)
     toastsOn, toastHold, TOAST_Q, TOAST_ON, openAch, fmtPast, wordCut, fmtShort, fmtMoneyShort, postCut, POST_MAX, exportAny, importAny, importErr, winMinH, WIN_GRAB, meetWords, agoLabel, FEED_PAGE, postsWithTag, revealedPosts, // 0.28.1: the screens
-    penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MAKERS, MERCH_MIN, merchOK, merchOf, openDrop, lastDrop, prepDrop, cancelDrop, launchDrop, sellDay, tickMerch, restock, stopDrop, merchCtx, merchLine, priceRatio, unitCost, stockCost,
+    penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MERCH_MIN, merchOK, openDrop, launchDrop, tickMerch, restock, stopDrop, merchCtx, merchLine, unitCost, // 0.29: the shop that stays open
+    shopOf, shopItems, shopLive, shopShown, prepItem, setPrice, pauseItem, resumeItem, retireItem, launchable, launchList, qualityOf, prodFair, marginOf, prodUpfront, sellProd, payShop, shopSeason, curveAt, audienceOf,
+    collabOK, collabText, merchDMCtx, applyCollabLine, contestLine, addDesign, contestStarted, contestClose, collabSolo, restockWhy, retireText, claimsFrance, shopSteps, dayEndAt, launchAll, MERCH_MAX, PRECO_DAYS, badBatch, precoStep, madeNow, signingStep, popupStep, MERCH_CHARITY, qtysOf, planSigning, planPopup, fakeAction, counterfeit, exposeClaim, qualityComplaint, FR_CLAIM, MERCH_TIERS, ORIGINS, MATERIALS, PRINTS, MODES, BOOK_BY, POPUP, SIGNING_COST, MERCH_QTY, MERCH_LIMITED, shopDays, prodName, prodYour, prodHis, madeOf, shopTierKeys, shopNextTier, clockOff, hasStaff,
     prepEnd, END_PREP, removeGameById, // 0.28.1: the end of a date written ahead; a game removed
+    emoNodes, emoKids, EMO_SKIP, htmlRaw, BIO_MAX, AVATAR_EMOJIS, ourEmoji, avatarEmoji, AVATAR_ASK, addRegular, // 0.29: our stickers in every text; the bio; the avatars
   };
 }
 const markSeen = () => { if (S.game) S.game.lastSeenAt = Date.now(); saveNow(); };
@@ -3721,15 +3746,4 @@ for (const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev
 window.addEventListener('focus', () => { S.lastInputAt = Date.now(); if (S.phase === 'game') update(false); }); // 0.23.1: back on Hype, the network living on its own comes back too
 window.addEventListener('pagehide', markSeen);
 
-(function start() {
-  const hot = window.claude && window.claude.hot;
-  try {
-    if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => (S.game && S.game.ready ? { game: cloneJSON(settledGame(S.game)), tab: S.tab } : {})); // (0.28.1: as if what is still on its way had not been sent)
-  } catch (e) { /* optional */ }
-  let started = false;
-  const go = (d) => { if (started) return; started = true; boot(d || {}); };
-  if (hot && typeof hot.ready === 'function') {
-    try { hot.ready(go); } catch (e) { go({}); }
-    setTimeout(() => go((hot && hot.data) || {}), 2500);
-  } else go((hot && hot.data) || {});
-})();
+boot();

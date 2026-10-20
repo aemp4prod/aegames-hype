@@ -9,7 +9,7 @@
 //   covers a line is used up, a price written as text counts;
 // - the planned releases: a challenge episode keeps its hour, two contents the same day on two topics are two releases,
 //   one waiting behind another gets its grace when its turn comes, a fan question pays once, the AI hears of all six;
-// - the hidden menu: only what was changed is applied (no XP lost), the clock skip plays no skipped day, the ties follow
+// - the palette: only what was changed is applied (no XP lost), the clock skip plays no skipped day, the ties follow
 //   the usual follow rule;
 // - the mini-games: never pulled from under the player, without the AI a skill round (Cauchemar says so), doing nothing
 //   scores nothing (chat, mix, order), the keys go to the game on top, nothing pops up over a game.
@@ -270,7 +270,8 @@ async function newGame(page, identity) {
     out.later = H.checkReleases(g, T1 + 70 * 60000) === true && B.state === 'dropped';
     clear();
     // a challenge episode keeps its hour; another topic later the same day is a second release, a reminder is not
-    H.startSeries(g, { what: 'vidéo', days: 7, hour: 18, min: 0, theme: 'une recette par jour', diff: 'moyen', hard: false, devis: { total: 0, items: [], topic: 'x', at: Date.now() } });
+    const hr = (new Date(Date.now() + H.clockOff()).getHours() + 2) % 24; // (two hours from now on the game's clock: at 18:00 in the evening, tomorrow's episode was too far for a second release)
+    H.startSeries(g, { what: 'vidéo', days: 7, hour: hr, min: 0, theme: 'une recette par jour', diff: 'moyen', hard: false, devis: { total: 0, items: [], topic: 'x', at: Date.now() } });
     const ep = H.plannedReleases(g).find((x) => x.series);
     out.adv = H.advanceRelease(g, ep, Date.now()) === false;
     const m0 = Math.round((ep.due - Date.now()) / 60000);
@@ -297,39 +298,40 @@ async function newGame(page, identity) {
   check('the planned releases: one waiting behind another gets its grace when its turn comes (and is never dropped while on screen); a challenge episode keeps its hour; another topic later the same day is a second release, a reminder is not; a fan question pays once; the AI hears of all six',
     rl.kept && rl.waited && rl.screen && rl.later && rl.adv && rl.dedupe.second && rl.dedupe.reminder && rl.fanPlanned && rl.fan.first && rl.fan.again === false && rl.fan.warm && rl.fan.warmAgain && rl.ctx6, rl);
 
-  // ---------- the hidden menu: only what changed ----------
+  // ---------- the palette: only what changed ----------
   await G(page, () => {
     const H = window.__hype, g = H.S.game;
     H.S.stack = []; H.S.modals = [];
     g.stats.xp = 90;
     const id = H.SKILL_IDS[1]; g.stats.skillXp[id] = H.SKILL_CUM[H.skillLevel(g, id)] + 3; window.__skillUntouched = [id, g.stats.skillXp[id]];
-    H.S.menuSel = {}; H.openMenu();
+    H.S.palSel = {}; H.openPalette();
   });
-  await page.waitForSelector('.layer .trainer');
-  // (0.27.9: the trainer menu: each line applies on its own)
-  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .tr-edit'); await page.fill('.layer .tr-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
+  await page.waitForSelector('.layer .palette-win');
+  await sleep(400); // (its keys are listened to once it has been drawn: on a busy machine, a key pressed at once was lost)
+  // (0.27.9: each line applies on its own)
+  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .pw-edit'); await page.fill('.layer .pw-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
   await page.keyboard.press('Enter');
   await typeIn('4321');
   await page.keyboard.press('Backspace');
   for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /Compétences/.test((document.querySelector('.layer .tr-sub') || {}).textContent || ''));
+  await page.waitForFunction(() => /Compétences/.test((document.querySelector('.layer .pw-sub') || {}).textContent || ''));
   await typeIn('7');
   const mn = await G(page, () => {
     const H = window.__hype, g = H.S.game, [id, xp] = window.__skillUntouched, out = { cash: g.career.cash, xp: g.stats.xp, skill0: H.skillLevel(g, H.SKILL_IDS[0]), untouched: g.stats.skillXp[id] === xp };
     // the clock: the day counters follow (a month of merch orders in a second, before)
-    g.career.merch = { drops: [{ state: 'live', day: H.gameDay(Date.now()), launchAt: Date.now(), payAt: Date.now() + 7 * 86400000, items: [] }] };
-    H.menuApply(g, { at: Date.now() + 30 * 86400000 });
-    out.day = g.career.merch.drops[0].day === H.gameDay(Date.now()) && g.career.warmDay === H.gameDay(Date.now());
-    g.career.merch = null; H.menuApply(g, { at: Date.now() });
+    H.shopOf(g).day = H.gameDay(Date.now()); // (0.29: the shop's days)
+    H.paletteApply(g, { at: Date.now() + 30 * 86400000 });
+    out.day = H.shopOf(g).day === H.gameDay(Date.now()) && g.career.warmDay === H.gameDay(Date.now());
+    H.paletteApply(g, { at: Date.now() });
     // the ties: the follow rule, in silence
     const c = Object.values(g.chars).find((x) => x.unlocked && x.followsYou);
-    H.menuApply(g, { rel: { [c.id]: -100 } });
+    H.paletteApply(g, { rel: { [c.id]: -100 } });
     out.unfollow = c.followsYou === false;
     H.S.stack = [];
     return out;
   });
-  check('the hidden menu: a line sets only itself (money changed, XP kept; one skill changed, the others keep their progress); a clock skip plays no skipped day; a tie set to −100 unfollows',
+  check('the palette: a line sets only itself (money changed, XP kept; one skill changed, the others keep their progress); a clock skip plays no skipped day; a tie set to −100 unfollows',
     mn.cash === 4321 && mn.xp === 90 && mn.skill0 === 7 && mn.untouched && mn.day && mn.unfollow, mn);
 
   // ---------- the mini-games ----------
@@ -384,10 +386,12 @@ async function newGame(page, identity) {
   // the mix starts out of the green band
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.startPractice(H.S.game, 'mixage', 'facile'); });
   await page.waitForSelector('.layer .mg-intro');
+  await G(page, () => { window.__rnd0 = Math.random; Math.random = () => 0.99; }); // (no sudden jump of a track in the first frames)
   await page.locator('.layer .mg-intro button', { hasText: 'parti' }).click();
   await page.waitForSelector('.layer .mix-row');
-  await sleep(150); // (a few frames: the bands light up when a track is in)
-  const mixIn = await G(page, () => ({ rows: document.querySelectorAll('.layer .mix-row').length, inBand: document.querySelectorAll('.layer .mix-meter.in').length }));
+  // (where each track starts, read at once from the screen: the dot against its band; a few frames later a track may
+  // already have drifted in by itself, which is the game)
+  const mixIn = await G(page, () => { Math.random = window.__rnd0; const rows = [...document.querySelectorAll('.layer .mix-row')]; return { rows: rows.length, inBand: rows.filter((r) => { const d = parseFloat(r.querySelector('.mix-dot').style.left), b = r.querySelector('.mix-band').style, l = parseFloat(b.left), w = parseFloat(b.width); return d >= l && d <= l + w; }).length }; });
   await shot(page, 'mix-start');
   // the keys go to the game on top: a message typed above a rhythm cut cuts nothing
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.startPractice(H.S.game, 'montage', 'facile'); });

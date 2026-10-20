@@ -136,7 +136,7 @@ function BudgetCard({ g, m, close }) {
     ${out ? html`<p><b>Ton budget du jour est épuisé.</b> L’IA se met en pause pour ne pas manger tout ton abonnement ${AI_NAME}. Tu peux toujours lire ton fil et gérer ton studio.</p>`
       : m && m.blocked && !unlimited(g) ? html`<p><b>Pas assez de cafés pour cette action.</b> Elle coûte environ ${costLabel(g, 'post')} ☕ et il t’en reste ${fmtCafes(left)}.</p>` : null}
     <p class="muted">Aujourd’hui : ${fmtDec(b.used, 1)} ☕ utilisés ≈ ${fmtPlain(budgetTokens(b.chars))} tokens de ton abonnement ${AI_NAME}. ${unlimited(g) ? 'Pas de limite réglée : le jeu compte, mais ne t’arrête jamais.' : `Le budget revient à minuit (dans ${fmtDur(e.nextIn)}).`}</p>
-    <p class="muted" style="font-size:13px">1 café ≈ 4 500 tokens. Un post qui fait réagir tout le monde ≈ ${costLabel(g, 'post')} ☕, un message privé ≈ ${costLabel(g, 'dm')} ☕. C’est une estimation : ni Claude ni ChatGPT ne disent à une appli ce qu’il te reste vraiment.</p>
+    <p class="muted" style="font-size:13px">1 café ≈ 4 500 tokens. Un post qui fait réagir tout le monde ≈ ${costLabel(g, 'post')} ☕, un message privé ≈ ${costLabel(g, 'dm')} ☕. C’est une estimation : ChatGPT ne dit pas à une appli ce qu’il te reste vraiment.</p>
     <${CafeUses} g=${g} />
     ${!unlimited(g) ? html`<button class="btn btn-hot" onClick=${() => { addExtraCafes(g, 10); toast('+10 cafés pour aujourd’hui.', 'good'); close(); }}><${Icon} n="coffee" s=${16} /> +10 cafés juste pour aujourd’hui</button>` : null}
     <button class="btn btn-ghost" onClick=${() => { close(); openLayer({ t: 'settings' }); }}><${Icon} n="gear" s=${16} /> Régler mon budget</button>
@@ -244,12 +244,13 @@ function SettingsLayer({ g, i, l }) {
   };
   return html`<${LayerShell} i=${i} title="Réglages">
     <section class="section">
-      <div class="section-h"><h3>Partie</h3><span>${S.store === 'db' ? (HOST ? 'Sauvegardée sur cet ordi' : 'Sauvegardée sur ton compte') : S.store === 'local' ? 'Sauvegardée dans ce navigateur' : 'Non sauvegardée'}</span></div>
+      <div class="section-h"><h3>Partie</h3><span>${S.store === 'db' ? 'Sauvegardée sur cet ordi' : S.store === 'local' ? 'Sauvegardée dans ce navigateur' : 'Non sauvegardée'}</span></div>
       <div class="row">
         <button class="btn btn-ghost btn-sm" onClick=${openSaves}><${Icon} n="save" s=${15} /> Sauvegardes</button>
-        <button class="btn btn-ghost btn-sm" onClick=${() => exportAny(g.id)}><${Icon} n="download" s=${15} /> Exporter</button>
+        ${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${() => exportAny(g.id)}><${Icon} n="download" s=${15} /> Exporter</button>` : null}
         <button class="btn btn-ghost btn-sm" onClick=${leaveGame}><${Icon} n="grid" s=${15} /> Mes parties</button>
       </div>
+      <${BdayField} g=${g} />
     </section>
     <section class="section">
       <div class="section-h"><h3>Budget IA</h3><span>${unlimited(g) ? 'sans limite' : `${fmtCafes(cafesLeft(g))} ☕ restants aujourd’hui`}</span></div>
@@ -298,9 +299,9 @@ function SettingsLayer({ g, i, l }) {
         <small>${PACK.people.length ? `${PACK.people.length} ${plural(PACK.people.length, 'personne', 'personnes')} et ${Object.keys(PACK.photos).length} photos dans le pack : les persos principaux ont leur photo, leur Insta et leurs posts photo. ` : 'Le pack photos arrive bientôt. '}Tu peux aussi importer une photo pour un perso depuis son profil.</small>
       </div>
     </section>
-    ${menuOn() ? html`<section class="section">
-      <div class="section-h"><h3>🛠️ Mode menu</h3><span>débloqué</span></div>
-      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${openMenu}><${Icon} n="gear" s=${15} /> Ouvrir le mode menu</button></div>
+    ${paletteOn() ? html`<section class="section">
+      <div class="section-h"><h3>🎨 Nuancier</h3></div>
+      <div class="row"><button class="btn btn-ghost btn-sm" onClick=${openPalette}><${Icon} n="gear" s=${15} /> Ouvrir le nuancier</button></div>
     </section>` : null}
     <section class="section danger-zone" style="border-bottom:0">
       <div class="section-h"><h3>Zone sensible</h3><span>Hype ${APP_VERSION} · ${APP_STAGE}</span></div>
@@ -309,35 +310,35 @@ function SettingsLayer({ g, i, l }) {
   <//>`;
 }
 
-/* ---------- 0.27.4: the hidden menu: money, the clock, the reputation, the skills, the ties, set by hand ---------- */
-// Opened with the Konami code (↑ ↑ ↓ ↓ ← → ← → B A, outside a text field) or 7 quick taps on the money; once unlocked,
-// it is in the settings too. What it changes, nobody in the game hears about (no post, no chronicle).
-const MENU_CODE = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
-const menuOn = () => lsGet('hype:menu') === '1';
-let menuKeys = [];
+/* ---------- 0.27.4: the palette: the game's numbers set by hand (money, the clock, the reputation, the skills, the ties) ----------
+   Opened with a few keys in a row (outside a text field) or 7 quick taps on the money; once opened, it is in the settings
+   too. What it changes, nobody in the game hears about (no post, no chronicle). */
+const SWATCH_ROW = [0, 0, 1, 1, 2, 3, 2, 3].map((k) => 'arrow' + ['up', 'down', 'left', 'right'][k]).concat('b', 'a');
+const paletteOn = () => lsGet('hype:palette') === '1';
+let swatchKeys = [];
 const cashTaps = { n: 0, at: 0 };
-function openMenu() {
-  if (S.phase !== 'game' || !S.game) { toast('Ouvre une partie pour le mode menu.'); return; }
-  if (!menuOn()) { lsSet('hype:menu', '1'); toast('🛠️ Mode menu débloqué. Tu le retrouves aussi dans les Réglages.', 'good'); }
-  if (!S.stack.some((l) => l.t === 'cheat')) { if (!(S.os || []).some((l) => l.t === 'cheat')) S.menuPath = []; openLayer({ t: 'cheat' }); } // (0.27.9: back at the top, on the line left there; out of the game, it comes to the front as it is)
+function openPalette() {
+  if (S.phase !== 'game' || !S.game) { toast('Ouvre une partie pour le nuancier.'); return; }
+  if (!paletteOn()) { lsSet('hype:palette', '1'); toast('🎨 Nuancier ouvert. Tu le retrouves aussi dans les Réglages.', 'good'); }
+  if (!S.stack.some((l) => l.t === 'palette')) { if (!(S.os || []).some((l) => l.t === 'palette')) S.palPath = []; openLayer({ t: 'palette' }); } // (0.27.9: back at the top, on the line left there; out of the game, it comes to the front as it is)
 }
-function menuKey(e) {
+function paletteKey(e) {
   const el = e && e.target, tag = el && el.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) { menuKeys = []; return; }
-  menuKeys = menuKeys.concat(String(e.key || '').toLowerCase()).slice(-MENU_CODE.length);
-  if (menuKeys.length === MENU_CODE.length && menuKeys.every((k, n) => k === MENU_CODE[n])) { menuKeys = []; openMenu(); }
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) { swatchKeys = []; return; }
+  swatchKeys = swatchKeys.concat(String(e.key || '').toLowerCase()).slice(-SWATCH_ROW.length);
+  if (swatchKeys.length === SWATCH_ROW.length && swatchKeys.every((k, n) => k === SWATCH_ROW[n])) { swatchKeys = []; openPalette(); }
 }
-if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('keydown', menuKey);
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('keydown', paletteKey);
 function tapCash() {
   const t = Date.now();
   cashTaps.n = t - cashTaps.at < 1600 ? cashTaps.n + 1 : 1;
   cashTaps.at = t;
-  if (cashTaps.n >= 7) { cashTaps.n = 0; openMenu(); }
+  if (cashTaps.n >= 7) { cashTaps.n = 0; openPalette(); }
 }
 // « 50 000 », « 1234,5 », « -20 »: a number, or null.
-const menuNum = (v) => { const x = parseFloat(String(v == null ? '' : v).replace(/[\s  ]/g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
+const paletteNum = (v) => { const x = parseFloat(String(v == null ? '' : v).replace(/[\s  ]/g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
 // The level: the characters a level brings still arrive (no gems: those are set by hand too); a lower level unlocks nothing back.
-function menuLevel(g, n) {
+function paletteLevel(g, n) {
   const s = g.stats, L = clamp(Math.round(n), 1, 300);
   while (s.level < L) {
     s.level++;
@@ -354,26 +355,26 @@ function menuLevel(g, n) {
 }
 // The clock: the game shows `target` now (only the clock moves: nothing happens in between; a new month pays and bills once).
 // 0.27.6: the day counters follow, or the days skipped were played at once (a month of merch orders in a second).
-function menuClock(g, target) {
+function paletteClock(g, target) {
   if (!Number.isFinite(target)) return;
   g.clockOff = Math.round(target - Date.now());
-  const day = gameDay(Date.now()), M = g.career && g.career.merch, m = membOf(g);
-  for (const d of (M && M.drops) || []) if (d.state === 'live') d.day = day;
+  const day = gameDay(Date.now()), m = membOf(g);
+  if (g.career && (g.career.shop || g.career.merch)) shopOf(g).day = day; // (0.29: the shop's days)
   if (m) m.day = day;
   if (g.career) g.career.warmDay = day;
 }
 // o: { cash, followers, gems, level, rep: { image, cred, pro, kind } on 1000, skills: { id: level }, at, rel: { charId: -100..100 } }
-function menuApply(g, o) {
+function paletteApply(g, o) {
   const s = g.stats, c = g.career, done = [];
-  if (['cash', 'followers', 'gems', 'level', 'rep', 'skills', 'at', 'rel'].some((k) => o[k] != null)) ensureAch(g).cheated = 1; // 0.28: its achievements stay in the game
-  const n = (k) => (o[k] == null ? null : menuNum(o[k]));
+  if (['cash', 'followers', 'gems', 'level', 'rep', 'skills', 'at', 'rel'].some((k) => o[k] != null)) ensureAch(g).local = 1; // 0.28: its achievements stay in the game
+  const n = (k) => (o[k] == null ? null : paletteNum(o[k]));
   if (n('cash') !== null) { c.cash = Math.round(n('cash') * 100) / 100; done.push('argent'); }
   if (n('followers') !== null) { s.followers = Math.max(0, Math.round(n('followers'))); checkMilestones(g); done.push('abonnés'); }
   if (n('gems') !== null) { s.gems = Math.max(0, Math.round(n('gems'))); done.push('gemmes'); }
-  if (n('level') !== null) { menuLevel(g, n('level')); done.push('niveau'); }
+  if (n('level') !== null) { paletteLevel(g, n('level')); done.push('niveau'); }
   if (o.rep) {
     const P = ensureRep(s);
-    for (const k of REP_IDS) { const x = menuNum(o.rep[k]); if (x !== null) P[k] = clamp(x / 10, 0, 100); }
+    for (const k of REP_IDS) { const x = paletteNum(o.rep[k]); if (x !== null) P[k] = clamp(x / 10, 0, 100); }
     s.reputation = repGlobal(P);
     checkCancel(g); // (out of a cancel above 350, into one below 150: the usual rules)
     done.push('réputation');
@@ -381,12 +382,12 @@ function menuApply(g, o) {
   if (o.skills) {
     if (!s.skills || typeof s.skills !== 'object') s.skills = {};
     if (!s.skillXp || typeof s.skillXp !== 'object') s.skillXp = {};
-    for (const id of SKILL_IDS) { const x = menuNum(o.skills[id]); if (x !== null) { const L = clamp(Math.round(x), 0, SKILL_MAX); s.skills[id] = L; s.skillXp[id] = SKILL_CUM[L]; } }
+    for (const id of SKILL_IDS) { const x = paletteNum(o.skills[id]); if (x !== null) { const L = clamp(Math.round(x), 0, SKILL_MAX); s.skills[id] = L; s.skillXp[id] = SKILL_CUM[L]; } }
     done.push('compétences');
   }
-  if (o.at != null && Number.isFinite(+o.at)) { menuClock(g, +o.at); done.push('heure'); }
+  if (o.at != null && Number.isFinite(+o.at)) { paletteClock(g, +o.at); done.push('heure'); }
   if (o.rel) for (const id of Object.keys(o.rel)) {
-    const ch = g.chars[id], x = menuNum(o.rel[id]);
+    const ch = g.chars[id], x = paletteNum(o.rel[id]);
     if (!ch || x === null) continue;
     ch.rel = clamp(Math.round(x), -100, 100);
     if (!ch.followsYou && ch.rel >= 25) ch.followsYou = true; // (0.27.6: the usual rule, in silence)
@@ -399,7 +400,7 @@ const dateField = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.
 const timeField = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 // 0.27.6: the mini-games on demand: a practice round that counts for nothing (the AI writes the ones it writes, the
 // others are made at once), or the next shoot's game imposed.
-const MENU_GAMES = [['tri', 'Tri'], ['ordre', 'Remise en ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Modération du chat'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage vertical']]; // (0.27.8: the names the games have everywhere)
+const PRACTICE_GAMES = [['tri', 'Tri'], ['ordre', 'Remise en ordre'], ['quiz', 'Quiz'], ['vf', 'Vrai ou faux'], ['intrus', 'Trouve l’intrus'], ['montage', 'Coupe au rythme'], ['memoire', 'Mémoire'], ['chat', 'Modération du chat'], ['mixage', 'Mixage'], ['cadrage', 'Recadrage vertical']]; // (0.27.8: the names the games have everywhere)
 const PRACTICE_WHAT = { chat: 'live', mixage: 'podcast', cadrage: 'short' };
 function startPractice(g, kind, diffId) {
   if (S.busy.mg) { toast('Un mini-jeu est déjà en préparation.'); return false; }
@@ -418,11 +419,11 @@ const D_REAL_OK = (kind, id) => (diffOf(id).real && kind !== 'quiz' ? 'mythique'
 function PracticeLayer({ g, i, now }) {
   const r = S.practice;
   let body;
-  if (!r) body = html`<div class="empty"><b>Pas d’entraînement en cours</b><span>Ouvre le mode menu pour en lancer un.</span></div>`;
+  if (!r) body = html`<div class="empty"><b>Pas d’entraînement en cours</b><span>Ouvre le nuancier pour en lancer un.</span></div>`;
   else if (r.score != null) {
     const tier = tierOf(r.score), D = diffOf(r.diff);
     body = html`<div class="mg-intro practice-end">
-      <span class="eyebrow">Entraînement · ${(MENU_GAMES.find((x) => x[0] === r.kind) || [0, r.kind])[1]}</span>
+      <span class="eyebrow">Entraînement · ${(PRACTICE_GAMES.find((x) => x[0] === r.kind) || [0, r.kind])[1]}</span>
       <h3>${pctOf(r.score)} % · ${tier === 'top' ? 'réussi 🎉' : tier === 'mid' ? 'moyen' : 'raté'}</h3>
       <span class="chip">${D.emoji} ${D.label}</span>
       <p class="muted">Rien ne compte dans ta partie : ni vues, ni argent, ni réputation.</p>
@@ -434,20 +435,20 @@ function PracticeLayer({ g, i, now }) {
   else body = html`<${ShootPlay} r=${r} now=${now} outcomes=${`Entraînement : rien ne compte dans ta partie. Réussi à ${TIER_STEPS[0]}, moyen de ${TIER_STEPS[1]}.`} icon="play" onScore=${(sc) => { r.score = Math.round(clamp(num(sc, 0), 0, 1) * 1000) / 1000; update(); }} />`;
   return html`<${LayerShell} i=${i} title="🎮 Entraînement">${body}<//>`;
 }
-/* ---------- 0.27.9: the menu, the way a game trainer shows it: a banner, one column, submenus ----------
-   ↑ ↓ choose a line, Entrée (or →) opens a submenu or does what the line says, ← → change a value, Retour arrière or Échap
+/* ---------- 0.27.9: the palette's window: a banner, one column, its pages ----------
+   ↑ ↓ choose a line, Entrée (or →) opens a page or does what the line says, ← → change a value, Retour arrière or Échap
    go back up. A click or a tap does the same (‹ › on a value; a value tapped again opens a field to type it). Everything
    applies at once, and nobody in the game hears about it. */
 // The steps of a value: bigger numbers move by bigger steps (3 000 → 4 000, 250 000 → 350 000).
-const menuStep = (x) => { const a = Math.abs(x); return a < 1000 ? 100 : a < 10000 ? 1000 : a < 100000 ? 10000 : a < 1000000 ? 100000 : 1000000; };
-const menuFolStep = (x) => (x < 100 ? 10 : menuStep(x));
-// The lines of a menu, by its path: [] is the top; each line is one of
-//   { k: 'sub', id, emoji, label, desc }            → opens a submenu
+const paletteStep = (x) => { const a = Math.abs(x); return a < 1000 ? 100 : a < 10000 ? 1000 : a < 100000 ? 10000 : a < 1000000 ? 100000 : 1000000; };
+const paletteFolStep = (x) => (x < 100 ? 10 : paletteStep(x));
+// The lines of a page, by its path: [] is the top; each line is one of
+//   { k: 'sub', id, emoji, label, desc }            → opens a page
 //   { k: 'act', label, desc, run, off }             → does something
 //   { k: 'num', label, desc, get, set, step, fmt, min, max } → ‹ value ›, ← → by step, Entrée to type it
 //   { k: 'pick', label, desc, opts: [[v, label]], get, set }  → ‹ choice ›
 //   { k: 'tog', label, desc, get, set }              → ‹ Oui / Non ›
-function menuLines(g, path, now) {
+function paletteLines(g, path, now) {
   const s = g.stats, c = g.career, P = ensureRep(s);
   const sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : '€';
   const top = path[0];
@@ -459,57 +460,57 @@ function menuLines(g, path, now) {
       { k: 'sub', id: 'jeux', emoji: '🎮', label: 'Mini-jeux', desc: 'T’entraîner à n’importe quel mini-jeu, ou imposer celui du prochain tournage.' },
       { k: 'sub', id: 'skills', emoji: '💪', label: 'Compétences', desc: `Tes quatre compétences, de 0 à ${SKILL_MAX}.` },
       { k: 'sub', id: 'liens', emoji: '💞', label: 'Relations', desc: 'Ta relation avec chaque personnage, de −100 à +100.' },
-      { k: 'act', emoji: '🙈', label: 'Masquer le mode menu', desc: 'Il disparaît des Réglages ; le code le rouvre.', run: () => { lsSet('hype:menu', '0'); closeLayer(); toast('Mode menu masqué : le code le rouvre.'); } },
+      { k: 'act', emoji: '🙈', label: 'Masquer le nuancier', desc: 'Il disparaît des Réglages (il se rouvre comme la première fois).', run: () => { lsSet('hype:palette', '0'); closeLayer(); toast('Nuancier masqué.'); } },
     ];
   }
   if (top === 'argent') {
     return [
-      { k: 'num', label: `Argent (${sym})`, desc: `Maintenant : ${fmtMoney(g, c.cash)}. ← → par paliers, Entrée pour taper un montant.`, get: () => c.cash, set: (x) => menuApply(g, { cash: x }), step: menuStep, fmt: (x) => fmtMoney(g, x, false) },
-      { k: 'num', label: 'Abonnés', desc: 'Tes abonnés : les paliers et les marques suivent.', get: () => s.followers, set: (x) => menuApply(g, { followers: x }), step: menuFolStep, fmt: fmtN, min: 0 },
-      { k: 'num', label: 'Gemmes', desc: 'Tes gemmes.', get: () => s.gems, set: (x) => menuApply(g, { gems: x }), step: () => 10, fmt: fmtN, min: 0 },
-      { k: 'num', label: 'Niveau', desc: 'Monter fait arriver les personnages du niveau ; descendre ne les retire pas.', get: () => s.level, set: (x) => menuApply(g, { level: x }), step: () => 1, min: 1, max: 300 },
+      { k: 'num', label: `Argent (${sym})`, desc: `Maintenant : ${fmtMoney(g, c.cash)}. ← → par paliers, Entrée pour taper un montant.`, get: () => c.cash, set: (x) => paletteApply(g, { cash: x }), step: paletteStep, fmt: (x) => fmtMoney(g, x, false) },
+      { k: 'num', label: 'Abonnés', desc: 'Tes abonnés : les paliers et les marques suivent.', get: () => s.followers, set: (x) => paletteApply(g, { followers: x }), step: paletteFolStep, fmt: fmtN, min: 0 },
+      { k: 'num', label: 'Gemmes', desc: 'Tes gemmes.', get: () => s.gems, set: (x) => paletteApply(g, { gems: x }), step: () => 10, fmt: fmtN, min: 0 },
+      { k: 'num', label: 'Niveau', desc: 'Monter fait arriver les personnages du niveau ; descendre ne les retire pas.', get: () => s.level, set: (x) => paletteApply(g, { level: x }), step: () => 1, min: 1, max: 300 },
       { k: 'act', label: 'Faire venir une marque', desc: 'Une marque t’écrit en privé tout de suite (dès 800 abonnés, deux offres ouvertes au plus).',
-        run: () => { if (s.followers < 800) { toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); return; } const d = makeOffer(g, {}); if (d) ensureAch(g).cheated = 1; toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); } },
+        run: () => { if (s.followers < 800) { toast('Les marques écrivent à partir de 800 abonnés.', 'bad'); return; } const d = makeOffer(g, {}); if (d) ensureAch(g).local = 1; toast(d ? `${d.brand} t’écrit en privé.` : 'Pas de marque dispo pour l’instant (deux offres déjà ouvertes ?).', d ? 'good' : ''); } },
     ];
   }
   if (top === 'rep') {
     return REP_IDS.map((k) => ({ k: 'num', label: `${REP_PILLARS[k].emoji} ${REP_PILLARS[k].label}`, desc: `Sur 1000. Ta réputation : ${rep1000(s.reputation)}/1000 (${repLabel(s.reputation)}).`,
-      get: () => rep1000(P[k]), set: (x) => menuApply(g, { rep: { [k]: x } }), step: () => 25, min: 0, max: 1000 }))
-      .concat(playerBadBuzz(g, now) ? [{ k: 'act', label: 'Arrêter le bad buzz', desc: 'Ton bad buzz s’arrête tout de suite.', run: () => { g.pbb = null; ensureAch(g).cheated = 1; toast('Bad buzz terminé.', 'good'); } }] : []); // (0.28.1: what the menu gives keeps its achievements in the game)
+      get: () => rep1000(P[k]), set: (x) => paletteApply(g, { rep: { [k]: x } }), step: () => 25, min: 0, max: 1000 }))
+      .concat(playerBadBuzz(g, now) ? [{ k: 'act', label: 'Arrêter le bad buzz', desc: 'Ton bad buzz s’arrête tout de suite.', run: () => { g.pbb = null; ensureAch(g).local = 1; toast('Bad buzz terminé.', 'good'); } }] : []); // (0.28.1: what the menu gives keeps its achievements in the game)
   }
   if (top === 'temps') {
-    const at = () => gameDate(Date.now()).getTime(), move = (ms) => menuApply(g, { at: at() + ms });
+    const at = () => gameDate(Date.now()).getTime(), move = (ms) => paletteApply(g, { at: at() + ms });
     return [
       { k: 'num', label: 'Jour', desc: '← → : un jour de plus ou de moins. Seule l’horloge bouge ; un nouveau mois déclenche une fois la paie et les factures.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * DAY_MS), fmt: () => cap1(gameDate(Date.now()).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })) },
       { k: 'num', label: 'Heure', desc: '← → : un quart d’heure de plus ou de moins.', get: () => 0, set: () => {}, nudge: (dir) => move(dir * 15 * 60000), fmt: () => timeField(gameDate(Date.now())) },
-      { k: 'act', label: 'Revenir à l’heure de ton PC', desc: 'L’horloge du jeu reprend l’heure de ton ordinateur.', run: () => { if (g.clockOff) ensureAch(g).cheated = 1; menuClock(g, Date.now()); toast('Le jeu est à l’heure de ton PC.', 'good'); } },
+      { k: 'act', label: 'Revenir à l’heure de ton PC', desc: 'L’horloge du jeu reprend l’heure de ton ordinateur.', run: () => { if (g.clockOff) ensureAch(g).local = 1; paletteClock(g, Date.now()); toast('Le jeu est à l’heure de ton PC.', 'good'); } },
     ];
   }
   if (top === 'jeux') {
-    const kind = S.menuGame || 'quiz', diff = S.menuDiff || 'mythique', ai = MG_KINDS_AI.includes(kind);
+    const kind = S.palGame || 'quiz', diff = S.palDiff || 'mythique', ai = MG_KINDS_AI.includes(kind);
     return [
-      { k: 'pick', label: 'Mini-jeu', desc: ai ? `Écrit par ${AI_NAME} sur ton sujet du moment.` : 'Un jeu d’adresse, sans l’IA.', opts: MENU_GAMES, get: () => kind, set: (k) => { S.menuGame = k; if (diffOf(S.menuDiff || 'mythique').real && k !== 'quiz') S.menuDiff = 'mythique'; } },
-      { k: 'pick', label: 'Difficulté', desc: 'Cauchemar, c’est le quiz de vraies questions, rien d’autre.', opts: DIFFS.filter((d) => !d.real || kind === 'quiz').map((d) => [d.id, `${d.emoji} ${d.label}`]), get: () => diff, set: (d) => { S.menuDiff = d; } },
+      { k: 'pick', label: 'Mini-jeu', desc: ai ? `Écrit par ${AI_NAME} sur ton sujet du moment.` : 'Un jeu d’adresse, sans l’IA.', opts: PRACTICE_GAMES, get: () => kind, set: (k) => { S.palGame = k; if (diffOf(S.palDiff || 'mythique').real && k !== 'quiz') S.palDiff = 'mythique'; } },
+      { k: 'pick', label: 'Difficulté', desc: 'Cauchemar, c’est le quiz de vraies questions, rien d’autre.', opts: DIFFS.filter((d) => !d.real || kind === 'quiz').map((d) => [d.id, `${d.emoji} ${d.label}`]), get: () => diff, set: (d) => { S.palDiff = d; } },
       { k: 'act', label: 'Jouer maintenant', desc: `Un entraînement : rien ne compte dans ta partie${ai ? ` (≈ ${costLabel(g, 'shoot')} ☕)` : ''}.`, off: !!S.busy.mg, run: () => startPractice(g, kind, diff) },
-      { k: 'tog', label: 'Imposer au tournage', desc: g.mgNext ? `Le prochain tournage aura : ${(MENU_GAMES.find((x) => x[0] === g.mgNext) || [0, g.mgNext])[1]} (sauf en Cauchemar).` : 'Oui : le prochain tournage aura ce mini-jeu. Non : il le tire au sort.',
-        get: () => g.mgNext === kind, set: (on) => { if (on) { g.mgNext = kind; ensureAch(g).cheated = 1; } else delete g.mgNext; } }, // (0.28.1: the easiest game for a Mythic shoot: marked)
+      { k: 'tog', label: 'Imposer au tournage', desc: g.mgNext ? `Le prochain tournage aura : ${(PRACTICE_GAMES.find((x) => x[0] === g.mgNext) || [0, g.mgNext])[1]} (sauf en Cauchemar).` : 'Oui : le prochain tournage aura ce mini-jeu. Non : il le tire au sort.',
+        get: () => g.mgNext === kind, set: (on) => { if (on) { g.mgNext = kind; ensureAch(g).local = 1; } else delete g.mgNext; } }, // (0.28.1: the easiest game for a Mythic shoot: marked)
     ];
   }
   if (top === 'skills') {
-    return SKILL_IDS.map((id) => ({ k: 'num', label: `${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}`, desc: `De 0 à ${SKILL_MAX}.`, get: () => skillLevel(g, id), set: (x) => menuApply(g, { skills: { [id]: x } }), step: () => 1, min: 0, max: SKILL_MAX }));
+    return SKILL_IDS.map((id) => ({ k: 'num', label: `${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}`, desc: `De 0 à ${SKILL_MAX}.`, get: () => skillLevel(g, id), set: (x) => paletteApply(g, { skills: { [id]: x } }), step: () => 1, min: 0, max: SKILL_MAX }));
   }
   if (top === 'liens') {
     const people = mains(g).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     if (!people.length) return [{ k: 'act', label: 'Personne pour l’instant', desc: 'Personne dans ton monde pour l’instant.', off: true, run: () => {} }];
-    return people.map((p) => ({ k: 'num', label: p.name, desc: `${relLabel(p.rel, p.g, p.vibe)} · de −100 à +100.`, get: () => p.rel, set: (x) => menuApply(g, { rel: { [p.id]: x } }), step: () => 5, min: -100, max: 100, fmt: (x) => (x > 0 ? '+' : '') + x }));
+    return people.map((p) => ({ k: 'num', label: p.name, desc: `${relLabel(p.rel, p.g, p.vibe)} · de −100 à +100.`, get: () => p.rel, set: (x) => paletteApply(g, { rel: { [p.id]: x } }), step: () => 5, min: -100, max: 100, fmt: (x) => (x > 0 ? '+' : '') + x }));
   }
   return [];
 }
 
 // The value a line shows.
-const menuVal = (L) => (L.k === 'tog' ? (L.get() ? 'Oui' : 'Non') : L.k === 'pick' ? ((L.opts.find((o) => o[0] === L.get()) || L.opts[0] || [0, ''])[1]) : L.fmt ? L.fmt(L.get()) : fmtN(num(L.get(), 0)));
+const paletteVal = (L) => (L.k === 'tog' ? (L.get() ? 'Oui' : 'Non') : L.k === 'pick' ? ((L.opts.find((o) => o[0] === L.get()) || L.opts[0] || [0, ''])[1]) : L.fmt ? L.fmt(L.get()) : fmtN(num(L.get(), 0)));
 // ← → on a line: a value moves by its step (bigger numbers by bigger steps), a choice turns, a switch flips.
-function menuNudge(L, dir) {
+function paletteNudge(L, dir) {
   if (!L || L.off) return false;
   if (L.k === 'num') {
     if (L.nudge) { L.nudge(dir); return true; }
@@ -526,36 +527,36 @@ function menuNudge(L, dir) {
   if (L.k === 'tog') { L.set(!L.get()); return true; }
   return false;
 }
-const MENU_TITLES = { argent: 'Argent et abonnés', rep: 'Réputation', temps: 'Temps', jeux: 'Mini-jeux', skills: 'Compétences', liens: 'Relations' };
-// Where the menu stands, read at the moment of a key or a tap (a key held down fires faster than the screen redraws).
-function menuAt(g) {
-  const path = Array.isArray(S.menuPath) ? S.menuPath : (S.menuPath = []);
-  const where = path.join('/') || '/', sels = S.menuSel || (S.menuSel = {});
-  const lines = menuLines(g, path, Date.now());
+const PALETTE_TITLES = { argent: 'Argent et abonnés', rep: 'Réputation', temps: 'Temps', jeux: 'Mini-jeux', skills: 'Compétences', liens: 'Relations' };
+// Where the palette stands, read at the moment of a key or a tap (a key held down fires faster than the screen redraws).
+function paletteAt(g) {
+  const path = Array.isArray(S.palPath) ? S.palPath : (S.palPath = []);
+  const where = path.join('/') || '/', sels = S.palSel || (S.palSel = {});
+  const lines = paletteLines(g, path, Date.now());
   return { path, where, sels, lines, sel: clamp(sels[where] || 0, 0, Math.max(0, lines.length - 1)) };
 }
-function ModeMenuLayer({ g, i, now }) {
+function PaletteLayer({ g, i, now }) {
   const lay = useContext(WinCtx), keys = useRef(null), list = useRef(null), field = useRef(null);
   if (!keys.current) keys.current = ownKeys(lay);
   const [, setV] = useState(0);
   const redraw = () => setV((x) => x + 1);
   const [edit, setEdit] = useState(null); // { ix, text }: a value being typed
-  const M = menuAt(g), { path, where, lines, sel } = M;
+  const M = paletteAt(g), { path, where, lines, sel } = M;
   const changed = () => { scheduleSave(); update(); };
-  const choose = (n) => { const m = menuAt(g); if (!m.lines.length) return; m.sels[m.where] = (n + m.lines.length) % m.lines.length; setEdit(null); redraw(); };
-  const back = () => { const m = menuAt(g); setEdit(null); if (m.path.length) { S.menuPath = m.path.slice(0, -1); redraw(); } else closeLayer(); };
-  const nudge = (L, dir) => { if (menuNudge(L, dir)) changed(); else redraw(); };
+  const choose = (n) => { const m = paletteAt(g); if (!m.lines.length) return; m.sels[m.where] = (n + m.lines.length) % m.lines.length; setEdit(null); redraw(); };
+  const back = () => { const m = paletteAt(g); setEdit(null); if (m.path.length) { S.palPath = m.path.slice(0, -1); redraw(); } else closeLayer(); };
+  const nudge = (L, dir) => { if (paletteNudge(L, dir)) changed(); else redraw(); };
   const act = (L, n) => {
-    const m = menuAt(g);
+    const m = paletteAt(g);
     if (n != null) m.sels[m.where] = n;
     if (!L || L.off) { redraw(); return; }
-    if (L.k === 'sub') { S.menuPath = m.path.concat(L.id); m.sels[S.menuPath.join('/')] = 0; redraw(); } // (a submenu opens on its first line)
+    if (L.k === 'sub') { S.palPath = m.path.concat(L.id); m.sels[S.palPath.join('/')] = 0; redraw(); } // (a page opens on its first line)
     else if (L.k === 'act') { L.run(); changed(); }
     else if (L.k === 'num' && !L.nudge) setEdit({ ix: n != null ? n : m.sel, text: String(Math.round(num(L.get(), 0) * 100) / 100).replace('.', ',') });
     else nudge(L, 1);
   };
   const typed = () => {
-    const m = menuAt(g), L = edit && m.lines[edit.ix], x = menuNum(edit && edit.text);
+    const m = paletteAt(g), L = edit && m.lines[edit.ix], x = paletteNum(edit && edit.text);
     setEdit(null);
     if (!L || x === null) return;
     L.set(clamp(x, L.min != null ? L.min : -1e12, L.max != null ? L.max : 1e12));
@@ -564,7 +565,7 @@ function ModeMenuLayer({ g, i, now }) {
   useEffect(() => {
     const onKey = (e) => {
       if (!keys.current.mine(e)) return; // (a field being typed in, another window on top)
-      const m = menuAt(g), L = m.lines[m.sel];
+      const m = paletteAt(g), L = m.lines[m.sel];
       if (e.key === 'ArrowDown') choose(m.sel + 1);
       else if (e.key === 'ArrowUp') choose(m.sel - 1);
       else if (e.key === 'ArrowRight') { if (L && L.k === 'sub') act(L); else nudge(L, 1); }
@@ -582,23 +583,23 @@ function ModeMenuLayer({ g, i, now }) {
   useLayoutEffect(() => { const el = list.current && list.current.children[sel]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); });
   useEffect(() => { if (edit && field.current) { field.current.focus(); field.current.select(); } }, [edit && edit.ix]);
   const L0 = lines[sel];
-  return html`<${LayerShell} i=${i} title="🛠️ Mode menu" onBack=${back}>
-    <div class="trainer">
-      <div class="tr-banner" aria-hidden="true"><b>hype</b><span>mode menu</span></div>
-      <div class="tr-sub"><span>${path.length ? MENU_TITLES[path[0]] || '' : 'Menu principal'}</span><span class="mono">${lines.length ? sel + 1 : 0}/${lines.length}</span></div>
-      <div class="tr-list" role="menu" aria-label=${path.length ? MENU_TITLES[path[0]] : 'Mode menu'} ref=${list}>
-        ${lines.map((L, n) => html`<div key=${where + ':' + n} role="menuitem" tabindex="-1" aria-disabled=${L.off ? 'true' : undefined} class=${'tr-line' + (n === sel ? ' on' : '') + (L.off ? ' off' : '')}
+  return html`<${LayerShell} i=${i} title="🎨 Nuancier" onBack=${back}>
+    <div class="palette-win">
+      <div class="pw-banner" aria-hidden="true"><b>hype</b><span>nuancier</span></div>
+      <div class="pw-sub"><span>${path.length ? PALETTE_TITLES[path[0]] || '' : 'Sommaire'}</span><span class="mono">${lines.length ? sel + 1 : 0}/${lines.length}</span></div>
+      <div class="pw-list" role="menu" aria-label=${path.length ? PALETTE_TITLES[path[0]] : 'Nuancier'} ref=${list}>
+        ${lines.map((L, n) => html`<div key=${where + ':' + n} role="menuitem" tabindex="-1" aria-disabled=${L.off ? 'true' : undefined} class=${'pw-line' + (n === sel ? ' on' : '') + (L.off ? ' off' : '')}
           onClick=${() => (n === sel || L.k === 'sub' || L.k === 'act' ? act(L, n) : choose(n))}>
-          <span class="tr-lbl">${L.emoji ? html`<span class="tr-emo" aria-hidden="true">${L.emoji}</span>` : null}${L.label}</span>
-          ${L.k === 'sub' ? html`<span class="tr-go" aria-hidden="true">›</span>`
+          <span class="pw-lbl">${L.emoji ? html`<span class="pw-emo" aria-hidden="true">${L.emoji}</span>` : null}${L.label}</span>
+          ${L.k === 'sub' ? html`<span class="pw-go" aria-hidden="true">›</span>`
             : L.k === 'act' ? null
-            : edit && edit.ix === n ? html`<input ref=${field} class="tr-edit" inputmode="decimal" aria-label=${L.label} value=${edit.text} onClick=${(e) => e.stopPropagation()}
+            : edit && edit.ix === n ? html`<input ref=${field} class="pw-edit" inputmode="decimal" aria-label=${L.label} value=${edit.text} onClick=${(e) => e.stopPropagation()}
                 onInput=${(e) => setEdit({ ix: n, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); typed(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEdit(null); } }} onBlur=${() => setEdit(null)} />`
-            : html`<span class="tr-val"><button type="button" class="tr-arr" tabindex="-1" aria-label=${'Moins : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, -1); }}>‹</button><b>${menuVal(L)}</b><button type="button" class="tr-arr" tabindex="-1" aria-label=${'Plus : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, 1); }}>›</button></span>`}
+            : html`<span class="pw-val"><button type="button" class="pw-arr" tabindex="-1" aria-label=${'Moins : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, -1); }}>‹</button><b>${paletteVal(L)}</b><button type="button" class="pw-arr" tabindex="-1" aria-label=${'Plus : ' + L.label} onClick=${(e) => { e.stopPropagation(); if (n !== sel) choose(n); nudge(L, 1); }}>›</button></span>`}
         </div>`)}
       </div>
-      <p class="tr-desc">${L0 ? L0.desc || '' : ''}</p>
-      <p class="tr-keys">↑ ↓ choisir · ← → changer · Entrée valider · ⌫ retour</p>
+      <p class="pw-desc">${L0 ? L0.desc || '' : ''}</p>
+      <p class="pw-keys">↑ ↓ choisir · ← → changer · Entrée valider · ⌫ retour</p>
     </div>
   <//>`;
 }
@@ -645,7 +646,7 @@ function StudioTab({ g, now }) {
     <${JobsSection} g=${g} now=${now} />
     <section class="section">
       <div class="section-h"><h3>Tendances sur ${pfName(g, pf)}</h3><span>Surfe dessus pour faire des vues</span></div>
-      ${tr.length ? html`<div class="trend-list">${tr.slice(0, 6).map((x) => { const h = trendHeat(x, now); return html`<div class="trend-row" key=${x.id}><span class="tr-emo" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${TREND_KINDS[x.kind].label} · ${heatWord(h)}</small></div><span class="heat" style=${'--p:' + Math.round(h * 100) + '%'} aria-label=${'Popularité ' + Math.round(h * 100) + ' %'}><i></i></span></div>`; })}</div>`
+      ${tr.length ? html`<div class="trend-list">${tr.slice(0, 6).map((x) => { const h = trendHeat(x, now); return html`<div class="trend-row" key=${x.id}><span class="pw-emo" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${TREND_KINDS[x.kind].label} · ${heatWord(h)}</small></div><span class="heat" style=${'--p:' + Math.round(h * 100) + '%'} aria-label=${'Popularité ' + Math.round(h * 100) + ' %'}><i></i></span></div>`; })}</div>`
         : html`<p class="muted">Rien ne monte pour l’instant. Actualise ton fil : les tendances vont et viennent.</p>`}
       <ul class="tips">${P.tips.map((t, k) => html`<li key=${k}>${t}</li>`)}</ul>
     </section>

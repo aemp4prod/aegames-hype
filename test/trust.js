@@ -97,7 +97,7 @@ const setTrust = (page, id, v) => G(page, (a) => { const c = window.__hype.S.gam
   });
   const by = Object.fromEntries(w0.out.map((x) => [x.h, x]));
   check('a new world: every main character gets a nature (1-3) and 0 to 35 of trust; the AI is asked for it and its reason is kept',
-    w0.ask && w0.out.length === 10 && w0.out.every((x) => [1, 2, 3].includes(x.garde) && x.t >= 0 && x.t <= 35)
+    w0.ask && w0.out.length === 12 && w0.out.every((x) => [1, 2, 3].includes(x.garde) && x.t >= 0 && x.t <= 35)
     && by['zara.vey'].garde === 3 && /trahie/.test(by['zara.vey'].why) && by['theo.marlin'].garde === 1, w0);
   await page.locator('.cast-card.pick', { hasText: 'Théo' }).click();
   await page.click('.cast-cta button');

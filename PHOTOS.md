@@ -150,8 +150,7 @@ nombre de photos par visage.
 ## Le donner à tout le monde
 
 Clique sur **Exporter le pack** : ça fait un seul fichier, `hype-pack-photos-AAAA-MM-JJ.json`, avec tout dedans.
-Mets-le dans ton dossier `test claude` (ou envoie-le-moi) : je l’intègre à la version Claude et à un nouvel
-installeur. Les autres joueurs n’ont rien à faire, les photos arrivent avec le jeu.
+Mets-le dans ton dossier `test claude` (ou envoie-le-moi) : je l’intègre au jeu et à un nouvel installeur. Les autres joueurs n’ont rien à faire, les photos arrivent avec le jeu.
 
 **Importer un pack** remet un pack exporté dans l’atelier (sur un autre PC, ou après une réinstallation).
 
@@ -162,11 +161,10 @@ de post. Une photo, un **carrousel** ou un **diapo TikTok** (10 photos au plus),
 
 - Tu écris **ce qu’on voit dessus** : c’est la seule chose que lisent les persos (par défaut, l’IA ne reçoit pas l’image).
 - **Images générées par IA uniquement** (ton perso IA, jamais de vraies personnes) : la case **« Les persos voient ces
-  images »** envoie les 4 premières à l’IA (Claude ou ChatGPT) avec le post. Les persos réagissent à ce qu’ils voient
+  images »** envoie les 4 premières à l’IA (ChatGPT) avec le post. Les persos réagissent à ce qu’ils voient
   vraiment (la tenue, le lieu, l’ambiance, ton look), ta description devient facultative, et l’IA note ce qu’elle a vu
   pour la suite. Ça coûte un peu plus de cafés (environ 0,1 café par image). La case n’est jamais cochée d’avance.
-- Elles restent **sur ton appareil** (fichiers de l’appli sur PC, stockage du navigateur dans la version Claude) et
-  partent avec la partie quand tu l’exportes. Supprimer la partie les supprime.
+- Elles restent **sur ton ordinateur** (dans les fichiers de l’appli) et partent avec la partie quand tu l’exportes. Supprimer la partie les supprime.
 - Ton profil a alors **ton Insta** (photos et carrousels) et **ton TikTok** (tes diapos).
 - Si une photo n’est plus sur l’appareil (autre navigateur, données effacées), le post montre sa description.
 
@@ -174,4 +172,3 @@ de post. Une photo, un **carrousel** ou un **diapo TikTok** (10 photos au plus),
 
 Pour l’intégration (développeurs) : `python3 tools/pack.py hype-pack-photos-….json` fabrique `assets/pack/`
 (les images et `manifest.json`), puis `python3 build.py` et `npm run build` dans `desktop/` les prennent en compte.
-Pour l’artefact Claude, les images de `assets/pack/` se publient à côté de la page, dans `pack/`.

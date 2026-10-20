@@ -435,10 +435,8 @@ function heartLines(g, c, t = Date.now(), withDare = true) {
 const TALK_TURNS = 5;
 const TALK_MAX = 300;
 const isTalk = (g, ev) => { const c = g && ev && g.chars[ev.c]; return !!(ev && ev.player && c && isMain(c) && (c.dates || 0) >= 1 && dateKind(c, ev) !== 'wedding'); };
-// « Rendez-vous soignés »: the last word (where the evening is judged) thinks longest; the exchanges keep the player's
-// level, and think less when the dates are not « soignés » (0.28.1: 25 s per line was too long a wait)
+// « Rendez-vous soignés »: the last word (where the evening is judged) thinks longest; the exchanges keep the player's level
 const talkTier = (g, last) => (last && g && g.opts && g.opts.careDates ? 'complex' : undefined);
-const talkEffort = (g) => (g && g.opts && g.opts.careDates ? undefined : 'low');
 const GESTES = {
   love: [
     { id: 'payer', emoji: '💳', label: 'Payer l’addition', ai: () => 'propose de payer l’addition', you: () => 'Tu proposes de payer l’addition.' },
@@ -467,6 +465,15 @@ const PAY_DEFAULT = { love: { what: 'l’addition', kind: 'sortie', price: 60 },
 // 0.14: a couple's evening may become too intimate to be told: the scene stops there, tenderly.
 const FADE_LINE = 'La suite appartient à leur intimité.';
 const FADE_RE = /\b(fai\w*\s+l['’]amour|coucher avec|couch\w*\s+ensemble|on couche|à poil|tout(?:e|es)?\s+nue?s?|d[ée]shabill\w*|lingerie|sous-v[êe]tements|orgasme\w*|jouir|pr[ée]liminaires|pr[ée]servatifs?|capotes?|sexe|sexuel\w*|[ée]rotique\w*|porno\w*|nudes?)\b/i;
+// 0.29: a moment too intimate to be told, while the evening still has exchanges ahead: the scene cuts, and the evening
+// goes on a little later (they talk again). At the very end, it still closes the evening (fadeTalk).
+const ELLIPSE_LINE = 'Ce moment ne regarde pas les voyeurs.';
+const LATER_LINE = 'Un peu plus tard…';
+function ellipseTalk(g, ev) {
+  const T = ev.talk;
+  T.lines.push({ who: 'n', text: ELLIPSE_LINE }, { who: 'n', text: LATER_LINE });
+  T.ell = (T.ell || 0) + 1;
+}
 function fadeTalk(g, ev, floor = 0.5) {
   const T = ev.talk;
   T.lines.push({ who: 'n', text: FADE_LINE });
@@ -527,6 +534,8 @@ function dateExigence(g, ev, t = Date.now()) {
   return { ix: clamp(k, 0, 4), why, ai, pub: famous && !home, first };
 }
 const EXPECT_BONUS = 0.08, EXPECT_MISS = 0.05;
+// Who may take the scene too far to be told: a partner, or the one who seduces too much (0.29), if the player follows.
+const fadeOK = (g, c, ev) => PARTNER.includes(c.vibe) || (isPsy(g, c) && (meetKind(c, ev) === 'love' || LOVE_ACTIVE.includes(c.vibe)));
 function promptTalk(g, ev, said) {
   const c = g.chars[ev.c], T = ev.talk, D = diffOf(ev.diff || fameDiff(c)), M = MEET[meetKind(c, ev)];
   const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
@@ -543,8 +552,9 @@ function promptTalk(g, ev, said) {
     T && T.ex && T.ex.pub ? `Ils sont dans un lieu public et on les reconnaît : glisse de vrais imprévus de gens connus (des fans qui demandent une photo, quelqu’un qui filme en douce, une connaissance à la table d’à côté), sans tout gâcher. Comment le joueur gère ça compte.` : null,
     T && T.expect ? `Ce que ${first} attend de cette soirée, sans le dire franchement (le joueur ne le sait pas) : « ${T.expect} ».` : null,
     ev.late ? `Le joueur est arrivé avec ${ev.late} min de retard : ${first} le lui fait sentir.` : null,
-    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c)];
+    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c)]; // (0.29: the secret of the game, when it is theirs)
   if (T && (T.lines.length || T.scene)) L.push('', '## CE QUI S’EST DIT CE SOIR (du début à maintenant)', ...talkTranscript(g, ev));
+  if (T && T.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux (« ${ELLIPSE_LINE} ») : rien ne s’en raconte ; la soirée a repris un peu plus tard, ils se reparlent.`); // 0.29
   L.push('');
   if (!said) {
     L.push('## À ÉCRIRE : LE DÉBUT DE LA SOIRÉE',
@@ -587,10 +597,11 @@ function promptTalk(g, ev, said) {
       '', FORMAT, 'Lignes à produire :',
       `- D’abord : {"t":"judge","react":"charme"${T.expect && !T.met ? ',"met":false' : ''}} : la réaction intérieure de ${first}, que le joueur ne voit pas (react parmi charme, amuse, neutre, gene, refroidi)${T.expect && !T.met ? ` ; "met":true seulement si cette réplique répond vraiment à ce que ${first} attendait de la soirée` : ''}.`,
       `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères","seen":"≤ 50 caractères : ce que le joueur voit (une expression, un geste), sans dire ce qu’${il} pense"}`,
-      PARTNER.includes(c.vibe) ? '- Facultatif : si la scène devient trop intime pour être racontée (au-delà de câlins et de bisous), une dernière ligne {"t":"fade"} : la scène s’arrête là, pudiquement.' : null,
+      fadeOK(g, c, ev) ? `- Facultatif : si la scène devient trop intime pour être racontée (au-delà de câlins et de bisous)${PARTNER.includes(c.vibe) ? '' : ', seulement si le joueur répond vraiment à ses avances'}, une dernière ligne {"t":"fade"} : la scène coupe là, pudiquement${last ? '' : ', et la soirée reprend un peu plus tard'}.` : null,
       G && G.id === 'payer' ? BUY_LINE(g, c, true) : !G && buyTalk(said.text) ? BUY_LINE(g, c) : null, // 0.24: what the player pays, charged for real
       giftTalk(said.text, T.lines.slice(-4)) ? GIFT_LINE(g, c) : null); // 0.26: a present for the player
   }
+  L.push(...psyTalkOut(g, ev, c, !!(said && said.last))); // 0.29: a red flag; tonight, the way out (or none)
   if (askTest) T.testAt = n + 1;
   return L.filter((x) => x !== null).join('\n');
 }
@@ -605,21 +616,25 @@ async function openTalk(ev) {
   T.ex = dateExigence(g, ev); // 0.16: set for the evening (lateness included), and the gains follow it
   ev.diff = DIFFS[T.ex.ix].id;
   ev.talk = T;
+  if (psyDeadlyDate(g, ev)) ev.psy = 'deadly'; else delete ev.psy; // 0.29: alone with them, once they are ready (saved just above)
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
+  let sign = null;
   try {
     await aiStream(promptTalk(g, ev, null), (o) => {
-      if (o.t === 'expect' && !T.expect) T.expect = str(o.text, 120);
+      if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      else if (o.t === 'expect' && !T.expect) T.expect = str(o.text, 120);
       else if (o.t === 'scene' && !T.scene) T.scene = str(o.text, 300);
       else if (o.t === 'say' && T.lines.length < 2) { const x = str(o.text, 260); if (x) T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); }
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', tier: talkTier(g), effort: talkEffort(g) });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', tier: talkTier(g) });
   } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date'); }
   S.busy.talk = null;
   endFlow(f);
   if (!T.scene && !T.lines.length) delete ev.talk; // nothing came: « C’est parti » again
   else if (!T.lines.length) T.lines.push({ who: 'c', text: 'Salut… bon, je suis là.', seen: '' });
+  if (sign && ev.talk) psySign(g, c, sign);
   update();
 }
 // One exchange: what the player says (or dares), and how it lands.
@@ -631,8 +646,9 @@ async function talkTurn(ev, text, geste) {
   if (!G && !text) return false;
   if (G && T.used.includes(G.id)) return false;
   if (!G && PARTNER.includes(c.vibe) && meetKind(c, ev) === 'love' && FADE_RE.test(text)) { // 0.14: no call, the scene just stops
-    T.lines.push({ who: 'p', text });
-    fadeTalk(g, ev);
+    T.lines.push({ who: 'p', text, r: 'charme' });
+    if (T.turn + 1 < T.max) { T.reacts.push({ r: 'charme', w: 1, g: 'ellipse' }); T.turn += 1; ellipseTalk(g, ev); } // 0.29: and the evening goes on
+    else fadeTalk(g, ev);
     update();
     return true;
   }
@@ -645,16 +661,20 @@ async function talkTurn(ev, text, geste) {
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, fade = false, metNow = false, buy = null, gift = null;
+  let react = null, says = 0, ok = true, fade = false, metNow = false, buy = null, gift = null, sign = null, esc = null, fin = null;
+  const deadly = ev.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
-      if (o.t === 'fade' && PARTNER.includes(c.vibe)) fade = true;
+      if (o.t === 'fade' && fadeOK(g, c, ev)) fade = true;
+      else if (o.t === 'psy' && !sign) sign = o.text; // 0.29: a red flag; tonight, a way out, or the end
+      else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
+      else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26
       else if (o.t === 'buy' && !buy && ((G && G.id === 'payer') || (!G && buyTalk(text)))) buy = o; // 0.24
       else if (o.t === 'judge' && !react) { react = normReact(o.react); if (T.expect && (o.met === true || o.met === 'true')) metNow = true; }
       else if (o.t === 'say' && says < 2) { const x = str(o.text, 260); if (x) { T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); says++; } }
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', tier: talkTier(g), effort: talkEffort(g) });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', tier: talkTier(g) });
   } catch (e) { if (!says) ok = false; if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date'); }
   S.busy.talk = null;
   endFlow(f);
@@ -671,7 +691,12 @@ async function talkTurn(ev, text, geste) {
   if (G) T.used.push(G.id);
   if (G && INTIMATE.includes(G.id) && react === 'charme') c.dareWon = Date.now(); // the right moment: it may go faster now
   T.turn += 1;
-  if (fade || (G && G.id === 'rester' && (react === 'charme' || react === 'amuse'))) { fadeTalk(g, ev, 0.78); update(); return true; } // 0.14: they stay together
+  if (sign) psySign(g, c, sign);
+  if (esc != null) { fleeDate(g, ev, c, esc); update(); return true; } // 0.29: they got away
+  const stayed = !!(G && G.id === 'rester' && (react === 'charme' || react === 'amuse'));
+  if ((fin != null && T.turn >= 2) || (stayed && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // a night with them, once they are ready
+  if (fade && !stayed && T.turn < T.max) { ellipseTalk(g, ev); update(); return true; } // 0.29: the scene cuts, the evening goes on
+  if (fade || stayed) { fadeTalk(g, ev, 0.78); update(); return true; } // 0.14: they stay together
   if (T.turn >= T.max) T.lastAt = Date.now(); // 0.22.3: the evening draws to its end; the player may still have a last word
   update();
   return true;
@@ -689,6 +714,7 @@ async function lastWord(ev, text) {
   const g = S.game, c = g && ev && g.chars[ev.c], T = ev && ev.talk;
   if (!g || !c || !T || ev.played || ev.state !== 'scheduled' || S.busy.talk || T.turn < T.max) return false;
   text = String(text || '').trim().slice(0, TALK_MAX);
+  if (!text && ev.psy === 'deadly') text = 'Bon… je vais y aller.'; // 0.29: tonight, leaving is not that simple
   if (!text) { finishTalk(g, ev); T.closed = true; prepEnd(g, ev); update(); return true; } // « Se dire au revoir »
   if (PARTNER.includes(c.vibe) && meetKind(c, ev) === 'love' && FADE_RE.test(text)) { T.lines.push({ who: 'p', text, last: true }); fadeTalk(g, ev, 0.78); update(); return true; } // (as in the evening)
   if (!canAfford(g, 'talk')) { budgetBlocked(); return false; }
@@ -700,10 +726,14 @@ async function lastWord(ev, text) {
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, stay = false, buy = null, gift = null;
+  let react = null, says = 0, ok = true, stay = false, buy = null, gift = null, sign = null, esc = null, fin = null;
+  const deadly = ev.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
       if (o.t === 'stay') stay = true;
+      else if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
+      else if (o.t === 'fin' && fin == null) fin = str(o.text, 260);
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26
       else if (o.t === 'buy' && !buy && buyTalk(text)) buy = o; // 0.24
       else if (o.t === 'judge' && !react) react = normReact(o.react);
@@ -724,6 +754,9 @@ async function lastWord(ev, text) {
   if (yes) trainSkill(g, 'audace', 2); // (asked, and yes)
   T.reacts.push({ r: react, w: ask ? 1.5 : 1, g: ask ? 'rester' : null }); // (a night asked too soon cools them, as a gesture would)
   T.lastWord = text;
+  if (sign) psySign(g, c, sign);
+  if (esc != null) { fleeDate(g, ev, c, esc); update(); return true; } // 0.29: they got away, at the last moment
+  if (deadly || (yes && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // the trap closes (the game saved before the evening)
   if (yes) { if (react === 'charme') c.dareWon = Date.now(); fadeTalk(g, ev, 0.78); } // together: the scene stops at the door
   else { finishTalk(g, ev); prepEnd(g, ev); }
   update();
@@ -948,8 +981,8 @@ function DateTalk({ ev, g, now }) {
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
     </div>
     ${over ? html`<div class="talk-foot talk-over">
-      <p>${T.faded ? 'La soirée se termine à deux.' : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
-      <button class="btn btn-hot" onClick=${() => { T.closed = true; update(); }}>Terminer la soirée</button>
+      <p>${T.fled ? 'Tu es dehors, le cœur qui cogne. Tu ne te retournes pas.' : T.faded ? 'La soirée se termine à deux.' : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
+      <button class="btn btn-hot" onClick=${() => { T.closed = true; update(); }}>${T.fled ? 'Rentrer chez toi' : 'Terminer la soirée'}</button>
     </div>` : null}
     ${lastStage ? html`<div class="talk-foot talk-last">
       <p>La soirée touche à sa fin. Un dernier mot avant de vous quitter ?</p>

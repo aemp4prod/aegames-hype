@@ -128,8 +128,8 @@ async function newGame(page, identity) {
     return { n: phs.length, look: j && j.look, profile: j && j.profile, maxTags: Math.max(...phs.map((x) => x.tags.length)), long: !!long, sets: Object.keys(P.sets).filter((k) => k.startsWith('m01:')).length,
       ete: phs.filter((x) => x.season === 'ete').length, soir: phs.filter((x) => x.moment === 'soir').length, all: Object.keys(P.photos).length };
   });
-  check('Jasmine’s rework: 86 photos more (103), every tag kept as written (19 on some, « lunettes de soleil sur la tête » whole), 27 series, her new look and profile',
-    pk.n === 103 && pk.maxTags === 19 && pk.long && pk.sets === 27 && pk.ete >= 6 && pk.soir >= 30 && /taches de rousseur/.test(pk.look) && /pâtisserie/.test(pk.profile) && pk.all >= 165, pk);
+  check('Jasmine’s rework: 86 photos more (103), then 47 more (0.29: 150), every tag kept as written (19 on some, « lunettes de soleil sur la tête » whole), 39 series, her new look and profile',
+    pk.n === 150 && pk.maxTags === 19 && pk.long && pk.sets === 39 && pk.ete >= 6 && pk.soir >= 30 && /taches de rousseur/.test(pk.look) && /pâtisserie/.test(pk.profile) && pk.all >= 247, pk);
 
   // ---------- the stickers: 124, the objects ----------
   const em = await G(page, () => {

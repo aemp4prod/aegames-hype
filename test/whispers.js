@@ -100,7 +100,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     return { pw: /"proches"/.test(pw) && /"ennemis"/.test(pw), theoMaelle: T('theo', 'maelle'), zaraLou: T('zara', 'lou'), noxTheo: T('nox', 'theo'), noxLea: T('nox', 'leandre'), pairs: vals.length, ctx: /entre persos : [^\n]*proche de @leandre\.aube|entre persos : [^\n]*inséparable de @theo\.marlin/.test(ctx), old: Object.keys(old.ties).length, oldW: Array.isArray(old.whispers) };
   }, ids);
   check('the characters have ties to each other: those the AI wrote (close, cannot stand each other), their confidant, a little something for every other pair; the AI is told; an old game gets them too',
-    t0.pw && t0.theoMaelle >= 45 && t0.zaraLou <= -45 && t0.noxTheo >= 55 && t0.noxLea >= 45 && t0.pairs === 45 && t0.ctx && t0.old === 45 && t0.oldW, t0);
+    t0.pw && t0.theoMaelle >= 45 && t0.zaraLou <= -45 && t0.noxTheo >= 55 && t0.noxLea >= 45 && t0.pairs === 66 && t0.ctx && t0.old === 66 && t0.oldW, t0);
   await G(page, (id) => { window.__hype.S.stack = []; window.__hype.openChar(id); }, ids.nox);
   await page.waitForSelector('.layer .mem-list, .layer .section', { timeout: 5000 });
   await sleep(400);

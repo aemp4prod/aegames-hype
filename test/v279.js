@@ -35,7 +35,7 @@ async function shot(page, name) { shotN++; const f = path.join(OUT, `${String(sh
 const G = (page, fn, arg) => page.evaluate(fn, arg);
 async function dismiss(page) { for (let k = 0; k < 6 && (await page.$('.modal')); k++) { await page.click('.modal .btn >> nth=-1', { timeout: 3000 }).catch(() => {}); await sleep(500); } }
 const NB = ' ';
-const txt = (page, sel) => G(page, (s) => { const el = document.querySelector(s); return el ? el.textContent : ''; }, sel);
+const txt = (page, sel) => G(page, (s) => { const el = document.querySelector(s); if (!el) return ''; const c = el.cloneNode(true); for (const i of c.querySelectorAll('img.emo')) i.replaceWith(i.alt); return c.textContent; }, sel); // (our stickers read as their emoji)
 
 async function newPage(browser, viewport) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 700, colorScheme: 'light' });
@@ -467,7 +467,7 @@ async function newGame(page, identity) {
     H.hireStaff(g, c);
     H.goTab('studio'); H.update();
     const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('\n');
-    return { ads: [H.adWord(1.1), H.adWord(0.8), H.adWord(1)], ink: (css.match(/--ink-3: #94828C/g) || []).length, old: /#8C7A84/.test(css), games: H.MENU_GAMES.map((x) => x[1]).join('|'), label: Object.values(H.MG_LABEL).join('|') };
+    return { ads: [H.adWord(1.1), H.adWord(0.8), H.adWord(1)], ink: (css.match(/--ink-3: #94828C/g) || []).length, old: /#8C7A84/.test(css), games: H.PRACTICE_GAMES.map((x) => x[1]).join('|'), label: Object.values(H.MG_LABEL).join('|') };
   });
   await page.waitForSelector('.staff-row');
   const team = await G(page, () => { const b = document.querySelector('.staff-row .acts .btn'); return { aria: b && b.getAttribute('aria-label'), plat: [...document.querySelectorAll('.studio-head button')].map((x) => x.textContent.trim()).join('|') }; });

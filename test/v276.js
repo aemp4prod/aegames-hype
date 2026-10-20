@@ -1,5 +1,5 @@
-// 0.27.6 end to end, in Chromium against the built hype.html with the mocked Claude runtime: the hidden menu.
-// 0.27.9: the way a game trainer shows it: a banner, one column, submenus (money, reputation, time, mini-games, skills,
+// 0.27.6 end to end, in Chromium against the built hype.html with the mocked Claude runtime: the palette.
+// 0.27.9: its window: a banner, one column, pages (money, reputation, time, mini-games, skills,
 //   ties), driven by the keyboard (↑ ↓ ← → Entrée Retour) or by taps, every change applied at once;
 // - the mini-games: any of the ten at any level, played now for practice (nothing counts in the game), or imposed on the
 //   next shoot (once); Cauchemar is the real quiz only.
@@ -66,30 +66,30 @@ async function newGame(page, identity) {
   await newGame(page, 'Une créatrice qui touche à tout');
   await G(page, () => { window.__hypeNoGearEvent = true; window.__hypeEasyGear = true; const g = window.__hype.S.game; g.career.cash = 1234; });
   const key = async (k, n = 1) => { for (let j = 0; j < n; j++) { await page.keyboard.press(k); await sleep(60); } await sleep(120); };
-  const menu = () => G(page, () => { const on = document.querySelector('.layer .tr-line.on'); return { sub: (document.querySelector('.layer .tr-sub') || {}).textContent || '', lines: [...document.querySelectorAll('.layer .tr-line')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()), on: on ? on.textContent.replace(/\s+/g, ' ').trim() : '', desc: (document.querySelector('.layer .tr-desc') || {}).textContent || '' }; });
+  const menu = () => G(page, () => { const on = document.querySelector('.layer .pw-line.on'); return { sub: (document.querySelector('.layer .pw-sub') || {}).textContent || '', lines: [...document.querySelectorAll('.layer .pw-line')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()), on: on ? on.textContent.replace(/\s+/g, ' ').trim() : '', desc: (document.querySelector('.layer .pw-desc') || {}).textContent || '' }; });
 
-  // ---------- the menu: a banner, one column, submenus, the keyboard ----------
-  await G(page, () => window.__hype.openMenu());
-  await page.waitForSelector('.layer .trainer');
+  // ---------- the palette: a banner, one column, pages, the keyboard ----------
+  await G(page, () => window.__hype.openPalette());
+  await page.waitForSelector('.layer .palette-win');
   await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); });
   await dismiss(page);
   const root = await menu();
-  const banner = await G(page, () => (document.querySelector('.layer .tr-banner') || {}).textContent || '');
-  await shot(page, 'menu-root');
+  const banner = await G(page, () => (document.querySelector('.layer .pw-banner') || {}).textContent || '');
+  await shot(page, 'palette-root');
   await key('ArrowDown', 3);
   const atGames = await menu();
   await key('Enter');
   const games = await menu();
-  const opts = await G(page, () => { const H = window.__hype, g = H.S.game, L = H.menuLines(g, ['jeux']); return { kinds: L[0].opts.map((o) => o[1]), quiz: L[1].opts.length }; });
-  await shot(page, 'menu-minigames');
-  check('the menu as a game trainer draws it: a banner, « Menu principal » and the line number, six submenus and « Masquer »; ↓ moves the highlighted line, Entrée opens « Mini-jeux »: the game, the level, play now, impose',
-    /hype/i.test(banner) && /mode menu/i.test(banner) && /Menu principal\s*1\/7/.test(root.sub) && root.lines.length === 7 && /^💰 ?Argent et abonnés/.test(root.lines[0]) && /Masquer le mode menu/.test(root.lines[6])
+  const opts = await G(page, () => { const H = window.__hype, g = H.S.game, L = H.paletteLines(g, ['jeux']); return { kinds: L[0].opts.map((o) => o[1]), quiz: L[1].opts.length }; });
+  await shot(page, 'palette-minigames');
+  check('the palette: a banner, « Sommaire » and the line number, six pages and « Masquer »; ↓ moves the highlighted line, Entrée opens « Mini-jeux »: the game, the level, play now, impose',
+    /hype/i.test(banner) && /nuancier/i.test(banner) && /Sommaire\s*1\/7/.test(root.sub) && root.lines.length === 7 && /^💰 ?Argent et abonnés/.test(root.lines[0]) && /Masquer le nuancier/.test(root.lines[6])
       && /Mini-jeux/.test(atGames.on) && /Mini-jeux\s*1\/4/.test(games.sub) && /^Mini-jeu/.test(games.lines[0]) && /^Difficulté/.test(games.lines[1]) && /^Jouer maintenant/.test(games.lines[2]) && /^Imposer au tournage/.test(games.lines[3])
       && opts.kinds.length === 10 && opts.kinds.includes('Coupe au rythme') && opts.kinds.includes('Recadrage vertical') && opts.quiz === 7, { root, atGames, games, opts });
 
   // ---------- a practice round: the chat of a live, in Mythique, played by a bot ----------
   for (let k = 0; k < 12 && !/Modération du chat/.test((await menu()).on); k++) await key('ArrowRight');
-  const offC = await G(page, () => { const H = window.__hype; return H.menuLines(H.S.game, ['jeux'])[1].opts.length; });
+  const offC = await G(page, () => { const H = window.__hype; return H.paletteLines(H.S.game, ['jeux'])[1].opts.length; });
   await key('ArrowDown');
   for (let k = 0; k < 8 && !/Mythique/.test((await menu()).on); k++) await key('ArrowRight');
   const before = await G(page, () => { const g = window.__hype.S.game; return { cash: g.career.cash, fol: g.stats.followers, rel: g.releases.length, rep: g.stats.reputation }; });
@@ -124,8 +124,9 @@ async function newGame(page, identity) {
   check('an AI-written game for practice (the quiz, Expert): written on the subject, imposed format, played to the end, a score', q.kind === 'quiz' && q.diff === 'expert' && q.score >= 0 && q.score <= 1 && q.prompt, q);
 
   // ---------- imposed on the next shoot, once ----------
-  await G(page, () => { const H = window.__hype; H.S.stack = []; H.openMenu(); });
-  await page.waitForSelector('.layer .trainer');
+  await G(page, () => { const H = window.__hype; H.S.stack = []; H.openPalette(); });
+  await page.waitForSelector('.layer .palette-win');
+  await sleep(400); // (its keys are listened to once it has been drawn)
   const remembered = (await menu()).on;
   await key('Enter');
   for (let k = 0; k < 12 && !/Mémoire/.test((await menu()).on); k++) await key('ArrowRight');
@@ -143,7 +144,7 @@ async function newGame(page, identity) {
     out.next = H.pickShootKind(g, r2) !== undefined && !g.mgNext;
     return out;
   });
-  check('« Imposer au tournage »: the menu opens where it was left (the line « Mini-jeux »); « Oui » on the line, and the next shoot gets that game (the memory), once, then the draw again', /Mini-jeux/.test(remembered) && /Imposer au tournage.*Oui/.test(tog) && imp.set === 'memoire' && imp.kind === 'memoire' && imp.after === null && imp.next, Object.assign({ remembered }, imp));
+  check('« Imposer au tournage »: the palette opens where it was left (the line « Mini-jeux »); « Oui » on the line, and the next shoot gets that game (the memory), once, then the draw again', /Mini-jeux/.test(remembered) && /Imposer au tournage.*Oui/.test(tog) && imp.set === 'memoire' && imp.kind === 'memoire' && imp.after === null && imp.next, Object.assign({ remembered }, imp));
 
   await browser.close();
   console.log('ERRORS', errors.length ? '\n' + errors.join('\n') : 'none');

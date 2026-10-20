@@ -16,7 +16,12 @@ const errors = [];
 const checks = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // 0.15: the pen steps aside while the feed scrolls down; a player scrolls back up, a test brings it back
-const clickFab = async (page, opts) => { await page.evaluate(() => { const H = window.__hype; if (H && H.S.fabAway) { H.S.fabAway = false; H.update(false); } }); await page.click('.fab', opts); };
+const clickFab = async (page, opts) => {
+  await page.evaluate(() => { const H = window.__hype; if (H && H.S.fabAway) { H.S.fabAway = false; H.update(false); } });
+  for (let k = 0; ; k++) { // (a result revealed late on a busy machine may open its window just before: closed, then again)
+    try { return await page.click('.fab', Object.assign({ timeout: 10000 }, opts)); } catch (e) { if (k >= 2) throw e; await dismiss(page); await noToasts(page); }
+  }
+};
 let shotN = 0;
 const check = (name, ok, info) => { checks.push([ok ? 'PASS' : 'FAIL', name, info === undefined ? '' : JSON.stringify(info)]); console.log(ok ? 'PASS' : 'FAIL', name, info === undefined ? '' : JSON.stringify(info)); };
 
@@ -95,7 +100,6 @@ async function studioSteps(page, thumb) {
   await setup(page);
   await page.goto('https://hype.test/');
   await page.waitForSelector('text=Nouvelle partie');
-  await G(page, () => { window.__hype.S.news = { date: '2026-10-13', label: 'mardi 13 octobre 2026', updatedAt: Date.now() - 3600000, items: [{ cat: 'Foot', text: 'Les Bleus ont battu la Belgique 4-1 au Stade de France.' }] }; });
   await sleep(300);
 
   // ---------- pure functions ----------
@@ -416,14 +420,13 @@ async function studioSteps(page, thumb) {
     const pr = window.__prompts.filter((x) => x.includes('Le joueur actualise son fil')).slice(-1)[0] || '';
     const next = H.promptRefresh(g, 0, []);
     const real = { world: { preset: 'reel' }, refreshes: 9, arcRefresh: 0, lastArcAt: 0, usedNews: [] };
-    const r0 = Math.random, n0 = H.S.news;
+    const r0 = Math.random;
     Math.random = () => 0.1;
-    H.S.news = { date: '2026-10-13', label: 'mardi 13 octobre 2026', updatedAt: Date.now() - 3600000, items: [{ cat: 'Foot', text: 'Les Bleus ont battu la Belgique 4-1.' }] };
-    let news; try { news = H.pickArc(real); } finally { Math.random = r0; H.S.news = n0; }
+    let news; try { news = H.pickArc(real); } finally { Math.random = r0; }
     const trolls = ['troll, répond à tout par un mème', 'Lectrice de contrats amateur, pose des questions'].map((b) => H.isTroll({ bio: b }));
-    return { arcs: (g.arcs || []).map((a) => a.kind + ':' + a.title + ' ' + a.tag), asked: /## NOUVEAU SUJET À LANCER/.test(pr), notif: g.notifs.some((n) => n.k === 'trend' && n.tg === '#ChaudronGate'), inCtx: next.includes('## SUJETS DU MOMENT') && next.includes('#ChaudronGate'), again: !H.pickArc(g), news: news && news.kind === 'news' && !!news.news, trolls: trolls.join() };
+    return { arcs: (g.arcs || []).map((a) => a.kind + ':' + a.title + ' ' + a.tag), asked: /## NOUVEAU SUJET À LANCER/.test(pr), notif: g.notifs.some((n) => n.k === 'trend' && n.tg === '#ChaudronGate'), inCtx: next.includes('## SUJETS DU MOMENT') && next.includes('#ChaudronGate'), again: !H.pickArc(g), news: !!news && news.kind === 'drama', trolls: trolls.join() };
   });
-  check('the world starts its own storylines (a drama, a trend, now and then a troll one; the real news in the real world)', arc1.arcs.length === 1 && /Qui a volé le chaudron/.test(arc1.arcs[0]) && arc1.asked && arc1.notif && arc1.inCtx && arc1.again && arc1.news && arc1.trolls === 'true,false', arc1);
+  check('the world starts its own storylines (a drama, a trend, now and then a troll one; never a troll in the real world)', arc1.arcs.length === 1 && /Qui a volé le chaudron/.test(arc1.arcs[0]) && arc1.asked && arc1.notif && arc1.inCtx && arc1.again && arc1.news && arc1.trolls === 'true,false', arc1);
 
   // ---------- refused -> rollback ----------
   const before = await G(page, () => ({ e: window.__hype.budgetOf(window.__hype.S.game).used, n: window.__hype.S.game.posts.length }));
@@ -1160,15 +1163,14 @@ async function studioSteps(page, thumb) {
   console.log('DB', keys, 'writes', await G(page, () => window.__writes));
   fs.writeFileSync(path.join(OUT, 'prompts.txt'), (await G(page, () => window.__prompts.join('\n\n=====================\n\n'))));
 
-  // ---------- desktop dark reload, layer alignment (and the news digest of the real world) ----------
-  await G(page, () => localStorage.setItem('__mockdb:news/today', JSON.stringify({ date: '2026-10-13', label: 'mardi 13 octobre 2026', updatedAt: Date.now() - 3600000, items: [{ cat: 'Foot', text: 'Les Bleus ont battu la Belgique 4-1 au Stade de France.' }, { cat: 'Ciné', text: 'Trois grosses sorties ce mercredi.' }] })));
+  // ---------- desktop dark reload, layer alignment (and the real world, without a news digest since the 0.29) ----------
   await page.setViewportSize({ width: 1360, height: 860 });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.reload();
   await page.waitForSelector('.save');
   await sleep(600);
-  const news = await G(page, () => { const H = window.__hype; const w = H.WORLDS.find((x) => x.id === 'reel'); const pr = H.promptWorld(w, { name: 'Test', handle: 'test', start: 'anon', identity: 'une créatrice', pron: 'elle', chaos: 1 }); return { loaded: !!(H.S.news && H.S.news.items.length === 2), inPrompt: pr.includes('## L’ACTU DU MOMENT (vraie actualité, mardi 13 octobre 2026)') && pr.includes('battu la Belgique'), rule: pr.includes('Jamais de vraie personne comme compte') }; });
-  check('real world: today’s news digest loaded and given to Claude', news.loaded && news.inPrompt && news.rule, news);
+  const news = await G(page, () => { const H = window.__hype; const w = H.WORLDS.find((x) => x.id === 'reel'); const pr = H.promptWorld(w, { name: 'Test', handle: 'test', start: 'anon', identity: 'une créatrice', pron: 'elle', chaos: 1 }); return { vague: pr.includes('Pas de nouvelles fraîches disponibles'), rule: pr.includes('Jamais de vraie personne comme compte'), noChip: !document.querySelector('.world-news') }; });
+  check('real world: no news digest (it came from the Claude version): the AI stays vague about the latest news, and never a real person as an account', news.vague && news.rule && news.noChip, news);
   await shot(page, 'home-saves-dark');
   await page.click('.save');
   await page.waitForSelector('.post');

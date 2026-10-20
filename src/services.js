@@ -150,7 +150,7 @@ async function sendJob(id) {
       else if (o.t === 'jobpost' && !fx.post) fx.post = str(o.text, 320);
       else if (o.t === 'mem' && !fx.mem) fx.mem = str(o.text, 90);
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'job', effort: 'low' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'job' });
   } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'dm'); }
   S.busy.job = null;
   endFlow(f);

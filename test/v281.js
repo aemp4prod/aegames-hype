@@ -284,9 +284,9 @@ async function newGame(page, identity) {
     const H = window.__hype, g = H.S.game, out = {};
     const text = await H.exportGameText(g.id), d = JSON.parse(text);
     out.v = d.version; out.sum = typeof d.sum === 'string';
-    const a = await H.importGameText(text); out.clean = !(a.ach && a.ach.cheated);
+    const a = await H.importGameText(text); out.clean = !(a.ach && a.ach.local);
     d.core.stats.followers = 12000000;
-    const b = await H.importGameText(JSON.stringify(d)); out.tampered = !!(b.ach && b.ach.cheated);
+    const b = await H.importGameText(JSON.stringify(d)); out.tampered = !!(b.ach && b.ach.local);
     for (const x of [a, b]) await H.removeGameById(x.id);
     return out;
   });
@@ -315,8 +315,8 @@ async function newGame(page, identity) {
     out.light = H.lightTier();
     return out;
   });
-  check('one lock per conversation (two answers on their way at once), the routine calls think less on « Normale » (effort low), the crowd on the fast model; the player’s braces neutralized; the time line last in the shared context',
-    ai.lockA && !ai.lockB0 && ai.both && ai.free && ai.dmOpts.length === 2 && ai.dmOpts.every((o) => o.effort === 'low') && ai.braces && ai.moment && ai.light === 'quick', ai);
+  check('one lock per conversation (two answers on their way at once), the crowd on the fast model (0.29: no « effort » asked any more, the app sets it from the tier); the player’s braces neutralized; the time line last in the shared context',
+    ai.lockA && !ai.lockB0 && ai.both && ai.free && ai.dmOpts.length === 2 && ai.dmOpts.every((o) => !o.effort) && ai.braces && ai.moment && ai.light === 'quick', ai);
 
   // ---------- the suspense counted from the click; a post thinks at the platform's own setting ----------
   await G(page, () => { window.__opts = []; });

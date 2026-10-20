@@ -2,7 +2,7 @@
 // - the down payment is negotiated: a brand that agrees to one in the DM writes it into the contract (paid at the
 //   signature), a bigger one on a signed contract pays the difference at once; a brand that never pays never pays one;
 // - several releases can be planned at once (the soonest is the one on the clock), and one can come out sooner, at no cost;
-// - the hidden menu (the Konami code, or 7 taps on the money): money, counters, reputation, the clock, skills, ties;
+// - the palette (a few keys in a row, or 7 taps on the money): money, counters, reputation, the clock, skills, ties;
 //   a clock set back never pays or bills a month twice.
 // - the mini-games: the colour grading is gone (far too hard), and every answer gets two more seconds, at every
 //   difficulty (each item, each question or series, each image to find, each chat message, each take of the cut).
@@ -296,27 +296,27 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   check('on screen: the rule of the shoot says the new time (true or false in Mythique: two more seconds per statement at least)', new RegExp(`Tranche vite : ${vfSec} secondes pour tout`).test(vfIntro.text) && vfIntro.clock >= vfIntro.old, { n: vfIntro.n, want: vfSec, clock: vfIntro.clock, old: vfIntro.old, text: vfIntro.text.slice(0, 260) });
   await G(page, () => { const H = window.__hype, g = H.S.game; H.S.mgForce = null; for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped'; H.S.stack = []; H.update(); });
 
-  // ---------- the hidden menu ----------
+  // ---------- the palette ----------
   const press = async (keys) => { for (const k of keys) { await page.keyboard.press(k); await sleep(40); } };
-  const CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+  const CODE = [0, 0, 1, 1, 2, 3, 2, 3].map((k) => 'Arrow' + ['Up', 'Down', 'Left', 'Right'][k]).concat('b', 'a');
   await G(page, () => { const i = document.createElement('input'); i.id = 'tmp-in'; document.body.appendChild(i); i.focus(); });
   await press(CODE);
-  const inField = await G(page, () => ({ open: window.__hype.S.stack.some((l) => l.t === 'cheat'), on: window.__hype.menuOn() }));
+  const inField = await G(page, () => ({ open: window.__hype.S.stack.some((l) => l.t === 'palette'), on: window.__hype.paletteOn() }));
   await G(page, () => { const i = document.getElementById('tmp-in'); i.blur(); i.remove(); });
   await press(['ArrowUp', 'ArrowDown', 'b', 'a']);
-  const wrong = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'cheat'));
+  const wrong = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'palette'));
   await press(CODE);
-  await page.waitForSelector('.layer .trainer', { timeout: 5000 });
-  const m0 = await G(page, () => ({ on: window.__hype.menuOn(), ls: localStorage.getItem('hype:menu'), title: document.querySelector('.layer .layer-head h2').textContent, text: document.querySelector('.layer').textContent }));
-  await shot(page, 'menu-open');
-  check('the Konami code opens the hidden menu (typed in a text field, or wrong, nothing); it stays unlocked',
-    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🛠️ Mode menu' && /Argent/.test(m0.text) && /Réputation/.test(m0.text) && /Temps/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text) && /abonnés/.test(m0.text), { inField, wrong, title: m0.title });
+  await page.waitForSelector('.layer .palette-win', { timeout: 5000 });
+  const m0 = await G(page, () => ({ on: window.__hype.paletteOn(), ls: localStorage.getItem('hype:palette'), title: document.querySelector('.layer .layer-head h2').textContent, text: document.querySelector('.layer').textContent }));
+  await shot(page, 'palette-open');
+  check('the keys in a row open the palette (typed in a text field, or wrong, nothing); it stays on',
+    !inField.open && !inField.on && !wrong && m0.on && m0.ls === '1' && m0.title === '🎨 Nuancier' && /Argent/.test(m0.text) && /Réputation/.test(m0.text) && /Temps/.test(m0.text) && /Compétences/.test(m0.text) && /Relations/.test(m0.text) && /abonnés/.test(m0.text), { inField, wrong, title: m0.title });
   await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); }); // (what the game had to say meanwhile)
   await dismiss(page);
-  // (0.27.9: the trainer menu: « Argent et abonnés », then each line typed: Entrée opens its field, Entrée sets it)
-  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .tr-edit'); await page.fill('.layer .tr-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
+  // (0.27.9: « Argent et abonnés », then each line typed: Entrée opens its field, Entrée sets it)
+  const typeIn = async (text) => { await page.keyboard.press('Enter'); await page.waitForSelector('.layer .pw-edit'); await page.fill('.layer .pw-edit', text); await page.keyboard.press('Enter'); await sleep(150); };
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /Argent et abonnés/.test((document.querySelector('.layer .tr-sub') || {}).textContent || ''));
+  await page.waitForFunction(() => /Argent et abonnés/.test((document.querySelector('.layer .pw-sub') || {}).textContent || ''));
   await typeIn('50 000');
   await page.keyboard.press('ArrowDown'); await typeIn('123456');
   await page.keyboard.press('ArrowDown'); await typeIn('999');
@@ -324,17 +324,17 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   await page.keyboard.press('ArrowDown'); await typeIn(String(lv0.level + 2));
   await sleep(300);
   const m1 = await G(page, () => { const H = window.__hype, g = H.S.game; return { cash: g.career.cash, fol: g.stats.followers, gems: g.stats.gems, level: g.stats.level, xp: g.stats.xp, unlocked: H.mains(g).length }; });
-  check('money, followers, gems and level set from the menu (« 50 000 » is 50 000); a higher level brings the characters it unlocks',
+  check('money, followers, gems and level set from the palette (« 50 000 » is 50 000); a higher level brings the characters it unlocks',
     m1.cash === 50000 && m1.fol === 123456 && m1.gems === 999 && m1.level === lv0.level + 2 && m1.xp === 0 && m1.unlocked === lv0.unlocked + Math.min(2, lv0.locked), { m1, lv0 });
   const m2 = await G(page, () => {
     const H = window.__hype, g = H.S.game, s = g.stats;
     s.cancelled = true;
-    H.menuApply(g, { rep: { image: '900', cred: '900', pro: '900', kind: '900' } });
+    H.paletteApply(g, { rep: { image: '900', cred: '900', pro: '900', kind: '900' } });
     const rep = { r: s.reputation, cancelled: s.cancelled, p: Object.values(s.rep4) };
-    H.menuApply(g, { skills: { charisme: '20', humour: '50', audace: '99', creativite: '0' } });
+    H.paletteApply(g, { skills: { charisme: '20', humour: '50', audace: '99', creativite: '0' } });
     const sk = { ch: H.skillLevel(g, 'charisme'), hu: H.skillLevel(g, 'humour'), au: H.skillLevel(g, 'audace'), cr: H.skillLevel(g, 'creativite') };
     const c = H.mains(g)[0];
-    H.menuApply(g, { rel: { [c.id]: '75' } });
+    H.paletteApply(g, { rel: { [c.id]: '75' } });
     return { rep, sk, rel: c.rel };
   });
   check('the reputation pillars on 1000 (900 everywhere: 900/1000, and out of a cancel by the usual rule), the skills on 50 (capped), a tie from −100 to +100',
@@ -343,36 +343,36 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     const H = window.__hype, g = H.S.game, c = g.career, t = Date.now(), DAY = 86400000;
     const key = (x) => H.gameDate(x).getFullYear() + '-' + String(H.gameDate(x).getMonth() + 1).padStart(2, '0');
     const target = new Date(H.gameDate(t).getTime()); target.setHours(21, 30, 0, 0);
-    H.menuApply(g, { at: target.getTime() });
+    H.paletteApply(g, { at: target.getTime() });
     const shown = H.gameDate(Date.now());
     const clock = { h: shown.getHours(), m: shown.getMinutes() };
     // the month: a clock set back pays and bills nothing; the next month comes once
     c.estMonth = key(Date.now()); c.est = 100; c.owed = 0;
     if (g.gear) g.gear.bill = key(Date.now());
     const cash0 = c.cash;
-    H.menuApply(g, { at: H.gameDate(Date.now()).getTime() - 40 * DAY });
+    H.paletteApply(g, { at: H.gameDate(Date.now()).getTime() - 40 * DAY });
     const back = { pay: H.checkPayout(g, Date.now()), est: c.est, cash: c.cash === cash0, bill: g.gear ? g.gear.bill : null, billed: H.billGear(g, Date.now()) };
-    H.menuApply(g, { at: H.gameDate(Date.now()).getTime() + 80 * DAY });
+    H.paletteApply(g, { at: H.gameDate(Date.now()).getTime() + 80 * DAY });
     const fwd = { pay: H.checkPayout(g, Date.now()), est: c.est, paid: Math.round((c.cash - cash0) * 100) / 100, again: H.checkPayout(g, Date.now()), month: c.estMonth === key(Date.now()) };
     return { clock, back, fwd };
   });
-  check('the clock set from the menu shows the time asked; set back a month, nothing is paid or billed twice; the next month pays once (no double payout)',
+  check('the clock set from the palette shows the time asked; set back a month, nothing is paid or billed twice; the next month pays once (no double payout)',
     m3.clock.h === 21 && m3.clock.m === 30 && m3.back.pay === false && m3.back.est === 100 && m3.back.cash && m3.back.billed === false && m3.fwd.pay === true && m3.fwd.paid === 100 && m3.fwd.again === false && m3.fwd.month, m3);
-  await G(page, () => { const H = window.__hype; H.menuApply(H.S.game, { at: Date.now() }); H.S.stack = []; H.update(); });
+  await G(page, () => { const H = window.__hype; H.paletteApply(H.S.game, { at: Date.now() }); H.S.stack = []; H.update(); });
   await sleep(300);
   await G(page, () => window.__hype.openLayer({ t: 'settings' }));
   await page.waitForSelector('.layer .section');
-  const inSettings = await G(page, () => /🛠️ Mode menu/.test(document.querySelector('.layer').textContent));
+  const inSettings = await G(page, () => /🎨 Nuancier/.test(document.querySelector('.layer').textContent));
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.update(); });
   await G(page, () => { window.__hype.S.modals = []; window.__hype.update(); });
   await dismiss(page);
   for (let k = 0; k < 7; k++) { await page.click('.cash-chip'); await sleep(60); }
   await sleep(300);
-  const taps = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'cheat'));
-  await page.locator('.layer .tr-line', { hasText: 'Masquer le mode menu' }).click();
+  const taps = await G(page, () => window.__hype.S.stack.some((l) => l.t === 'palette'));
+  await page.locator('.layer .pw-line', { hasText: 'Masquer le nuancier' }).click();
   await sleep(300);
-  const hidden = await G(page, () => ({ on: window.__hype.menuOn(), open: window.__hype.S.stack.some((l) => l.t === 'cheat') }));
-  check('once unlocked, the menu is in the settings; 7 quick taps on the money open it too (on a phone); « Masquer » hides it again',
+  const hidden = await G(page, () => ({ on: window.__hype.paletteOn(), open: window.__hype.S.stack.some((l) => l.t === 'palette') }));
+  check('once opened, the palette is in the settings; 7 quick taps on the money open it too (on a phone); « Masquer » hides it again',
     inSettings && taps && !hidden.on && !hidden.open, { inSettings, taps, hidden });
 
   await browser.close();

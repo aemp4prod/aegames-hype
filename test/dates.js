@@ -212,6 +212,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await sleep(800); await dismiss(page); // (0.28.1: what waited for the conversation to close shows now)
   await page.click('.gear-btn:visible');
   await page.waitForSelector('.layer .section');
+  await sleep(1500); await dismiss(page); // (an announcement that waited for the conversation can still show, over the settings)
   const box = page.locator('.layer .check-card', { hasText: 'Rendez-vous soignés' });
   await box.scrollIntoViewIfNeeded();
   const s0 = await box.locator('input').isChecked();

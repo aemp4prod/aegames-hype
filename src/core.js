@@ -116,11 +116,12 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.28.1';
+const APP_VERSION = '0.29.0';
 const APP_STAGE = 'alpha';
-// Who runs the game: Claude (as an artifact), or the desktop app on the player's own ChatGPT plan (window.hypeHost, see desktop/).
+// Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
+// (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
 const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost.kind === 'chatgpt' ? window.hypeHost : null;
-const AI_NAME = HOST ? 'ChatGPT' : 'Claude';
+const AI_NAME = 'ChatGPT';
 function lsOK() {
   try { const k = '__hype_t'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch (e) { return false; }
 }
@@ -326,8 +327,8 @@ const ageText = (c, short = false) => (c && c.age ? `${c.age} ans, ${short ? (MA
 // A partner's status, for the people on screen: « Ta copine », « Ton fiancé », « Ta femme ».
 const partnerWord = (c) => (c.vibe === 'mariage' ? gx(c.g, 'Ton mari', 'Ta femme', 'Ton·ta conjoint·e') : c.vibe === 'fiancailles' ? gx(c.g, 'Ton fiancé', 'Ta fiancée', 'Ton·ta fiancé·e') : c.vibe === 'couple' ? gx(c.g, 'Ton copain', 'Ta copine', 'Ton·ta partenaire') : '');
 const WORLDS = [
-  { id: 'reel', emoji: '🌍', hue: 205, name: 'Monde réel', inName: 'dans le monde réel', desc: 'Notre monde, aujourd’hui : la vraie actu du moment, des personnages inventés.', real: true,
-    prompt: 'Le monde réel d’aujourd’hui, en France et ailleurs : réseaux sociaux, créateurs de contenu, médias, sport, musique, cinéma, jeux vidéo, tech et faits de société. Les personnages principaux, les médias et les habitués du réseau sont TOUS inventés (aucune vraie personne n’a de compte dans le jeu) et parlent de l’actualité réelle du moment comme de vrais internautes.',
+  { id: 'reel', emoji: '🌍', hue: 205, name: 'Monde réel', inName: 'dans le monde réel', desc: 'Notre monde, aujourd’hui, avec des personnages inventés.', real: true,
+    prompt: 'Le monde réel d’aujourd’hui, en France et ailleurs : réseaux sociaux, créateurs de contenu, médias, sport, musique, cinéma, jeux vidéo, tech et faits de société. Les personnages principaux, les médias et les habitués du réseau sont TOUS inventés (aucune vraie personne n’a de compte dans le jeu) et vivent leur vie en ligne comme de vrais internautes.',
     role: 'ex : une créatrice qui commente l’actu sur ses réseaux' },
   { id: 'influence', emoji: '📱', hue: 48, name: 'Planète Influence', inName: 'sur Planète Influence', desc: 'Créateurs de contenu, placements de produits, collabs et bad buzz.',
     prompt: 'Le monde des influenceurs et créateurs de contenu (fictif) : vlogueuses lifestyle, youtubeurs, streamers gaming, gourous beauté, influenceurs foot, anciens candidats de téléréalité, agents et marques. Placements de produits, collabs, course aux abonnés, drama et bad buzz. Tous les créateurs sont des personnages originaux aux noms inventés : aucun nom, pseudo ou parodie de vraie personne.',
@@ -359,7 +360,20 @@ const WORLDS = [
 ];
 const PERSONA_EMOJIS = ['😎', '🦊', '🐺', '🦄', '🐉', '🌸', '🔥', '⭐', '🎧', '🎤', '🧙', '🧛', '🤖', '👽', '🐱', '🐸', '🦋', '🌙', '⚡', '🍀', '🎨', '🛹', '🏀', '👑'];
 const PERSONA_HUES = [330, 10, 35, 95, 150, 190, 225, 265];
-const NPC_EMOJIS = ['🐸', '🍓', '🌙', '🦋', '🍜', '🎧', '🐱', '🌵', '🍩', '🛹', '🎲', '🧃', '🌈', '🦖', '🐙', '🍀', '🧸', '🥐', '🐝', '🎮', '🌻', '🦉', '🍕', '🐧', '🍒', '🪐', '🐌', '🥑'];
+// 0.29: what an avatar the AI gives (a character, a media, a regular, a contact, a world) can be: one of our stickers
+// (emojis.js, tools/emoji), so that none is drawn by the system. The AI picks from this list; an emoji it writes that is
+// not one of ours becomes one of them, always the same for the same name. (The characters already made keep theirs.)
+const AVATAR_EMOJIS = ['😂', '🤣', '😊', '😁', '😍', '🥰', '😘', '😉', '😏', '😎', '🤩', '🥳', '😅', '🥲', '🙃', '🫠', '🤔', '🙄', '😒', '😳', '😮', '😱', '🤯', '😬', '🥺', '😢', '😭', '😡', '😤', '🤬', '🤢', '😴', '🤫', '😇', '😈', '💀', '🤡', '👍', '👏', '🙏', '💪', '👋', '❤️', '💔', '💕', '💖', '🔥', '✨', '⭐', '👑', '🏆', '💰', '📸', '🎤', '🍿', '👀', '⚡', '🚀', '🎉', '🎁', '🎵', '💅', '🐐', '🙂', '😌', '🫣', '🥹', '😄', '😰', '🥶', '🧐', '😵', '🤐', '🙌', '🫶', '👌', '🤝', '🤳', '💛', '🧡', '🤍', '💞', '💘', '💌', '💝', '📱', '📷', '🎬', '🎙️', '🎧', '🎮', '🎞️', '💡', '☕', '🥂', '🍻', '🥤', '🍕', '🛍️', '👟', '💼', '🏠', '💸', '💍', '💬', '📣', '💥', '🧨', '🌙', '🌅', '🦋', '☀️'];
+const ourEmoji = (e) => !!e && (typeof EMO_BY !== 'undefined' ? !!EMO_BY[e.replace(/\uFE0F/g, '')] : AVATAR_EMOJIS.includes(e)); // (EMO_BY: the page; the list alone for the tools)
+// fb: when the AI gave none ('' : none, then; undefined: one of ours anyway); seed: the name or the handle.
+function avatarEmoji(e, seed, fb) {
+  const em = cleanEmoji(e);
+  if (em && ourEmoji(em)) return em;
+  if (!em && fb === '') return '';
+  return fb && ourEmoji(fb) ? fb : AVATAR_EMOJIS[hashStr(String(seed || em || '?')) % AVATAR_EMOJIS.length];
+}
+const AVATAR_ASK = () => 'pris dans cette liste (et nulle part ailleurs) : ' + AVATAR_EMOJIS.join(' ');
+const NPC_EMOJIS = AVATAR_EMOJIS; // (0.29: a regular the AI gave no emoji to gets one of ours too)
 const MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000, 10000000];
 // Whole words only (« lune » is not in « lunettes », « sort » not in « sortie »), plurals too.
 const PK = (words) => new RegExp(`(?:^|[^a-zà-ÿœæ])(?:${words})(?:s|x|es)?(?![a-zà-ÿœæ])`);
@@ -414,7 +428,6 @@ const S = {
   notifSeenBefore: 0,
   ai: 'unknown',
   store: 'pending',
-  news: null, // the real news digest of the day, for the « Monde réel » world
   host: { session: null, models: [], prefs: {}, busy: false, zoom: null }, // the ChatGPT connection (desktop app only); zoom: the size of everything
   hostModal: null, // a host message over everything: { t: 'gpt-welcome' | 'gpt-limit' }
   skipWait: false, // a time jump waiting for the characters to finish writing
@@ -570,8 +583,10 @@ function migrate(g) {
   migrateGear(g); // 0.20
   migrateTrust(g); // v0.9
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves
+  ensureAch(g); // 0.29: the achievements' marks under their names of now
   ensureHearts(g); // v0.11: how each one loves, and at least one real challenge from the start
   initTies(g); // v0.13: who is close to whom among them, what is said about the player
+  if (!g.pendingCast) ensureRoles(g); // 0.29: the critic and Rebecca Silver (asked to the next refreshes first), the psychopath
   return g;
 }
 /* ---------- the world's own storylines: dramas, trends, a troll now and then, the real news in the real world ---------- */
@@ -586,19 +601,14 @@ const ARC_KINDS = {
 function pickArc(g, t = Date.now()) {
   const k = lifeK(g); // 0.19: a livelier level starts them sooner, a quiet one later
   if (t - (g.lastArcAt || 0) < ARC_EVERY / k && (g.refreshes || 0) - (g.arcRefresh || 0) < Math.round(4 / k)) return null;
-  if (isReal(g)) { // in the real world, the trends are the real ones
-    const used = new Set(g.usedNews || []);
-    const fresh = newsFresh() ? S.news.items.filter((x) => !used.has(hashStr(x.text))) : [];
-    if (fresh.length && Math.random() < 0.7) return { kind: 'news', news: pick(fresh) };
-    return { kind: Math.random() < 0.6 ? 'drama' : 'tendance' };
-  }
+  if (isReal(g)) return { kind: Math.random() < 0.6 ? 'drama' : 'tendance' }; // (the real world: no troll)
   const r = Math.random();
   if (r < 0.14 && t - (g.lastTrollAt || 0) > 3 * 86400000) return { kind: 'troll' }; // rare: a few game days apart at least
   return { kind: r < 0.58 ? 'drama' : 'tendance' };
 }
 function addArc(g, arc, o, t = Date.now()) {
   const K = ARC_KINDS[arc.kind] || ARC_KINDS.tendance;
-  const title = str(o && o.title, 70) || (arc.news ? str(arc.news.text, 70) : K.label);
+  const title = str(o && o.title, 70) || K.label;
   let tag = str(o && o.tag, 40).replace(/\s+/g, '');
   if (tag && !tag.startsWith('#')) tag = '#' + tag;
   const a = { id: uid('arc'), kind: arc.kind, title, tag: /^#[\p{L}\p{N}_]{2,40}$/u.test(tag) ? tag : '', at: t };
@@ -606,7 +616,6 @@ function addArc(g, arc, o, t = Date.now()) {
   g.lastArcAt = t;
   g.arcRefresh = g.refreshes || 0;
   if (arc.kind === 'troll') g.lastTrollAt = t;
-  if (arc.news) g.usedNews = (g.usedNews || []).concat(hashStr(arc.news.text)).slice(-40);
   addNotif(g, { k: 'trend', tg: a.tag || null, text: `${K.emoji} Nouveau sur le réseau : ${title}${a.tag ? ' ' + a.tag : ''}` });
   addChronicle(g, `${K.label} sur le réseau : ${title}${a.tag ? ' (' + a.tag + ')' : ''}.`);
   return a;
@@ -614,22 +623,9 @@ function addArc(g, arc, o, t = Date.now()) {
 // The storylines of the last two days, newest first.
 const liveArcs = (g, t = Date.now()) => (g.arcs || []).filter((a) => t - a.at < 2 * 86400000).slice(-4).reverse();
 
-/* ---------- real news, for the « Monde réel » world ---------- */
-// A digest of the day's real news, written by Claude (outside the game) into the shared doc news/today.
-const NEWS_MAX_AGE = 4 * 24 * 3600 * 1000;
+/* ---------- the « Monde réel » world ---------- */
+// (0.29: no digest of the day's news any more: it came from the Claude version's shared space)
 const isReal = (g) => !!(g && g.world && g.world.preset === 'reel');
-const newsFresh = () => !!(S.news && S.news.items.length && Date.now() - S.news.updatedAt < NEWS_MAX_AGE);
-async function loadNews() {
-  if (Store.mode !== 'db' || !Store.db) return;
-  try {
-    const snap = await Store.db.doc('news/today').get();
-    if (!snap.exists) return;
-    const d = snap.data() || {};
-    const items = (Array.isArray(d.items) ? d.items : []).map((x) => ({ cat: str(x && x.cat, 30), text: str(x && x.text, 260) })).filter((x) => x.text).slice(0, 14);
-    const at = num(d.updatedAt, 0);
-    if (items.length && at) S.news = { date: str(d.date, 20), label: str(d.label, 60), updatedAt: at, items };
-  } catch (e) { console.warn('news', e && (e.code || e.message)); }
-}
 
 function charByHandle(g, h) {
   if (!h) return null;
@@ -693,7 +689,7 @@ function addCharFromAI(g, o, { unlocked, kind, rename, age }) {
   const rel = kind === 'media' ? 0 : int(o.rel, -40, 40, 0);
   const c = {
     id, kind, name, handle: h,
-    emoji: cleanEmoji(o.emoji) || (kind === 'media' ? '📰' : ''),
+    emoji: avatarEmoji(o.emoji, h, kind === 'media' ? '📣' : ''), // (0.29: one of ours)
     hue: hashStr(h) % 360,
     g: ['f', 'm', 'x'].includes(o.g) ? o.g : 'x',
     role: str(o.role, 60), bio: str(o.bio, 170), personality: str(o.personality, 240), voice: str(o.voice, 140),
@@ -733,7 +729,7 @@ function resolveAuthor(g, by, name, bio) {
   if (!h) return null;
   if (h === g.player.handle) return 'p';
   const c = charByHandle(g, h);
-  if (c) return c.unlocked ? 'c:' + c.id : null;
+  if (c) return c.unlocked && !c.jailed ? 'c:' + c.id : null; // (0.29: arrested, they post no more)
   let n = g.npcs[h];
   if (!n) {
     let nm = str(name, 40) || prettyHandle(h);
@@ -759,7 +755,7 @@ function addRegular(g, o) {
   n.regular = true;
   n.seen = 0;
   n.lastAt = 0;
-  const em = cleanEmoji(o.emoji);
+  const em = avatarEmoji(o.emoji, h, ''); // (0.29: one of ours)
   if (em) n.emoji = em;
   return n;
 }
@@ -871,7 +867,7 @@ function repCtx(s) {
 
 /* =========================================================
    Cafés: the player's AI budget for the day. Every answer of the characters uses some of the player's own
-   Claude or ChatGPT plan; the game counts what it uses (by the length of what it sends and gets back),
+   ChatGPT plan; the game counts what it uses (by the length of what it sends and gets back),
    shows it, and pauses before going past the budget the player set for this game. Back to full at midnight.
    ========================================================= */
 const CAFE_CHARS = 18000; // what one café pays for: about 4 500 tokens, the question and the answer together
@@ -885,7 +881,7 @@ const BUDGETS = [ // cafés per day; 0: no limit (still counted)
   { n: 0, label: 'Sans limite', desc: 'Le jeu compte, mais ne t’arrête jamais. À toi de surveiller.' },
 ];
 // Which budget for which plan (0.10): what the player's subscription can take.
-const PLAN_ADVICE = 'Claude gratuit : Découverte ou Léger. Claude Pro, ChatGPT Go ou Plus : Intensif ou Marathon (avec l’intensité Vivant ou Ultime). Claude Max, ChatGPT Pro : Sans limite.';
+const PLAN_ADVICE = 'ChatGPT Go ou Plus : Intensif ou Marathon (avec l’intensité Vivant ou Ultime). ChatGPT Pro : Sans limite. Pour garder ton abonnement libre à côté : Découverte ou Léger.';
 /* ---------- the game's intensity (0.10; 0.19: every level has every feature, only the volume and the pace change) ----------
    A level sets three things:
    - the volume (vol): replies to the player's post and to one of their replies, posts around it, a refresh's posts and
@@ -1298,7 +1294,7 @@ function fakeBusted(g, c, fk, lateBust, lossNow = 0) {
 // and the coffee clock (accelerated time is spent working: it refills nothing).
 const TIME_KEEP = new Set(['createdAt', 'updatedAt', 'lastSeenAt', 'lastPlayedAt', 'energyAt', 'queuedAt']); // queuedAt: a photo waiting for its caption, in real time
 // 0.28.1: an amount is never a date, however big (1 500 milliards d'euros stay put when the clock moves).
-const AMOUNT_KEY = /fol|cash|money|price|views|likes|amount|total|paid|fee|gems|earn|spent|cost|value|budget|reach|members|subs|^xp$/i;
+const AMOUNT_KEY = /fol|cash|money|price|views|likes|amount|total|paid|fee|gems|earn|spent|cost|value|budget|reach|members|subs|^xp$|revenue|^pend$|refund|given|^sold0?$|^made$|^stock$|^qty$|^unit$/i; // (0.29: the shop's sums and counts)
 const amountKey = (k) => AMOUNT_KEY.test(k) && !/(At|Ts|Time|Until)$/.test(k);
 // all: every timer moves (a save loaded later picks up where it was); otherwise story beats keep their age.
 function shiftTime(g, ms, all = false) {
@@ -1339,7 +1335,7 @@ const RELEASE_TIERS = {
   mid: { label: 'Tournage moyen', verdict: 'marche moyen', cred: 5 },
   flop: { label: 'Tournage raté', verdict: 'fait un flop', cred: 2 },
 };
-const PROD_STEPS = { // the shoot when Claude cannot write one: the production steps, in order
+const PROD_STEPS = { // the shoot when the AI cannot write one: the production steps, in order
   vidéo: ['Écrire le script', 'Tourner les plans', 'Trier les rushs', 'Monter la vidéo', 'Ajouter le son et les sous-titres'],
   short: ['Trouver l’idée', 'Écrire l’accroche', 'Filmer à la verticale', 'Couper en rythme', 'Caler le son tendance'],
   live: ['Annoncer l’heure du live', 'Tester le micro et la caméra', 'Lancer le live', 'Répondre au chat', 'Remercier et couper le live'],
@@ -1367,7 +1363,7 @@ const fmtMult = (m) => '×' + String(m).replace('.', ',');
 const MG_BASE_N = { tri: 6, ordre: 5, quiz: 4, vf: 7, intrus: 4, montage: 5 }; // items at « Moyen » and « Difficile »
 const mgCount = (kind, d) => Math.max(4, (MG_BASE_N[kind] || 5) + d.items); // (0.27.5: four at least: with three questions, one slip at Facile cost the « top » that Moyen still gave)
 const diffIx = (D) => Math.max(0, DIFFS.findIndex((d) => d.id === D.id));
-// Skill rounds played without Claude: cut on the beat, remember the script. Harder: faster, tighter, longer.
+// Skill rounds played without the AI: cut on the beat, remember the script. Harder: faster, tighter, longer.
 const MONTAGE = {
   // (0.27.8: the score is the average of the cuts: one miss does not ruin it, and the texts no longer say so)
   vidéo: { title: 'Le montage au rythme', verb: 'Couper', intro: 'Chaque coupe pile dans le temps fort rend ta vidéo plus nerveuse.' },
@@ -2341,6 +2337,10 @@ function computeOutcome(g, e, kind, boosts, mods = {}) {
     reposts = Math.round(reposts * mods.train);
     if (fol > 0) fol = Math.round(fol * mods.train);
   }
+  if (mods.algo && mods.algo !== 1) { // 0.29: the algorithm of the moment (its format carried, the others a little less)
+    likes = Math.round(likes * mods.algo);
+    if (fol > 0) fol = Math.round(fol * mods.algo);
+  }
   fol = grow(F, fol); // 0.20: the bigger, the slower
   return { likes, reposts, fol, rep: Math.round(rep * 10) / 10, xp, viral };
 }
@@ -2706,6 +2706,7 @@ function addReplyTo(g, post, o, at) {
   const text = str(o.text, 300);
   if (!text) return null;
   const r = { id: uid('r'), a, text, ts: at, at, likeT: randi(0, 4) + Math.round(rand(0, 1) * authorFollowers(g, a) * 0.002), ls: at, animMs: 30000 };
+  replyLang(r, o); // 0.29: from abroad, in their language
   post.replies.push(tag(r));
   bumpLive(at + 1000);
   return r;
@@ -2926,6 +2927,7 @@ function pruneGame(g) {
   for (const p of g.posts) { mark(p.a); if (p.q) mark(p.q.a); for (const r of p.replies) mark(r.a); }
   for (const h in g.npcs) if (!used.has(h) && !g.npcs[h].regular && !g.npcs[h].youFollow) delete g.npcs[h];
   if (g.clues && g.clues.length > 40) g.clues = g.clues.slice(-40);
+  for (const gr of g.groups || []) if (gr.left && gr.msgs.length > 10) gr.msgs = gr.msgs.slice(-10); // (0.29: a group left, its last words)
   if (g.fakes && g.fakes.length > 12) g.fakes = g.fakes.filter((f, k, all) => f.state === 'live' || k >= all.length - 12);
   if (g.notifs.length > 120) g.notifs = g.notifs.slice(-120);
   const done = g.quests.filter((q) => q.status === 'done');
@@ -2950,6 +2952,10 @@ function compactCore(g, cap, size) {
   const refd = (id) => (g.notifs || []).some((n) => n.c === id) || said(id) || (g.quests || []).some((q) => q.charId === id) || (g.events || []).some((e) => e.c === id) || (g.deals || []).some((d) => d.contact === id) || (g.staff || []).some((s) => s.c === id);
   const steps = [
     () => { if (g.notifs.length > 60) g.notifs = g.notifs.slice(-60); },
+    () => { // 0.29: the stories gone by, the old talk of the groups
+      if (Array.isArray(g.stories)) g.stories = g.stories.filter((x) => x.until > t);
+      for (const gr of g.groups || []) if (gr.msgs.length > 20) gr.msgs = gr.msgs.slice(-20);
+    },
     () => { for (const c of chars()) if (c.kind === 'gone' && !c.slim) slimContact(c); },
     () => { for (const c of chars()) if (c.kind === 'brand' && !c.joined && !c.slim && !busy(c) && t - lastSeen(c) > CONTACT_IDLE_MS) slimContact(c); },
     () => { for (const c of chars()) if (c.kind === 'gone' && !refd(c.id)) { delete g.chars[c.id]; if (g.dms) delete g.dms[c.id]; g.order = g.order.filter((id) => id !== c.id); } },
@@ -2958,6 +2964,10 @@ function compactCore(g, cap, size) {
       if (g.clues && g.clues.length > 20) g.clues = g.clues.slice(-20);
       if (g.chronicle && g.chronicle.length > 16) g.chronicle = g.chronicle.slice(-16);
       if (Array.isArray(g.whispers)) g.whispers = g.whispers.filter((w) => w.state === 'live');
+    },
+    () => { // 0.29, the last resort: the groups left go, the others keep their last words; the ten latest stories
+      if (Array.isArray(g.groups)) { g.groups = g.groups.filter((x) => !x.left); for (const gr of g.groups) if (gr.msgs.length > 8) gr.msgs = gr.msgs.slice(-8); }
+      if (Array.isArray(g.stories) && g.stories.length > 10) g.stories = g.stories.slice(-10);
     },
   ];
   for (const step of steps) { if (size() <= cap) return true; step(); }
@@ -2971,8 +2981,7 @@ function saveFailed(e) {
   const t = Date.now();
   if (t - saveFailAt < 10 * 60000) return;
   saveFailAt = t;
-  // (0.28.1: the export works everywhere now: a file in the PC app, the text to copy or download in Claude)
-  toast('Ta partie n’a pas pu être sauvegardée. Exporte-la pour ne rien perdre.', 'bad', S.game ? { label: 'Exporter', run: () => exportAny(S.game.id) } : null);
+  toast(canFiles() ? 'Ta partie n’a pas pu être sauvegardée. Exporte-la pour ne rien perdre.' : 'Ta partie n’a pas pu être sauvegardée.', 'bad', S.game && canFiles() ? { label: 'Exporter', run: () => exportAny(S.game.id) } : null);
 }
 /* ---------- quick saves: three slots, plus one taken automatically before a risky action ---------- */
 const SAVE_SLOTS = ['1', '2', '3'];
@@ -3028,10 +3037,10 @@ function summarize(g) {
   return {
     id: g.id, world: g.world.name, emoji: g.world.emoji, hue: g.world.hue, title: g.title || '', // (0.27.7: the name the player gave it)
     name: g.player.name, handle: g.player.handle, avatar: g.player.emoji, ahue: g.player.hue,
-    level: g.stats.level, followers: g.stats.followers, updatedAt: g.updatedAt, setup: !!g.pendingCast,
+    level: g.stats.level, followers: g.stats.followers, updatedAt: g.updatedAt, setup: !!g.pendingCast, over: !!g.over, // (0.29: a game that ended)
   };
 }
-const SUMMARY_KEYS = ['world', 'title', 'emoji', 'hue', 'name', 'handle', 'avatar', 'ahue', 'level', 'followers', 'setup'];
+const SUMMARY_KEYS = ['world', 'title', 'emoji', 'hue', 'name', 'handle', 'avatar', 'ahue', 'level', 'followers', 'setup', 'over'];
 const lastWritten = {};
 let saveTimer = null;
 let saving = Promise.resolve();
@@ -3062,16 +3071,11 @@ function settledGame(g) {
   for (const f of live) { try { f.undo(h); } catch (e) { console.warn('settle', e && e.message); } }
   return h;
 }
-// 0.28.1: how many times each open game was saved (another tab or device that saved it since this one read it wins:
-// this one stops saving it, and says so).
-const REV = {};
+// (0.28.1 kept a count of each game's saves, for the Claude version open in two tabs; the app opens once: 0.29 does
+// not write it any more, and a game deleted takes its old one along)
 const revDoc = (id) => 'g_' + id + '_rev';
-const revLost = new Set();
 async function writeGame(g0, retried = false) {
-  if (deletedIds.has(g0.id) || revLost.has(g0.id)) return;
-  let cur = null;
-  try { cur = await Store.read(revDoc(g0.id)); } catch (e) { cur = null; }
-  if (cur && num(cur.rev, 0) > (REV[g0.id] || 0)) { revLost.add(g0.id); revConflict(g0); return; }
+  if (deletedIds.has(g0.id)) return;
   const g = settledGame(g0);
   pruneGame(g);
   if (coreSize(g) > docCap()) compactCore(g, docCap() - 2000, () => coreSize(g)); // 0.14: or the whole save would fail
@@ -3107,16 +3111,9 @@ async function writeGame(g0, retried = false) {
     throw e;
   }
   if (wrote) {
-    REV[g0.id] = (REV[g0.id] || 0) + 1;
-    try { await Store.write(revDoc(g0.id), { rev: REV[g0.id], at: Date.now() }); } catch (e) { /* (the next save says it again) */ }
     g0.updatedAt = Date.now();
     await writeIndex(g0);
   }
-}
-// Another tab or device went further with this game: this tab must not undo it. Reloading takes the newer one.
-function revConflict(g) {
-  if (S.game !== g) return;
-  queueModal({ t: 'revlost', at: Date.now() });
 }
 async function writeIndex(g, force = false) {
   if (!indexOK) return; // never overwrite a list we could not read
@@ -3141,10 +3138,8 @@ async function writeIndex(g, force = false) {
 }
 // Rejects when a document could not be read: the caller must not enter (and later save) a partial game.
 async function loadGameData(id) {
-  const [core, feed, dms, rev] = await Promise.all([Store.read('g_' + id), Store.read('g_' + id + '_feed'), Store.read('g_' + id + '_dms'), Store.read(revDoc(id)).catch(() => null)]);
+  const [core, feed, dms] = await Promise.all([Store.read('g_' + id), Store.read('g_' + id + '_feed'), Store.read('g_' + id + '_dms')]);
   if (!core) return null;
-  REV[id] = rev ? num(rev.rev, 0) : 0; // (0.28.1: what this tab read)
-  revLost.delete(id);
   for (const k of Object.keys(lastWritten)) if (k.startsWith('g_') && !k.startsWith('g_' + id)) delete lastWritten[k]; // only the open game is cached
   lastWritten['g_' + id] = JSON.stringify(core);
   if (feed) lastWritten['g_' + id + '_feed'] = JSON.stringify(feed);
@@ -3152,7 +3147,7 @@ async function loadGameData(id) {
   const g = Object.assign({}, core, { posts: feed && Array.isArray(feed.posts) ? feed.posts : [], dms: dms && dms.dms ? dms.dms : {} });
   return migrate(g);
 }
-// A game as one file, to keep or to move to another AI (Claude ↔ ChatGPT). Quick saves stay behind.
+// A game as one file, to keep or to take to another computer (a 0.28 export of the Claude version comes in too). Quick saves stay behind.
 const EXPORT_FORMAT = 'hype-partie';
 async function exportGameText(id) {
   const g = S.game && S.game.id === id ? S.game : await loadGameData(id);
@@ -3174,7 +3169,7 @@ async function importGameText(text) {
   if (S.games.length >= MAX_GAMES) throw { code: 'full' };
   const g = migrate(Object.assign({}, d.core, { posts: d.feed && Array.isArray(d.feed.posts) ? d.feed.posts : [], dms: d.dms && d.dms.dms && typeof d.dms.dms === 'object' ? d.dms.dms : {} }));
   g.media = [];
-  if (d.sum == null || d.sum !== exportSum(d.core)) ensureAch(g).cheated = 1; // (0.28.1: no fingerprint, or another one: it may have been changed by hand)
+  if (d.sum == null || d.sum !== exportSum(d.core)) ensureAch(g).local = 1; // (0.28.1: no fingerprint, or another one: it may have been changed by hand)
   if (d.media) await mediaImport(g, g, d.media).catch(() => {}); // its photos, as copies of its own
   g.id = uid('g');
   g.saves = [];

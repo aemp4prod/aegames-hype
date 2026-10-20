@@ -496,7 +496,8 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
       return p.includes('accuse publiquement @leandre.aube') ? FAKE_BUSTED : FAKE_PASS;
     }
     if (p.includes('Le joueur publie ce post')) {
-      if (p.includes('LANCE SON MERCH')) { const m = window.__mockMerch == null ? 3 : window.__mockMerch; return PLAIN.replace('"t":"eval",', '"t":"eval","merch":' + m + ','); } // 0.22: how much people want it
+      if (p.includes('LANCE SON MERCH') || p.includes('LANCE DU MERCH') || p.includes('LANCE SON LIVRE')) { const m = window.__mockMerch == null ? 3 : window.__mockMerch; return PLAIN.replace('"t":"eval",', '"t":"eval","merch":' + m + ','); } // 0.22: how much people want it (0.29: the shop)
+      if (p.includes('LANCE UN CONCOURS DE DESIGN')) return PLAIN + '\n' + L({ t: 'design', by: 'lilou_dessine', name: 'Lilou', text: 'une luciole en néon violet qui tient une fiole' }, { t: 'design', by: 'theo.marlin', text: 'un perso principal ne compte pas' }, { t: 'design', by: 'kenji.trace', name: 'Kenji', text: 'le logo de l’académie revisité en graffiti' }, { t: 'design', by: 'ines.pixel', name: 'Inès', text: '« on lâche rien » en lettres de feu' }); // 0.29
       if (/losers|nuls|pathétique/i.test(p.split('## ACTION DU JOUEUR')[1] || '')) return MEAN;
       if (/sort dans 1h/i.test(p.split('## ACTION DU JOUEUR')[1] || '')) return ANNOUNCE;
       const seen = p.includes('générées par IA du perso du joueur') ? { t: 'photo', desc: 'Mila en veste rouge sous les néons d’une rue de Tokyo, grand sourire' } : null; // the player's images, seen
@@ -504,6 +505,7 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     }
     if (p.includes('Le joueur répond au post') || p.includes('Le joueur répond à un commentaire')) return /tu réponds quand/.test(p.split('## ACTION DU JOUEUR')[1] || '') ? REPLY_LIVE : REPLY;
     if (p.includes('CONVERSATION PRIVÉE') && p.includes('## CE MESSAGE EST UN CONSEIL')) return adviceDM(p);
+    if (p.includes('CONVERSATION PRIVÉE') && p.includes('MERCH EN DUO') && /merch ensemble/i.test(p.split('Nouveau message du joueur')[1] || '')) return window.__mockCollab === 'no' ? L({ t: 'msg', text: 'un merch ensemble ? non, pas pour moi, désolé·e.' }, { t: 'collab', ok: false, why: 'pas mon style' }) : L({ t: 'msg', text: 'un merch à deux ? carrément, je suis partant·e !' }, { t: 'collab', ok: true }, { t: 'rel', d: 2, why: 'un projet ensemble' }); // 0.29
     if (p.includes('CONVERSATION PRIVÉE') && window.__mockConfide && p.includes('{"t":"confide"}')) return confideDM(p);
     // 0.23: a service agreed (window.__mockJob: { kind, what, pay, days, files, in }), files sent later (window.__mockJobFiles)
     if (p.includes('CONVERSATION PRIVÉE') && window.__mockJob && p.includes('{"t":"job"')) {
@@ -550,6 +552,12 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     let full = choose(prompt).split('__Q__').join(qid);
     const x18 = prompt.includes('CONVERSATION PRIVÉE') ? extrasDM(prompt) : extras18(prompt); // 0.18
     if (x18.length) full = full.replace(/\n?```\s*$/, '') + '\n' + L(...x18);
+    // 0.29: what a test wants the next answer to a task to say: [{ has: 'a piece of the prompt', lines: [...], add: true }]
+    // (add: after the usual answer; otherwise instead of it), each used once, the first that matches
+    if (Array.isArray(window.__mockOnce)) {
+      const k = window.__mockOnce.findIndex((x) => prompt.includes(x.has) && (!x.not || !prompt.includes(x.not)));
+      if (k >= 0) { const X = window.__mockOnce.splice(k, 1)[0]; full = X.add ? full.replace(/\n?```\s*$/, '') + '\n' + L(...X.lines) : L(...X.lines); }
+    }
     if (window.__mockSk && prompt.includes('"sk":""')) full = full.replace('{"t":"rel",', `{"t":"rel","sk":"${window.__mockSk}",`); // 0.24
     if (window.__mockKindness != null && prompt.includes('kindness -5 à 5')) full = full.replace('{"t":"eval",', `{"t":"eval","kindness":${window.__mockKindness},`); // 0.10
     if (window.__mockFlirt && prompt.includes('flirt 0-3')) full = full.replace('{"t":"eval",', `{"t":"eval","flirt":${window.__mockFlirt.flirt},"flirtWith":"${window.__mockFlirt.with}",`); // 0.17: flirting in public

@@ -372,6 +372,7 @@ const S3 = 'J’ai copié le concept de ma première vidéo virale';
     Object.assign(T, { rel: 60, vibe: null, cut: null, cool: null, unlocked: true });
     Object.assign(M, { rel: 50, vibe: null, cut: null, cool: null, unlocked: true, passedOver: 0 });
     g.dilemmaAt = 0; g.dilemmas = []; g.triggers = []; g.lastRefreshAt = 0;
+    g.pbb = null; // (the bad buzz of the secrets above is over: half the time, a brand's moral clause would break this contract first)
     g.stats.followers = Math.max(g.stats.followers, 6000);
     window.__dilForce = true;
     const d = H.makeOffer(g, { brand: 'Potions Pétillantes', sector: 'boisson', product: 'sa potion au citron', what: 'vidéo', contact: 'Inès Garnier', g: 'f' });

@@ -139,7 +139,7 @@ async function newGame(page) {
       profile: /- f01 \(femme\) : Passion jeux vidéo/.test(prompt) || /- f0\d \(femme\) : Passion jeux vidéo/.test(prompt), ask: /"face":"identifiant"/.test(prompt), mix: /Les dix :/.test(prompt) };
   });
   const faces = cast.out.map((x) => x.face);
-  check('every main character has a face of their gender, all different, with an Insta past', cast.out.length === 10 && faces.every(Boolean) && new Set(faces).size === faces.length
+  check('every main character has a face of their gender, all different, with an Insta past (0.29: the critic and Rebecca Silver too, twelve)', cast.out.length === 12 && faces.every(Boolean) && new Set(faces).size === faces.length
     && cast.out.every((x) => x.fg === x.g) && cast.out.every((x) => x.ig >= 2 && x.ig <= 4) && cast.imgs.length >= 5 && cast.imgs.every((s) => /^pack\/[fmx]\d\d-p\.png$/.test(s)), cast.out);
   const byHandle = Object.fromEntries(cast.out.map((x) => [x.h, x.face]));
   check('the world is written around the faces: the AI gets the 15 faces with their profiles and picks one per character (honoured by the game)',
@@ -206,7 +206,7 @@ async function newGame(page) {
   // ---------- the choice by season and occasion, without any AI ----------
   const pick = await G(page, () => {
     const H = window.__hype, g = H.S.game, p = H.PACK.byId.f01;
-    const run = (d, n = 30) => Array.from({ length: n }, () => H.pickPhoto(g, p, d)).map((ph) => ph.id.split('-')[1]);
+    const run = (d, n = 30) => Array.from({ length: n }, () => H.pickPhoto(g, p, d, { vis: new Set() })).map((ph) => ph.id.split('-')[1]); // (0.29: whoever has f01 may have it on screen; the season is what is checked here)
     return { july: run(new Date(2026, 6, 10, 14)), halloween: run(new Date(2026, 9, 29, 21)), xmas: run(new Date(2026, 11, 20, 15)), april: run(new Date(2027, 3, 10, 21)), occ: H.occasionsAt(new Date(2026, 9, 29)), season: H.seasonOf(new Date(2026, 6, 1)) };
   });
   const only = (list, ok) => list.every((k) => ok.includes(k));
@@ -279,6 +279,7 @@ async function newGame(page) {
     tags.keys.includes('gaming') && tags.mood.includes('joyeux') && tags.occ.includes('halloween') && tags.tags.join() === 'jeu vidéo,marrant,halloween' && tags.old.join() === 'soirée,plage,noël' && tags.hint.includes('gaming'), tags);
   const mood = await G(page, () => {
     const H = window.__hype, g = H.S.game, p = H.PACK.byId.f01, d = new Date(2026, 3, 10, 21); // an evening of April
+    for (const c of H.mains(g, false)) if (c.fixed) { c.ig = []; c.tt = []; } // (0.29: the roles' Insta past takes nothing of f01 on screen here)
     const run = (m) => Array.from({ length: 30 }, () => H.pickPhoto(g, p, d, { mood: m }).id.split('-')[1]);
     return { down: run('down'), none: run(null) };
   });
@@ -339,12 +340,14 @@ async function newGame(page) {
   // ---------- a newcomer: the free faces with their profiles, the face the AI picks ----------
   const later = await G(page, async () => {
     const H = window.__hype, g = H.S.game;
+    const used = new Set(Object.values(g.faces || {})); // (0.29: the critic and Rebecca take faces of their own, drawn per game)
+    const free = H.packPool(H.STYLE_OF(g)).filter((x) => !used.has(x.id)).map((x) => x.id);
     const pn = H.promptNewChar(g);
     await H.genNewChar(null);
     const c = H.charByHandle(g, 'cassio.rhune');
-    return { list: (pn.split('LES VISAGES DU JEU')[1] || '').split('\n').filter((l) => /^- [fmx]\d\d/.test(l)).map((l) => l.slice(2, 5)), face: c && g.faces[c.id], g: c && c.g };
+    return { free, list: (pn.split('LES VISAGES DU JEU')[1] || '').split('\n').filter((l) => /^- [fmx]\d\d/.test(l)).map((l) => l.slice(2, 5)), face: c && g.faces[c.id], g: c && c.g, lastF: free.filter((id) => id[0] === 'f').pop() };
   });
-  check('a newcomer: the AI sees only the faces still free (with their profiles) and the game gives the one it picks', later.list.join() === 'f01,f02,f03,m01,m02' && later.face === 'f03' && later.g === 'f', later);
+  check('a newcomer: the AI sees only the faces still free (with their profiles) and the game gives the one it picks', later.list.length >= 2 && later.list.join() === later.free.join() && later.face === later.lastF && later.g === 'f', later);
   const gender = await G(page, () => {
     const H = window.__hype, g = H.S.game;
     const mk = (id, gd) => { const c = { id, kind: 'main', g: gd, handle: id, name: id, unlocked: true, rel: 0 }; g.chars[id] = c; return c; };

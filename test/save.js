@@ -2,7 +2,7 @@
 // - the core document (the game without feed and messages) grows with contacts and candidates: past the 256 KiB a
 //   document may hold, it is compacted before writing (old notifications, contacts the game is done with, candidates who
 //   were told no), the characters that matter untouched, and the save lands;
-// - a save that cannot land is said (a toast with « Exporter »), and a quick save that failed is not listed.
+// - a save that cannot land is said (a toast, with « Exporter » in the app), and a quick save that failed is not listed.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> node test/save.js
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs');
@@ -120,8 +120,8 @@ const G = (page, fn, arg) => page.evaluate(fn, arg);
     return { toast: toast ? toast.text : null, action: toast && toast.action ? toast.action.label : null, quick, listed, saves0, saves1: (g.saves || []).length };
   });
   await shot(page, 'save-failed-toast');
-  check('a save that cannot land is said, with « Exporter » at hand; a quick save that failed is not listed',
-    /pas pu être sauvegardée/.test(fail.toast || '') && fail.action === 'Exporter' && fail.quick === 'failed' && !fail.listed && fail.saves1 === fail.saves0, fail);
+  check('a save that cannot land is said (« Exporter » at hand in the app only: 0.29, no export here without its files); a quick save that failed is not listed',
+    /pas pu être sauvegardée/.test(fail.toast || '') && fail.action === null && fail.quick === 'failed' && !fail.listed && fail.saves1 === fail.saves0, fail);
   // the warnings of that deliberate failure are expected
   for (let k = errors.length - 1; k >= 0; k--) if (/save failed|invalid_argument|too big/.test(errors[k])) errors.splice(k, 1);
 

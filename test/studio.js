@@ -244,8 +244,8 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
   console.log('f1', JSON.stringify(f1));
   await shot(page, 'evening-fade');
   const f2 = await play('', 'rester', ['charme']);
-  check('a couple\'s evening: too intimate words stop the scene at once (no AI call), « La suite appartient à leur intimité », the evening counted as gone well; proposing to stay the night, welcomed, ends it the same way, tenderly (a success)',
-    f1.calls === 0 && f1.faded && f1.last.who === 'n' && /La suite appartient à leur intimité/.test(f1.last.text) && f1.played && f1.played.tier !== 'flop'
+  check('a couple\'s evening: too intimate words cut the scene at once (no AI call), « Ce moment ne regarde pas les voyeurs. », and the evening goes on a little later (0.29); proposing to stay the night, welcomed, ends it tenderly (a success)',
+    f1.calls === 0 && !f1.faded && f1.last.who === 'n' && f1.last.text === 'Un peu plus tard…' && !f1.played
       && f2.faded && f2.played && f2.played.tier === 'top' && f2.calls === 1, { f1, f2 });
 
   await browser.close();

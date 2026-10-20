@@ -1,8 +1,7 @@
 /* =========================================================
    The player's own photos (0.9.1): real pictures in a post (one photo, a carousel, or a TikTok-like slideshow), and
    the player's own Insta-like and TikTok-like pages. Their own photos, or the ones of the AI character they made.
-   They stay on this device: files of the app on a computer (Hype pour ChatGPT), the browser's own storage in the
-   Claude version (the artifact's shared space holds everybody's games: no room for photos there).
+   They stay on this device: files of the app on the computer (the browser's own storage on the page of the tests).
    The AI never sees them: it reads what the player says they show.
    ========================================================= */
 const MEDIA = {}; // id → data URL, 'loading' or 'missing'
@@ -89,8 +88,7 @@ const SEE_MAX = 4;
 const SEE_CHARS = 1600; // what one image costs in the café count (about 400 tokens)
 const seeCafes = (n) => (n * SEE_CHARS) / CAFE_CHARS;
 let visionP = null;
-// How many images this view can send with a call (0: none). Claude: the artifact declares images and the viewer's
-// app can send them; the PC app: its host says so.
+// How many images this view can send with a call (0: none): the app's host says so.
 function visionCheck() {
   if (!visionP) {
     visionP = getSample()

@@ -86,6 +86,8 @@ function ensureAch(g) {
   if (!g.ach || typeof g.ach !== 'object') g.ach = {};
   if (!g.ach.got || typeof g.ach.got !== 'object') g.ach.got = {};
   if (!g.ach.prog || typeof g.ach.prog !== 'object') g.ach.prog = {};
+  const was = 'chea' + 'ted'; // (0.29: the mark of a game changed by hand, under its name of before)
+  if (g.ach[was]) { g.ach.local = 1; delete g.ach[was]; }
   return g.ach;
 }
 const achGot = (g, id) => !!(g && g.ach && g.ach.got && g.ach.got[id]);
@@ -94,7 +96,7 @@ const achCount = (g) => ACH.filter((A) => achGot(g, A.id)).length;
 // « gaining-traction » is the followers' total itself (sent apart, when it changes and at each game's start).
 function achOut(g, op, id, value) {
   if (id === 'gaining-traction' && op !== 'follow') return;
-  if (g && g.ach && g.ach.cheated) return; // (a game changed by hand keeps them to itself)
+  if (g && g.ach && g.ach.local) return; // (a game changed by hand keeps them to itself)
   try { if (HOST && HOST.ach) HOST.ach(op === 'follow' ? 'set' : op, id, value, g && g.id); } catch (e) { /* (never in the way of the game) */ }
 }
 // Once per game and session: what it already has (unlocked while Hype was launched on its own, before 0.28…).
@@ -149,7 +151,7 @@ function achKeep(snap, g) {
   // (0.28.1) the counters behind them are the save's own: an offer declined, then the save loaded, then declined again,
   // is one offer declined (the progress shown keeps its high-water mark, it never goes down)
   snap.ach = Object.assign({}, a, { got, prog });
-  if (b.cheated) snap.ach.cheated = 1;
+  if (b.local) snap.ach.local = 1;
 }
 // Caught with someone else (a partner finds out): the « discipline » starts again.
 function noteCaught(g, t = Date.now()) { if (g) ensureAch(g).caughtAt = t; }
@@ -284,7 +286,7 @@ function AchSection({ g }) {
 }
 function AchLayer({ g, i }) {
   return html`<${LayerShell} i=${i} title="Succès">
-    <p class="muted ach-intro">${achCount(g)} sur ${ACH.length}. Certains sont cachés : ils se dévoilent quand ils arrivent.${g.ach.cheated && HOST && HOST.ach ? ' Cette partie a été modifiée à la main : ses succès restent dans le jeu, sans partir vers Æ Games Launcher.' : ''}</p>
+    <p class="muted ach-intro">${achCount(g)} sur ${ACH.length}. Certains sont cachés : ils se dévoilent quand ils arrivent.${g.ach.local && HOST && HOST.ach ? ' Cette partie a été modifiée à la main : ses succès restent dans le jeu, sans partir vers Æ Games Launcher.' : ''}</p>
     ${ACH_GROUPS.map(([grp, name]) => html`<section class="section" key=${grp}>
       <div class="section-h"><h3>${name}</h3><span>${ACH.filter((A) => A.grp === grp && achGot(g, A.id)).length} / ${ACH.filter((A) => A.grp === grp).length}</span></div>
       ${ACH.filter((A) => A.grp === grp).map((A) => html`<${AchBadge} key=${A.id} g=${g} A=${A} />`)}

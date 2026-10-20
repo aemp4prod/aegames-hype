@@ -134,7 +134,7 @@ const linkBrief = (c, hide = false) => `@${c.handle} ${fmtRel(c.rel)} (${relLabe
 // The sheet of the one a talk or a scene is with (their line in PERSONNAGES is left out then).
 function ficheText(g, c, look = true) {
   const lk = look ? faceLook(g, c) : '';
-  return `${c.role} · ${c.personality} · voix : ${c.voice}${c.age ? ' · ' + ageText(c, true) : ''}${lk ? ' · physique : ' + lk : ''}`;
+  return `${c.role} · ${c.personality} · voix : ${c.voice}${c.age ? ' · ' + ageText(c, true) : ''}${lk ? ' · physique : ' + lk : ''}${roleTag(c)}`;
 }
 // Stable parts first (world, character sheets), then what changes from one call to the next.
 function ctxText(g, o = {}) {
@@ -152,10 +152,10 @@ function ctxText(g, o = {}) {
   L.push('', '## PERSONNAGES PRINCIPAUX (@handle — nom · rôle · personnalité · voix)');
   const roster = [], matus = new Set();
   for (const c of others) {
-    if (!inFocus(c)) { roster.push(K.roster === 'brief' ? `@${c.handle} (${c.name}, ${str(c.role, 40)})` : `@${c.handle} (${c.name}, ${c.role}${c.age ? ', ' + c.age + ' ans' : ''})`); continue; }
+    if (!inFocus(c)) { roster.push(K.roster === 'brief' ? `@${c.handle} (${c.name}, ${str(c.role, 40)}${c.jailed ? ', arrêté·e' : ''})` : `@${c.handle} (${c.name}, ${c.role}${c.age ? ', ' + c.age + ' ans' : ''}${c.jailed ? ', arrêté·e : ne poste plus' : ''})`); continue; }
     const lk = faceLook(g, c), ag = ageText(c, true);
     if (c.age) matus.add(MATU[c.matu] ? c.matu : 'pose');
-    L.push(`@${c.handle} — ${c.name} · ${c.role} · ${c.personality} · voix : ${c.voice}${ag ? ' · ' + ag : ''}${lk ? ' · physique : ' + lk : ''}`);
+    L.push(`@${c.handle} — ${c.name} · ${c.role} · ${c.personality} · voix : ${c.voice}${ag ? ' · ' + ag : ''}${lk ? ' · physique : ' + lk : ''}${roleTag(c)}`); // (0.29: their role)
   }
   if (about && about.age) matus.add(MATU[about.matu] ? about.matu : 'pose'); // (their sheet is in the task)
   if (matus.size) L.push('Maturité (selon l’âge, sur chaque fiche) : ' + MATU_IDS.filter((m) => matus.has(m)).map((m) => MATU[m].ai).join(' ; ') + '.');
@@ -305,7 +305,7 @@ function ctxText(g, o = {}) {
       const ph = p.photo ? photoCtx(p, recentPh) : p.slides ? ' [diaporama photo]' : '';
       const ev = p.ev ? ` [pièce jointe, ${evLabel(p.ev.kind)} : ${p.ev.desc.slice(0, 90)}${p.ev.busted ? ' — démasquée : c’est un faux' : ''}]` : '';
       const vd = p.video ? ` [${p.video.what} : ${p.video.topic.slice(0, 80)}${p.video.plot ? ` — ${str(p.video.plot, 160)}` : ''}]` : '';
-      L.push(`@${au.handle}${p.a === 'p' ? ' (le joueur)' : ''}${q} : ${p.text.slice(0, 160)}${ph}${ev}${vd}`);
+      L.push(`@${au.handle}${p.a === 'p' ? ' (le joueur)' : ''}${q} : ${p.text.slice(0, 160)}${ph}${ev}${vd}${roleCtxOf(g, p)}`); // (0.29: a fanfiction, a critic video)
     }
   }
   const qs = K.quests === 'none' ? [] : storyQuests(g, K.quests === 'about' ? about : null);
@@ -313,6 +313,7 @@ function ctxText(g, o = {}) {
     L.push('', '## QUÊTES HISTOIRE DU JOUEUR (id : objectif)');
     for (const q of qs) L.push(`${q.id} : ${q.title} — ${q.desc}${q.pct ? ` (avancée à ${q.pct} %)` : ''}`);
   }
+  L.push(...socialCtx(g, kind, now)); // 0.29: stories, groups, the player's mother, fans, ships, a fake account
   L.push('', momentLine()); // (0.28.1: the line that changes at every call comes last: the start of the prompt stays the same, and is reused)
   if (o.triggers && o.triggers.length) {
     L.push('', '## À JOUER CETTE FOIS (intègre-le naturellement)');
@@ -325,13 +326,8 @@ const namedIn = (g, text, but = null) => { const t = String(text || '').toLowerC
 // The player's story quests (about: in a talk with them, only theirs and the ones about no one in particular).
 const storyQuests = (g, about = null) => activeQuests(g).filter((q) => q.kind === 'story' && (!about || !q.charId || q.charId === about.id));
 
-// The real news of the moment, for the « Monde réel » world: topics to talk about, never real people speaking.
-function newsLines() {
-  if (!newsFresh()) return ['', '## L’ACTU DU MOMENT', 'Pas de nouvelles fraîches disponibles : reste vague sur l’actualité précise (tu ne connais pas les derniers événements) et parle plutôt de la vie de tous les jours, de la saison, des tendances durables.'];
-  const n = S.news;
-  return ['', `## L’ACTU DU MOMENT (vraie actualité, ${n.label || 'au ' + n.date})`, ...n.items.map((x) => `- ${x.cat ? x.cat + ' : ' : ''}${x.text}`),
-    'Les personnages en parlent comme de vrais internautes : réactions, débats, blagues, avis, sans en faire le seul sujet. Jamais de vraie personne comme compte du réseau, jamais de citation inventée d’une vraie personne, aucun parti pris politique, et pas de moquerie sur un drame : commente les événements plutôt que les gens.'];
-}
+// The « Monde réel » world: the AI does not know the latest news, so it stays vague about them.
+const newsLines = () => ['', '## L’ACTU DU MOMENT', 'Pas de nouvelles fraîches disponibles : reste vague sur l’actualité précise (tu ne connais pas les derniers événements) et parle plutôt de la vie de tous les jours, de la saison, des tendances durables. Jamais de vraie personne comme compte du réseau, jamais de citation inventée d’une vraie personne.'];
 
 // 0.17: ages: the age and maturity of each of the ten characters, in order (drawCastAges).
 const agesAsk = (ages) => `   - "age" est imposé, dans l’ordre des dix lignes : ${ages.map((a, k) => `${k + 1}) ${a.age} ans, ${MATU[a.matu].label}`).join(' ; ')}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité : un·e très immature trolle, chambre et rit de tout ; un·e immature réagit à chaud ; un·e posé·e réfléchit avant de poster ; un·e très mature prend du recul et fait parfois la morale. Les 35 ans et plus ont la vie de leur âge (métier, histoire, expérience) : tout rôle leur est ouvert.`;
@@ -347,14 +343,14 @@ function promptWorld(spec, persona, ages = null) {
     persona.bio ? `Sa bio : ${persona.bio}` : null,
     `Point de départ : ${st.label} (${fmtPlain(st.followers)} abonnés)`,
     chaos.line,
-    ...(spec.real ? [...newsLines(), 'Dans ce monde, plusieurs posts d’ouverture parlent de l’actu du moment.'] : []),
+    ...(spec.real ? newsLines() : []),
     '',
     'Crée un monde vivant, plein de potentiel dramatique, construit autour de ce joueur et de son rôle.',
     spec.id ? null : 'Si la description évoque des personnes réelles ou demande des noms qui leur ressemblent, crée à la place des personnages fictifs aux noms originaux, sans lien reconnaissable avec ces personnes.',
     '', FORMAT,
     'Lignes à produire, dans cet ordre :',
-    '1) Une ligne : {"t":"world","name":"nom du monde","in":"le nom précédé de sa préposition, ex : à l’Académie Lumen, sur la Station Orion","emoji":"🌊","tagline":"accroche ≤ 80 caractères","description":"2 à 3 phrases : le cadre, les enjeux, les tensions du moment","tone":"comment on écrit sur ce réseau, ≤ 120 caractères"}',
-    '2) Dix lignes de personnages : {"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"🦊","g":"f","age":21,"role":"≤ 40 caractères","bio":"bio de profil ≤ 110 caractères","personality":"≤ 160 caractères : caractère, ce qu’il ou elle veut, son regard sur le joueur","voice":"≤ 90 caractères : sa façon d’écrire (un style, pas un tic répété)","followers":12000,"rel":-10,"garde":2,"mefiance":"…","temper":"…","temperWhy":"…","coeur":"…","ami":"…","proches":["…"],"ennemis":["…"],"secret":"…","hook":"…","hello":"…"}',
+    '1) Une ligne : {"t":"world","name":"nom du monde","in":"le nom précédé de sa préposition, ex : à l’Académie Lumen, sur la Station Orion","emoji":"🌙","tagline":"accroche ≤ 80 caractères","description":"2 à 3 phrases : le cadre, les enjeux, les tensions du moment","tone":"comment on écrit sur ce réseau, ≤ 120 caractères"}',
+    '2) Dix lignes de personnages : {"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f","age":21,"role":"≤ 40 caractères","bio":"bio de profil ≤ 110 caractères","personality":"≤ 160 caractères : caractère, ce qu’il ou elle veut, son regard sur le joueur","voice":"≤ 90 caractères : sa façon d’écrire (un style, pas un tic répété)","followers":12000,"rel":-10,"garde":2,"mefiance":"…","temper":"…","temperWhy":"…","coeur":"…","ami":"…","proches":["…"],"ennemis":["…"],"secret":"…","hook":"…","hello":"…"}',
     '   - "g" vaut "f", "m" ou "x". "rel" = relation de départ avec le joueur, de -30 à 30. "followers" cohérent avec son statut dans le monde. "secret" = ce qu’il ou elle cache (un mensonge, une triche, une relation cachée, un passé gênant…), ≤ 100 caractères : le joueur ne le saura pas.',
     '   - "garde" = à quel point il ou elle donne difficilement sa confiance : 1 (facilement), 2 (prudent·e), 3 (très méfiant·e) ; varie-les. "mefiance" = pourquoi, ≤ 60 caractères (ex : « s’est fait trahir par son ancien manager », « croit en tout le monde »).',
     ages ? agesAsk(ages) : null,
@@ -364,10 +360,14 @@ function promptWorld(spec, persona, ages = null) {
     facesAsk(STYLE_OF_PRESET(spec.id)) ? '   - Ajoute à chacun "face":"identifiant" : son visage, parmi les visages listés plus bas.' : null,
     '   - Les 5 premiers sont là dès le début : au moins un allié potentiel, un rival, une star locale et un personnage imprévisible. Pour eux seulement : "hook" = pourquoi il ou elle aurait envie de suivre le joueur, à la première personne, ≤ 80 caractères ; "hello" = son premier message privé au joueur s’il ou elle devient son premier abonné, dans sa voix, ≤ 140 caractères, finit par une question.',
     '   - Les 5 suivants arriveront plus tard et apporteront de nouvelles intrigues (sans "hook" ni "hello").',
+    '2 bis) Puis deux lignes de personnages en plus, qui existent dans toutes les parties (même format, avec "hook" et "hello" : ils sont là dès le début, adultes de 20 à 40 ans) :', // 0.29: the roles of every game
+    '   - {"t":"char","fixe":"critique",…} : LE CRITIQUE du réseau, adapté à ce monde : un·e créateur·rice qui fait des vidéos de critique (analyses, réactions, « ce qui ne va pas avec… »), redouté·e et très suivi·e. Plus dur·e que personne avec le joueur : chacun de ses faux pas, c’est lui ou elle qui le relève, et c’est lui ou elle qui lance les dramas ; mais une vraie réussite du joueur, il ou elle finit par la reconnaître, à contrecœur.',
+    '   - {"t":"char","fixe":"fanfic","name":"Rebecca Silver","handle":"rebeccasilver","g":"f",…} : REBECCA SILVER, toujours ce nom (le même personnage dans chaque monde) : autrice de fanfictions sur les gens du réseau (le joueur avec des personnages, ou des personnages entre eux), mélodramatiques, un peu gênantes et pudiques ; romantique incurable, drôle malgré elle. Adapte son rôle et sa bio à ce monde.',
+    '   - Ce sont des personnages comme les autres : relations, secrets, amours possibles.',
     `   - Handles : minuscules, sans espace ni accent, lettres, chiffres, point ou tiret bas, 3 à 18 caractères, tous différents et différents de « ${persona.handle} ».`,
-    '   - Un seul emoji par personnage, varié et parlant.',
-    '3) Deux lignes de comptes médias du monde (potins, actu, fan-club…) : {"t":"media","name":"…","handle":"…","emoji":"📰","role":"≤ 40 caractères","bio":"≤ 110 caractères","followers":50000}',
-    '4) Six lignes d’habitués du réseau : des gens normaux qui commentent souvent, pas des personnages principaux, variés, dont au moins deux trolls de styles différents (shitposteur, chambreur, roi du mème…) et un fan, un hater, un curieux : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🐸","bio":"qui c’est et son ton, ≤ 70 caractères (dis « troll » pour un troll)"}',
+    '   - Un seul emoji par personnage, varié et parlant, ' + AVATAR_ASK() + '. Pareil pour l’emoji du monde, des médias et des habitués.',
+    '3) Deux lignes de comptes médias du monde (potins, actu, fan-club…) : {"t":"media","name":"…","handle":"…","emoji":"📣","role":"≤ 40 caractères","bio":"≤ 110 caractères","followers":50000}',
+    '4) Six lignes d’habitués du réseau : des gens normaux qui commentent souvent, pas des personnages principaux, variés, dont au moins deux trolls de styles différents (shitposteur, chambreur, roi du mème…) et un fan, un hater, un curieux : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🍕","bio":"qui c’est et son ton, ≤ 70 caractères (dis « troll » pour un troll)"}',
     '5) Deux lignes de quêtes histoire pour le joueur : {"t":"quest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères, réalisable en publiant, en répondant ou en écrivant en privé","char":"handle du personnage concerné, ou vide"}',
     `6) Huit lignes de posts : {"t":"post","by":"handle d’un des 5 premiers personnages, d’un média ou d’un habitué","text":"≤ 220 caractères"} : le fil quand le joueur arrive. Deux ou trois parlent du joueur (@${persona.handle}), les autres montrent la vie du monde et les tensions entre personnages. Un ou deux sont des photos : ajoute "photo":"ce qu’on voit, ≤ 90 caractères".`,
     facesAsk(STYLE_OF_PRESET(spec.id)) ? '\n' + facesAsk(STYLE_OF_PRESET(spec.id)) : null, // the photo pack: the AI builds its characters around the faces
@@ -507,6 +507,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     }
     if (caps.length) L.push('Il publie aussi des CAPTURES AUTHENTIQUES de messages privés (elles sont vraies) :', ...caps.map((x) => `- message de @${x.c.handle} : « ${str(x.text, 220)} »`), 'Si ces captures vont dans le sens de l’accusation, elles la rendent très crédible ; si elles sont hors sujet, elles ne prouvent rien. Ceux dont les messages sont exposés le prennent très mal.');
     L.push(c.secret ? `La vérité (secret de @${c.handle}, le joueur ne le connaît pas) : ${c.secret}` : `@${c.handle} n’a pas de secret défini : juge d’après sa personnalité et les faits du fil si l’accusation tient debout.`);
+    if (!fk) L.push(...psyAccuseLines(g, c, text, acc.clues)); // 0.29: the danger named: the truth of it
   } else if (isPost && deb && dc) {
     L.push(`Le joueur DÉMENT une rumeur que @${dc.handle} (${dc.name}) fait courir sur lui : « ${deb.text} ».`, 'Son démenti :', `« ${text} »`);
     if (caps.length) L.push('Il joint des captures authentiques de messages privés :', ...caps.map((x) => `- message de @${x.c.handle} : « ${str(x.text, 220)} »`));
@@ -533,6 +534,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     if (extra.pfp && extra.photo) L.push(`C’est SA NOUVELLE PHOTO DE PROFIL${own > 1 ? ' (la première des photos)' : ''} : tout le monde a un avis. Chacun réagit selon son caractère et ce qu’il pense du joueur : compliments, drague de ceux que ça tente, vannes entre potes, piques des rivaux, inconnus qui trollent (la pose, le filtre, le cadrage, la tenue…).`);
     if (quote) { const qa = author(g, quote.a); L.push(`Il cite le post de @${qa.handle} : « ${quote.text.slice(0, 200)} ». @${qa.handle} réagit forcément.`); }
     if (extra.merch) L.push(merchLine(g, extra.merch)); // 0.22: the post launches the merch
+    if (extra.contest) L.push(contestLine()); // 0.29: the post asks the community for designs
   } else if (targetReply) {
     const au = author(g, target.a), ra = author(g, targetReply.a);
     const parent = targetReply.to ? target.replies.find((r) => r.id === targetReply.to) : null;
@@ -591,7 +593,10 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     ...secretActLines(g, focus), // 0.18: someone who holds a secret of the player, a denial someone can prove
     ...dilemmaLines(g), // 0.18: two friends ask for the same spot
     visitLine(g), // 0.18: someone may come over
-    isPost ? '- Seulement si l’action déclenche un vrai moment fort : {"t":"event","kind":"drama","title":"≤ 60 caractères"} (kind parmi drama, collab, cancel).' : null);
+    ...(isPost ? roleLines(g, true) : []), ...psyPublicLines(g), ...(isPost ? socialActLines(g) : []), // 0.29: the critic's video, Rebecca's fanfiction, the secret, the player's mother and fans
+    isPost ? '- Seulement si l’action déclenche un vrai moment fort : {"t":"event","kind":"drama","title":"≤ 60 caractères"} (kind parmi drama, collab, cancel).' : null,
+    isPost && extra.poll ? `- Ce post est un SONDAGE (son texte est la question ; choix : ${extra.poll.opts.map((x) => `« ${noJson(x)} »`).join(', ')}) : une ligne {"t":"pollres","res":[${extra.poll.opts.map(() => Math.round(100 / extra.poll.opts.length)).join(',')}]} (les pourcentages de votes, dans l’ordre des choix, somme 100), d’après ce que le public pense ; des réponses peuvent dire ce qu’elles ont voté.` : null, // 0.29
+    isPost ? '- Rare : si une réponse fait plus de likes que le post lui-même (un « ratio » : le public préfère la réponse, souvent une vanne qui tue), ajoute "ratio":true à cette réponse.' : null); // 0.29
   return L.filter((x) => x !== null).join('\n');
 }
 
@@ -661,7 +666,10 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   const tics = ticsOf(linesOf(g, c), playerWords(g));
   if (tics.length) L.push(`${c.name} a déjà trop répété ${ticText(tics)} : varie.`);
   if (main) L.push(...heartLines(g, c)); // 0.11: how they love, the pace, a cool under way, a dare
+  if (main) L.push(...psyDMCtx(g, c)); // 0.29: the secret of the game, when it is theirs
+  if (c.storySeen && Date.now() - c.storySeen.at < DAY_MS) { const st = storiesOf(g).find((x) => x.id === c.storySeen.id); if (st) L.push(`Le joueur a regardé ta story « ${str(st.text, 80)} » ${agoLabel(c.storySeen.at)}${st.reacted ? ` et y a réagi (${st.reacted})` : ''} : ${c.name} le sait (« vu par »).`); }
   if (main) L.push(...jobDMCtx(g, c)); // 0.23: an order the player is working on for them
+  if (main) L.push(...merchDMCtx(g, c)); // 0.29: a merch in duo, proposed
   if (trig.length) L.push('À jouer dans cette conversation : ' + trig.map((x) => x.text).join(' '));
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
   if (rumor) L.push(rumor);
@@ -705,7 +713,8 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     main && giftTalk(text, history) ? GIFT_LINE(g, c) : null, // 0.26: a present for the player, to the inventory
     ...dil.lines,
     ...(story.length ? STORY_LINES(ids) : []),
-    '- Facultatif, si quelque chose d’important se dit (secret, alliance, dispute, rendez-vous…) : {"t":"memo","text":"une phrase qui le résume"}');
+    '- Facultatif, si quelque chose d’important se dit (secret, alliance, dispute, rendez-vous…) : {"t":"memo","text":"une phrase qui le résume"}',
+    main ? psyOutLine(g, c) : null);
   return L.filter((x) => x !== null).join('\n');
 }
 
@@ -714,7 +723,6 @@ const ARC_ASK = {
   drama: 'Lance un NOUVEAU DRAMA sans rapport avec le joueur ni avec les sujets déjà en cours : une brouille, une trahison, un clash entre deux comptes, une rupture, une accusation, une collab qui tourne mal, un scandale… crédible dans ce monde, entre ses personnages (ou un personnage et le public). Montre-le dans au moins deux posts et des réponses, avec un #hashtag.',
   tendance: 'Lance une NOUVELLE TENDANCE sans rapport avec le joueur ni avec les sujets déjà en cours : un challenge, un mème, un son viral, une mode, un débat léger ou de société… crédible dans ce monde. Plusieurs comptes s’en emparent (dont du public), avec un #hashtag.',
   troll: 'Lance une tendance COMPLÈTEMENT TROLL et absurde que tout le réseau suit à fond, sur un tout autre sujet que ceux du moment : un challenge débile, une rumeur absurde, un mème qui part en vrille, une guerre de clans sur un sujet ridicule… Les personnages s’y mettent selon leur caractère (certains à fond, d’autres consternés). Avec un #hashtag.',
-  news: (n) => `Fais de cette vraie actu le sujet du moment sur le réseau : « ${n.text} ». Plusieurs comptes en parlent comme de vrais internautes (réactions, vannes, débats, mèmes), avec un #hashtag. Jamais de vraie personne comme compte, jamais de citation inventée d’une vraie personne, aucun parti pris politique, pas de moquerie sur un drame.`,
 };
 // sb (0.15): the chance for someone of the cast to fall into a bad buzz on their own ('drama': the new drama may do it).
 const SELF_BUZZ_LINE = (sb) => (sb === 'drama'
@@ -761,9 +769,10 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
       : absentMs ? `Le joueur revient après ${fmtDur(absentMs)} d’absence (${winText(absentMs)}). Raconte ce qui s’est passé sur le réseau pendant ce temps, jusqu’à maintenant et pas au-delà.` : 'Le joueur actualise son fil : montre ce qui se passe maintenant sur le réseau.')
       + (absentMs && activeEvents(g).some((e) => e.player && e.due > Date.now()) ? ' Les rendez-vous de l’agenda encore à venir n’ont pas eu lieu pendant ce temps.' : ''),
     `La vie du monde continue : les personnages postent sur leur vie, se répondent, se clashent, réagissent aux événements récents ; quelques figurants passent. Tout ne tourne pas autour du joueur ni du drame du moment : au moins la moitié des posts parlent d’autre chose (leur vie, leurs projets, leurs délires, d’autres histoires entre eux), et personne ne réclame au joueur la même chose post après post. Un média ne poste que s’il s’est vraiment passé quelque chose de nouveau, pas pour résumer. Fais avancer les intrigues${g.world.chaos === 2 ? ' et glisse au moins un rebondissement' : ''}. Utilise parfois un #hashtag propre au monde. Le joueur est ${fame}.${trig.length ? ' Si une section « À JOUER CETTE FOIS » existe, intègre-la.' : ''}`,
-    arc ? '\n## NOUVEAU SUJET À LANCER CETTE FOIS\n' + (arc.kind === 'news' ? ARC_ASK.news(arc.news) : ARC_ASK[arc.kind]) : null,
+    arc ? '\n## NOUVEAU SUJET À LANCER CETTE FOIS\n' + ARC_ASK[arc.kind] : null,
     '', FORMAT, 'Lignes à produire :',
     arc ? '- D’abord une ligne : {"t":"arc","title":"≤ 60 caractères : le nouveau sujet en quelques mots","tag":"#LeHashtag"}' : null,
+    ...roleAskLines(g), // 0.29: an old game: the critic and Rebecca Silver arrive
     arc && activeQuests(g).filter((q) => q.kind === 'story').length < 3 ? '- Facultatif, si ça s’y prête : une quête pour que le joueur puisse se mêler de ce nouveau sujet : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}' : null,
     `- ${absentMs ? intensityOf(g).refresh.absent : intensityOf(g).refresh.posts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"}, dont deux ou trois de gens du PUBLIC (habitués, ou nouveaux figurants avec "name" et "bio") : trolls, vanneurs, shitposts, gens qui parlent de leur vie ou du sujet du moment. Pas deux posts du même compte. Facultatif : "photo":"ce qu’on voit" pour environ un post sur cinq${absentMs ? '' : ' ; "later":3 (minutes, 1 à 8) pour un ou deux posts qui arriveront plus tard'}.`,
     `- ${intensityOf(g).refresh.replies} réponses sous ces nouveaux posts : {"t":"reply","to":0,"by":"handle","text":"≤ 160 caractères"} ("to" = numéro du post visé dans ta réponse, en comptant à partir de 0 ; facultatif : "re":"handle" quand elle répond à un autre commentaire de ce post)`,
@@ -779,8 +788,8 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
     PLAN_LINE,
     noSecret.length ? `- Ces personnages n’ont pas encore de secret : invente-en un pour chacun, cohérent avec sa personnalité (le joueur ne le saura pas) : {"t":"secret","by":"handle","text":"≤ 100 caractères"} pour ${noSecret.map((c) => '@' + c.handle).join(', ')}` : null,
     noTemper.length ? `- Ces personnages n’ont pas encore de tempérament face à la réputation du joueur : choisis-en un pour chacun, d’après sa personnalité : {"t":"temper","by":"handle","kind":"fidele, integre, opportuniste, detache, envieux ou trouble","why":"≤ 90 caractères : comment ça se traduit chez lui ou elle"} pour ${noTemper.map((c) => '@' + c.handle).join(', ')}` : null,
-    regulars(g).length < 4 ? '- Ajoute 3 habitués du PUBLIC (gens normaux variés, pas des personnages principaux, dont au moins un troll) : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🐸","bio":"qui c’est et son ton, ≤ 70 caractères"}'
-      : regulars(g).filter(isTroll).length < 2 ? '- Ajoute 2 habitués TROLLS du public, chacun son style (shitposteur, chambreur, roi du mème, hater gratuit…) : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🤡","bio":"troll : son style, ≤ 70 caractères"}' : null].filter((x) => x !== null);
+    regulars(g).length < 4 ? '- Ajoute 3 habitués du PUBLIC (gens normaux variés, pas des personnages principaux, dont au moins un troll) : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🍕","bio":"qui c’est et son ton, ≤ 70 caractères"} ; leur emoji ' + AVATAR_ASK()
+      : regulars(g).filter(isTroll).length < 2 ? '- Ajoute 2 habitués TROLLS du public, chacun son style (shitposteur, chambreur, roi du mème, hater gratuit…) : {"t":"npc","name":"nom affiché","handle":"pseudo","emoji":"🤡","bio":"troll : son style, ≤ 70 caractères"} ; leur emoji ' + AVATAR_ASK() : null].filter((x) => x !== null);
   if (activeQuests(g).filter((q) => q.kind === 'story').length < 2) {
     L.push('- Comme le joueur a moins de deux quêtes histoire, ajoute : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}');
   }
@@ -788,6 +797,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
   L.push(...secretLines(g), ...dilemmaLines(g, Date.now(), true)); // 0.18: the player's secrets (who digs, who holds, who slips), dilemmas
   const vl = visitLine(g); // 0.18: someone may come over
   if (vl) L.push(vl);
+  L.push(...roleLines(g), ...psyPublicLines(g), ...socialLines(g)); // 0.29: the critic's videos, Rebecca's fanfictions, the secret; stories, groups, mother, fans, ships, fakes
   L.push(...capLines(g, batch)); // the characters write the captions of the photos the game chose for them
   return L.join('\n');
 }
@@ -819,12 +829,13 @@ function promptNewChar(g, plan = null) {
     `Le joueur vient d’atteindre le niveau ${g.stats.level}. Un nouveau personnage débarque dans le monde et apporte une nouvelle intrigue (rival, allié inattendu, mystère, star venue d’ailleurs…).`,
     plan ? `Il ou elle a ${plan.age} ans, et sa maturité : ${MATU[plan.matu].ai}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité.` : null,
     `Son handle doit être différent de : ${taken}.`, freeFaces ? '' : null, freeFaces, freeFaces ? 'Ajoute "face":"identifiant" à la ligne du personnage.' : null, '', FORMAT, 'Deux lignes :',
-    `{"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"🦊","g":"f",${plan ? `"age":${plan.age},` : ''}"role":"≤ 40 caractères","bio":"≤ 110 caractères","personality":"≤ 160 caractères","voice":"≤ 90 caractères","followers":12000,"rel":0,` + '"garde":2,"mefiance":"≤ 60 caractères : pourquoi il ou elle donne sa confiance facilement ou non","temper":"opportuniste","temperWhy":"≤ 90 caractères : comment ça se traduit chez lui ou elle","coeur":"prudent","ami":"handle d’un personnage déjà là"} ("garde" de 1, facilement, à 3, très méfiant·e ; "temper" = comment il ou elle réagit quand la réputation du joueur bouge, parmi fidele, integre, opportuniste, detache, envieux, trouble ; "coeur" = comment il ou elle vit l’amour, parmi serein, prudent, anxieux, impulsif, jaloux, forteresse, inaccessible ; "ami" = son ou sa confident·e)',
+    `Son emoji ${AVATAR_ASK()}.`,
+    `{"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f",${plan ? `"age":${plan.age},` : ''}"role":"≤ 40 caractères","bio":"≤ 110 caractères","personality":"≤ 160 caractères","voice":"≤ 90 caractères","followers":12000,"rel":0,` + '"garde":2,"mefiance":"≤ 60 caractères : pourquoi il ou elle donne sa confiance facilement ou non","temper":"opportuniste","temperWhy":"≤ 90 caractères : comment ça se traduit chez lui ou elle","coeur":"prudent","ami":"handle d’un personnage déjà là"} ("garde" de 1, facilement, à 3, très méfiant·e ; "temper" = comment il ou elle réagit quand la réputation du joueur bouge, parmi fidele, integre, opportuniste, detache, envieux, trouble ; "coeur" = comment il ou elle vit l’amour, parmi serein, prudent, anxieux, impulsif, jaloux, forteresse, inaccessible ; "ami" = son ou sa confident·e)',
     '{"t":"post","by":"son handle","text":"son premier post sur le réseau, ≤ 220 caractères"}'].filter((x) => x !== null).join('\n');
 }
 
 /* =========================================================
-   Talking to Claude (sample capability), streamed as JSON lines
+   Talking to the AI (the sample interface: the app's host, or the tests' mock), streamed as JSON lines
    ========================================================= */
 let samplePromise = null;
 function getSample() {
@@ -883,7 +894,6 @@ function makeScanner(onObj) {
     }
   };
 }
-const PERMANENT = ['not_declared', 'capability_disabled', 'capability_removed'];
 // How smart (and slow) the characters are: a choice of the player, kept in this browser.
 const AI_TIERS = [['quick', 'Rapide'], ['default', 'Normale'], ['complex', 'Maximale']];
 function aiTier() { try { const v = localStorage.getItem('hype:tier'); return AI_TIERS.some((x) => x[0] === v) ? v : 'default'; } catch (e) { return 'default'; } }
@@ -904,9 +914,6 @@ async function aiStream(prompt, onObj, opts = {}) {
   const scan = makeScanner((o) => { nObj++; SRC = opts.src || null; try { onObj(o); } catch (err) { console.error(err); } finally { SRC = null; } });
   // The standard model by default: the quick one misreads the player too often (a « both » taken for a dodge…).
   const options = { modelTier: opts.tier || aiTier(), cache: false, onText: ({ text }) => { got = Math.max(got, text.length); scan(text); } };
-  // (0.28.1) a conversation, the network living: on « Normale », the model thinks less before it writes (what makes
-  // followers and reputation, the creation and the mini-games keep the platform's own setting)
-  if (opts.effort && options.modelTier === 'default') options.effort = opts.effort;
   if (opts.signal) options.signal = opts.signal;
   const imgs = Array.isArray(opts.images) ? opts.images.length : 0; // the player's images, when the characters see them
   if (imgs) options.images = opts.images;
@@ -921,8 +928,6 @@ async function aiStream(prompt, onObj, opts = {}) {
   } catch (e) {
     if (e && typeof e.text === 'string') got = Math.max(got, e.text.length);
     if (e && typeof e.text === 'string' && e.code !== 'refused') scan(e.text);
-    if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled')) S.ai = 'denied';
-    if (e && PERMANENT.includes(e.code)) S.ai = 'unavailable';
     throw e;
   } finally {
     // the cafés: what was really sent and received (a call that failed before answering costs nothing); the images
@@ -944,12 +949,10 @@ const REFUSED = {
 };
 function aiErrorText(e, kind) {
   switch (e && e.code) {
-    case 'not_granted': return 'Le jeu a besoin de ton accord pour que Claude fasse parler les personnages.';
-    case 'sampling_disabled': return 'Claude n’est pas disponible pour ce compte : les personnages ne peuvent pas répondre.';
     case 'rate_limited': return `Trop de demandes d’un coup, ou ta limite d’utilisation ${AI_NAME} est atteinte. Réessaie dans un moment.`;
     case 'session_expired': return `Ta session ${AI_NAME} a expiré. Reconnecte-toi, puis recharge le jeu.`;
     case 'refused': return REFUSED[kind] || REFUSED.act;
-    case 'unavailable': case 'not_declared': case 'capability_disabled': case 'capability_removed': return HOST ? 'Connecte-toi à ChatGPT pour que les personnages prennent vie.' : 'Ouvre ce jeu dans Claude pour que les personnages prennent vie.';
+    case 'unavailable': return 'Connecte-toi à ChatGPT pour que les personnages prennent vie.';
     // the desktop app, on the player's ChatGPT plan
     case 'usage_limit': return 'Tu as atteint ta limite d’usage ChatGPT : celle de ton abonnement, ou celle que tu as fixée pour Hype.';
     case 'sign_in_required': return 'Connecte-toi à ChatGPT pour que les personnages répondent.';
@@ -964,19 +967,11 @@ function aiErrorText(e, kind) {
     default: return 'La connexion avec ton monde a coupé. Réessaie.';
   }
 }
-async function openPermissions() {
-  try {
-    const p = window.claude && window.claude.use ? await window.claude.use('permissions') : null;
-    if (p && typeof p.manage === 'function') { await p.manage(); return; }
-  } catch (e) { /* fall through */ }
-  toast('Ouvre le menu Autorisations de cet artifact pour autoriser Claude.');
-}
 function reportAiError(e, prefix, kind) {
   if (!e || e.code === 'cancelled') return;
   const msg = aiErrorText(e, kind);
   if (e.code === 'budget') { budgetBlocked(); return; }
-  if (e.code === 'not_granted') toast(msg, 'bad', { label: 'Autoriser', run: openPermissions });
-  else if (HOST && e.code === 'usage_limit') { S.hostModal = { t: 'gpt-limit' }; update(false); }
+  if (HOST && e.code === 'usage_limit') { S.hostModal = { t: 'gpt-limit' }; update(false); }
   else if (HOST && (e.code === 'sign_in_required' || e.code === 'sharing_not_enabled')) toast(msg, 'bad', { label: 'Se connecter', run: hostSignIn });
   else toast((prefix ? prefix + ' ' : '') + msg, 'bad');
 }
@@ -1055,10 +1050,13 @@ async function createWorld() {
         const inName = str(o.in, 70);
         if (!spec.id) {
           g.world.inName = IN_RE.test(inName) ? inName : '';
-          const em = cleanEmoji(o.emoji);
+          const em = avatarEmoji(o.emoji, g.world.name, ''); // (0.29: one of ours)
           if (em) g.world.emoji = em;
           g.world.hue = hashStr(g.world.name) % 360;
         }
+      } else if (o.t === 'char' && roleKey(o)) { // 0.29: the critic, Rebecca Silver (there from the start)
+        const c = addRoleChar(g, o, roleKey(o));
+        if (c) ob.live.push(c.id);
       } else if (o.t === 'char') {
         if (mainsN >= 12) return;
         const c = addCharFromAI(g, o, { unlocked: mainsN < 5, kind: 'main', age: ages[mainsN] });
@@ -1075,9 +1073,11 @@ async function createWorld() {
   } catch (e) { err = e; }
   S.busy.create = false;
   delete g.facesWait;
+  if (mainsN >= 3) ensureRoles(g, true); // 0.29: the roles the AI forgot come from their sheets (and the psychopath is drawn below)
   assignFaces(g);
   ensureHearts(g); // 0.11: a heart for everyone the AI forgot, and at least one real challenge among the first five
   initTies(g); // 0.13: who is close to whom among them
+  if (mainsN >= 3) drawPsy(g); // 0.29: in secret, among those who are there (the first follower too)
   if (S.ob !== ob || ob.game !== g || ob.step !== 'creating') return; // cancelled meanwhile
   if (err && err.code === 'refused') { ob.error = err; update(false); return; } // a refused answer is withdrawn
   if (mains(g).length < 3) { ob.error = err || { code: 'thin' }; update(false); return; }
@@ -1146,6 +1146,7 @@ function enterNewGame(followerId) {
 async function runAct(kind, text, target, targetReply, extra = {}) {
   const g = S.game;
   if (!g || S.busy.act) return null;
+  if (outageOn(g)) { toast('Le réseau est en panne : impossible de publier pour l’instant.', 'bad'); return false; } // 0.29
   text = graphemes(String(text || '').trim()).slice(0, 280).join(''); // (0.28.1: 280 characters as seen, an emoji is one, never cut in half)
   // the player's own images that the characters see: the description becomes optional
   const seeAsk = kind === 'post' && !!extra.photo && !!extra.photo.see && Array.isArray(extra.photo.own) && extra.photo.own.length > 0 && S.vision > 0;
@@ -1197,8 +1198,10 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   else if (secAns) autoSave(g, 'Avant ta réponse sur ton secret');
   const md = kind === 'post' && extra.merch && !callout && !rumor && !secAns && !conf ? openDrop(g) : null;
   const drop = md && md.id === extra.merch && md.state === 'ready' ? md : null; // 0.22: the post that launches the merch
-  const pfp = kind === 'post' && !vid && !callout && !rumor && !secAns && !conf && !drop && photo && photo.own && photo.own.includes(extra.pfp) ? extra.pfp : null; // 0.25.1: the new profile photo
-  const actExtra = { photo, quote, apology, trig, video: vid, debunk: rumor, caps, accuse: callout ? { c: accuse, clues: cited, fake } : null, secret: secAns, confess: conf, merch: drop, pfp };
+  const contest = kind === 'post' && !!extra.contest && !vid && !callout && !rumor && !secAns && !conf && !drop; // 0.29: a design contest
+  const pfp = kind === 'post' && !vid && !callout && !rumor && !secAns && !conf && !drop && !contest && photo && photo.own && photo.own.includes(extra.pfp) ? extra.pfp : null; // 0.25.1: the new profile photo
+  const poll = kind === 'post' && !vid && !callout && !rumor && !secAns && !conf && !drop && !contest && !pfp && extra.poll ? postPoll({ a: extra.poll.opts }) : null; // 0.29: a poll (the post asks)
+  const actExtra = { photo, quote, apology, trig, video: vid, debunk: rumor, caps, accuse: callout ? { c: accuse, clues: cited, fake } : null, secret: secAns, confess: conf, merch: drop, pfp, contest, poll };
   const prompt = promptAct(g, kind, text, target, boosts, targetReply || null, actExtra); // built before any change
   // the same post read from its description, should the images not go through
   const promptText = photo && photo.see ? promptAct(g, kind, text, target, boosts, targetReply || null, Object.assign({}, actExtra, { photo: Object.assign({}, photo, { see: 0 }) })) : null;
@@ -1212,6 +1215,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
     f, g, kind, target, targetReply: targetReply || null, boosts, costKind, trig, men, apology, accuse, fake, debunk: null, video: vid, rumor, caps, announce: null, plans: [], lastOf: {}, t0: t,
     secAns, conf, citedIds: callout ? (extra.accuse.clues || []).slice() : [], // 0.18
     merch: drop, // 0.22
+    contest, designs: null, // 0.29
     pfp, // 0.25.1
     mods: {
       photo: !!photo, apology, rival: men.some((c) => c.vibe === 'rival' || c.vibe === 'nemesis'),
@@ -1226,6 +1230,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
       lossMult: staffMult(g, 'loss'), // a community manager limits the damage
       train: trainMult(g), // 0.17: the train of the hyyype: posts carry further on the way
       gear: vid ? gearPostMult(g) : 1, viralPlus: vid ? gearViralPlus(g) : 0, // 0.20: what came out every six months
+      algo: kind === 'post' ? algoMult(g, fmtOfAct(vid, photo)) : 1, // 0.29: the algorithm of the moment
     },
     replyNames: [], replyNotif: null, toMe: 0,
     evalDone: false, eval: null, outcome: null, got: false, event: null, effects: [],
@@ -1235,6 +1240,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   };
   if (kind === 'post') {
     ctx.post = { id: uid('p'), src: f.id, a: 'p', text, ts: t, at: t, likes0: 0, likeT: 0, rpT: 0, ls: t, animMs: 40000, replies: [], liked: false, reposted: false, pending: true, likedBy: [] };
+    if (poll) ctx.post.poll = { opts: poll.opts, res: null, mine: null }; // 0.29 (the results come with the reactions)
     if (photo) ctx.post.photo = { desc: photo.desc, emoji: photoEmoji(photo.desc) };
     if (photo && photo.own && photo.own.length) {
       ctx.post.photo.own = photo.own;
@@ -1362,6 +1368,7 @@ function applyActObj(ctx, o) {
       const at = ctx.next.reply;
       const r = addReplyTo(g, holder, o, at);
       if (!r) break;
+      if ((o.ratio === true || o.ratio === 'true') && ctx.kind === 'post') ratioMark(g, holder, r); // 0.29: the public liked the reply more
       // "to": a handle in the thread: characters and the public answer each other, not only the player
       let parent = null;
       const th = typeof o.to === 'string' ? normHandle(o.to) : '';
@@ -1407,7 +1414,7 @@ function applyActObj(ctx, o) {
         const lat = int(o.later, 0, 8, 0);
         let at = ctx.next.post, delayed = false;
         if (lat && ctx.n.later < 2) { at = Date.now() + lat * 60000 + rand(0, 20000); ctx.n.later++; delayed = true; }
-        const p = addAmbientPost(g, o, at, undefined, { cool: true, quoteOf: ctx.kind === 'post' && (o.quote === true || o.quote === 'true') ? ctx.post : null });
+        const p = decoratePost(g, addAmbientPost(g, o, at, undefined, { cool: true, quoteOf: ctx.kind === 'post' && (o.quote === true || o.quote === 'true') ? ctx.post : null }), o); // (0.29)
         if (p) { ctx.n.post++; ctx.lastOf[p.a] = { p: p.id }; if (!delayed) ctx.next.post += rand(3500, 9000); }
       }
       break;
@@ -1459,8 +1466,14 @@ function applyActObj(ctx, o) {
     case 'memo':
       ctx.effects.push(() => addChronicle(g, o.text));
       break;
+    case 'pollres': // 0.29: how the poll went
+      if (ctx.kind === 'post' && ctx.post.poll && !ctx.post.poll.ai) { ctx.post.poll.res = pollRes(o.res, ctx.post.poll.opts.length); ctx.post.poll.ai = 1; }
+      break;
+    case 'design': // 0.29: a fan's design for the contest, said under the post too (the fan stays known)
+      if (ctx.contest && addDesign(g, ctx, o) && holder) { const r = addReplyTo(g, holder, { by: o.by, name: o.name, text: `🎨 ${str(o.text, 90)}` }, ctx.next.reply); if (r) ctx.next.reply += rand(1200, 3500); }
+      break;
     default: // 0.18: a secret thrown out or proved, a dossier, a visit
-      if (applySecretLine(g, o, ctx.effects, ctx.lastOf) || applyDilemmaLine(g, o, ctx.effects) || applyVisitLine(g, o, ctx.effects)) break;
+      if (applySecretLine(g, o, ctx.effects, ctx.lastOf) || applyDilemmaLine(g, o, ctx.effects) || applyVisitLine(g, o, ctx.effects) || applyRoleLine(g, o, ctx.effects) || applySocialLine(g, o, ctx.effects)) break;
       break;
   }
 }
@@ -1544,8 +1557,13 @@ function commitEval(ctx) {
   if (e.memo) addChronicle(g, e.memo);
   if (ctx.apology) apologyResult(ctx);
   if (ctx.merch) launchDrop(g, ctx.merch, e.merch, ctx.post); // 0.22: the merch goes on sale
+  if (ctx.contest) contestStarted(g, ctx.post, ctx.designs); // 0.29: the design contest, its first entries
   if (ctx.accuse) { accusationResult(ctx); dossierUsed(ctx); } // 0.18: a friend's dossier, used
   if (out.viral) markViral(ctx);
+  if (ctx.kind === 'post' && ctx.post.poll && !ctx.post.poll.res) ctx.post.poll.res = pollRes(null, ctx.post.poll.opts.length); // 0.29: a poll the AI said nothing of
+  ratioCheck(ctx); // 0.29: the player's answer did better than the post
+  for (const c of ctx.men) bdayWish(g, c, ctx.kind === 'post' ? ctx.post.text : ctx.mine.text); // 0.29: wished in public
+  if (ctx.kind === 'reply' && ctx.target && ctx.target.a.startsWith('c:')) bdayWish(g, g.chars[ctx.target.a.slice(2)], ctx.mine.text);
   trainAfterAct(ctx); // 0.17: two viral releases in a row start the train; on the way, posts feed it
   heartsAfterAct(ctx); // 0.12: standing by someone in a bad buzz, the guest list of a wedding
   witnessAct(ctx); // 0.17: who saw what the player just did in public
@@ -1572,6 +1590,7 @@ function accusationResult(ctx) {
   const cred = ctx.post.res.cred;
   const at = later() + 800;
   c.accusedAt = Date.now();
+  if (psyAccusation(ctx)) return; // 0.29: the psychopath unmasked (a danger named on someone else: defamation, below too)
   if (fk) { // a made-up proof: spotted now, the player sinks; swallowed, the target sinks… until someone digs
     g.stats.fakes = (g.stats.fakes || 0) + 1;
     c.framed = { at: Date.now(), kind: fk.kind, desc: fk.desc, post: ctx.post.id, busted: false };
@@ -1763,6 +1782,7 @@ function promptWave(g, p, n, wave) {
     `Écris ${n} nouvelles réponses : des gens qui découvrent le post maintenant (curieux, fans, haters, trolls, vanneurs), un personnage principal qui n’avait pas encore réagi s’il est concerné, et des réponses aux commentaires déjà là. Jamais deux fois la même idée, des tons variés, et pas toujours d’accord. Les habitués gardent leur handle ; un nouveau figurant ajoute "name" et "bio".${TROLL_ASK(g)}`,
     '', FORMAT, `${n} lignes : {"t":"reply","by":"handle","text":"≤ 200 caractères"} (ajoute "to":"handle" quand elle répond à un commentaire déjà là).`,
     '- Facultatif (au plus 1) : {"t":"post","by":"handle","text":"≤ 220 caractères","quote":true} : quelqu’un cite le post du joueur dans son propre post.',
+    p.res && p.res.viral ? WORLD_LINE : null, // 0.29: gone around the world
   ].filter((x) => x !== null).join('\n');
 }
 async function postWaves(g, p, waves) {
@@ -1794,6 +1814,7 @@ function promptMore(g, p, n) {
     seen.length ? 'Les commentaires déjà affichés :\n' + seen.join('\n') : 'Personne n’a encore commenté.',
     `Écris ${n} autres commentaires, ceux que le compteur annonce : surtout du PUBLIC (habitués et nouveaux figurants : fans, curieux, haters, trolls, vanneurs), parfois un personnage principal concerné, et des réponses entre eux (des petits débats, des vannes qui se répondent). Fidèles au ton du monde et à ce qui se passe en ce moment, jamais deux fois la même idée.${TROLL_ASK(g)}`,
     '', FORMAT, `${n} lignes : {"t":"reply","by":"handle","text":"≤ 180 caractères"} (ajoute "to":"handle" pour répondre à un commentaire ; un nouveau figurant ajoute "name" et "bio").`,
+    p.res && p.res.viral ? WORLD_LINE : null, // 0.29: gone around the world
   ].filter((x) => x !== null).join('\n');
 }
 const MORE_MAX = 3; // loads per post
@@ -1870,12 +1891,15 @@ async function sendDM(charId, text, opts = {}) {
   const history = convo.msgs.filter((m) => (m.text || m.sys === 'invite') && m.sys !== 'advice').slice(-intensityOf(g).mem.dm);
   const invBefore = isMain(c) ? openInvite(g, c) : null; // their invitation, answered in the player's own words?
   const trig = activeTriggers(g, c.id);
-  const prompt = promptDM(g, c, history, gift ? `${text} (un cadeau d’une valeur d’environ ${fmtMoney(g, gift.price)})` : text, trig, advice, confide, !!gift);
+  const sto = opts.story && opts.story.text ? { by: str(opts.story.by, 40), text: str(opts.story.text, 90) } : null; // 0.29: an answer to their story
+  const said = sto ? `(en réponse à ta story « ${sto.text} ») ${text}` : text;
+  const prompt = promptDM(g, c, history, gift ? `${said} (un cadeau d’une valeur d’environ ${fmtMoney(g, gift.price)})` : said, trig, advice, confide, !!gift);
   const f = startFlow(g);
   const mine = { id: uid('m'), src: f.id, me: true, text, ts: t, at: t };
   if (confide) mine.sec = confide.id; // 0.18: shown as a confidence in the conversation
   if (advice) mine.adv = 1;
   if (gift) mine.gift = gift; // 0.28: shown as a present
+  if (sto) mine.story = sto; // 0.29: their story, quoted
   convo.msgs.push(mine);
   convo.readAt = t;
   touch(c);
@@ -1922,6 +1946,7 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'questprog' && !fx.prog) fx.prog = () => setQuestProg(g, o.id, o.pct, o.step);
       else if (o.t === 'memo' && !fx.memo) fx.memo = () => addChronicle(g, o.text, [c.id]); // 0.22.2: said in private
       else if (o.t === 'clue' && !fx.clue) { const when = at + 1200; fx.clue = () => addClue(g, c, o.text, when); }
+      else if (o.t === 'psy' && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag
       else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); }
       else if (o.t === 'trust' && !fx.trust && isMain(c)) { const when = at + 400; fx.trust = () => applyTrust(g, c, int(o.d, -15, 8, 0), o.why, when); }
       else if (o.t === 'advice' && !fx.advice && advice) fx.advice = () => addAdvice(g, c, o, mine.id);
@@ -1932,9 +1957,10 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'perso' && !fx.perso && canJoin(c)) { const why = o.why; fx.perso = () => joinCast(g, c, why); } // 0.16: it got personal
       else if (o.t === 'choice' && !fx.choice && isMain(c)) { const to = o.to; fx.choice = () => dilemmaChoice(g, c, to, text); } // 0.18: who gets the spot
       else if (o.t === 'job' && !fx.job && isMain(c)) { const when = at + 300; fx.job = () => addJob(g, c, o, when); } // 0.23: a service agreed
+      else if (o.t === 'collab' && !fx.collab && isMain(c)) fx.collab = () => applyCollabLine(g, c, o); // 0.29: yes or no to a merch in duo
       else if (o.t === 'file' && isMain(c) && (fx.files || (fx.files = [])).length < 8) { const when = at + 600 + fx.files.length * 900; fx.files.push(() => addJobFile(g, c, o, when)); }
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'dm', effort: 'low' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'dm' });
   } catch (e) {
     const code = e && e.code;
     if (code === 'refused' || !got) {
@@ -1952,8 +1978,9 @@ async function sendDM(charId, text, opts = {}) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
+      if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
       if (isMain(c) && msgs && !fx.plan && !fx.noinv) dmDateFallback(g, c, text, saidNow.join(' '), invBefore, !!fx.invite, at);
       gainXP(g, Math.round(randi(5, 9) * (1 + skillFx(g, 'xp'))));
       if (relD != null) practiseDM(g, relD, relSk, fx.judge, at); // 0.24: what the message showed, if it landed
@@ -1998,6 +2025,7 @@ async function refreshFeed(absentMs = 0, opts = {}) {
   const g = S.game;
   if (!g || S.busy.refresh) return;
   const t = Date.now();
+  if (outageOn(g, t) && !absentMs) { if (!opts.auto) toast('Le réseau est en panne : rien ne charge pour l’instant.', 'bad'); return; } // 0.29
   if (!absentMs && t - g.lastRefreshAt < REFRESH_COOLDOWN) {
     if (!opts.auto) toast(`Rien de neuf pour l’instant. Réessaie dans ${Math.ceil((REFRESH_COOLDOWN - (t - g.lastRefreshAt)) / 1000)} s.`);
     return;
@@ -2028,7 +2056,7 @@ async function refreshFeed(absentMs = 0, opts = {}) {
         let pat = at, ts = absentMs ? t - Math.round(rand(0.05, 0.95) * absentMs) : at;
         const lat = absentMs ? 0 : int(o.later, 0, 8, 0);
         if (lat && laters < 2) { pat = Date.now() + lat * 60000 + rand(0, 20000); ts = pat; laters++; }
-        const p = addAmbientPost(g, o, pat, ts, { cool: !absentMs });
+        const p = decoratePost(g, addAmbientPost(g, o, pat, ts, { cool: !absentMs }), o); // (0.29: a fanfiction, a critic video)
         slots.push(p); // keeps the model's numbering even when a post is dropped (locked or unknown author)
         if (p) { fresh.push(p); lastOf[p.a] = { p: p.id }; if (pat === at) at += absentMs ? rand(400, 1100) : rand(1400, 3800); }
       } else if (o.t === 'reply') {
@@ -2060,9 +2088,9 @@ async function refreshFeed(absentMs = 0, opts = {}) {
       else if (o.t === 'arc' && !arcLine) arcLine = o;
       else if (o.t === 'badbuzz') { if (sb && !sbLine) sbLine = o; } // 0.15 (only when it was offered)
       else if (o.t === 'cap') { const q = batch.find((x) => x.id === o.id); if (q && !capped.has(q)) { capped.add(q); const text = o.text; effects.push(() => publishQueued(g, q, text)); } }
-      else if (!applySecretLine(g, o, effects, lastOf) && !applyDilemmaLine(g, o, effects) && !applyVisitLine(g, o, effects, 3000)) applyCareerLine(g, o, effects, lastOf); // 0.18: the player's secrets, a dossier, a visit; then rumors, enemies at work, allies, leaked DMs, brands, trends
+      else if (!applySecretLine(g, o, effects, lastOf) && !applyDilemmaLine(g, o, effects) && !applyVisitLine(g, o, effects, 3000) && !applyRoleLine(g, o, effects) && !applySocialLine(g, o, effects)) applyCareerLine(g, o, effects, lastOf); // 0.18: the player's secrets, a dossier, a visit; then rumors, enemies at work, allies, leaked DMs, brands, trends
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: opts.skip ? 'skip' : 'refresh', use: opts.auto ? 'auto' : undefined, effort: 'low' }); // 0.23.1: the network living on its own, counted apart
+    }, { signal: f.ctl.signal, src: f.id, kind: opts.skip ? 'skip' : 'refresh', use: opts.auto ? 'auto' : undefined }); // 0.23.1: the network living on its own, counted apart
   } catch (e) {
     if (e && e.code === 'refused') { untag(g, f.id); fresh.length = 0; effects.length = 0; } // a refused answer is withdrawn
     if (!fresh.length) { g.lastRefreshAt = 0; failed = true; }
@@ -2133,6 +2161,8 @@ function jumpClock(g, ms) {
   tickSecrets(g, Date.now()); // 0.18: a secret that kept people talking meanwhile
   tickDilemmas(g, Date.now());
   tickVisits(g, Date.now());
+  tickRoles(g, Date.now()); // 0.29: the psychopath's clock, the roles of an old game
+  tickSocial(g, Date.now()); // 0.29: a fake account taken down, or that fooled fans meanwhile
 }
 /* ---------- 0.25.3: a night together. The evening ended in each other's arms: the night passes (the clock goes to the
    next morning, never past a release or a date, no AI call: the morning was written with the end of the evening), the
@@ -2203,7 +2233,7 @@ function promptMiniGame(g, r, force) {
     `NIVEAU ${D.label.toUpperCase()}, LE PLUS DUR DU JEU : un "quiz" de ${nQ} questions de connaisseur à ${D.opts} choix sur ce dont parle ${laW(r)}, de plus en plus dures (les premières pour un bon fan, les dernières pour un vrai expert).`,
     '- Si le sujet porte sur quelque chose de RÉEL (un jeu vidéo, un film, une série, un livre, un artiste, un sport, une marque, un plat, un fait historique…), pose de VRAIES questions dessus : dates, noms, chiffres, règles, détails que seuls les vrais passionnés connaissent. Rien d’inventé.',
     '- S’il est propre au monde du jeu (une personne ou une histoire d’ici), pose des questions pointues sur ce qui s’est vraiment passé : qui a dit quoi, quand, les détails des posts, des messages et des événements que le joueur a pu voir.',
-    '- Uniquement des faits dont tu es certain : au moindre doute, pose une autre question. Rien qui ait pu changer récemment (records, classements, « l’actuel… »)' + (isReal(g) ? ', sauf l’actu fournie plus haut' : '') + '. Les mauvaises réponses sont crédibles, la bonne est exacte. L’intro ne donne aucune réponse.',
+    '- Uniquement des faits dont tu es certain : au moindre doute, pose une autre question. Rien qui ait pu changer récemment (records, classements, « l’actuel… »). Les mauvaises réponses sont crédibles, la bonne est exacte. L’intro ne donne aucune réponse.',
   ] : force ? [ // 0.27.3: the game picks the format (left free, the AI wrote a quiz most of the time)
     `Le format de ce mini-jeu est imposé : « ${MG_NAMES[force]} » ("${force}"). Trouve comment le faire coller au sujet :`,
     FORMAT_LINE[force],
@@ -2243,7 +2273,7 @@ function shootFallback(g, r) {
   if (!r.practice) g.mgRecent = [k].concat(recent.slice(1)).slice(0, 3); // (what was played, not what the AI was asked)
   return Object.assign(ROUND_MAKERS[k](r, D), { fallback: true });
 }
-// Without Claude, the shoot is the production itself: put its steps back in order.
+// Without the AI, the shoot is the production itself: put its steps back in order.
 const prodGame = (r) => ({ kind: 'ordre', title: 'Le tournage', intro: `Remets les étapes de ${laW(r)} « ${str(r.topic, 60)} » dans le bon ordre.`, items: (PROD_STEPS[r.what] || PROD_STEPS.vidéo).map((text) => ({ text })) });
 const MG_NAMES = { tri: 'trier', ordre: 'remettre dans l’ordre', quiz: 'quiz', vf: 'vrai ou faux', intrus: 'trouve l’intrus', montage: 'montage au rythme', memoire: 'mémoire', chat: 'modérer le chat', mixage: 'mixage', cadrage: 'recadrage' };
 function validGame(sp) {
@@ -2259,10 +2289,10 @@ function startShoot(r) {
   if (!g || !r || r.state !== 'scheduled') return;
   if (!S.stack.some((l) => l.t === 'minigame' && l.id === r.id)) openLayer({ t: 'minigame', id: r.id });
 }
-// Claude writes the mini-game (a shoot for a release, the date itself for a rendez-vous); without Claude, a fallback game.
+// The AI writes the mini-game (a shoot for a release, the date itself for a rendez-vous); without it, a fallback game.
 // Saved first: an attempt the player does not like can be taken back and played again, without postponing.
 // Now and then a skill round instead (cutting on the beat, remembering the script; 0.25: the chat of a live, the reframing
-// of a short, the mix of a podcast, the grading of a video): no Claude needed, never twice in a row.
+// of a short, the mix of a podcast, the grading of a video): no AI needed, never twice in a row.
 /* 0.27.3: at the shoot, every mini-game of the format has the same chance: the five the AI writes on the subject (sort,
    order, quiz, true or false, odd one out) and the format's skill rounds (the cut on the beat, the memory, and the chat
    of a live, the reframing of a short, the mix of a podcast; 0.27.4: no more grading). Never the same as the last
@@ -2278,7 +2308,7 @@ function shootWeights(g, r) {
 function pickShootKind(g, r) {
   if (S.mgForce) return S.mgForce; // tests (« ai »: the AI picks its format)
   if (diffOf(r.diff).real) return 'quiz';
-  if (g && g.mgNext && (MG_KINDS_AI.includes(g.mgNext) || ROUND_MAKERS[g.mgNext]) && !r.practice) { const k = g.mgNext; delete g.mgNext; return k; } // 0.27.6: imposed from the menu, once
+  if (g && g.mgNext && (MG_KINDS_AI.includes(g.mgNext) || ROUND_MAKERS[g.mgNext]) && !r.practice) { const k = g.mgNext; delete g.mgNext; return k; } // 0.27.6: imposed ahead, once
   const ws = shootWeights(g, r);
   let x = Math.random() * ws.reduce((a, w) => a + w[1], 0);
   for (const [k, w] of ws) { x -= w; if (x < 0) return k; }
@@ -2477,7 +2507,7 @@ function promptEvent(g, ev, esc) {
     '- Facultatif (au plus 2) : {"t":"mem","by":"handle","text":"≤ 90 caractères"} ; {"t":"clue","about":"handle","text":"≤ 90 caractères"} si un indice sur un secret filtre.',
   ].filter((x) => x !== null).join('\n');
 }
-// A character's event happens: Claude tells it, the game applies what it changes.
+// A character's event happens: the AI tells it, the game applies what it changes.
 async function resolveEvent(ev) {
   const g = S.game;
   if (!g || !ev || ev.state !== 'scheduled' || ev.player || S.busy.ev) return;
@@ -2504,7 +2534,7 @@ async function resolveEvent(ev) {
       else if (o.t === 'mem') effects.push(() => addMem(g, o.by, o.text));
       else if (o.t === 'clue') effects.push(() => addClue(g, o.about || o.by, o.text));
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'event', effort: 'low' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'event' });
   } catch (e) {
     if (e && e.code === 'refused') { untag(g, f.id); main = null; recap = ''; }
     if (!recap) ok = false;
@@ -2549,7 +2579,7 @@ function eventOutcome(g, ev, c, o, post) {
   addTrigger(g, `${eventLabel(g, ev)} vient d’avoir lieu (${line || (success ? 'réussi' : 'raté')}) : le réseau en parle encore.`, c.id);
 }
 
-// Dates: a mini-game about the person, harder the more famous they are; then Claude tells how the evening ended.
+// Dates: a mini-game about the person, harder the more famous they are; then the AI tells how the evening ended.
 const dateGame = (ev) => ({ kind: 'tri', title: 'Le rendez-vous', intro: 'Garde ce qui fera plaisir, évite ce qui gâcherait la soirée.', items: [
   { text: 'Arriver à l’heure', good: true, why: 'le respect, ça compte' },
   { text: 'Regarder ton téléphone toute la soirée', good: false, why: 'personne n’aime parler à un écran' },
@@ -2644,6 +2674,7 @@ function promptDateEnd(g, ev) {
       : `Comment ça s’est passé (mini-jeu joué par le joueur, difficulté ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`,
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',
     ...talkEndLines(g, ev),
+    ...psyEndLines(g, ev), // 0.29: they fled
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,
     dateKind(c, ev) === 'wedding' ? `C’est le MARIAGE du joueur et de ${c.name} : ${tier === 'flop' ? 'tout tourne mal, la cérémonie est reportée' : 'ils se disent oui (raconte la cérémonie, les vœux, la fête)'}.` : null,
     dateKind(c, ev) === 'proposal' ? `Le joueur fait sa demande en fiançailles : ${tier === 'top' ? `${c.name} dit oui` : tier === 'mid' ? `${c.name} demande à réfléchir` : `${c.name} dit non, malaise`}.` : null,
@@ -2666,7 +2697,7 @@ const END_PREP = new Map();
 function prepEnd(g, ev) {
   if (!g || !ev || !ev.played || ev.state !== 'scheduled' || END_PREP.has(ev.id) || !canAfford(g, 'date')) return;
   const f = startFlow(g), P = { g, objs: [], err: null, f };
-  P.done = aiStream(promptDateEnd(g, ev), (o) => { P.objs.push(o); }, { signal: f.ctl.signal, kind: 'date', effort: 'low' })
+  P.done = aiStream(promptDateEnd(g, ev), (o) => { P.objs.push(o); }, { signal: f.ctl.signal, kind: 'date' })
     .catch((e) => { P.err = e || { code: 'error' }; })
     .finally(() => endFlow(f));
   END_PREP.set(ev.id, P);
@@ -2703,7 +2734,7 @@ async function endDate(ev) {
       SRC = f.id;
       try { for (const o of prep.objs) take(o); } finally { SRC = null; }
       if (prep.err) throw prep.err;
-    } else await aiStream(promptDateEnd(g, ev), take, { signal: f.ctl.signal, src: f.id, kind: 'date', effort: 'low' });
+    } else await aiStream(promptDateEnd(g, ev), take, { signal: f.ctl.signal, src: f.id, kind: 'date' });
   } catch (e) {
     if (e && e.code === 'refused') { untag(g, f.id); fx.length = 0; }
     if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date');
@@ -2856,7 +2887,7 @@ async function genNewChar(m) {
     await aiStream(promptNewChar(g, plan), (o) => {
       if (o.t === 'char' && !c) { c = addCharFromAI(g, o, { unlocked: true, kind: 'main', rename: true, age: plan }); if (c) { assignFace(g, c, o.face ? String(o.face) : undefined); if (!COEURS[c.coeur]) c.coeur = guessCoeur(c); c.dates = 0; initTies(g); } }
       else if (o.t === 'post' && c && !post) post = o;
-    }, { signal: f.ctl.signal, src: f.id, kind: 'newchar', effort: 'low' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'newchar' });
   } catch (e) {
     failed = true;
     if (e && e.code === 'refused' && c) { delete g.chars[c.id]; if (g.faces) delete g.faces[c.id]; g.order = g.order.filter((x) => x !== c.id); c = null; }

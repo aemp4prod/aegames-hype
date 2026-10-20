@@ -199,7 +199,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     && ex.x2b.ix === 4 && ex.x2b.why.includes('🗣️ Une rumeur court sur toi') && ex.x3.ix === 2 && !ex.x3.pub && ex.x3.why.includes('🏠 Chez vous, tranquilles'), ex);
   await G(page, (id) => { window.__hype.S.stack = []; window.__hype.openLayer({ t: 'minigame', id }); window.__hype.update(); }, ex.e2);
   await page.waitForSelector('.layer .ex-why .chip', { timeout: 5000 });
-  const setup = await page.$eval('.layer', (e) => ({ head: (e.querySelector('.diff-opt b') || {}).textContent || '', small: (e.querySelector('.diff-opt small') || {}).textContent || '', chips: [...e.querySelectorAll('.ex-why .chip')].map((x) => x.textContent) }));
+  const setup = await page.$eval('.layer', (e) => ({ head: (e.querySelector('.diff-opt b') || {}).textContent || '', small: (e.querySelector('.diff-opt small') || {}).textContent || '', chips: [...e.querySelectorAll('.ex-why .chip')].map((x) => { const c = x.cloneNode(true); for (const i of c.querySelectorAll('img.emo')) i.replaceWith(i.alt); return c.textContent; }) })); // (our stickers read as their emoji)
   await shot(page, 'date-exigence');
   await G(page, () => { window.__hype.S.stack = []; window.__hype.update(); });
   // the evening: what they hope for (from their messages, never said), met or not; and recognized in public

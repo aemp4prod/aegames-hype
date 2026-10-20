@@ -45,7 +45,7 @@ function visitOK(g, t = Date.now()) {
   return !liveVisit(g) && t - (g.visitAt || 0) >= VISIT_GAP / lifeK(g) && !(g.events || []).some((e) => e.player && e.state === 'scheduled' && Math.abs(e.due - t) < HR);
 }
 // Those close to the player, those they are seeing, and those with a grudge.
-const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25)).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8);
+const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25 || (isPsy(g, c) && psyStage(g, t) >= 2))).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8); // (0.29: and the one who cannot stay away)
 // The line the AI may write (an act, a refresh), when someone could come.
 function visitLine(g, t = Date.now()) {
   if (!visitOK(g, t)) return null;
@@ -70,14 +70,16 @@ function addVisit(g, o, at = later()) {
   g.visitAt = t;
   c.visitAt = t;
   touch(c);
+  if (psyDeadlyVisit(g, c, at)) v.psy = 'deadly'; // 0.29: at night, once they are ready: opening may be the last thing
   queueModalFor(g, { t: 'visit', vid: v.id, at });
+  autoSave(g, `Avant la visite de ${c.name.split(' ')[0]}`); // (0.29: at the door, before the player opens)
   return v;
 }
 
 /* ---------- the conversation ---------- */
 function visitTranscript(g, v) {
   const c = g.chars[v.c], first = c.name.split(' ')[0], P = g.player.name;
-  return v.lines.map((x) => (x.who === 'c' ? `${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}` : `${P} : « ${noJson(x.text)} »`));
+  return v.lines.map((x) => (x.who === 'c' ? `${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}` : x.who === 'n' ? `(${x.text})` : `${P} : « ${noJson(x.text)} »`));
 }
 function promptVisit(g, v, said) {
   const c = g.chars[v.c], first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), U = URGES[v.urge] || URGES.tranquille;
@@ -89,6 +91,7 @@ function promptVisit(g, v, said) {
     c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${c.mem.map((m) => m.t).join(' ; ')}` : null,
     ...heartLines(g, c, Date.now(), false),
     ...secretDMLines(g, c, null),
+    ...psyVisitCtx(g, v, c), // 0.29: the secret of the game, when it is theirs
     '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c, 10, 5),
     '', '## CE QUI S’EST DIT DEPUIS SON ARRIVÉE', ...visitTranscript(g, v),
     '', '## LA RÉPLIQUE DU JOUEUR', `« ${noJson(said)} »`,
@@ -106,7 +109,7 @@ function promptVisit(g, v, said) {
     `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères : ce que dit ${first}","seen":"≤ 50 caractères : ce que le joueur voit (une expression, un geste), sans dire ce qu’${il} pense"}`,
     `- ${last ? 'Puis' : `Seulement s’${il} part maintenant :`} {"t":"leave","mood":"apaise, content, pareil, fache ou blesse","why":"≤ 70 caractères : dans quel état ${il} repart"}`,
     `- Facultatif (au plus 1) : {"t":"mem","text":"≤ 90 caractères"} : ce que ${first} retient de cette visite.`,
-    VIBE_LINE(false)];
+    VIBE_LINE(false), ...psyVisitOut(g, v, c, last)];
   return L.filter((x) => x !== null).join('\n');
 }
 // One exchange: what the player says, and how it lands.
@@ -125,16 +128,20 @@ async function visitTurn(v, text) {
   S.busy.visit = v.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, leave = null, mem = null, vibe = null;
+  let react = null, says = 0, ok = true, leave = null, mem = null, vibe = null, sign = null, esc = null, fin = null;
+  const deadly = v.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
-      if (o.t === 'judge' && !react) react = normReact(o.react);
+      if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
+      else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
+      else if (o.t === 'judge' && !react) react = normReact(o.react);
       else if (o.t === 'say' && says < 2) { const x = str(o.text, 260); if (x) { v.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); says++; } }
       else if (o.t === 'leave' && !leave) leave = { mood: normMood(o.mood), why: str(o.why, 90) };
       else if (o.t === 'mem' && !mem) mem = str(o.text, 110);
       else if (o.t === 'vibe' && !vibe) vibe = { vibe: o.vibe, why: str(o.why, 70) };
       update(false);
-    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', use: 'visit', effort: 'low' });
+    }, { signal: f.ctl.signal, src: f.id, kind: 'talk', use: 'visit' });
   } catch (e) { if (!says) ok = false; if (!e || e.code !== 'cancelled') reportAiError(e, null, 'visit'); }
   S.busy.visit = null;
   endFlow(f);
@@ -146,6 +153,17 @@ async function visitTurn(v, text) {
   v.turn += 1;
   if (mem) v.mem = mem;
   if (vibe) v.vibe = vibe;
+  if (sign) psySign(g, c, sign);
+  if (esc != null) { // 0.29: the player got them out (or got out)
+    v.lines.push({ who: 'n', text: esc || 'Tu claques la porte et tu tournes la clé, deux fois.' });
+    v.fled = true;
+    v.ending = true;
+    v.mood = 'fache';
+    psyEscape(g, c, 'visit');
+    update();
+    return true;
+  }
+  if (deadly && (fin != null || v.turn >= v.max)) { psyKill(g, c, fin, 'visit'); return true; } // the door was opened, at night
   if (leave || v.turn >= v.max) { // the last words stay on screen: the player sees them out
     v.ending = true;
     v.mood = leave ? leave.mood : null;
@@ -171,6 +189,11 @@ function endVisit(g, v) {
   const mood = MOODS[v.mood] ? v.mood : moodFrom(score), M = MOODS[mood];
   v.mood = mood;
   v.score = Math.round(score * 100) / 100;
+  if (v.fled) { // 0.29: put out in the night (the escape was told already)
+    const ent = gx(c.g, 'entré', 'entrée', 'entré·e'), dehors = gx(c.g, 'mis dehors', 'mise dehors', 'mis·e dehors');
+    visitCard(g, c, v, `${c.name.split(' ')[0]} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache');
+    return v;
+  }
   let rel = (score >= 0.7 ? 6 : score >= 0.55 ? 3 : score >= 0.4 ? 0 : score >= 0.25 ? -5 : -9) + M.rel;
   if (rel < 0) rel = Math.round(rel * U.k);
   const tr = score >= 0.65 ? 3 : score < 0.3 ? -Math.round(4 * U.k) : 0;
@@ -229,7 +252,14 @@ function refuseVisit(g, v) {
     addNotif(g, { k: 'drama', c: c.id, at, text: `🚪 ${first} repassera une autre fois.` });
   }
   addChronicle(g, `${c.name} est ${passe} chez ${g.player.name} sans prévenir ; ${pil} a dit « pas maintenant »${bad ? ', et ça a mal passé' : ''}.`, [c.id]);
+  psyAtDoor(g, c, v, at + 2500); // 0.29
   return v;
+}
+// 0.29: the door stayed shut at night, on the one who cannot stay away: they did not leave right away.
+function psyAtDoor(g, c, v, at) {
+  if (!isPsy(g, c) || !nightAt(v.at)) return;
+  const first = c.name.split(' ')[0], resté = gx(c.g, 'resté', 'restée', 'resté·e');
+  psySign(g, c, v.psy === 'deadly' ? `${first} est ${resté} un long moment derrière ta porte, en pleine nuit, sans un bruit` : `en pleine nuit, ${first} est ${resté} à regarder tes fenêtres depuis la rue`, at);
 }
 // Nobody could talk (the budget ran out, the game was left): they are gone, nobody is to blame.
 function missVisit(g, v, why = 'gone') {
@@ -242,6 +272,7 @@ function missVisit(g, v, why = 'gone') {
   const first = c.name.split(' ')[0], passe = gx(c.g, 'passé', 'passée', 'passé·e');
   addMem(g, c, why === 'budget' ? `je suis ${passe} voir le joueur, on n’a pas pu parler` : `je suis ${passe} chez le joueur, personne n’a ouvert`);
   visitCard(g, c, v, why === 'budget' ? `${first} est ${passe} te voir : vous n’avez pas pu parler.` : `${first} est ${passe} chez toi, sans te trouver.`, 'pareil');
+  psyAtDoor(g, c, v, later() + 2500); // 0.29
   if (v.urge !== 'tranquille') addTrigger(g, `@${c.handle} n’a pas pu parler au joueur de « ${str(v.why, 60)} » en face : ${gx(c.g, 'il', 'elle', 'iel')} lui en reparle en privé.`, c.id);
   return v;
 }
@@ -284,17 +315,19 @@ function VisitCard({ g, v, close }) {
     if (ok === false) setVal(text);
   };
   const over = !!v.ending && !busy;
+  const night = nightAt(v.at); // 0.29: at night, one does not open just like that
   return html`<div class="modal-card visit-card">
-    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">Visite surprise</span><b>${c.name} débarque chez toi</b><small>${v.state === 'knock' ? 'sans prévenir' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
+    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">Visite surprise</span><b>${c.name} débarque chez toi</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
     <div class="visit-lines" ref=${box}>
       ${v.lines.map((x, j) => (x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${emoParts(x.text)}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
-        : html`<div key=${j} class="talk-line me"><div class="bubble me">${emoParts(x.text)}</div></div>`))}
+        : x.who === 'n' ? html`<p key=${j} class="talk-fade">${x.text}</p>`
+          : html`<div key=${j} class="talk-line me"><div class="bubble me">${emoParts(x.text)}</div></div>`))}
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
     </div>
     ${over ? html`<div class="visit-foot visit-over">
-      <p>${MOODS[v.mood] ? `${first} s’en va, ${MOODS[v.mood].word(c)}.` : `${first} s’en va.`}</p>
-      <button class="btn btn-hot" onClick=${() => { endVisit(g, v); close(); update(); }}>Raccompagner ${first}</button>
+      <p>${v.fled ? 'La porte est fermée. Tu restes là, le dos contre elle, à écouter.' : MOODS[v.mood] ? `${first} s’en va, ${MOODS[v.mood].word(c)}.` : `${first} s’en va.`}</p>
+      <button class="btn btn-hot" onClick=${() => { endVisit(g, v); close(); update(); }}>${v.fled ? 'Fermer à double tour' : 'Raccompagner ' + first}</button>
     </div>` : html`<div class="visit-foot">
       <div class="reply-box">
         <textarea ref=${ref} rows="1" maxlength=${VISIT_MAX} placeholder=${'Ta réponse à ' + first + '…'} value=${val} disabled=${busy}
@@ -302,7 +335,7 @@ function VisitCard({ g, v, close }) {
           onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
         <button class="send" onClick=${send} disabled=${busy || !val.trim() || broke} aria-label="Répondre"><${Icon} n="send" s=${16} /> Répondre</button>
       </div>
-      ${v.state === 'knock' && !busy ? html`<button class="btn btn-ghost btn-sm visit-no" onClick=${() => { refuseVisit(g, v); close(); update(); }}>Pas maintenant</button>` : null}
+      ${v.state === 'knock' && !busy ? html`<button class="btn btn-ghost btn-sm visit-no" onClick=${() => { refuseVisit(g, v); close(); update(); }}>${night ? 'Ne pas ouvrir' : 'Pas maintenant'}</button>` : null}
       ${broke && !busy ? html`<small class="muted visit-broke">Ton budget IA est épuisé : vous ne pourrez pas parler cette fois. <button class="linkbtn" onClick=${() => { missVisit(g, v, 'budget'); close(); update(); }}>${first} repassera</button></small>` : null}
     </div>`}
   </div>`;

@@ -577,7 +577,7 @@ function addContact(g, o) {
   const h = uniqueHandle(g, normHandle(o.handle) || normHandle(name.split(' ')[0] + '.' + str(o.brand || o.tag || 'pro', 20).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 9)) || 'contact' + randi(10, 99));
   const id = 'c' + (++g.seq);
   const c = {
-    id, kind: o.kind || 'brand', name, handle: h, emoji: cleanEmoji(o.emoji) || '💼', hue: hashStr(h) % 360, g: gd,
+    id, kind: o.kind || 'brand', name, handle: h, emoji: avatarEmoji(o.emoji, h, '💼'), hue: hashStr(h) % 360, g: gd, // (0.29: one of ours)
     role: str(o.role, 60), bio: str(o.bio || o.role, 170), personality: str(o.personality, 240) || 'professionnelle, directe, défend son budget mais tient à ce partenariat',
     voice: str(o.voice, 140) || 'pro et chaleureuse, tutoie vite, phrases courtes', followers: o.followers || randi(300, 3000),
     rel: o.rel == null ? 10 : o.rel, unlocked: true, unlockedAt: Date.now(), followsYou: false, youFollow: false, dmSent: 0, vibe: null, vibeGoal: null, mem: [],

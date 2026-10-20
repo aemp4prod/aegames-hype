@@ -140,6 +140,7 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
   const hearts = await G(page, () => {
     const H = window.__hype, g = H.S.game, t0 = Date.now(), DAY = 24 * 3600000, C = (h) => H.charByHandle(g, h), out = {};
     const [a, b, c] = [C('theo.marlin'), C('zara.vey'), C('maelle.fen')];
+    for (const x of [a, b, c]) x.age = 24; // (the ages are drawn at the creation: under 35 here, or « MILF Lover » would come first)
     out.crush0 = H.achGot(g, 'first-crush');
     a.vibe = 'couple'; H.tickAch(g, t0); out.one = H.achGot(g, 'charro-two'); out.crush = H.achGot(g, 'first-crush');
     b.vibe = 'couple'; H.tickAch(g, t0); out.two = H.achGot(g, 'charro-two');
@@ -431,14 +432,14 @@ const TRAPS = ['fake-proof-busted', 'the-crow', 'jail-time', 'born-to-be-hero', 
     H.achKeep(snap, g);
     out.kept = Object.keys(snap.ach.got).length === H.achCount(g) && snap.ach.got['first-crush'] === 1 && snap.ach.prog['yard-sale'] === 10 && snap.ach.prog['coin-coin'] === 900 && snap.ach.nightmare === 2;
     const old = {}; H.achKeep(old, g); out.fromOld = Object.keys(old.ach.got).length === H.achCount(g);
-    out.cheat0 = !!g.ach.cheated;
-    H.menuApply(g, {}); out.cheatNone = !!g.ach.cheated;
-    H.menuApply(g, { gems: g.stats.gems }); out.cheat = !!g.ach.cheated;
-    const snap2 = {}; H.achKeep(snap2, g); out.cheatKept = !!snap2.ach.cheated;
+    out.local0 = !!g.ach.local;
+    H.paletteApply(g, {}); out.localNone = !!g.ach.local;
+    H.paletteApply(g, { gems: g.stats.gems }); out.local = !!g.ach.local;
+    const snap2 = {}; H.achKeep(snap2, g); out.localKept = !!snap2.ach.local;
     return out;
   });
-  check('back to a save: what was unlocked since stays, counted ones keep their best, the streaks are the save’s; the mode menu used: the game keeps its achievements to itself (it stays so after a save)',
-    keep.kept && keep.fromOld && !keep.cheat0 && !keep.cheatNone && keep.cheat && keep.cheatKept, keep);
+  check('back to a save: what was unlocked since stays, counted ones keep their best, the streaks are the save’s; the palette used: the game keeps its achievements to itself (it stays so after a save)',
+    keep.kept && keep.fromOld && !keep.local0 && !keep.localNone && keep.local && keep.localKept, keep);
 
   // ---------- a present in a conversation ----------
   await G(page, () => { const H = window.__hype, g = H.S.game, m = H.charByHandle(g, 'maelle.fen'); Object.assign(m, { vibe: 'couple', rel: 60, cool: null, dare: null, cut: false, badBuzz: null }); g.career.cash = 5000; H.S.stack = []; H.openDM(m.id); });

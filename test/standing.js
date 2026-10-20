@@ -248,7 +248,8 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('the DM knows the agenda: a date on it (with its day), or none (then a date fixed earlier in the talk is added now, and nobody blames a lapin that was never on it)', pr.catchup && pr.date && pr.plan, pr);
 
   // ---------- an old game: the AI is asked for the temperaments it never wrote ----------
-  await G(page, (id) => { const g = window.__hype.S.game, c = g.chars[id]; c.unlocked = true; c.unlockedAt = Date.now(); window.__mockTemper = 'opportuniste'; window.__standRolls = [0.9]; }, ids.oskar);
+  // (0.29: twelve in the cast now, the critic and Rebecca Silver too: a word about him puts him in the refresh's focus)
+  await G(page, (id) => { const g = window.__hype.S.game, c = g.chars[id]; c.unlocked = true; c.unlockedAt = Date.now(); window.__hype.addTrigger(g, '@oskar.brume sort de sa forêt et passe sur le réseau.', id); window.__mockTemper = 'opportuniste'; window.__standRolls = [0.9]; }, ids.oskar);
   await refresh(page);
   const ask = await G(page, (id) => { const g = window.__hype.S.game, c = g.chars[id]; const p = window.__prompts.filter((x) => x.includes('Le joueur actualise son fil')).slice(-1)[0] || ''; return { asked: /tempérament face à la réputation du joueur : choisis-en un[^\n]*@oskar\.brume/.test(p), temper: c.temper, auto: !!c.temperAuto, why: c.temperWhy }; }, ids.oskar);
   await G(page, () => { window.__mockTemper = null; window.__standRolls = null; });

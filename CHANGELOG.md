@@ -5,6 +5,36 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.29.0 — 20 octobre 2026 (build 29000)
+
+**Chaque partie a ses rôles (un critique, une autrice de fanfictions… et un psychopathe caché), le réseau se met à vivre pour de vrai, et ta boutique reste ouverte.**
+
+### ✨ Nouveautés
+
+- **🧨 Le Démineur, le critique du réseau** : dans tous les mondes, un vidéaste sort des vidéos sur les créateurs, et sur toi. Dures, mitigées ou respectueuses, elles font bouger ta réputation selon sa taille et la tienne.
+- **💌 Rebecca Silver** : sous ce nom dans tous les mondes, elle écrit des fanfictions gênantes (et pudiques) sur les gens du réseau, toi compris. Ceux qu’elle met en couple réagissent, et on peut aussi la draguer.
+- **🔪 Un psychopathe se cache parmi les persos** : tiré au sort à chaque partie, ton premier abonné compris, il ou elle veut tout être pour toi. Rien n’arrive la première semaine ; ensuite, certaines soirées peuvent très mal finir. La partie s’arrête alors sur un écran de fin, et tu reviens à une sauvegarde : le jeu en fait toujours une juste avant un rendez-vous ou une visite.
+- **⚖️ Le démasquer** : accusé en public, le vrai psychopathe tombe et tout le réseau parle de toi. Accuser quelqu’un d’innocent, c’est de la diffamation.
+- **🌙 Hors champ** : quand un rendez-vous devient trop intime, la scène coupe (« Ce moment ne regarde pas les voyeurs. ») et la soirée reprend un peu plus tard.
+- **⏳ Les stories** : les persos postent les leurs pendant 24 h (photos, sondages, questions) ; tu votes, tu réagis ou tu réponds en privé. Les tiennes montrent qui les a vues.
+- **👥 Les groupes de discussion** : les persos t’ajoutent à leurs groupes, tu y écris et ils se répondent entre eux. Et parfois, quelqu’un t’envoie la capture d’un groupe où l’on parle de toi… sans toi.
+- **👩 Ta mère débarque sur le réseau** : elle commente tes posts avec tout son amour, et toute sa gêne.
+- **💞 Les fans s’organisent** : des comptes rien que pour toi, des ships qui te mettent en couple (ou deux persos ensemble), et les persos en parlent.
+- **🎭 Les faux comptes** : un faux concours à ton nom, à signaler ; une parodie, elle, a le droit de rester.
+- **🎂 Anniversaires et souvenirs** : les persos ont leur anniversaire (le souhaiter fait plaisir, l’oublier se remarque), le tien se règle dans les réglages, et tes anciens posts reviennent en souvenir.
+- **📊 Sondages, épingle et top fan** : des sondages dans les posts (les tiens aussi), un commentaire à épingler sous tes posts, et un badge pour ton fan le plus présent de la semaine.
+- **🔥 La vie du réseau** : sous-entendus, soft launch, « on t’a croisé·e », ratio, personnage principal du jour, une chaîne de drama, pannes et changements d’algorithme. C’est l’IA qui décide quand ça arrive.
+- **🌍 Viral dans le monde entier** : quand un post fait le tour du monde, des réponses arrivent dans d’autres langues, avec « Traduire ».
+- **🛍️ Ta boutique reste ouverte** : dès 1 000 abonnés, tu ajoutes des produits quand tu veux, tu changes un prix, tu mets en pause ou tu réassortis sans arrêter le reste. Des stickers jusqu’à ton livre, ta propre ligne et ton pop-up store, fabriqués en France, au Portugal, en Turquie ou en Chine, à la demande, en stock ou en précommande.
+- **🎁 Et dans ta boutique** : éditions limitées numérotées, une part pour une asso, des duos avec les persos, des concours de design avec ta commu, les grandes saisons et des séances de dédicaces.
+- **✏️ Ta bio** : ajoute-la ou change-la quand tu veux depuis ton profil ; les persos lisent la nouvelle.
+- **😄 Nos emojis partout** : les autocollants de Hype remplacent les emojis dans tout le texte du jeu (statuts, boutons, titres, listes), et les persos ont des avatars choisis parmi eux.
+- **📸 De nouvelles photos** : 47 de plus pour la streameuse aux mèches roses, 35 pour la gameuse à la mèche violette, et un quatrième visage arrive, avec sa première photo.
+
+### 💡 Bon à savoir
+
+- **🖥️ Hype se joue dans l’appli** : la version Claude s’arrête, le jeu continue dans l’appli pour ordinateur, avec ton abonnement ChatGPT. Une partie exportée de la version Claude s’importe toujours.
+
 ## 0.28.1 — 19 octobre 2026 (build 28001)
 
 **Plus de plafond sur les prix, une icône dessinée pour chaque succès, et une grande campagne de tests : plus de 100 corrections, et des personnages qui font moins attendre.**

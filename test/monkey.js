@@ -1,6 +1,7 @@
 // A long game played at random (the « monkey »), in Chromium against the built hype.html with the mocked Claude runtime:
-// posts, messages, brands, releases planned, brought forward, shot and published, time skipped, items sold, the hidden
-// menu, screens opened, an export imported back. After every step, the invariants: no error on the page, every number
+// posts, messages, brands, releases planned, brought forward, shot and published, time skipped, items sold, the
+// palette, the shop (products made, launched, priced, paused, restocked, taken off; duos, contests, pop-ups, counterfeits),
+// screens opened, an export imported back. After every step, the invariants: no error on the page, every number
 // finite and in range, no state that cannot exist, nothing left busy.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> [STEPS=120] [SEED=1] node test/monkey.js
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
@@ -67,8 +68,8 @@ const DMS = ['salut ! ça va ?', 'tu viens au bal avec moi ?', 'je voudrais un a
 
 // One random step: what was done, for the log.
 async function step(page, k) {
-  const act = pickW([['post', 14], ['dm', 16], ['offer', 8], ['sign', 6], ['plan', 8], ['sooner', 5], ['shoot', 8], ['skip', 10], ['sell', 6], ['menu', 4], ['screens', 10], ['roundtrip', 2], ['postpone', 3],
-    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements)
+  const act = pickW([['post', 14], ['dm', 16], ['offer', 8], ['sign', 6], ['plan', 8], ['sooner', 5], ['shoot', 8], ['skip', 10], ['sell', 6], ['palette', 4], ['screens', 10], ['roundtrip', 2], ['postpone', 3],
+    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4], ['shop', 10], ['social', +(process.env.SOCIAL_W || 10)]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements; 0.29: the shop)
   await G(page, () => { const H = window.__hype; H.S.modals = []; H.update(false); });
   if (act === 'post') {
     await G(page, () => { const H = window.__hype; H.S.stack = []; if (H.S.fabAway) H.S.fabAway = false; H.goTab('feed'); });
@@ -141,7 +142,7 @@ async function step(page, k) {
       return `series ${ok ? what : '(no room)'}`;
     }, rnd());
   }
-  if (act === 'practice') { // a practice round from the hidden menu, opened and left (nothing may change in the game)
+  if (act === 'practice') { // a practice round from the palette, opened and left (nothing may change in the game)
     const res = await G(page, (r) => {
       const H = window.__hype, g = H.S.game, ks = ['montage', 'memoire', 'chat', 'mixage', 'cadrage'], k = ks[Math.floor(r * ks.length)];
       const before = JSON.stringify([g.career.cash, g.stats.followers, g.stats.reputation, g.releases.length]);
@@ -176,6 +177,36 @@ async function step(page, k) {
       H.update(false);
       return `announce ${x ? 'new' : 'same'} (${before}→${H.plannedReleases(g).length})`;
     }, rnd());
+  }
+  if (act === 'shop') { // 0.29: the shop: a product made (odd prices now and then), launched, priced, paused, restocked, taken off; a duo, a contest, a pop-up, a signing, a counterfeit
+    return G(page, (a) => {
+      const H = window.__hype, g = H.S.game, t = Date.now(), day = 86400000, { r, r2 } = a;
+      if (g.stats.followers < 1500) g.stats.followers = 1500;
+      if (r2 < 0.08) g.stats.followers = Math.max(g.stats.followers, [12000, 60000, 150000, 600000, 1200000][Math.floor(r * 5)]);
+      const S = H.shopOf(g), all = H.shopShown(g), pickP = (f) => { const l = all.filter(f); return l.length ? l[Math.floor(r2 * l.length)] : null; };
+      const keys = Object.keys(H.MERCH).filter((k) => g.stats.followers >= H.MERCH[k].tier);
+      const what = Math.floor(r * 12);
+      let out = 'shop';
+      if (what <= 2) {
+        const k = keys[Math.floor(r2 * keys.length)], M = H.MERCH[k], mode = ['pod', 'stock', 'preco'][Math.floor(r2 * 3)];
+        const price = r2 < 0.1 ? ['0', 'abc', -3, 1e18][Math.floor(r2 * 40)] : Math.round(M.fair * (0.5 + 1.5 * r2) * 100) / 100;
+        const c = H.mains(g).find((x) => H.collabOK(g, x));
+        const res = H.prepItem(g, { k, design: 'design ' + Math.round(r2 * 100), name: 'Titre ' + Math.round(r2 * 100), pitch: 'une histoire de potions ratées', mode, origin: ['fr', 'pt', 'tr', 'cn'][Math.floor(r2 * 4)], mat: ['bio', 'coton', 'recy', 'poly'][Math.floor(r2 * 4)], print: r2 < 0.5 ? 'seri' : 'transfert', qty: H.qtysOf(k)[Math.floor(r2 * 3)], limited: r2 < 0.2 ? 100 : 0, charity: r2 < 0.3 ? 10 : 0, asso: 'un refuge', collab: c && r2 < 0.25 ? c.id : null, by: 'toi', price });
+        out = `shop make ${k} ${mode} ${res.ok ? res.p.state : 'refused'}`;
+      } else if (what === 3) { const L = H.launchAll(g); out = L ? `shop launch ${H.launchDrop(g, L, 1 + Math.floor(r2 * 5), { id: 'mk' + t, text: r2 < 0.3 ? 'fabriqué en France !' : 'nouveau merch' }, t)}` : 'shop launch (none)'; }
+      else if (what === 4) { const p = pickP((x) => x.state !== 'gone'); out = p ? `shop price ${H.setPrice(g, p, r2 < 0.2 ? 'n' : Math.round(H.MERCH[p.k].fair * (0.3 + 2 * r2) * 100) / 100)}` : 'shop price (none)'; }
+      else if (what === 5) { const p = pickP((x) => x.state === 'live' || x.state === 'paused'); out = p ? `shop ${p.state === 'live' ? 'pause ' + H.pauseItem(g, p) : 'resume ' + H.resumeItem(g, p)}` : 'shop pause (none)'; }
+      else if (what === 6) { const p = pickP((x) => x.mode === 'stock'); out = p ? `shop restock ${H.restock(g, p, H.qtysOf(p.k)[0])}` : 'shop restock (none)'; }
+      else if (what === 7) { const p = pickP((x) => x.state !== 'gone'); out = p ? `shop retire ${H.retireItem(g, p)}` : 'shop retire (none)'; }
+      else if (what === 8) { const p = pickP((x) => x.collab && x.collab.ok !== true); const c = p && g.chars[p.collab.c]; if (p && c && r2 < 0.6) H.applyCollabLine(g, c, { t: 'collab', ok: r2 < 0.4 }); else if (p) H.collabSolo(g, p); out = p ? 'shop duo' : 'shop duo (none)'; }
+      else if (what === 9) {
+        if (S.contest && S.contest.state === 'open') { if (r2 < 0.5) H.contestClose(g); else { const e = S.contest.entries[0]; H.prepItem(g, { k: keys[0], design: e.text, credit: e.by, price: H.MERCH[keys[0]].fair, mode: 'pod' }); } out = 'shop contest closed or picked'; }
+        else { H.contestStarted(g, null, r2 < 0.3 ? [] : [{ by: 'fan.singe' + Math.round(r2 * 99), text: 'un design au hasard' }]); out = 'shop contest'; }
+      } else if (what === 10) { const b = H.shopLive(g).find((x) => H.MERCH[x.k].book); out = `shop event ${r2 < 0.5 ? H.planPopup(g, 'Lyon', t + 2 * day) : b ? H.planSigning(g, b, t + day, 'la librairie') : 'no book'}`; }
+      else { const p = pickP((x) => x.fake && x.fake.state === 'on') || (r2 < 0.3 ? pickP((x) => x.state === 'live') : null); if (p && !p.fake) H.counterfeit(g, p, t); else if (p) H.fakeAction(g, p, ['lawyer', 'report', 'let'][Math.floor(r2 * 3)]); else { H.S.stack = []; H.openLayer({ t: 'merch', view: ['items', 'new', 'extras'][Math.floor(r2 * 3)] }); } out = p ? 'shop fake' : 'shop window'; }
+      H.update(false);
+      return out;
+    }, { r: rnd(), r2: rnd() });
   }
   if (act === 'postpone') { return G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const ok = r ? H.postponeRelease(g, r) : false; H.update(false); return `postpone ${ok}`; }); }
   if (act === 'shoot') {
@@ -212,29 +243,75 @@ async function step(page, k) {
       return `sell ${!!ok}`;
     }, rnd());
   }
-  if (act === 'menu') {
+  if (act === 'palette') {
     return G(page, (r) => {
       const H = window.__hype, g = H.S.game, t = Date.now();
       const o = r < 0.25 ? { cash: String(Math.round(r * 100000)) } : r < 0.5 ? { rep: { image: '600', cred: '400', pro: '700', kind: '500' } } : r < 0.75 ? { at: H.gameDate(t).getTime() + Math.round((r - 0.6) * 40 * 86400000) } : { followers: String(Math.round(r * 50000)), level: String(1 + Math.round(r * 6)) };
-      H.menuApply(g, o);
+      H.paletteApply(g, o);
       H.update(false);
-      return 'menu ' + Object.keys(o).join(',');
+      return 'palette ' + Object.keys(o).join(',');
     }, rnd());
   }
   if (act === 'screens') {
-    const which = pickOne(['studio', 'notifs', 'feed', 'settings', 'inv', 'cheat', 'single', 'dmlist']);
+    const which = pickOne(['studio', 'notifs', 'feed', 'settings', 'inv', 'palette', 'single', 'dmlist', 'merch']);
     await G(page, (w) => {
       const H = window.__hype; H.S.stack = [];
       if (w === 'studio' || w === 'notifs' || w === 'feed') H.goTab(w);
       else if (w === 'settings') H.openLayer({ t: 'settings' });
       else if (w === 'inv') H.openLayer({ t: 'inv' });
-      else if (w === 'cheat') H.openLayer({ t: 'cheat' });
+      else if (w === 'palette') H.openLayer({ t: 'palette' });
+      else if (w === 'merch') H.openLayer({ t: 'merch' });
       else if (w === 'single') H.openLayer({ t: 'series', id: 'single' });
       else H.goTab('dms');
       H.update(false);
     }, which);
     await sleep(400);
     return 'screen ' + which;
+  }
+  if (act === 'social') { // 0.29: stories, groups, polls, a pinned comment, the network's own days
+    const r = rnd(), r2 = rnd();
+    const res = await G(page, async (a) => {
+      const H = window.__hype, g = H.S.game, t = Date.now();
+      const cs = H.mains(g).filter((c) => c.unlocked && !c.cut && !c.jailed);
+      const one = cs[Math.floor(a.r2 * cs.length)];
+      if (a.r < 0.14) { const ok = await H.postStory({ text: 'ma story ' + a.k, poll: a.r2 < 0.4 ? { q: 'on fait quoi ce soir ?', a: ['live', 'dodo'] } : null, ask: a.r2 > 0.7 ? 'vos conseils ?' : '' }); return 'story mine ' + ok; }
+      if (a.r < 0.28) {
+        if (!one) return 'story (nobody)';
+        const s = H.addStory(g, { by: one.handle, text: 'la vie de ' + one.handle + ' ' + a.k, photo: a.r2 < 0.5 ? 'un café en terrasse' : '', poll: a.r2 > 0.6 ? { q: 'je le fais ?', a: ['oui', 'non'] } : null }, t);
+        if (s) { H.openStory(s.a); if (s.poll && a.r2 > 0.8) H.voteStory(g, s, 1); else if (a.r2 < 0.2) H.reactStory(g, s, '🔥'); }
+        H.update(false);
+        return 'story ' + (s ? 'of ' + one.handle : '(full)');
+      }
+      if (a.r < 0.45) {
+        const live = H.liveGroups(g);
+        if (live.length && a.r2 < 0.75) { const gr = live[Math.floor(a.r2 * live.length)]; const ok = await H.sendGroup(gr.id, 'on se retrouve où ? ' + a.k); return 'group msg ' + ok; }
+        if (live.length && a.r2 >= 0.75) { H.leaveGroup(g, live[0]); return 'group left'; }
+        if (cs.length < 2) return 'group (nobody)';
+        const gr = H.addGroup(g, { by: cs[0].handle, with: cs.slice(1, 4).map((c) => c.handle), name: 'La bande ' + a.k, text: 'bienvenue !' }, t);
+        H.update(false);
+        return 'group ' + (gr ? 'new' : '(none)');
+      }
+      if (a.r < 0.6) {
+        const p = g.posts.filter((x) => x.a !== 'p' && x.at <= t).slice(-6)[Math.floor(a.r2 * 6)];
+        if (!p) return 'poll (no post)';
+        if (!p.poll) H.decorateSocial(g, p, { poll: { a: ['oui', 'non', 'bof'] } });
+        const ok = H.votePoll(g, p, Math.floor(a.r2 * 3));
+        return 'poll ' + ok;
+      }
+      if (a.r < 0.72) {
+        const p = g.posts.filter((x) => x.a === 'p' && x.replies.length).pop();
+        if (!p) return 'pin (none)';
+        H.pinReply(g, p, p.replies[Math.floor(a.r2 * p.replies.length)]);
+        H.update(false);
+        return 'pin';
+      }
+      if (a.r < 0.82) { const o = a.r2 < 0.4 ? H.setOutage(g, { min: 20, why: 'serveurs en feu' }, t) : a.r2 < 0.8 ? H.setAlgo(g, { favors: ['photo', 'short', 'video', 'texte'][Math.floor(a.r2 * 4)], days: 2 }, t) : H.setMainDay(g, { who: a.r2 < 0.9 ? g.player.handle : (one || {}).handle, why: 'un fou rire en direct' }, t); H.update(false); return 'net ' + !!o; }
+      if (a.r < 0.9) { if (one) { H.psySign(g, one, 'un détail bizarre ' + a.k, t); H.update(false); } return 'sign'; }
+      H.S.stack = []; H.goTab('feed'); H.update(false);
+      return 'feed';
+    }, { r, r2, k });
+    await idle(page);
+    return 'social ' + res;
   }
   if (act === 'roundtrip') {
     const r = await G(page, async () => {
@@ -255,8 +332,34 @@ function invariants() {
   for (const k of Object.keys(s.rep4 || {})) fin(s.rep4[k], 'rep4.' + k, 0, 100);
   if (g.clockOff !== undefined && (typeof g.clockOff !== 'number' || !Number.isFinite(g.clockOff))) bad.push('clockOff=' + g.clockOff); // (a new game has none until the first skip or load: 0)
   for (const ch of Object.values(g.chars)) if (typeof ch.rel === 'number') fin(ch.rel, `rel(${ch.handle})`, -100, 100);
+  if (c.shop) { // 0.29: the shop
+    const S = c.shop;
+    fin(S.pend, 'shop.pend'); fin(S.sold, 'shop.sold', 0); fin(S.revenue, 'shop.revenue', 0); fin(S.weekSold, 'shop.weekSold', 0);
+    if (H.shopShown(g).length > H.MERCH_MAX) bad.push('shop: ' + H.shopShown(g).length + ' products shown');
+    for (const p of S.items) {
+      const M = H.MERCH[p.k];
+      if (!M) { bad.push('shop: unknown ' + p.k); continue; }
+      if (!['making', 'ready', 'live', 'paused', 'gone'].includes(p.state)) bad.push('shop: state ' + p.state);
+      fin(p.price, `shop.price(${p.k})`, M.min, 1e15); fin(p.sold, `shop.sold(${p.k})`, 0); fin(p.q, `shop.q(${p.k})`, 0.15, 1); fin(p.revenue, `shop.revenue(${p.k})`, 0); fin(p.refunds, `shop.refunds(${p.k})`, 0);
+      if (p.mode === 'stock') fin(p.stock, `shop.stock(${p.k})`, 0);
+      if (p.preco) { fin(p.preco.qty, 'preco.qty', 0); if (!p.preco.closed && p.state !== 'live') bad.push('shop: pre-orders open but ' + p.state); if (p.preco.closed && !p.preco.shipped && p.state !== 'paused') bad.push('shop: pre-orders closed but ' + p.state); }
+      if ((p.state === 'live' || p.state === 'paused') && !p.launchAt) bad.push('shop: on sale without a launch');
+      if (p.collab && p.collab.ok === false) bad.push('shop: a refused duo kept');
+      if (p.state === 'live' && p.collab && p.collab.ok !== true) bad.push('shop: on sale before the duo agreed');
+    }
+  }
   const P = H.plannedReleases(g);
   if (P.length > H.MAX_PLANNED) bad.push('planned=' + P.length);
+  // 0.29: the stories (24 h, three live at most per character), the groups (four, forty messages at most)
+  const st = g.stories || [], live = H.liveStories(g);
+  if (st.length > 40) bad.push('stories=' + st.length);
+  for (const x of st) if (x.until - x.at !== 86400000) bad.push('story length ' + (x.until - x.at));
+  const per = {}; for (const x of live) if (x.a !== 'p') per[x.a] = (per[x.a] || 0) + 1; // (the player posts as many as they like)
+  for (const k in per) if (per[k] > 3) bad.push(`stories of ${k}: ${per[k]}`);
+  if (H.liveGroups(g).length > 4) bad.push('groups=' + H.liveGroups(g).length);
+  for (const gr of g.groups || []) if (gr.msgs.length > 40) bad.push(`group ${gr.name}: ${gr.msgs.length} messages`);
+  for (const p of g.posts) if (p.poll) { const sum = (p.poll.res || []).reduce((x, y) => x + y, 0); if (p.poll.res && sum !== 100) bad.push('poll sum ' + sum); }
+  if (g.psy) { fin(g.psy.signs || 0, 'psy.signs', 0); if (g.over && g.over.k !== 'psy') bad.push('over ' + g.over.k); }
   for (const r of g.releases) { if (!['scheduled', 'released', 'dropped'].includes(r.state)) bad.push(`release state ${r.state}`); fin(r.due, 'release.due', 0); }
   for (const d of g.deals) {
     fin(d.fee, `deal.fee(${d.brand})`, 0); fin(d.upfront || 0, `deal.upfront(${d.brand})`, 0);

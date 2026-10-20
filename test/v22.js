@@ -1,8 +1,8 @@
 // 0.22 end to end, in Chromium against the built hype.html with the mocked Claude runtime:
 // - the memberships: where and when they open, what they cost and promise, how many join (audience, warmth, price,
 //   promises), paid each month less the platform's share, a broken promise, early access and members-only lives;
-// - the merch: a collection (pieces, prices, design, made on demand or in stock), launched with a post the AI judges,
-//   sold for a few weeks and paid each week; stock, sold out and restock; a bad batch; prices too high.
+// - the merch (0.29: a shop that stays open, see test/boutique.js): a product, launched with a post the AI judges,
+//   sold and paid each week; stock, sold out and restock; a bad batch; prices too high.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> node test/v22.js
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const fs = require('fs');
@@ -164,73 +164,75 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
   check('« Ta commu » follows them: members, the price, what each brings, the promises kept this month; closing them cools the community',
     /membres/.test(onTxt) && /4,99\s€ par mois/.test(onTxt) && /fait ce mois-ci/.test(onTxt) && /Fermer les adhésions/.test(onTxt) && close.ok && close.members === 0 && close.warm < 0, { onTxt: onTxt.slice(0, 220), close });
 
-  // ---------- the merch ----------
-  await G(page, () => { const H = window.__hype, g = H.S.game; g.stats.followers = 4000; H.update(); });
+  // ---------- the merch (0.29: a shop that stays open; the whole of it in test/boutique.js) ----------
+  await G(page, () => { const H = window.__hype, g = H.S.game; g.stats.followers = 400; H.update(); });
   await studio(page, '.boutique');
   const shut = await G(page, () => (document.querySelector('.boutique') || {}).textContent || '');
   await G(page, () => { const H = window.__hype, g = H.S.game; g.stats.followers = 40000; g.career.warmth = 60; g.career.cash = 5000; H.update(); });
   await sleep(300);
-  await page.locator('.boutique .chip-btn', { hasText: 'Sweat' }).click();
-  await page.fill('#mi-design', 'une luciole néon et « la nuit est à nous »');
+  await page.locator('.boutique .btn', { hasText: 'Gérer ta boutique' }).click();
+  await page.waitForSelector('.layer .shop-head');
+  await page.locator('.layer .shop-head .seg button', { hasText: 'Nouveau produit' }).click();
+  await page.locator('.shop-new .chip-btn', { hasText: 'T-shirt' }).click();
+  await page.fill('#sn-design', 'une luciole néon et « la nuit est à nous »');
+  await page.locator('.shop-new .seg button', { hasText: 'À la demande' }).click();
   await sleep(200);
-  await page.locator('.boutique').scrollIntoViewIfNeeded();
   await shot(page, 'merch-form');
-  const formTxt = await G(page, () => document.querySelector('.boutique').textContent);
-  await page.locator('.boutique .btn-hot', { hasText: 'Préparer le drop' }).click();
+  const formTxt = await G(page, () => document.querySelector('.shop-new').textContent);
+  await page.locator('.shop-new > .btn-hot').click();
   await sleep(400);
-  const ready = await G(page, () => { const H = window.__hype, g = H.S.game, d = H.openDrop(g); return d ? { state: d.state, maker: d.maker, items: d.items.map((x) => x.k + ':' + x.price), cash: g.career.cash } : null; });
-  const readyTxt = await G(page, () => (document.querySelector('.boutique .drop-card') || {}).textContent || '');
-  check('« Ta boutique » opens at 10 000 subscribers: up to three pieces, their prices (fair ones suggested), the design, made on demand (nothing ahead) or in stock; set, it waits for the post that launches it',
-    /10\s000 abonnés/.test(shut) && /T-shirt/.test(formTxt) && /fabrication : 12/.test(formTxt) && /À la demande/.test(formTxt) && /Usine en ligne/.test(formTxt)
-      && ready && ready.state === 'ready' && ready.maker === 'pod' && ready.items.join() === 'tshirt:25,sweat:49' && ready.cash === 5000 && /Ton drop est prêt/.test(readyTxt) && /Le lancer avec un post/.test(readyTxt), { shut: shut.slice(0, 80), formTxt: formTxt.slice(0, 200), ready, readyTxt });
-  await page.locator('.boutique .btn-hot', { hasText: 'Le lancer avec un post' }).click();
+  const ready = await G(page, () => { const H = window.__hype, g = H.S.game, p = H.shopItems(g)[0]; return p ? { state: p.state, mode: p.mode, k: p.k, price: p.price, cash: g.career.cash } : null; });
+  const readyTxt = await G(page, () => (document.querySelector('.layer .shop-launch') || {}).textContent || '');
+  check('« Ta boutique » opens at 1 000 subscribers; at 40 000 a t-shirt (the fair price suggested), its design, made on demand (nothing ahead, 12 € a piece printed); ready, it waits for the post that launches it',
+    /1\s000 abonnés/.test(shut) && /T-shirt/.test(formTxt) && /12\s€ par pièce imprimée/.test(formTxt) && ready && ready.state === 'ready' && ready.mode === 'pod' && ready.k === 'tshirt' && ready.price === 25 && ready.cash === 5000 && /1 produit prêt/.test(readyTxt), { shut: shut.slice(0, 80), formTxt: formTxt.slice(-260), ready, readyTxt });
+  await page.locator('.layer .shop-launch .btn-hot').click();
   await page.waitForSelector('.merch-hint', { timeout: 8000 });
-  const comp = await G(page, () => ({ title: (document.querySelector('.layer h2') || {}).textContent || '', hint: document.querySelector('.merch-hint').textContent, text: document.getElementById('compose').value }));
+  const comp = await G(page, () => ({ title: [...document.querySelectorAll('.layer h2')].pop().textContent, hint: document.querySelector('.merch-hint').textContent, text: document.getElementById('compose').value }));
   await shot(page, 'merch-compose');
   await G(page, () => { window.__mockMerch = 4; });
   await page.fill('#compose', 'Mon merch est là : la luciole néon, pour les noctambules 🌙');
-  await page.locator('.layer .btn-hot', { hasText: 'Lancer' }).click();
+  await page.locator('.layer', { has: page.locator('#compose') }).locator('.btn-hot', { hasText: /^Lancer/ }).first().click();
   await page.waitForSelector('.post', { timeout: 15000 });
   await idle(page);
   await sleep(1500);
-  const live = await G(page, () => { const H = window.__hype, g = H.S.game, d = H.openDrop(g); return { state: d && d.state, desir: d && d.desir, notif: (g.notifs.find((x) => /Ton merch est en vente/.test(x.text)) || {}).text || '', prompt: window.__prompts.some((x) => /LANCE SON MERCH/.test(x) && /"merch":3/.test(x)), warm: (g.career.warmLog || []).some((x) => /prix honnête/.test(x.why)), trig: (g.triggers || []).some((x) => /vient de lancer son merch/.test(x.text)) }; });
+  const live = await G(page, () => { const H = window.__hype, g = H.S.game, p = H.shopItems(g)[0]; return { state: p.state, desir: p.desir, notif: (g.notifs.find((x) => /En vente dans ta boutique/.test(x.text)) || {}).text || '', prompt: window.__prompts.some((x) => /LANCE DU MERCH/.test(x) && /"merch":3/.test(x)), warm: (g.career.warmLog || []).some((x) => /prix honnête/.test(x.why)), trig: (g.triggers || []).some((x) => /vient de lancer/.test(x.text)) }; });
   check('the post launches it: the composer says what it launches; the AI judges how much people want it (here 4 out of 5); fair prices warm the community; the characters will talk about it',
-    /Lancer ton merch/.test(comp.title) && /Ton post lance ton merch/.test(comp.hint) && /t-shirt à 25/.test(comp.hint) && /Mon merch est enfin là/.test(comp.text) && live.state === 'live' && live.desir === 4 && /en vente/.test(live.notif) && live.prompt && live.warm && live.trig, { comp, live });
+    /Lancer ton merch/.test(comp.title) && /Ton post lance ton t-shirt/.test(comp.hint) && /t-shirt à 25/.test(comp.hint) && /Mon merch est enfin là/.test(comp.text) && live.state === 'live' && live.desir === 4 && /En vente/.test(live.notif) && live.prompt && live.warm && live.trig, { comp, live });
 
   const sales = await G(page, () => {
-    const H = window.__hype, g = H.S.game, d = H.openDrop(g), day = 86400000, out = {};
-    const t0 = d.launchAt, cash0 = g.career.cash;
-    for (let k = 1; k <= 8; k++) H.tickMerch(g, t0 + k * day);
-    out.sold = d.sold; out.byItem = d.items.map((x) => x.k + ':' + x.sold); out.paid = Math.round((g.career.cash - cash0) * 100) / 100; out.revenue = d.revenue;
+    const H = window.__hype, g = H.S.game, p = H.shopItems(g)[0], day = 86400000, out = {};
+    const t0 = p.launchAt, cash0 = g.career.cash;
+    for (let k = 1; k <= 8; k++) H.tickMerch(g, t0 + k * day + 3600000);
+    out.sold = p.sold; out.paid = Math.round((g.career.cash - cash0) * 100) / 100; out.revenue = p.revenue;
     out.notif = (g.notifs.find((x) => /Ta boutique : /.test(x.text)) || {}).text || '';
     out.ctx = H.merchCtx(g);
-    const s8 = d.sold; for (let k = 9; k <= 20; k++) H.tickMerch(g, t0 + k * day); out.later = d.sold - s8; // it fades
-    H.tickMerch(g, t0 + 36 * day); out.state = d.state; out.end = (g.notifs.find((x) => /Fin de ton drop/.test(x.text)) || {}).text || '';
+    const s8 = p.sold; for (let k = 9; k <= 20; k++) H.tickMerch(g, t0 + k * day + 3600000); out.later = p.sold - s8; // it fades
+    H.tickMerch(g, t0 + 60 * day); out.state = p.state; // (0.29: it stays on sale)
     return out; });
-  check('orders come for a few weeks (fewer and fewer), paid each week (on demand: the making of each piece and 3 % of fees taken off); the AI knows what is on sale; after five weeks, the drop is over',
-    sales.sold > 100 && sales.byItem.every((x) => +x.split(':')[1] > 0) && sales.paid > 0 && sales.paid < sales.revenue * 0.6 && /pièces vendues cette semaine/.test(sales.notif) && /Son merch est en vente/.test(sales.ctx) && sales.later < sales.sold && sales.state === 'done' && /Fin de ton drop/.test(sales.end), sales);
+  check('orders come (fewer and fewer), paid each week (on demand: the making of each piece and 3 % of fees taken off); the AI knows what is on sale; it stays on sale',
+    sales.sold > 50 && sales.paid > 0 && sales.paid < sales.revenue * 0.6 && /pièces vendues cette semaine/.test(sales.notif) && /Sa boutique de merch : t-shirt à 25/.test(sales.ctx) && sales.later < sales.sold && sales.state === 'live', sales);
 
   const stock = await G(page, () => {
     const H = window.__hype, g = H.S.game, day = 86400000, out = {};
-    g.career.cash = 2000; g.career.warmth = 60;
-    const x = H.prepDrop(g, { maker: 'usine', design: 'logo luciole', items: [{ k: 'tshirt', price: 25, qty: 50 }] });
+    g.career.cash = 2000; g.career.warmth = 60; H.shopOf(g).day = H.gameDay(Date.now());
+    const x = H.prepItem(g, { k: 'mug', mode: 'stock', origin: 'cn', design: 'logo luciole', price: 15, qty: 50 });
     out.ok = x.ok; out.paidAhead = 2000 - g.career.cash;
-    const d = x.d; d.bad = true; // (this factory's batch is bad: nothing says so before the orders)
-    H.launchDrop(g, d, 3, null, Date.now());
-    const w0 = g.career.warmth, c0 = g.career.cash;
-    for (let k = 1; k <= 6; k++) H.tickMerch(g, d.launchAt + k * day);
-    out.stock = d.items[0].stock; out.sold = d.sold; out.out = (g.notifs.find((n) => /Rupture de stock/.test(n.text)) || {}).text || '';
-    out.bad = !!d.badAt; out.complain = (g.notifs.find((n) => /se plaignent de ton merch/.test(n.text)) || {}).text || ''; out.warm = Math.round((g.career.warmth - w0) * 10) / 10;
-    const c1 = g.career.cash; out.restock = H.restock(g, d, 'tshirt', 100); out.restockCost = Math.round(c1 - g.career.cash); out.stock2 = d.items[0].stock;
-    H.stopDrop(g, d);
+    const p = x.p; p.bad = true; // (this batch is bad: nothing says so before the orders)
+    H.tickMerch(g, p.readyAt + 1000); H.shopOf(g).day = H.gameDay(Date.now());
+    H.launchDrop(g, { items: [p] }, 4, null, Date.now());
+    const w0 = g.career.warmth;
+    for (let k = 1; k <= 40 && p.stock > 0; k++) H.tickMerch(g, p.launchAt + k * day + 3600000);
+    out.stock = p.stock; out.sold = p.sold; out.out = (g.notifs.find((n) => /Rupture de stock/.test(n.text)) || {}).text || '';
+    out.bad = !!p.badAt; out.complain = (g.notifs.find((n) => /se plaignent de ton mug/.test(n.text)) || {}).text || ''; out.warm = Math.round((g.career.warmth - w0) * 10) / 10;
+    const c1 = g.career.cash; out.restock = H.restock(g, p, 100); out.restockCost = Math.round(c1 - g.career.cash);
     // prices far above what fans expect: the community cools
-    const y = H.prepDrop(g, { maker: 'pod', design: 'logo luciole doré', items: [{ k: 'tshirt', price: 60 }] });
-    const w2 = g.career.warmth; H.launchDrop(g, y.d, 3, null, Date.now()); out.dear = Math.round((g.career.warmth - w2) * 10) / 10;
+    const y = H.prepItem(g, { k: 'tshirt', mode: 'pod', design: 'logo luciole doré', price: 60 });
+    const w2 = g.career.warmth; H.launchDrop(g, { items: [y.p] }, 3, null, Date.now()); out.dear = Math.round((g.career.warmth - w2) * 10) / 10;
     out.dearLog = (g.career.warmLog || []).slice(-1)[0].why;
     return out; });
-  check('in stock: paid ahead (50 t-shirts from the online factory: 250 €), sold until sold out (told), restocked; a bad batch shows with the first deliveries (complaints, refunds, the community cools); prices far too high cool it too',
-    stock.ok && stock.paidAhead === 250 && stock.stock === 0 && stock.sold === 50 && /Rupture de stock/.test(stock.out) && stock.bad && /se plaignent de ton merch/.test(stock.complain) && stock.warm < -3
-      && stock.restock === true && stock.restockCost === 500 && stock.stock2 === 100 && stock.dear < 0 && /hors de prix/.test(stock.dearLog), stock);
+  check('in stock: paid ahead (50 mugs made in China: 90 €), sold until sold out (told), restocked (100: 180 €); a bad batch shows with the first deliveries (complaints, refunds, the community cools); prices far too high cool it too',
+    stock.ok && stock.paidAhead === 90 && stock.stock === 0 && stock.sold === 50 && /Rupture de stock/.test(stock.out) && stock.bad && /se plaignent de ton mug/.test(stock.complain) && stock.warm < -3
+      && stock.restock === true && stock.restockCost === 180 && stock.dear < 0 && /hors de prix/.test(stock.dearLog), stock);
   // a friend proposes to film a video together while the player has only a phone: it becomes a vertical video, never a refusal
   const col = await G(page, () => {
     const H = window.__hype, g = H.S.game, out = {}, easy = window.__hypeEasyGear;
@@ -438,7 +440,8 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
   const watch = await G(page, () => {
     const H = window.__hype, g = H.S.game, day = 86400000, out = {};
     H.openMemb(g, 4.99, ['avant']); const m = H.membOf(g); m.members = 0;
-    const d = H.openDrop(g); const s0 = d.sold;
+    H.shopOf(g).day = H.gameDay(Date.now()); // (0.29: the days played ahead above, put back)
+    const d = H.shopLive(g)[0]; const s0 = d.sold; // (0.29: a product of the shop)
     for (let k = 0; k < 6; k++) { H.shiftTime(g, day); g.clockOff = (g.clockOff || 0) + day; H.tickCareer(g, Date.now()); }
     out.members = m.members; out.sold = d.sold - s0;
     return out; });

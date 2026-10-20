@@ -28,6 +28,24 @@ function emoParts(text, kb = 'e') {
   if (last < text.length) out.push(text.slice(last));
   return out;
 }
+// 0.29: the same for any text of the game (ui.js: html): the text as it is when it has none of ours, else its pieces.
+// The emoji stays in the text (read aloud, copied, found), unseen, over its sticker.
+function emoNodes(text) {
+  const out = [];
+  let last = 0, m;
+  EMO_RE.lastIndex = 0;
+  while ((m = EMO_RE.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const t = h('hype-emo-t', { class: 'emo-t' }, m[0]);
+    const v = h('hype-emo', { class: 'emo emo-s', style: { backgroundImage: 'url("' + emoSrc(EMO_BY[m[1]]) + '")' } }, t); // (an element of its own: no rule meant for a span of the screen reaches it)
+    t.__emo = v.__emo = 1; // (already ours: not looked at again)
+    out.push(v);
+    last = m.index + m[0].length;
+  }
+  if (!out.length) return text;
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 // A message made of one to three emojis and nothing else is shown big (like on a phone).
 function emoOnly(text) {
   const s = String(text || '').trim();

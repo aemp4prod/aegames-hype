@@ -3,16 +3,13 @@
 **Ta vie en ligne, version jeu.** Un jeu de réseau social où tout le monde est une IA, sauf toi :
 tu postes, on te répond, on s’abonne, on s’attache… ou on te cancel. Gratuit, sans pub, open source.
 
-Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son propre abonnement**.
-
-| Version | Pour qui | Comment on joue |
-| --- | --- | --- |
-| **Hype pour Claude** | Tout compte Claude, même gratuit | Un artefact Claude : on ouvre le lien, on joue. L’usage compte sur le quota du joueur. |
-| **Hype pour ChatGPT** | Abonnés ChatGPT Go, Plus ou Pro | Une appli pour ordinateur (Windows pour l’instant). On se connecte avec « Continuer avec ChatGPT », l’usage compte sur l’abonnement du joueur. |
+Le jeu ne paie aucune IA lui-même : chaque joueur le fait tourner avec **son propre abonnement ChatGPT** (Go, Plus
+ou Pro). Hype est une appli pour ordinateur (Windows pour l’instant) : on se connecte avec « Continuer avec ChatGPT »,
+et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.28.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.29.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -147,7 +144,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Les emojis du jeu** : 124 autocollants dessinés pour Hype (67 depuis la 0.17, 57 de plus dans la 0.27 : objets du
   quotidien de créateur, visages, mains, cœurs), partout où un emoji s’affiche (ceux du téléphone quand il en manque
   un), et un bouton **Emojis** comme sur un clavier de téléphone : catégories, recherche par mot (joyeux, triste,
-  drague…), les derniers utilisés en premier.
+  drague…), les derniers utilisés en premier. Depuis la 0.29, ils remplacent aussi ceux de tout le texte du jeu
+  (statuts, pastilles, boutons, titres, listes), et l’IA choisit les avatars des persos, des médias et des habitués
+  parmi eux.
 - **Ta cote** : un scandale, une mauvaise passe, le vent en poupe ou le sommet (affichée sous la barre du haut).
   Chaque personnage y réagit selon son **tempérament**, écrit par l’IA quand elle le crée : les fidèles restent, les
   intègres prennent leurs distances, les opportunistes suivent le vent, les envieux savourent ta chute ou jalousent ton
@@ -245,12 +244,16 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   et tes promesses ; tes habitués adhèrent en premier. C’est payé chaque mois avec tes revenus, moins la part de la
   plateforme (30 % sur YouTube, 20 % sur Instagram, 50 % sur TikTok). Une promesse non tenue dans le mois fait partir
   des membres et refroidit la commu ; au moment de publier, l’écran te propose de la tenir.
-- **Le merch** (0.22) : dans le Studio, « Ta boutique » s’ouvre à 10 000 abonnés. Jusqu’à trois pièces (t-shirt,
-  sweat, casquette, mug, tote bag), tes prix et ton idée de design, fabriqués à la demande (rien à avancer, petite
-  marge) ou en stock (payé d’avance, grosse marge, mais les invendus restent). Tu le lances avec un post : c’est l’IA
-  qui juge à quel point ça donne envie, et les ventes durent environ cinq semaines, de moins en moins, payées chaque
-  semaine. Un prix bien au-dessus de ce que tes fans attendent refroidit ta commu ; une rupture de stock se
-  réassortit. Le fournisseur le moins cher n’est pas toujours fiable.
+- **Ta boutique** (0.22, refaite en 0.29) : dans le Studio, elle s’ouvre à 1 000 abonnés et reste ouverte. Tu ajoutes
+  des produits quand tu veux, tu changes un prix, tu en mets un en pause, tu le réassortis ou tu le retires, sans
+  arrêter les autres. Les paliers : stickers, badges et porte-clés (1 000), le textile et les mugs (10 000), sweat,
+  poster dédicacé et coque (50 000), ton livre (100 000), ta propre ligne (parfum, maquillage, boisson : 500 000), ton
+  pop-up store (1 000 000). Chaque produit se lance avec un post (c’est l’IA qui juge à quel point ça donne envie) et se
+  vend de moins en moins, pendant des mois. Tu choisis où le fabriquer (France, Portugal, Turquie, Chine : prix,
+  qualité, délais, mauvais lots), la matière et l’impression, à la demande, en stock ou en précommande. Et : édition
+  limitée numérotée, une part pour une asso, un duo avec un perso (qui accepte ou non en message), un concours de
+  design avec ta commu, les grandes saisons, les contrefaçons, une séance de dédicaces. Ce qu’affirme ton post de
+  lancement (« fabriqué en France »…), les acheteurs le vérifient tôt ou tard.
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro
@@ -319,9 +322,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Les fenêtres** (0.27.7, 0.27.9, 0.27.10) : dans l’appli PC, « Détacher » ou la barre d’une fenêtre tirée en fait
   tout de suite une vraie fenêtre (une conversation, un profil, la publication, la boutique, l’inventaire, les réglages…),
   qui suit ta souris jusqu’où tu la lâches, même sur un autre écran, avec la barre de Hype à la place de celle de
-  Windows ; les mini-jeux et les rendez-vous restent au centre du jeu. Dans la version Claude (sur ordi, dès 720 pixels
-  de large), une fenêtre tirée par sa barre flotte au-dessus du jeu, où tu veux, et ses bords la redimensionnent ; le
-  jeu reste utilisable derrière. Chaque type de fenêtre retient sa place. Partout, « Réduire » range une fenêtre dans une barre en bas de l’écran avec ce que tu y as rempli,
+  Windows ; les mini-jeux et les rendez-vous restent au centre du jeu. Chaque type de fenêtre retient sa place. Partout, « Réduire » range une fenêtre dans une barre en bas de l’écran avec ce que tu y as rempli,
   et un clic la ramène telle quelle. Un rendez-vous en cours ne se réduit pas et bloque le reste.
   Ce que tu as tapé pour publier ou pour préparer un tournage revient même après avoir fermé la fenêtre.
 - **Les noms** (0.27.7) : tes sauvegardes (✏️ dans la fenêtre Sauvegardes, les automatiques aussi) et tes parties (sur
@@ -341,6 +342,25 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Offrir un cadeau** (0.28) : dans une conversation, le bouton cadeau : ce que tu offres et son prix (de 30 à
   3 000 €, ou le tien), payé tout de suite et montré dans la conversation ; la personne réagit à sa façon et s’en
   souvient. Un gros cadeau (plus de 1 000 €, ou plus de la moitié de ton argent) demande confirmation.
+- **Les rôles de chaque partie** (0.29) : dans tous les mondes, **un critique** (« Le Démineur ») sort des vidéos sur
+  les créateurs, et sur toi : dures, mitigées ou respectueuses, elles font bouger ta réputation selon sa taille et la
+  tienne ; il lance les dramas et démonte les arnaques. **Rebecca Silver**, toujours sous ce nom, écrit des fanfictions
+  gênantes (et pudiques) sur les gens du réseau, toi compris ; c’est un perso comme les autres, qu’on peut aussi
+  draguer. Et **un psychopathe se cache parmi les persos**, tiré au sort à chaque partie (ton premier abonné compris) :
+  il ou elle veut tout être pour toi. Rien n’arrive la première semaine ; ensuite, certaines soirées peuvent très mal
+  finir, et la partie s’arrête sur un écran de fin qui propose de revenir à une sauvegarde (le jeu en fait toujours une
+  juste avant un rendez-vous ou une visite). Démasqué en public, il tombe, et toi tu montes ; accuser quelqu’un
+  d’innocent, c’est de la diffamation. Un moment trop intime pendant un rendez-vous coupe la
+  scène (« Ce moment ne regarde pas les voyeurs. ») et la soirée reprend un peu plus tard.
+- **Le réseau qui vit** (0.29) : des **stories** de 24 h (celles des persos, avec leurs sondages et leurs questions, et
+  les tiennes, avec qui les a vues), des **groupes de discussion** (et parfois la capture d’un groupe où l’on parle de
+  toi… sans toi), **ta mère** qui débarque sur le réseau, des **comptes de fans** et des **ships**, des **faux
+  comptes** (un faux concours à ton nom à signaler, une parodie qui a le droit de rester). Et le quotidien d’un réseau :
+  sous-entendus, soft launch, anniversaires (le tien se règle dans les réglages), souvenirs de tes anciens posts,
+  « on t’a croisé·e », ratio, personnage principal du jour, une chaîne de drama, sondages dans les posts (les tiens
+  aussi), commentaire épinglé et badge top fan, pannes du réseau et changements d’algorithme, et des commentaires du
+  monde entier quand un post devient viral (avec « Traduire »). C’est l’IA qui décide quand ça arrive.
+- **Ta bio** (0.29) : « Ajouter une bio » ou le crayon de ton profil, à tout moment ; les persos lisent la nouvelle.
 - **L’heure du jeu** : une date et une heure visibles, une montre pour avancer le temps de 5 minutes à une semaine.
 - **Les cafés** : ton budget IA du jour, réglable à chaque partie (Découverte, Léger, Normal, Intensif, Marathon, Sans
   limite), avec ce que chaque palier représente en posts et en messages, et lequel choisir selon ton abonnement (avec
@@ -352,10 +372,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   écrivent la légende, et l’IA construit les persos de chaque partie autour des profils des visages (voir `PHOTOS.md`).
   Les photos d’un même shooting forment une série : un carrousel, ou une seule photo plus tard, jamais deux fois à
   quelques jours d’écart. Une photo ne revient pas tant que son post est encore visible, et leurs pages ne gardent
-  qu’une semaine de jeu. Le pack livré avec le jeu a trois visages pour l’instant (trois femmes, dans les mondes
-  d’aujourd’hui et l’académie de magie ; depuis la 0.21, une DJ techno et ses 43 photos ; depuis la 0.27, la streameuse
-  aux mèches roses en a 103) ; les autres persos gardent
-  leur emoji en attendant les suivants.
+  qu’une semaine de jeu. Le pack livré avec le jeu a quatre visages pour l’instant (quatre femmes, dans les mondes
+  d’aujourd’hui et l’académie de magie : la gameuse à la mèche violette et ses 54 photos, la streameuse aux mèches
+  roses et ses 150 photos, une DJ techno et ses 43 photos, et depuis la 0.29 une nouvelle venue avec sa première
+  photo) ; les autres persos gardent leur emoji en attendant les suivants.
 - **Tes photos à toi** : une photo, un carrousel ou un diapo façon TikTok (10 photos au plus), les tiennes ou celles de
   ton perso IA. Elles restent sur ton appareil ; les persos ne lisent que ce que tu dis qu’on y voit, et y réagissent.
   Ton profil a alors ta page Insta et ta page TikTok. Pour des images générées par IA (jamais de vraies personnes), la
@@ -381,9 +401,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ---
 
-## Installer Hype pour ChatGPT (Windows)
+## Installer Hype (Windows)
 
-1. Télécharge `Hype-Setup-0.27.10.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.29.0.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.
@@ -406,14 +426,14 @@ seul (`.github/workflows/release.yml`) ; tout est expliqué dans [docs/DISTRIBUT
 - **Tes parties** restent sur ton ordinateur, dans `%APPDATA%\Hype\parties` (tes photos aussi, chacune dans son fichier). Rien n’est envoyé ailleurs qu’à OpenAI pour faire répondre les personnages (tes photos seulement quand tu coches « Les persos voient ces images »), et, quand Æ Games Launcher lance Hype, tes succès à ton compte Æ Games.
 - **Æ Games Launcher** (0.28) : lancé par le launcher, Hype envoie tes succès et ton nombre d’abonnés à ton compte Æ Games, et le launcher les affiche. Hype ne reçoit qu’un ticket temporaire, gardé en mémoire : jamais écrit dans un fichier, une sauvegarde ou un journal. Sans le launcher, rien ne change, et ce que tu as débloqué entre-temps part la fois suivante. Hors ligne, le jeu n’attend jamais : les envois réessaient plus tard, et à la fermeture Hype prend au plus deux secondes pour finir.
 - **Ta connexion ChatGPT** est chiffrée par Windows (`%APPDATA%\Hype\chatgpt`). Hype ne voit jamais ton mot de passe ni tes conversations ChatGPT.
-- **Changer d’IA** : Réglages → **Exporter** crée un fichier de ta partie (avec tes photos) ; **Importer une partie** (accueil) la reprend, dans la version Claude ou ChatGPT.
+- **Changer d’ordi** : Réglages → **Exporter** crée un fichier de ta partie (avec tes photos) ; **Importer une partie** (accueil) la reprend, sur cet ordi ou sur un autre (une partie exportée de l’ancienne version Claude aussi).
 
 ---
 
 ## Pour les développeurs
 
 ```
-src/                le jeu (commun aux deux versions) : core.js, ai.js, career.js (la carrière : argent,
+src/                le jeu : core.js, ai.js, career.js (la carrière : argent,
                     plateformes, sponsors, équipe, rumeurs), trust.js (la confiance et les conseils),
                     standing.js (ta cote, le tempérament des persos, les effets papillon), hearts.js (le cœur des
                     persos, le rythme, les défis, les rendez-vous joués pour de vrai, les épreuves, le couple),
@@ -423,13 +443,15 @@ src/                le jeu (commun aux deux versions) : core.js, ai.js, career.j
                     (les dilemmes), visits.js (les visites surprises), gear.js (le matos, le départ, la connexion, les
                     abonnements, les pannes, les nouveautés), devis.js (le devis d’un contenu), scams.js (les arnaques,
                     les agents, les marques qui reviennent), commu.js (ta commu, les questions des abonnés, les
-                    habitués, les dons en live, les adhésions), merch.js (le merch, « Ta boutique »), studio.js (ses
+                    habitués, les dons en live, les adhésions), merch.js (« Ta boutique »), roles.js (les rôles de
+                    chaque partie : le critique, Rebecca Silver, le psychopathe), social.js (le réseau qui vit :
+                    stories, groupes, la mère, les fans, les faux comptes, les petits faits du quotidien), studio.js (ses
                     écrans), montage.js (le
                     montage, la miniature et le dessin, après le tournage), photos.js
                     (le pack photos, les séries, les pages façon Insta et TikTok, l’Atelier photos), media.js (les
                     photos du joueur, gardées sur l’appareil), succes.js (les succès, 0.28), ui.js, style.css
-build.py            fabrique hype.html, la version Claude (artefact)
-test/               tests de la version Claude (Playwright + une fausse IA : test/mock.js) : run.js, career.js, photos.js,
+build.py            fabrique hype.html, le jeu en une seule page, pour les tests
+test/               les tests du jeu (Playwright + une fausse IA : test/mock.js), une suite par fichier : run.js, career.js, photos.js,
                     trust.js, media.js, dates.js, standing.js, ultime.js, minigames.js, hearts.js, couples.js, whispers.js,
                     save.js, studio.js, frictions.js, cast.js, v17.js, v18.js, v19.js, v20.js, v21.js, v22.js (fixtures/ :
                     les règles de ton de la 0.18, que la 0.19 garde mot pour mot ; les suites d’avant la 0.20 tournent
@@ -443,7 +465,7 @@ assets/pack/        le pack photos livré avec le jeu (voir PHOTOS.md ; tools/pa
 desktop/            l’appli Hype pour ChatGPT (Electron)
   main.mjs          processus principal : connexion ChatGPT, fichiers, dialogues
   preload.cjs       le seul pont entre la page du jeu et l’appli
-  lib/              host-adapter.js (le jeu croit parler à Claude), ai.mjs, store.mjs, chiffrement,
+  lib/              host-adapter.js (l’interface que le jeu attend, au-dessus de l’appli), ai.mjs, store.mjs, chiffrement,
                     achievements.mjs (0.28 : les succès vers Æ Games Launcher, avec son ticket ; tests :
                     test/achievements.test.mjs)
   vendor/siwc-local le SDK « Sign in with ChatGPT » d’OpenAI (licence non commerciale, voir plus bas)
@@ -452,11 +474,11 @@ tools/achievements-sql.mjs  écrit docs/aegames-achievements.sql, les définitio
                     d’Æ Games Launcher, à partir de src/succes.js (les clés sont une API : jamais renommées)
 ```
 
-Le jeu a été écrit pour l’environnement des artefacts Claude (`window.claude.use('sample' | 'db' | 'user')`).
-Dans l’appli, `lib/host-adapter.js` fournit la même chose au-dessus de l’appli : les demandes d’IA partent
-vers l’API Responses d’OpenAI avec le jeton de connexion du joueur, et les parties deviennent des fichiers JSON.
-Le jeu lui-même ne change pas d’une version à l’autre ; seuls quelques écrans propres à ChatGPT s’ajoutent
-(`HOST` dans `src/core.js`).
+Le jeu parle à l’IA et à ses sauvegardes par une petite interface, `window.claude.use('sample' | 'db' | 'user')`,
+héritée de sa première version (un artefact Claude, arrêté à la 0.29). Dans l’appli, `lib/host-adapter.js` la fournit :
+les demandes d’IA partent vers l’API Responses d’OpenAI avec le jeton de connexion du joueur, et les parties deviennent
+des fichiers JSON. Dans les tests, `test/mock.js` la fournit avec une fausse IA. Les écrans propres à l’appli
+dépendent de `HOST` (`src/core.js`).
 
 ### Lancer et tester l’appli ChatGPT
 
@@ -470,7 +492,7 @@ OUT=/tmp/shots xvfb-run -a node test/e2e.mjs   # (Linux) le test complet avec un
 npm run dist:win                           # l’installeur Windows (sous Linux : wine et wine32 nécessaires)
 ```
 
-### La version Claude
+### Tester le jeu (hype.html)
 
 ```sh
 python3 build.py      # → hype.html
@@ -493,8 +515,8 @@ UMD=…/htm/preact/standalone.umd.js OUT=/tmp/shots-cast node test/cast.js
 UMD=…/htm/preact/standalone.umd.js OUT=/tmp/shots-v17 node test/v17.js
 ```
 
-`hype.html` se publie comme artefact Claude avec les capacités `sample`, `db` et `user`
-(et, quand le pack existe, les images de `assets/pack/` publiées à côté, dans `pack/`).
+Les autres fichiers de `test/` se lancent de la même façon (une suite chacun) ; `test/monkey.js` joue une longue partie
+au hasard (`STEPS`, `SEED`) et vérifie après chaque coup que rien n’est cassé.
 
 ### Sign in with ChatGPT
 

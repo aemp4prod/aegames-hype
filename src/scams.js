@@ -279,15 +279,16 @@ function criticExposes(g, d) {
     brief: `🧨 ALERTE : de faux contrats « ${d.brand} » circulent. Le « brief » à télécharger est un virus qui pirate vos comptes. Ne cliquez sur rien.`,
   };
   const t = Date.now(), at = t + randi(2000, 6000);
-  addAmbientPost(g, Object.assign({}, CRITIC, { text: lines[d.scam] + (mine ? ` ${victim ? 'Parmi ceux qui se sont fait avoir' : 'Parmi ceux qui en ont fait la promo'} : @${h}.` : '') }), at, at);
+  const CR = criticAcct(g); // 0.29: the critic of this world, when there is one
+  addAmbientPost(g, Object.assign({}, CR, { text: lines[d.scam] + (mine ? ` ${victim ? 'Parmi ceux qui se sont fait avoir' : 'Parmi ceux qui en ont fait la promo'} : @${h}.` : '') }), at, at);
   if (d.state === 'signed') { // the contract of a scam no longer binds anyone
     d.state = 'scammed';
-    if (d.scam === 'impaye' || d.scam === 'dangereux' || d.scam === 'nul') addNotif(g, { k: 'money', text: `Ton contrat avec ${d.brand} ne vaut plus rien : ${CRITIC.name} vient de démasquer l’arnaque. Tu n’as rien à livrer.` });
+    if (d.scam === 'impaye' || d.scam === 'dangereux' || d.scam === 'nul') addNotif(g, { k: 'money', text: `Ton contrat avec ${d.brand} ne vaut plus rien : ${CR.name} vient de démasquer l’arnaque. Tu n’as rien à livrer.` });
   }
-  if (!mine) { addNotif(g, { k: 'money', text: `🧨 ${CRITIC.name} démasque ${d.brand} : ${d.state === 'declined' || d.state === 'expired' || d.state === 'withdrawn' ? 'tu as bien fait de ne pas signer' : 'une arnaque'}.` }); return; }
-  if (!victim) { const dr = repMove(g, { cred: -5, pro: -4 }, `${CRITIC.name} te cite parmi ceux qui ont vendu ${d.brand}`); addNotif(g, { k: 'reldown', text: `🧨 ${CRITIC.name} démasque ${d.brand} et te cite parmi ceux qui en ont fait la promo${repBit(dr, ' (', ')')}.` }); }
-  else addNotif(g, { k: 'money', text: `🧨 ${CRITIC.name} démasque ${d.brand} et te cite parmi les créateurs piégés.` });
-  addTrigger(g, `${CRITIC.name}, youtubeur qui démonte les arnaques, expose ${d.brand} et cite le joueur parmi ${victim ? 'ceux qui se sont fait avoir' : 'ceux qui en ont fait la promo'}. Les réactions vont de la compassion aux moqueries.`);
+  if (!mine) { addNotif(g, { k: 'money', text: `🧨 ${CR.name} démasque ${d.brand} : ${d.state === 'declined' || d.state === 'expired' || d.state === 'withdrawn' ? 'tu as bien fait de ne pas signer' : 'une arnaque'}.` }); return; }
+  if (!victim) { const dr = repMove(g, { cred: -5, pro: -4 }, `${CR.name} te cite parmi ceux qui ont vendu ${d.brand}`); addNotif(g, { k: 'reldown', text: `🧨 ${CR.name} démasque ${d.brand} et te cite parmi ceux qui en ont fait la promo${repBit(dr, ' (', ')')}.` }); }
+  else addNotif(g, { k: 'money', text: `🧨 ${CR.name} démasque ${d.brand} et te cite parmi les créateurs piégés.` });
+  addTrigger(g, `${CR.by === CRITIC.by ? CR.name + ', youtubeur qui démonte les arnaques,' : '@' + CR.by + ', le critique du réseau,'} expose ${d.brand} et cite le joueur parmi ${victim ? 'ceux qui se sont fait avoir' : 'ceux qui en ont fait la promo'}. Les réactions vont de la compassion aux moqueries.`);
 }
 
 /* ---------- the brands that love you back ---------- */

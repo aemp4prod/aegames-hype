@@ -593,7 +593,7 @@ try {
     await waitHit('living-legend', 2, 12000);
     const ll = of('living-legend');
     check('an answer 503: the same event is sent again a few seconds later, with the same id', ll.length === 2 && ll[0].body.p_event_id === ll[1].body.p_event_id && ll[1].at - ll[0].at >= 1800, ll.map((h) => ({ id: h.body.p_event_id, at: h.at - ll[0].at })));
-    // a game changed by hand (the mode menu) keeps its achievements to itself
+    // a game changed by hand (the palette) keeps its achievements to itself
     await G(page, () => window.__hype.leaveGame && window.__hype.leaveGame());
     await sleep(800);
     await G(page, (id) => window.__hype.openGame(id), id2);
@@ -602,10 +602,10 @@ try {
     await sleep(5000); // (its first look: what it has goes to the launcher)
     const sync2 = hits.filter((h) => h.body && (h.body.p_metadata || {}).saveId === id2).length;
     const n0 = hits.length;
-    const boss2 = await G(page, () => { const H = window.__hype, g = H.S.game; H.menuApply(g, { gems: g.stats.gems + 1 }); return H.unlockAch(g, 'the-boss') && H.achGot(g, 'the-boss'); });
+    const boss2 = await G(page, () => { const H = window.__hype, g = H.S.game; H.paletteApply(g, { gems: g.stats.gems + 1 }); return H.unlockAch(g, 'the-boss') && H.achGot(g, 'the-boss'); });
     await sleep(5000);
     const after = hits.slice(n0).filter((h) => h.body && (h.body.p_metadata || {}).saveId === id2);
-    check('a game changed by hand (the mode menu): its achievements stay in the game (« Le boss » unlocked), nothing more goes to the launcher', sync2 > 0 && boss2 && after.length === 0, { sync2, boss2, after: after.map((h) => h.body.p_achievement_key) });
+    check('a game changed by hand (the palette): its achievements stay in the game (« Le boss » unlocked), nothing more goes to the launcher', sync2 > 0 && boss2 && after.length === 0, { sync2, boss2, after: after.map((h) => h.body.p_achievement_key) });
     // the way out: what waits is sent, two seconds at most (the backend here never answers)
     await G(page, () => window.__hype.leaveGame && window.__hype.leaveGame());
     await sleep(800);

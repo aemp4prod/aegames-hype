@@ -256,6 +256,7 @@ function visibleShots(g, now = Date.now()) {
     for (const s of c.tt || []) if (now - s.at < IG_WINDOW) s.phs.forEach(add);
   }
   for (const q of g.phQ || []) { add(q.ph); for (const x of q.more || []) add(x); for (const x of q.phs || []) add(x); }
+  for (const s of g.stories || []) if (s.photo && s.photo.img && now < s.until) add(s.photo.img); // (0.29: a story, while it lasts)
   return out;
 }
 // What a text talks about: families of words (gaming, beach…), occasions, moods, and its words.
@@ -1188,7 +1189,6 @@ function Atelier({ now }) {
       <span class=${'chip' + (cnt.x >= PACK_GOAL.x ? ' good' : '')}>Look androgyne ${cnt.x}/${PACK_GOAL.x}</span>
       <span class="chip">Photos ${photos}</span>
     </div>
-    ${HOST ? null : html`<div class="notice"><${Icon} n="alert" /><p>Ici, la place est comptée : pour tout le pack, travaille plutôt dans l’appli PC (Hype pour ChatGPT), qui range les photos sur ton ordi.</p></div>`}
     <div class="at-people">
       ${people.map((p) => { const pt = atPortrait(p); const miss = p.photos.filter((x) => !x.desc).length; return html`<button type="button" key=${p.id} class=${'at-pcard' + (sel === p ? ' on' : '')} onClick=${() => { S.atelier.sel = p.id; update(false); }}>
         <span class="at-pt">${pt ? html`<img src=${pt} alt="" />` : html`<${Icon} n="user" s=${26} />`}</span>
