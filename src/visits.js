@@ -72,17 +72,17 @@ function addVisit(g, o, at = later()) {
   touch(c);
   if (psyDeadlyVisit(g, c, at)) v.psy = 'deadly'; // 0.29: at night, once they are ready: opening may be the last thing
   queueModalFor(g, { t: 'visit', vid: v.id, at });
-  autoSave(g, `Avant la visite de ${c.name.split(' ')[0]}`); // (0.29: at the door, before the player opens)
+  autoSave(g, `Avant la visite de ${firstName(c)}`); // (0.29: at the door, before the player opens)
   return v;
 }
 
 /* ---------- the conversation ---------- */
 function visitTranscript(g, v) {
-  const c = g.chars[v.c], first = c.name.split(' ')[0], P = g.player.name;
+  const c = g.chars[v.c], first = firstName(c), P = g.player.name;
   return v.lines.map((x) => (x.who === 'c' ? `${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}` : x.who === 'n' ? `(${x.text})` : `${P} : « ${noJson(x.text)} »`));
 }
 function promptVisit(g, v, said) {
-  const c = g.chars[v.c], first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), U = URGES[v.urge] || URGES.tranquille;
+  const c = g.chars[v.c], first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), U = URGES[v.urge] || URGES.tranquille;
   const last = v.turn + 1 >= v.max;
   const L = [RULES_PRIVATE, '', ctxText(g, { kind: 'scene', about: c }), '',
     '## TÂCHE : UNE VISITE SURPRISE',
@@ -119,6 +119,7 @@ async function visitTurn(v, text) {
   text = String(text || '').trim().slice(0, VISIT_MAX);
   if (!text) return false;
   if (!canAfford(g, 'talk')) { budgetBlocked(); return false; }
+  if (loveMove(text) === 'couple') coupleAsked(g, c); // 0.29.1: asked at the door: a trial first, if one must come
   const theirs = v.lines.filter((x) => x.who === 'c').slice(-1)[0], before = v.lines.filter((x) => x.who === 'p').slice(-1)[0];
   const prompt = promptVisit(g, v, text);
   const mine = { who: 'p', text };
@@ -191,13 +192,13 @@ function endVisit(g, v) {
   v.score = Math.round(score * 100) / 100;
   if (v.fled) { // 0.29: put out in the night (the escape was told already)
     const ent = gx(c.g, 'entré', 'entrée', 'entré·e'), dehors = gx(c.g, 'mis dehors', 'mise dehors', 'mis·e dehors');
-    visitCard(g, c, v, `${c.name.split(' ')[0]} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache');
+    visitCard(g, c, v, `${firstName(c)} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache');
     return v;
   }
   let rel = (score >= 0.7 ? 6 : score >= 0.55 ? 3 : score >= 0.4 ? 0 : score >= 0.25 ? -5 : -9) + M.rel;
   if (rel < 0) rel = Math.round(rel * U.k);
   const tr = score >= 0.65 ? 3 : score < 0.3 ? -Math.round(4 * U.k) : 0;
-  const first = c.name.split(' ')[0], at = later();
+  const first = firstName(c), at = later();
   const passe = gx(c.g, 'passé', 'passée', 'passé·e'), parti = gx(c.g, 'reparti', 'repartie', 'reparti·e');
   if (rel) applyRel(g, c, rel, rel > 0 ? 'sa visite s’est bien passée' : 'sa visite s’est mal passée', at + 700, 20);
   if (tr) applyTrust(g, c, tr, tr > 0 ? 'tu as su l’écouter' : `tu ne l’as pas vraiment ${gx(c.g, 'écouté', 'écoutée', 'écouté·e')}`, at + 900);
@@ -230,7 +231,7 @@ function refuseVisit(g, v) {
   if (!c) return v;
   const bad = roll18() < visitBadChance(g, c, v.urge);
   v.bad = bad;
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), at = later();
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), at = later();
   const passe = gx(c.g, 'passé', 'passée', 'passé·e'), parti = gx(c.g, 'reparti', 'repartie', 'reparti·e'), venu = gx(c.g, 'venu', 'venue', 'venu·e');
   const pil = px(g, 'il', 'elle', 'iel');
   if (bad) {
@@ -258,7 +259,7 @@ function refuseVisit(g, v) {
 // 0.29: the door stayed shut at night, on the one who cannot stay away: they did not leave right away.
 function psyAtDoor(g, c, v, at) {
   if (!isPsy(g, c) || !nightAt(v.at)) return;
-  const first = c.name.split(' ')[0], resté = gx(c.g, 'resté', 'restée', 'resté·e');
+  const first = firstName(c), resté = gx(c.g, 'resté', 'restée', 'resté·e');
   psySign(g, c, v.psy === 'deadly' ? `${first} est ${resté} un long moment derrière ta porte, en pleine nuit, sans un bruit` : `en pleine nuit, ${first} est ${resté} à regarder tes fenêtres depuis la rue`, at);
 }
 // Nobody could talk (the budget ran out, the game was left): they are gone, nobody is to blame.
@@ -269,7 +270,7 @@ function missVisit(g, v, why = 'gone') {
   v.state = 'missed';
   v.endAt = Date.now();
   if (!c) return v;
-  const first = c.name.split(' ')[0], passe = gx(c.g, 'passé', 'passée', 'passé·e');
+  const first = firstName(c), passe = gx(c.g, 'passé', 'passée', 'passé·e');
   addMem(g, c, why === 'budget' ? `je suis ${passe} voir le joueur, on n’a pas pu parler` : `je suis ${passe} chez le joueur, personne n’a ouvert`);
   visitCard(g, c, v, why === 'budget' ? `${first} est ${passe} te voir : vous n’avez pas pu parler.` : `${first} est ${passe} chez toi, sans te trouver.`, 'pareil');
   psyAtDoor(g, c, v, later() + 2500); // 0.29
@@ -305,7 +306,7 @@ function VisitCard({ g, v, close }) {
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [v.lines.length, busy]);
   useEffect(() => { if (ref.current && window.matchMedia && window.matchMedia('(pointer: fine)').matches) ref.current.focus({ preventScroll: true }); }, []);
   if (!c) return null;
-  const first = c.name.split(' ')[0], left = v.max - v.turn, broke = !canAfford(g, 'talk');
+  const first = firstName(c), left = v.max - v.turn, broke = !canAfford(g, 'talk');
   const send = async () => {
     const text = val.trim();
     if (busy || !text) return;

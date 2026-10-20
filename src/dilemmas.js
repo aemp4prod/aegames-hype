@@ -65,7 +65,7 @@ function noteDilemmaAsks(g, t = Date.now()) {
     if (x.asked.length >= 2 && A && B) {
       x.state = 'open';
       x.openAt = t;
-      addNotif(g, { k: 'drama', at: Math.max(later(), last) + 2500, text: `🤔 ${A.name.split(' ')[0]} et ${B.name.split(' ')[0]} veulent tous les deux la place sur ton contrat ${x.brand}.` });
+      addNotif(g, { k: 'drama', at: Math.max(later(), last) + 2500, text: `🤔 ${firstName(A)} et ${firstName(B)} veulent tous les deux la place sur ton contrat ${x.brand}.` });
       ch = true;
     } else if (t - x.at > DIL_ASK_MS) { x.state = x.asked.length ? 'open' : 'off'; x.openAt = t; ch = true; }
   }
@@ -123,9 +123,9 @@ function settlePlace(g, x, chosen, via, text, quiet) {
     }
     c.passedOver = (c.passedOver || 0) + 1;
     const bad = roll18() < passedOverChance(c) * (quiet ? 0.6 : 1);
-    const what = chosen ? `le joueur a préféré ${chosen.name.split(' ')[0]} pour son partenariat avec ${x.brand}` : `le joueur n’a pris personne pour son partenariat avec ${x.brand}`;
+    const what = chosen ? `le joueur a préféré ${firstName(chosen)} pour son partenariat avec ${x.brand}` : `le joueur n’a pris personne pour son partenariat avec ${x.brand}`;
     if (bad) {
-      applyRel(g, c, -(6 + 3 * Math.min(2, c.passedOver - 1)), chosen ? `tu as choisi ${chosen.name.split(' ')[0]} plutôt que ${gx(c.g, 'lui', 'elle', 'iel')}` : `tu ne l’as pas ${gx(c.g, 'pris', 'prise', 'pris·e')}`, at + 900, 15);
+      applyRel(g, c, -(6 + 3 * Math.min(2, c.passedOver - 1)), chosen ? `tu as choisi ${firstName(chosen)} plutôt que ${gx(c.g, 'lui', 'elle', 'iel')}` : `tu ne l’as pas ${gx(c.g, 'pris', 'prise', 'pris·e')}`, at + 900, 15);
       addMem(g, c, what);
       addTrigger(g, `@${c.handle} a appris que ${chosen ? `le joueur a choisi @${chosen.handle}` : 'le joueur n’a pris personne'} pour son partenariat avec ${x.brand} : ${il} le prend mal${c.passedOver > 1 ? ' (ce n’est pas la première fois qu’on l’écarte)' : ''}, à sa façon (bouderie, pique, message froid).`, c.id);
       if (chosen) bumpTie(g, c.id, chosen.id, -8);
@@ -137,7 +137,7 @@ function settlePlace(g, x, chosen, via, text, quiet) {
   }
   // the trace: what the player wrote about it, in someone's screenshots
   if (via && text && isMain(via)) addIntel(g, via, text, { text: `ce que le joueur a répondu pour la place sur son contrat ${x.brand}`, weight: 1 });
-  const A = chosen ? chosen.name.split(' ')[0] : '';
+  const A = chosen ? firstName(chosen) : '';
   addNotif(g, { k: 'drama', at: at + 600, text: `🤝 Contrat ${x.brand} : ${A ? `tu as choisi ${A}` : 'tu n’as pris personne'}.` });
   addChronicle(g, A ? `${g.player.name} a choisi ${chosen.name} pour son partenariat avec ${x.brand}.` : `${g.player.name} n’a pris personne sur son partenariat avec ${x.brand}.`);
   return x;
@@ -170,10 +170,10 @@ function addDossier(g, o) {
   if (!by || !about || by === about || !isMain(by) || !isMain(about) || !about.unlocked || !dilemmaFree(g, t)) return null;
   const text = str(o.text, 120);
   if (text.length < 6) return null;
-  const k = addClue(g, about, `Dossier de ${by.name.split(' ')[0]} : ${text}`, later() + 2500);
+  const k = addClue(g, about, `Dossier de ${firstName(by)} : ${text}`, later() + 2500);
   if (!k) return null;
   k.dossier = by.id;
-  addMem(g, by, `j’ai passé au joueur un dossier sur ${about.name.split(' ')[0]}`);
+  addMem(g, by, `j’ai passé au joueur un dossier sur ${firstName(about)}`);
   return keepDilemma(g, { id: uid('di'), k: 'dossier', by: by.id, about: about.id, clue: k.id, text, at: t, state: 'open' }, t);
 }
 // The player used it in a call-out (cited it): the friend is pleased; the target may guess who it came from.
@@ -187,7 +187,7 @@ function dossierUsed(ctx) {
     const by = g.chars[x.by], cred = ctx.post.res ? ctx.post.res.cred : null;
     if (!by) continue;
     applyRel(g, by, cred >= 7 ? 6 : 2, 'tu t’es servi de son dossier', later() + 1500, 8);
-    addMem(g, by, `le joueur s’est servi de mon dossier sur ${c.name.split(' ')[0]}`);
+    addMem(g, by, `le joueur s’est servi de mon dossier sur ${firstName(c)}`);
     if (roll18() < 0.5) { bumpTie(g, c.id, by.id, -10); addTrigger(g, `@${c.handle} se demande qui a fourni ce dossier au joueur, et soupçonne @${by.handle}.`, c.id); }
   }
 }
@@ -220,7 +220,7 @@ function tickDilemmas(g, t = Date.now()) {
       x.doneAt = t;
       const by = g.chars[x.by], about = g.chars[x.about];
       if (by && about) {
-        const tp = temperOf(by), af = about.name.split(' ')[0];
+        const tp = temperOf(by), af = firstName(about);
         if (['opportuniste', 'envieux', 'trouble'].includes(tp)) { applyRel(g, by, -3, 'tu n’as rien fait de son dossier', later() + 800, 5); addMem(g, by, `le joueur n’a pas osé se servir de mon dossier sur ${af}`); }
         else if (['fidele', 'integre'].includes(tp)) { applyRel(g, by, 2, 'tu n’as pas voulu salir quelqu’un', later() + 800, 5); addMem(g, by, `le joueur n’a pas voulu salir ${af} avec mon dossier : respect`); }
       }

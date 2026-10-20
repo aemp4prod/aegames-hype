@@ -60,7 +60,7 @@ const closeToFoe = (g, e) => mains(g).some((o) => o !== e && tieOf(g, e.id, o.id
 // how: 'close' (a bond), 'public' (a couple announced, a video together, a public defence: it hits harder)
 function foesNotice(g, c, how = 'close', at = later()) {
   if (!g || !c || !isMain(c)) return 0;
-  const t = Date.now(), first = c.name.split(' ')[0];
+  const t = Date.now(), first = firstName(c);
   let n = 0;
   for (const e of foesOf(g, c).sort((a, b) => tieOf(g, c.id, a.id) - tieOf(g, c.id, b.id)).slice(0, 2)) {
     e.foeSeen = e.foeSeen || {};
@@ -107,14 +107,14 @@ function hear(g, w, teller, to) {
   w.heard.push(to.id);
   w.hops += 1;
   bumpTie(g, teller.id, to.id, 2); // a secret shared brings closer
-  const tf = teller.name.split(' ')[0], il = gx(to.g, 'il', 'elle', 'iel'), lui = gx(to.g, 'lui', 'elle', 'iel');
+  const tf = firstName(teller), il = gx(to.g, 'il', 'elle', 'iel'), lui = gx(to.g, 'lui', 'elle', 'iel');
   // 0.17: they know who told them; the player does not (unless someone says it, in public or in private)
   addMem(g, to, `${tf} m’a dit que le joueur ${w.text}`, `on m’a dit que le joueur ${w.text}`);
   const lc = w.love && w.love !== to.id ? g.chars[w.love] : null;
   if (lc) { // 0.22.2: they know now what there is between the player and lc; it hurts the ones who have feelings for the player
     learnLove(g, to, lc);
     if (w.about !== to.id && LOVE_ACTIVE.includes(to.vibe)) {
-      const partner = PARTNER.includes(to.vibe), lf = lc.name.split(' ')[0];
+      const partner = PARTNER.includes(to.vibe), lf = firstName(lc);
       applyRel(g, to, partner ? -12 : -5, `on lui a parlé de toi et ${lf}`, later() + 2000, partner ? 20 : 8);
       addTrigger(g, `@${to.handle} a appris par @${teller.handle} que le joueur ${w.text} : ça lui fait quelque chose (jalousie, tristesse, colère, ou ${il} fait comme si de rien n’était, selon son caractère), sans forcément dire qui le lui a dit.`, to.id);
       if (partner && !coolNow(to)) startCool(g, to, 'colere', `toi et ${lf}`);
@@ -185,13 +185,13 @@ function tieCtx(g, c) {
 function whisperFromIntel(g, c, it) {
   if (!it || it.w < 2 || roll() > talks(c)) return null;
   const about = mentionedChars(g, it.quote).find((o) => o !== c) || null;
-  return addWhisper(g, c, `a écrit en privé à ${c.name.split(' ')[0]} : « ${str(it.quote, 70)} »`, { tone: 'bad', about: about ? about.id : null, seed: 'intel' });
+  return addWhisper(g, c, `a écrit en privé à ${firstName(c)} : « ${str(it.quote, 70)} »`, { tone: 'bad', about: about ? about.id : null, seed: 'intel' });
 }
 // A date that went one way or another: told around. 0.22.2: unless it was seen, this is the only way the others learn of
 // it (a kiss too): from the one the player was with, by temperament, a few hours later, along friendships.
 function whisperFromDate(g, ev, c) {
   if (!ev.played || meetKind(c, ev) !== 'love') return null;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   const partner = mains(g).find((o) => o !== c && PARTNER.includes(o.vibe) && knowsOf(c, o)); // (a couple they know of)
   if (partner && roll() < 0.5) return addWhisper(g, c, `est avec @${partner.handle} mais a eu un rendez-vous avec @${c.handle}`, { tone: 'bad', about: partner.id, seed: 'cheat', love: c.id });
   if (ev.played.tier === 'flop' && roll() < 0.5) return addWhisper(g, c, `a raté son rendez-vous avec @${c.handle} de façon mémorable`, { tone: 'funny', seed: 'flop', love: c.id });

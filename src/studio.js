@@ -30,7 +30,7 @@ function minsDays(n, t = Date.now()) { const d = gameDate(t), x = new Date(d.get
 // 0.28.1: what a skip would carry past its deadline: a contract signed, a job promised to someone (said, never stopped).
 function deadlinesIn(g, from, to) {
   const out = signedDeals(g).filter((d) => d.due > from && d.due <= to).map((d) => ({ at: d.due, text: `Ton contrat avec ${d.brand} est à livrer avant ${fmtGameAt(d.due)}.` }));
-  for (const j of jobsDueIn(g, from, to)) { const c = g.chars[j.c], K = JOB_KINDS[j.kind]; if (c && K) out.push({ at: j.due, text: `${cap1(K.noun)} pour ${c.name.split(' ')[0]} est à rendre avant ${fmtGameAt(j.due)}.` }); }
+  for (const j of jobsDueIn(g, from, to)) { const c = g.chars[j.c], K = JOB_KINDS[j.kind]; if (c && K) out.push({ at: j.due, text: `${cap1(K.noun)} pour ${firstName(c)} est à rendre avant ${fmtGameAt(j.due)}.` }); }
   return out.sort((a, b) => a.at - b.at).slice(0, 3).map((x) => x.text);
 }
 function fmtSpan(mins) {
@@ -48,7 +48,7 @@ function WatchCard({ g, close }) {
   const held = !!(r && r.due <= t0);
   const dates = activeEvents(g).filter((e) => e.player && e.due > t0);
   const stops = [...(r && r.due > t0 ? [{ at: r.due, label: `la sortie de ${ta(r)}`, short: 'Jusqu’à la sortie', due: () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; } }] : []),
-    ...dates.map((e) => ({ at: e.due, label: `ton rendez-vous avec ${(g.chars[e.c] || { name: '…' }).name.split(' ')[0]}`, short: `Jusqu’au rdv · ${(g.chars[e.c] || { name: '…' }).name.split(' ')[0]}`, due: () => e.due }))].sort((a, b) => a.at - b.at);
+    ...dates.map((e) => ({ at: e.due, label: `ton rendez-vous avec ${firstName(g.chars[e.c] || { name: '…' })}`, short: `Jusqu’au rdv · ${firstName(g.chars[e.c] || { name: '…' })}`, due: () => e.due }))].sort((a, b) => a.at - b.at);
   const maxMins = stops.length ? Math.max(1, Math.ceil((stops[0].at - t0) / 60000)) : 30 * 1440;
   const [mins, setMins] = useState(() => Math.min(60, maxMins));
   const drag = useRef(null);
@@ -112,7 +112,7 @@ function WatchCard({ g, close }) {
     </div>
     <div class="watch-presets">${WATCH_PRESETS.map(([v, lb]) => { const m = v === 'soir' ? minsUntil(20) : v === 'matin' ? minsUntil(9) : v >= 1440 && v % 1440 === 0 ? minsDays(v / 1440) : v; return html`<button key=${lb} type="button" class=${'chip-btn' + (m === mins ? ' on' : '')} disabled=${m > maxMins} onClick=${() => set(m)}>${lb}</button>`; })}</div>
     ${stops.length ? html`<div class="paths">${stops.slice(0, 2).map((x) => html`<button key=${x.label} class="path" onClick=${() => go(Math.ceil((x.at - Date.now()) / 60000), x.due)}><b>${x.short}</b><span>${fmtGameAt(x.at)} · le temps ne peut pas aller plus loin</span></button>`)}</div>` : null}
-    ${nowDate ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> ${(g.chars[nowDate.c] || { name: '…' }).name.split(' ')[0]} t’attend en ce moment : si tu avances trop, tu lui poses un lapin.</p>` : null}
+    ${nowDate ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> ${firstName(g.chars[nowDate.c] || { name: '…' })} t’attend en ce moment : si tu avances trop, tu lui poses un lapin.</p>` : null}
     ${dues.map((w) => html`<p class="date-late" key=${w}><${Icon} n="clock" s=${15} /> ${w}</p>`)}
     <p class="muted watch-note">Le réseau vit pendant que tu avances${narrate ? ` : ${AI_NAME} raconte ce qui s’est passé (≈ ${costLabel(g, 'skip')} ☕)` : ''}. Tes cafés, eux, suivent la vraie heure.</p>
     <button class="btn btn-hot" onClick=${() => go(mins)}><${Icon} n="ffwd" s=${16} /> Avancer de ${spanWord(mins, t0)}</button>
@@ -618,7 +618,7 @@ function StudioTab({ g, now }) {
   return html`
     <div class=${'studio-head pf-' + pf}>
       <span class="pf-badge" aria-hidden="true">${P.emoji}</span>
-      <div><b>${pfName(g, pf)}</b><span>${fmtN(g.stats.followers)} ${P.fans} · ${nicheOf(g).label}</span></div>
+      <div><b>${pfName(g, pf)}</b><span>${fmtN(g.stats.followers)} ${P.fans} · ${nicheOf(g).label}</span>${audSplit(g) ? html`<small class="aud-line">📺 ≈ ${fmtN(vidFans(g))} regardent tes vidéos longues (${Math.round(100 * vidFans(g) / Math.max(1, g.stats.followers))} %)</small>` : null}</div>
       <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'settings', focus: 'carriere' })}><${Icon} n="gear" s=${15} /> Changer de plateforme</button>
     </div>
     <section class="section">
@@ -661,7 +661,7 @@ function StudioTab({ g, now }) {
       ${g.staff.map((m) => { const p = g.chars[m.c]; if (!p) return null; const R = STAFF_ROLES[m.role]; return html`<div class="staff-row" key=${m.id}>
         <${Avatar} who=${author(g, 'c:' + p.id)} size=${44} onClick=${() => openDM(p.id)} />
         <div class="mid"><b>${p.name}</b><span>${R.emoji} ${roleName(m.role, p.g)} · ${tierName(m.tier, p.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ` · pas ${gx(p.g, 'payé', 'payée', 'payé·e')} !` : ''}</span><small>${R.fx(m.tier + 1)}</small></div>
-        <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)} aria-label=${'Écrire à ' + p.name.split(' ')[0]} title=${'Écrire à ' + p.name.split(' ')[0]}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${p.name.split(' ')[0]} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
+        <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)} aria-label=${'Écrire à ' + firstName(p)} title=${'Écrire à ' + firstName(p)}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${firstName(p)} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
       </div>`; })}
       <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'recruit' })}><${Icon} n="userplus" s=${15} /> Recruter</button>
     </section>
@@ -682,6 +682,7 @@ function StudioTab({ g, now }) {
       <details class="howto"><summary>Comment ça marche, en vrai ?</summary>
         <ul>
           <li><b>YouTube</b> : le Programme Partenaire s’ouvre à 1 000 abonnés et 4 000 heures de visionnage public sur 12 mois (ou 10 millions de vues Shorts sur 90 jours). Tu touches 55 % des pubs de tes vidéos, 45 % sur les Shorts. Le paiement arrive le mois suivant, dès 70 €.</li>
+          <li><b>Shorts et vidéos longues</b> : deux publics. Les abonnés venus des Shorts regardent peu les vidéos longues : une chaîne de Shorts qui s’y met repart presque de zéro. Ce qui les fait passer : des vidéos réussies, une commu chaleureuse, un Short qui annonce la vidéo ou renvoie vers elle (le lien « vidéo associée »).</li>
           <li><b>Selon le sujet</b>, 1 000 vues rapportent de moins d’un euro (gaming, divertissement) à plusieurs euros (finance, tech). Les Shorts rapportent quelques centimes.</li>
           <li><b>Adaptée aux annonceurs</b> : une vidéo violente, vulgaire ou choquante n’a que des pubs limitées, ou plus du tout (démonétisée). Tu déclares toi-même ce qu’elle contient avant de la publier ; un contenu caché qui se voit vaut un avertissement. Tu peux demander un réexamen.</li>
           <li><b>La saison</b> : les annonceurs paient le plus en fin d’année (Black Friday, Noël), souvent 50 % de plus qu’au premier trimestre. En janvier, ça s’effondre.</li>
@@ -743,22 +744,48 @@ function DealCard({ g, d, now, inDM }) {
       <small class="muted">${left > 0 ? `Offre valable ${fmtDur(left)}` : ''}</small>
     </div>` : d.state === 'signed' ? html`<p class="muted dl-note">À livrer ${fmtWhen(d.due, now)} : choisis ce sponsor au moment de publier ${d.what === 'vidéo' ? 'ta prochaine vidéo' : `ton prochain ${dealWhat(g, d)}`}.${d.gift && !d.giftSent ? ' Ton matos doit arriver dans les prochains jours.' : ''}</p>`
       : d.state === 'waiting' ? html`<p class="muted dl-note">${d.gift ? 'Ton matos' : 'Ton kit'} doit arriver dans les prochains jours.</p>` : null}
-    ${!inDM && c ? html`<button class="linkbtn dl-contact" onClick=${() => openDM(c.id)}>Écrire à ${c.name.split(' ')[0]}</button>` : null}
+    ${!inDM && c ? html`<button class="linkbtn dl-contact" onClick=${() => openDM(c.id)}>Écrire à ${firstName(c)}</button>` : null}
   </div>`;
 }
 // 0.27.4: one planned release in the programme: when, and what can be done with it (sooner, later, give up, shoot it).
 function PlanRow({ g, r, first, now }) {
   const W = WHATS[r.what] || WHATS.vidéo, left = r.due - now, cc = r.collab && g.chars[r.collab];
+  const fc = !cc && r.feat && r.feat.ok == null ? g.chars[r.feat.c] : null; // 0.29.1: a feat waiting for their answer
+  const tz = r.what === 'vidéo' && audSplit(g) ? (g.releases || []).filter((x) => x.promo === r.id && x.state !== 'dropped') : null; // 0.29.1: its shorts
+  const tzOut = tz && tz.some((x) => x.state === 'released'), tzPlan = tz && tz.some((x) => x.state === 'scheduled');
+  const canTz = tz && !tzPlan && left > 0 && !r.series && planRoom(g) && canMake(g, 'short').ok;
   return html`<div class=${'plan-row' + (left <= 0 ? ' due' : '')}>
     <span class="pl-emo" aria-hidden="true">${W.emoji}</span>
     <div class="mid"><b>${cap1(nounOf(r))} « ${r.topic} »</b>
-      <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · avec ${cc.name.split(' ')[0]}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
+      <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · en feat avec ${firstName(cc)}` : fc ? ` · feat proposé à ${firstName(fc)}` : ''}${tzOut ? ` · annoncée par un ${PF(g).shortName}` : tzPlan ? ` · ${PF(g).shortName} d’annonce prévu` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
     <div class="acts">
       ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>`)
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
+      ${left > 0 && !r.series && !cc ? (fc ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (!S.drafts.dm[fc.id]) S.drafts.dm[fc.id] = featText(g, r); openDM(fc.id); }}><${Icon} n="msg" s=${14} /> Écrire à ${firstName(fc)}</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'feat', id: r.id })}>🤝 Feat</button>`) : null}
+      ${canTz ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'series', id: 'single', what: 'short', promo: r.id })}>📣 ${cap1(PF(g).shortName)} d’annonce</button>` : null}
       ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
     </div>
   </div>`;
+}
+// 0.29.1: a feat for a release already programmed: whom to ask (in their messages, the proposal ready to send).
+function FeatLayer({ l, g, i }) {
+  const r = (g.releases || []).find((x) => x.id === l.id);
+  if (!r || r.state !== 'scheduled' || r.collab) return html`<${LayerShell} i=${i} title="Feat"><div class="empty"><b>${r && r.collab ? 'Le feat est déjà calé' : 'Cette sortie n’est plus prévue'}</b></div><//>`;
+  const list = featPartners(g);
+  const pick = (c) => {
+    if (r.feat && r.feat.ok == null) dropFeat(g, r);
+    if (!askFeat(g, r, c)) { toast(`${firstName(c)} doit déjà te répondre pour un autre feat.`, 'bad'); return; }
+    S.drafts.dm[c.id] = featText(g, r);
+    closeLayer(l); openDM(c.id); update();
+  };
+  return html`<${LayerShell} i=${i} title="Feat">
+    <div class="mg-setup">
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} », ${fmtWhen(r.due)}. Avec qui ${whatF(r) ? 'la' : 'le'} faire ? Tu lui proposes en message (le texte est prêt), et son IA accepte ou refuse.</p>
+      ${list.length ? html`<div class="feat-list">${list.map((c) => html`<button type="button" key=${c.id} class="feat-pick" onClick=${() => pick(c)}>
+        <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} /><span class="mid"><b>${c.name}</b><small>${relShown(c)} · ${fmtN(c.followers)} abonnés</small></span></button>`)}</div>`
+        : html`<p class="muted">Personne à qui le proposer pour l’instant.</p>`}
+    </div>
+  <//>`;
 }
 // 0.27.4: a release brought forward: the times before the planned one, no cost.
 function MoveLayer({ l, g, i, now }) {
@@ -845,7 +872,7 @@ function RecruitLayer({ g, now, i }) {
         <p>${c.cand.pitch}</p>
         <div class="row"><span class="chip">${payWord(g, c.cand)}</span><span class="chip good">${R.fx(c.cand.tier + 1)}</span></div>
         <div class="row">
-          <button class="btn btn-hot btn-sm" disabled=${!!cur} onClick=${() => { if (hireStaff(g, c)) { toast(`${c.name.split(' ')[0]} rejoint ton équipe !`, 'good'); update(); closeLayer(); } }}>Engager</button>
+          <button class="btn btn-hot btn-sm" disabled=${!!cur} onClick=${() => { if (hireStaff(g, c)) { toast(`${firstName(c)} rejoint ton équipe !`, 'good'); update(); closeLayer(); } }}>Engager</button>
           <button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Discuter</button>
         </div>
       </div>
@@ -867,19 +894,29 @@ function dayWord(d, t = Date.now()) {
   const w = cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }));
   return d === 7 ? `${w} prochain` : w;
 }
+// 0.29.1: the topic a short linked to a long video starts with (the player changes it as they like)
+const promoTopic = (x) => str(`${x.state === 'scheduled' ? 'Teaser' : 'Extrait'} de ma vidéo : ${wordCut(x.topic, 56)}`, 80);
 function SeriesLayer({ l, g, i }) {
   const single = l.id === 'single';
   const P = PF(g);
-  const [what, setWhat] = useState(() => makeableWhat(g, P.main)); // 0.20: what the gear allows
+  const [what, setWhat] = useState(() => makeableWhat(g, single && l.what && P.fmts.includes(l.what) ? l.what : P.main)); // 0.20: what the gear allows
   const [days, setDays] = useState(7);
   const [hour, setHour] = useState(18);
   const [day, setDay] = useState(() => (dayFree(0, 18) ? 0 : 1)); // single release: 0 today, 1 tomorrow… (0.28.1: from today)
   const lock = useRef(false); // 0.28.1: two quick taps program (and pay) once
   const fq0 = single && l.fanQ && g.chars[l.fanQ] && g.chars[l.fanQ].fan ? g.chars[l.fanQ] : null; // 0.21: a fan's question as the topic
   const [fanQ, setFanQ] = useState(fq0 ? fq0.id : '');
-  const [theme, setTheme] = useState(fq0 ? qaTopic(fq0) : '');
+  const pt0 = single && !fq0 && l.promo ? promoTargets(g).find((x) => x.id === l.promo) || null : null; // 0.29.1: a short for a long video
+  const [theme, setTheme] = useState(fq0 ? qaTopic(fq0) : pt0 ? promoTopic(pt0) : '');
   const [diff, setDiff] = useState('moyen');
   const [hard, setHard] = useState(false);
+  const [feat, setFeat] = useState(''); // 0.29.1: someone for a feat (proposed in their messages once programmed)
+  const partners = single ? featPartners(g).slice(0, 8) : [];
+  const targets = single && what === 'short' ? promoTargets(g) : []; // 0.29.1: a long video it announces, or sends to
+  const [promo, setPromo] = useState(pt0 ? pt0.id : '');
+  const pt = targets.find((x) => x.id === promo) || null;
+  const pickPromo = (x) => { if (!x || promo === x.id) { setPromo(''); return; } setPromo(x.id); if (!theme.trim()) setTheme(promoTopic(x)); };
+  const vidLow = single && what === 'vidéo' && audSplit(g) && vidFans(g) < 0.4 * g.stats.followers && g.stats.followers >= 500;
   const ok = theme.trim().length >= 3;
   const noun = (w) => (w === 'short' ? P.shortName : w);
   const step = hard ? 0.35 : 0.2, cap = hard ? 4 : 3;
@@ -900,10 +937,13 @@ function SeriesLayer({ l, g, i }) {
       const due = dayDue(day, hour);
       if (!dayFree(day, hour)) { toast('Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
       lock.current = true;
-      const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '' });
+      const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '', promo: pt ? pt.id : '' });
       if (!r) { lock.current = false; return; }
       if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); }
-      toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer(); update();
+      toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer();
+      const fc = feat && g.chars[feat];
+      if (fc && askFeat(g, r, fc)) { S.drafts.dm[fc.id] = featText(g, r); openDM(fc.id); } // 0.29.1: the proposal, ready to send
+      update();
       return;
     }
     lock.current = true;
@@ -929,7 +969,16 @@ function SeriesLayer({ l, g, i }) {
       <div class="field"><span class="lbl">Heure de sortie</span>
         <div class="hour-pick">${PLAN_HOURS.map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} disabled=${single && day === 0 && !dayFree(0, h)} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
         <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>
-      ${single && fanQuestions(g).filter((c) => !fanPlanned(g, c)).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).filter((c) => !fanPlanned(g, c)).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${c.name.split(' ')[0]}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
+      ${partners.length ? html`<div class="field"><span class="lbl">Feat (facultatif)</span>
+        <div class="tr-chips" role="group" aria-label="Feat">${[['', px(g, 'Seul', 'Seule', 'Seul·e')]].concat(partners.map((c) => [c.id, firstName(c)])).map(([id, label]) => html`<button type="button" key=${id || 'solo'} class=${'chip-btn' + (feat === id ? ' on' : '')} aria-pressed=${feat === id ? 'true' : 'false'} onClick=${() => setFeat(id)}>${label}</button>`)}</div>
+        ${feat && g.chars[feat] ? html`<small class="muted">Une fois programmée, tu ${g.chars[feat].g === 'f' ? 'la' : g.chars[feat].g === 'm' ? 'le' : 'le ou la'} lui proposes en message (le texte est prêt, à toi de le changer) : ${firstName(g.chars[feat])} accepte ou refuse.</small>` : null}</div>` : null}
+      ${targets.length ? html`<div class="field"><span class="lbl">Annoncer une vidéo (facultatif)</span>
+        <div class="tr-chips" role="group" aria-label="Annoncer une vidéo"><button type="button" class=${'chip-btn' + (!pt ? ' on' : '')} aria-pressed=${!pt ? 'true' : 'false'} onClick=${() => setPromo('')}>Aucune</button>${targets.map((x) => html`<button type="button" key=${x.id} class=${'chip-btn' + (pt === x ? ' on' : '')} aria-pressed=${pt === x ? 'true' : 'false'} onClick=${() => pickPromo(x)}>🎬 ${wordCut(x.topic, 26)}${x.state === 'scheduled' ? '' : ' · en ligne'}</button>`)}</div>
+        <small class="muted">${!pt ? `Un ${P.shortName} qui annonce ta vidéo, ou qui renvoie vers elle, lui amène une partie de ses spectateurs : plus il marche, plus ils sont nombreux (et plus encore si ta commu est chaleureuse).`
+          : pt.state === 'released' || dueAt > pt.due ? `Il renverra vers « ${wordCut(pt.topic, 40)} », comme le lien « vidéo associée » : une partie de ses spectateurs ira la voir.`
+            : `Il sortira avant ta vidéo (${fmtWhen(pt.due)}) : une partie de ses spectateurs viendra la voir à sa sortie, et certains resteront pour tes vidéos longues.`}</small></div>` : null}
+      ${vidLow ? html`<p class="aud-hint">📺 La plupart de tes abonnés te suivent pour tes ${P.shortName}s : ≈ ${fmtN(vidFans(g))} regardent tes vidéos longues. Un ${P.shortName} qui annonce celle-ci peut en ramener (une fois programmée : « 📣 ${cap1(P.shortName)} d’annonce », dans ton Programme).</p>` : null}
+      ${single && fanQuestions(g).filter((c) => !fanPlanned(g, c)).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).filter((c) => !fanPlanned(g, c)).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${firstName(c)}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
       <div class="field"><label class="lbl" for="se-theme">${single ? 'Le sujet' : 'Le thème du défi'}</label>
         <input id="se-theme" class="input" maxlength="80" value=${theme} onInput=${(ev) => setTheme(ev.target.value)} placeholder=${single ? 'ex : je teste les potions du marché noir' : 'ex : une recette ratée par jour'} /></div>
       ${single ? null : html`<div class="field"><span class="lbl" id="se-diff">Difficulté des tournages</span>
@@ -1020,7 +1069,7 @@ function PublishForm({ g, r, now }) {
       <div class="field"><span class="lbl">${pf === 'instagram' ? 'Audio tendance' : 'Son tendance'}</span>${trendChips(sounds, 'trend', 'Son original')}</div>
       ${tags.length ? html`<div class="field"><span class="lbl">Défi / hashtag</span>${trendChips(tags, 'trend2', 'Aucun')}</div>` : null}` : null}
     ${kind !== 'vert' && topics.length ? html`<div class="field"><span class="lbl">Surfer sur une tendance</span>${trendChips(topics, 'trend', 'Aucune')}</div>` : null}
-    ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>${px(g, 'Seul', 'Seule', 'Seul·e')}</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${c.name.split(' ')[0]}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
+    ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>${px(g, 'Seul', 'Seule', 'Seul·e')}</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${firstName(c)}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
     ${deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsor</span>
       <div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.deal ? ' on' : '')} onClick=${() => set('deal', '')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (f.deal === d.id ? ' on' : '')} onClick=${() => set('deal', d.id, { mention: !d.shady })}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div>
       <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
@@ -1032,11 +1081,22 @@ function PublishForm({ g, r, now }) {
     ${mbOK && kind !== 'live' && mb.perks.includes('avant') ? html`<label class=${'mention-toggle up-memb' + (f.membAvant ? '' : ' off')}><input type="checkbox" checked=${f.membAvant} onChange=${(ev) => set('membAvant', ev.target.checked)} /><span><b>👑 En avant-première pour tes membres</b><small>${f.membAvant ? 'Tes membres la voient 48 h avant tout le monde : ta promesse du mois est tenue.' : 'Tu as promis une avant-première par mois à tes membres.'}</small></span></label>` : null}
     ${mbOK && kind === 'live' && mb.perks.includes('live') ? html`<label class=${'mention-toggle up-memb' + (f.membLive ? '' : ' off')}><input type="checkbox" checked=${f.membLive} onChange=${(ev) => set('membLive', ev.target.checked)} /><span><b>👑 Réservé à tes membres</b><small>${f.membLive ? 'Seuls tes membres le voient : bien moins de spectateurs, mais un vrai moment avec eux.' : 'Tu as promis un live réservé par mois à tes membres.'}</small></span></label>` : null}
     <div class="up-est"><span>≈ ${fmtN(lo)} à ${fmtN(hi)} ${unit}${kind === 'live' ? ' au total' : ''}</span><span>${cap1(audienceWord(aud))}${g.boosts.push ? ' · mise en avant ×2' : ''}${r.series ? ` · bonus de défi ×${fmtDec(seriesMult(g))}` : ''}${(r.crew || []).length ? ' · ton équipe a bossé dessus' : ''}</span></div>
+    ${audLong(g, r.what) && vidFans(g) < 0.4 * g.stats.followers ? html`<small class="muted up-aud">📺 Ton public vidéo : ≈ ${fmtN(vidFans(g))} ; le reste de tes abonnés te suit pour tes ${PF(g).shortName}s${r.what === 'vidéo' && promoShorts(g, r).length ? `, mais ton ${PF(g).shortName} d’annonce en amène` : ''}.</small>` : null}
     <label class="lbl" for="rl-cap">Ton post d’annonce sur le réseau</label>
     <textarea id="rl-cap" class="input" maxlength="280" rows="2" value=${f.caption} onInput=${(ev) => set('caption', ev.target.value)}></textarea>
     <button class="btn btn-hot" onClick=${() => publishRelease(r, f.caption, f)} disabled=${!!S.busy.act || !canAfford(g, 'post')}>${kind === 'live' ? 'Lancer le live' : 'Publier ' + laW(r)} · ≈ ${costLabel(g, 'post')} <${Icon} n="coffee" s=${15} /></button>
     ${!canAfford(g, 'post') ? html`<small class="muted">Ton budget IA du jour est épuisé. <button class="linkbtn" onClick=${budgetBlocked}>Options</button></small>` : null}
   </div>`;
+}
+// 0.29.1: on the player's own long video or live: the viewers a short sent, the short-form fans it won over; for two
+// weeks, a short that sends more.
+function AudChips({ g, p, k, now }) {
+  const v = p.video;
+  if (!audSplit(g) || !(v.what in AUD.trickle)) return null;
+  const r = v.rel ? (g.releases || []).find((x) => x.id === v.rel) : null, sn = PF(g).shortName;
+  const canLink = v.what === 'vidéo' && r && r.state === 'released' && now - (r.releasedAt || 0) < AUD.linkDays * DAY_MS && planRoom(g) && canMake(g, 'short').ok
+    && !(g.releases || []).some((x) => x.promo === r.id && x.state === 'scheduled');
+  return html`${v.teased * k >= 1 ? html`<span class="chip">📣 ${fmtN(v.teased * k)} vues venues de ton ${sn}</span>` : null}${v.promo ? html`<span class="chip">📣 +${fmtN(v.promo)} vues via ton ${sn}</span>` : null}${v.conv * k >= 1 ? html`<span class="chip good">📺 +${fmtN(v.conv * k)} dans ton public vidéo</span>` : null}${canLink ? html`<button class="linkbtn aud-link" onClick=${(ev) => { ev.stopPropagation(); openLayer({ t: 'series', id: 'single', what: 'short', promo: r.id }); }}>📣 Un ${sn} qui renvoie ici</button>` : null}`;
 }
 // A release in the feed, the way its platform shows it.
 function PlatformVideo({ g, p, now }) {
@@ -1046,7 +1106,7 @@ function PlatformVideo({ g, p, now }) {
   const h = hashStr(v.topic || '');
   const unit = kind === 'audio' ? 'écoutes' : kind === 'live' ? 'spectateurs' : 'vues';
   const tierChip = mine && v.tier ? html`<span class=${'chip ' + (v.tier === 'top' ? 'good' : v.tier === 'flop' ? 'bad' : '')}>${RELEASE_TIERS[v.tier].label} · ${pctOf(v.score)} %${v.diff ? ' · ' + diffOf(v.diff).emoji + ' ' + diffOf(v.diff).label : ''}${v.ep ? ` · épisode ${v.ep}` : ''}</span>` : null;
-  const money = mine && v.views ? html`${v.money ? html`<span class="chip money">💶 ≈ ${fmtMoney(g, v.money * k)}</span>` : null}${v.extra ? html`<span class="chip">✂️ + un format court : ${fmtN(v.extra.views * k)} vues</span>` : null}` : null;
+  const money = mine && v.views ? html`${v.money ? html`<span class="chip money">💶 ≈ ${fmtMoney(g, v.money * k)}</span>` : null}${v.extra ? html`<span class="chip">✂️ + un format court : ${fmtN(v.extra.views * k)} vues</span>` : null}<${AudChips} g=${g} p=${p} k=${k} now=${now} />` : null;
   const sp = v.sponsor ? html`<span class=${'sp-tag' + (v.sponsor.mention ? '' : ' hidden-ad')}>${v.sponsor.mention ? `Collaboration commerciale · ${v.sponsor.brand}` : `${v.sponsor.emoji} ${v.sponsor.brand}`}</span>` : null;
   const F = mine && v.sponsor && v.sponsor.fit ? v.sponsor.fit : 0; // 0.21: the placement, logical with the topic or not
   const fitChip = F ? html`<span class=${'chip fit-chip ' + (F > 0 ? 'good' : 'warn')}>Placement ${FIT_WORDS[F]} · ${F > 0 ? '+' : '−'}${fitPct(F)} % de vues</span>` : null;
@@ -1091,7 +1151,7 @@ function WriteBtn({ w, onText }) {
 // What can be shown about someone: their own messages to the player, and what others said about them in private.
 function capturesFor(g, target, now = Date.now()) {
   const out = [];
-  const first = target.name.split(' ')[0].toLowerCase();
+  const first = firstName(target).toLowerCase();
   for (const id in g.dms) {
     const who = g.chars[id];
     if (!who || !DM_KINDS.includes(who.kind)) continue;
@@ -1107,7 +1167,7 @@ function CapturePicker({ g, target, sel, onToggle }) {
   const list = capturesFor(g, target);
   if (!list.length) return null;
   return html`<div class="cite-list caps"><span class="lbl">Captures de DM (authentiques)</span>
-    ${list.map((x) => { const who = g.chars[x.c]; const on = sel.some((y) => y.m === x.m); return html`<label key=${x.m} class="cite"><input type="checkbox" checked=${on} onChange=${() => onToggle(x)} /><span><b>@${who.handle}${x.own ? '' : ` (sur ${target.name.split(' ')[0]})`}</b> « ${str(x.text, 120)} »</span></label>`; })}
+    ${list.map((x) => { const who = g.chars[x.c]; const on = sel.some((y) => y.m === x.m); return html`<label key=${x.m} class="cite"><input type="checkbox" checked=${on} onChange=${() => onToggle(x)} /><span><b>@${who.handle}${x.own ? '' : ` (sur ${firstName(target)})`}</b> « ${str(x.text, 120)} »</span></label>`; })}
     <small class="muted">Des vraies captures pèsent lourd. Mais publier les messages privés de quelqu’un d’autre, c’est une trahison qu’il ou elle n’oubliera pas.</small>
   </div>`;
 }

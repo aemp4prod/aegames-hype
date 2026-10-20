@@ -67,7 +67,7 @@ function learnSecret(g, s, c, how, from = null, at = Date.now()) {
   const q = `« ${str(s.t, 70)} »`;
   if (how === 'confie') addMem(g, c, `le joueur m’a confié un secret : ${q}`);
   else if (how === 'enquete') addMem(g, c, `j’ai découvert un secret du joueur : ${q}`, 's’intéresse de près à ton passé'); // (the player does not know they know)
-  else if (how === 'fuite') addMem(g, c, `${from ? from.name.split(' ')[0] : 'quelqu’un'} m’a appris un secret du joueur : ${q}`, 'a entendu des choses sur toi');
+  else if (how === 'fuite') addMem(g, c, `${from ? firstName(from) : 'quelqu’un'} m’a appris un secret du joueur : ${q}`, 'a entendu des choses sur toi');
   return true;
 }
 // How they know it, for the AI.
@@ -201,7 +201,7 @@ function answerResult(g, s, stance, cred, post) {
   const back = (f, why) => (f > 0 ? repShift(g, hit * f, why, { noCheck: true }) : f < 0 ? repMove(g, { cred: hit * f * 2, image: hit * f }, why, { noCheck: true }) : 0);
   let dr = 0, text = '';
   if (stance === 'dement') {
-    if (cred >= 7) { dr = back(0.7, 'ton démenti passe'); o.lie = true; text = `Ton démenti passe : on te croit… pour l’instant. ${by ? `${by.name.split(' ')[0]} sait que tu mens.` : 'Mais c’est un mensonge.'}`; }
+    if (cred >= 7) { dr = back(0.7, 'ton démenti passe'); o.lie = true; text = `Ton démenti passe : on te croit… pour l’instant. ${by ? `${firstName(by)} sait que tu mens.` : 'Mais c’est un mensonge.'}`; }
     else if (cred >= 4) { dr = back(0.3, 'ton démenti sème le doute'); o.lie = true; text = 'Ton démenti sème le doute : certains te croient, d’autres non.'; }
     else { dr = back(-0.6, 'personne ne croit ton démenti'); o.lie = 'caught'; text = 'Personne ne croit ton démenti : maintenant, en plus, tu passes pour ' + px(g, 'un menteur', 'une menteuse', 'un·e menteur·se') + '.'; }
     if (by && o.lie === true) addTrigger(g, `Le joueur a démenti le secret que @${by.handle} a révélé (« ${str(s.t, 70)} ») : c’est un mensonge, et @${by.handle} le sait. ${cap1(gx(by.g, 'il', 'elle', 'iel'))} enrage.`, by.id);
@@ -433,7 +433,7 @@ function SecretRow({ g, s, now }) {
   const told = s.known.filter((k) => k.how === 'confie' || k.how === 'marque').map((k) => g.chars[k.c]).filter(Boolean);
   const by = o && o.by ? g.chars[o.by] : null;
   const state = o ? (o.how === 'aveu' ? 'Tu l’as avoué en public.' : `Révélé par ${by ? by.name : 'quelqu’un'}.`) + (o.answer && o.answer !== 'aveu' ? ` Ta réponse : ${o.answer === 'silence' ? 'le silence' : STANCES[o.answer] ? STANCES[o.answer].label.toLowerCase() : o.answer}${o.lie === 'caught' ? ' (démasqué)' : ''}.` : '')
-    : told.length ? (s.auto === 'pub' ? `Ton contact chez la marque le sait (${told.map((c) => c.name.split(' ')[0]).join(', ')}).` : `Tu l’as confié à ${told.map((c) => c.name.split(' ')[0]).join(', ')}.`) + ' Personne d’autre, à ta connaissance.' : 'Personne ne le sait, à ta connaissance.';
+    : told.length ? (s.auto === 'pub' ? `Ton contact chez la marque le sait (${told.map((c) => firstName(c)).join(', ')}).` : `Tu l’as confié à ${told.map((c) => firstName(c)).join(', ')}.`) + ' Personne d’autre, à ta connaissance.' : 'Personne ne le sait, à ta connaissance.';
   return html`<div class=${'secret-card' + (o ? ' out' : '')}>
     <div class="row" style="gap:6px"><span class=${'chip ' + SEV_CHIP[s.sev]}>${S0.emoji} ${S0.label}</span>${o ? html`<span class="chip bad">Sorti</span>` : null}${s.auto === 'pub' ? html`<span class="chip">Pub cachée</span>` : null}</div>
     <p class="secret-t">« ${s.t} »</p>
@@ -511,7 +511,7 @@ function ConfideChip({ g, c, onPick }) {
 function SecretsKnownSection({ g, c }) {
   const list = mySecrets(g).filter((s) => s.known.some((k) => k.c === c.id && (k.how === 'confie' || k.how === 'marque')) || (s.out && s.out.by === c.id));
   if (!list.length) return null;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   return html`<section class="section">
     <div class="section-h"><h3>Tes secrets que ${first} connaît</h3><span>${list.length}</span></div>
     <ul class="clue-list">${list.map((s) => html`<li key=${s.id}><span aria-hidden="true">${sevOf(s).emoji}</span><span>« ${s.t} »${s.out && s.out.by === c.id ? ` — ${first} l’a balancé` : s.out ? ' — sorti depuis' : ''}</span></li>`)}</ul>

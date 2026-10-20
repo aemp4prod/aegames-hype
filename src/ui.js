@@ -335,7 +335,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { feat: '🤝', ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -370,7 +370,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -1213,7 +1213,7 @@ function CastStep() {
       <header><${Avatar} who=${author(g, 'c:' + c.id)} size=${40} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></header>
     </article>`)}</div></section>` : null}
     ${story.length ? html`<section class="stack"><h2 class="h-md">Tes premières quêtes</h2>${story.map((q) => html`<div class="notice" key=${q.id}><${Icon} n="trophy" /><div class="stack" style="gap:2px"><b style="color:var(--ink)">${q.title}</b><p>${q.desc}</p></div></div>`)}</section>` : null}
-    <div class="cast-cta"><button class="btn btn-hot btn-block" disabled=${!picked} onClick=${() => enterNewGame(pickId)}>${picked ? `Entrer avec ${picked.name.split(' ')[0]} comme ${gx(picked.g, 'premier abonné', 'première abonnée', 'premier·e abonné·e')}` : 'Choisis ton premier abonné'}</button></div>`;
+    <div class="cast-cta"><button class="btn btn-hot btn-block" disabled=${!picked} onClick=${() => enterNewGame(pickId)}>${picked ? `Entrer avec ${firstName(picked)} comme ${gx(picked.g, 'premier abonné', 'première abonnée', 'premier·e abonné·e')}` : 'Choisis ton premier abonné'}</button></div>`;
 }
 
 /* ---------- game shell ---------- */
@@ -1596,7 +1596,7 @@ function FeedTab({ g, now }) {
 // 0.23.1: the network living on its own says where it is: the next news in about N minutes, or paused (and why).
 // 0.25.3: the morning after a night together: where the player is, until they go home.
 function StayLine({ g }) {
-  const s = g.stay, c = g.chars[s.c], first = c.name.split(' ')[0];
+  const s = g.stay, c = g.chars[s.c], first = firstName(c);
   return html`<div class="live-line stay-line"><span aria-hidden="true">🌅</span><span>${s.where === 'c' ? `Tu es chez ${first} depuis cette nuit` : `${first} a dormi chez toi`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
 }
 function LiveLine({ g, now }) {
@@ -1683,7 +1683,7 @@ function DMsTab({ g, now }) {
       </button>`)
       : html`<div class="empty"><b>Aucun message</b><span>Écris à un personnage : c’est en privé que les alliances se font.</span></div>`}
     ${starters.length ? html`<div class="list-h">Écrire à quelqu’un<span>≈ ${costLabel(g, 'dm')} café par message</span></div>
-      <div class="starters">${starters.map((c) => html`<button key=${c.id} class="starter" onClick=${() => openDM(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><span>${c.name.split(' ')[0]}</span></button>`)}</div>` : null}`;
+      <div class="starters">${starters.map((c) => html`<button key=${c.id} class="starter" onClick=${() => openDM(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><span>${firstName(c)}</span></button>`)}</div>` : null}`;
 }
 function ShopItem({ it, g }) {
   const active = (it.id === 'reach' && g.boosts.reach) || (it.id === 'viral' && g.boosts.viral) || (it.id === 'push' && g.boosts.push); // (0.28.1: the release's push too)
@@ -1698,7 +1698,7 @@ function ShopItem({ it, g }) {
 function questActions(g, q) {
   const c = q.charId ? g.chars[q.charId] : null;
   const ok = c && c.unlocked;
-  const first = c ? c.name.split(' ')[0] : '';
+  const first = c ? firstName(c) : '';
   const A = [];
   const dm = () => A.push({ label: `Écrire à ${first}`, icon: 'msg', run: () => openDM(c.id) });
   const mention = () => A.push({ label: `Mentionner ${first}`, icon: 'at', run: () => openCompose({ text: '@' + c.handle + ' ' }) });
@@ -1898,7 +1898,7 @@ function askCancelDate(g, ev) {
   const c = g.chars[ev.c];
   const hurt = cancelHurt(ev.due - Date.now());
   askConfirm({
-    title: `Annuler ton rendez-vous avec ${c ? c.name.split(' ')[0] : 'cette personne'} ?`,
+    title: `Annuler ton rendez-vous avec ${c ? firstName(c) : 'cette personne'} ?`,
     text: hurt === 0 ? 'Tu préviens bien à l’avance : ça devrait bien passer.' : hurt >= -3 ? 'Tu préviens un peu tard : ça risque de piquer un peu.' : hurt >= -6 ? 'À quelques heures près : ça va mal passer.' : 'À la dernière minute : ça va très mal passer.',
     ok: 'Annuler le rendez-vous', cancel: 'Garder le rendez-vous', danger: true,
     run: () => { cancelDate(g, ev); update(); },
@@ -2441,15 +2441,15 @@ function DateSetup({ ev, g, now }) {
   const wed = dateKind(c, ev) === 'wedding'; // 0.28.1: the big day is no ordinary date
   const talkCafes = Math.round(costGuess(g, 'talk') * (TALK_TURNS + 2));
   return html`<div class="mg-setup">
-    <div class="date-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${56} /><div><h3>${wed ? `💒 Le grand jour avec ${c.name.split(' ')[0]}` : eventLabel(g, ev)}</h3><span>« ${ev.what} » · ${early > 0 ? fmtWhen(ev.due, now) : late > 15 * 60000 ? `tu as ${Math.round(late / 60000)} min de retard` : 'c’est maintenant'}</span></div></div>
+    <div class="date-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${56} /><div><h3>${wed ? `💒 Le grand jour avec ${firstName(c)}` : eventLabel(g, ev)}</h3><span>« ${ev.what} » · ${early > 0 ? fmtWhen(ev.due, now) : late > 15 * 60000 ? `tu as ${Math.round(late / 60000)} min de retard` : 'c’est maintenant'}</span></div></div>
     ${X ? html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Exigence ${D.label}</b><small>Ce soir, ça dépend de ce que vous vivez, pas des abonnés.</small></span><span class="d-mult">${fmtMult(D.mult)}</span></div>
       ${X.why.length ? html`<div class="ex-why">${X.why.map((w) => html`<span key=${w} class="chip">${w}</span>`)}</div>` : null}`
       : html`<div class="diff-opt on fixed"><span class="d-emo" aria-hidden="true">${D.emoji}</span><span class="d-mid"><b>Difficulté ${D.label}</b><small>${wed ? 'Votre mariage, devant vos proches.' : `${c.name} a ${fmtN(c.followers)} ${plural(c.followers, 'abonné', 'abonnés')} : plus on est connu, plus on est exigeant.`}</small></span><span class="d-mult">${fmtMult(D.mult)}</span></div>`}
     ${isTalk(g, ev) ? null : html`<small class="muted diff-note">${wed ? 'Le chiffre multiplie ce que la cérémonie rapporte (relation, XP), sauf si elle tourne mal.' : 'Le chiffre multiplie ce que le rendez-vous rapporte (relation, XP), sauf s’il est raté.'}</small>`}
     ${isTalk(g, ev) ? html`<p class="date-late talk-note"><${Icon} n="msg" s=${15} /> Cette fois, pas de mini-jeu : vous vous parlez pour de vrai, et tu réponds avec tes mots (${TALK_TURNS} échanges, ≈ ${talkCafes} ${plural(talkCafes, 'café', 'cafés')}).</p>` : null}
     ${late > 15 * 60000 ? html`<p class="date-late"><${Icon} n="clock" s=${15} /> Tu arrives en retard : la soirée démarre mal (un cran plus dur).</p>` : null}
-    ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${partnerOf(g, c).name.split(' ')[0]}, n’est pas au courant… pour l’instant.</p>` : null}
-    ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${oc.name.split(' ')[0]} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
+    ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${firstName(partnerOf(g, c))}, n’est pas au courant… pour l’instant.</p>` : null}
+    ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${firstName(oc)} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
     ${early > 0 ? html`<button class="btn btn-hot" onClick=${() => skipTime(early + 1000, () => ev.due)} disabled=${!!heldRel(g, now)}><${Icon} n="ffwd" s=${16} /> Avancer jusqu’au rendez-vous</button>${heldRel(g, now) ? html`<small class="muted why-off">${heldWhy(heldRel(g, now))}</small>` : null}`
       : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${wed ? '💒' : MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
     ${due && care ? html`<small class="muted prep-note">${S.busy.prep === ev.id ? html`<${Typing} /> ${wed ? 'La cérémonie se prépare' : 'La soirée se prépare'} et se relit (rendez-vous soignés)…` : ev.prep ? (wed ? '💒 Cérémonie prête, relue pour coller à votre histoire.' : '💘 Soirée prête, relue pour coller à votre histoire.') : ''}</small>` : null}
@@ -2480,7 +2480,7 @@ function DateLayer({ ev, g, now, i }) {
   else if (ev.game) body = html`<${ShootPlay} key=${ev.id + ':' + (ev.tries || 0)} r=${ev} now=${now} icon=${M.icon} outcomes=${M.outcomes} />`;
   else if (S.busy.mg === ev.id || (S.busy.prep === ev.id && ev.go)) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>Tu te prépares…</b><span>${S.busy.review === ev.id ? 'L’IA relit la soirée pour qu’elle colle à votre histoire' : `« ${ev.what} »`}</span><${Typing} /></div>`;
   else body = html`<${DateSetup} ev=${ev} g=${g} now=${now} />`;
-  return html`<${LayerShell} i=${i} title=${(c && dateKind(c, ev) === 'wedding' ? 'Le grand jour · ' : 'Rendez-vous · ') + (c ? c.name.split(' ')[0] : '')}>${body}<//>`;
+  return html`<${LayerShell} i=${i} title=${(c && dateKind(c, ev) === 'wedding' ? 'Le grand jour · ' : 'Rendez-vous · ') + (c ? firstName(c) : '')}>${body}<//>`;
 }
 function MiniGameLayer({ l, g, now, i }) {
   const evd = eventOf(g, l.id);
@@ -2632,6 +2632,7 @@ function Layer(props) {
   if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
+  if (t === 'feat') return html`<${FeatLayer} ...${props} />`; // 0.29.1: a feat for a release
   if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
   if (t === 'palette') return html`<${PaletteLayer} ...${props} />`; // 0.27.4: the palette
   if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
@@ -2822,7 +2823,7 @@ function CharLayer({ l, g, now, i }) {
   const posts = revealedPosts(g, now).filter((p) => p.a === 'c:' + c.id);
   const main = isMain(c), cast = c.kind === 'main'; // 0.16: someone who joined the cast has it all, but the badge stays the original cast's
   const au = author(g, 'c:' + c.id);
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   const V = c.vibe ? VIBES[c.vibe] : null;
   const mem = (c.mem || []).slice().reverse();
   return html`<${LayerShell} i=${i} title=${c.name}>
@@ -2851,6 +2852,7 @@ function CharLayer({ l, g, now, i }) {
     </section>` : null}
     ${main ? html`<section class="section">
       <div class="section-h"><h3>Votre dynamique</h3><span>${V ? V.emoji + ' ' + V.label : 'Rien de défini'}</span></div>
+      ${stepNote(g, c, now) ? html`<p class="step-note">${stepNote(g, c, now)}</p>` : null}
       ${c.vibeGoal && VIBES[c.vibeGoal] ? html`<${VibePath} c=${c} />` : null}
       <p class="muted" style="font-size:13.5px">Ce que tu aimerais que ça devienne :</p>
       ${VIBE_GROUPS.map(([grp, name]) => html`<div class="vibe-grp" key=${grp}><span class="vibe-grp-h">${name}</span>
@@ -2881,7 +2883,7 @@ function CharLayer({ l, g, now, i }) {
 // The stages still to go toward the goal: « 😏 Flirt → 💞 En couple → 💍 Fiançailles → 💒 Mariage ».
 function VibePath({ c }) {
   const path = vibePath(c, c.vibeGoal);
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   return html`<div class="vibe-path">
     <span class="vp-h">Objectif ${VIBES[c.vibeGoal].emoji} ${VIBES[c.vibeGoal].label}${path.length > 1 ? ` · ${path.length} étapes` : ''}</span>
     ${path.length > 1 || c.vibe ? html`<div class="vp-steps">${c.vibe && VIBES[c.vibe] ? html`<span class="vp-step now">${VIBES[c.vibe].emoji} ${VIBES[c.vibe].label}</span><span class="vp-arrow" aria-hidden="true">→</span>` : null}${path.map((v, k) => html`${k ? html`<span class="vp-arrow" aria-hidden="true">→</span>` : null}<span class=${'vp-step' + (k === 0 ? ' next' : '')}>${VIBES[v].emoji} ${VIBES[v].label}</span>`)}</div>` : null}
@@ -2890,7 +2892,7 @@ function VibePath({ c }) {
 }
 // The player's file on a character: clues noticed so far, and the call-out button.
 function CharFile({ c, g, now }) {
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   const clues = (g.clues || []).filter((k) => k.c === c.id && k.at <= now);
   const wait = ACCUSE_COOLDOWN - (now - (c.accusedAt || 0));
   const bb = inBadBuzz(c, now);
@@ -2941,7 +2943,7 @@ function DMBox({ c, g, now }) {
   const e = energyNow(g, now);
   const busy = dmBusy(c.id); // (0.28.1: only this conversation waits for its answer)
   const can = !!val.trim() && !busy && canAfford(g, 'dm');
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   const adv = isMain(c) && !!(S.drafts.adv && S.drafts.adv[c.id]); // « 💡 Conseil »: the message is advice
   const setAdv = (on) => { S.drafts.adv = S.drafts.adv || {}; S.drafts.adv[c.id] = on; force((x) => x + 1); if (ref.current) ref.current.focus(); };
   // 0.18: confiding one of the player's secrets (the message is prefilled; the player may rewrite it)
@@ -3034,10 +3036,10 @@ function DMLayer({ l, g, now, i }) {
         : m.sys === 'file' ? html`<${FileCard} key=${m.id} m=${m} />` // 0.23: a file sent for an order (role-play)
         : m.sys === 'job' ? html`<${JobCard} key=${m.id} g=${g} c=${c} m=${m} />`
         : m.sys === 'buy' ? html`<${BuyCard} key=${m.id} g=${g} m=${m} />` // 0.24: something paid in the conversation
-        : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${c.name.split(' ')[0]}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
+        : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${firstName(c)}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
         : m.sys === 'leak' ? html`<${LeakCard} key=${m.id} g=${g} m=${m} />` // 0.29: a group without the player
-        : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + c.name.split(' ')[0]}</span><p>${m.text}</p></div>` // 0.25.3
+        : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + firstName(c)}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
           <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
           <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
@@ -3068,7 +3070,7 @@ function InviteCard({ g, m, now }) {
   if (!iv || !c) return null;
   const late = iv.state === 'open' && now > iv.due - 5 * 60000;
   const open = iv.state === 'open' && !late;
-  const [label, cls] = open ? [iv.collab ? `🎬 ${c.name.split(' ')[0]} te propose de tourner ensemble` : `${MEET[meetKind(c, iv)].emoji} ${c.name.split(' ')[0]} te propose de vous voir`, 'invite'] : iv.state === 'accepted' && iv.rl ? ['✅ Collab acceptée : elle t’attend dans le Studio', 'top'] : INVITE_DONE[late ? 'expired' : iv.state] || INVITE_DONE.off;
+  const [label, cls] = open ? [iv.collab ? `🎬 ${firstName(c)} te propose de tourner ensemble` : `${MEET[meetKind(c, iv)].emoji} ${firstName(c)} te propose de vous voir`, 'invite'] : iv.state === 'accepted' && iv.rl ? ['✅ Collab acceptée : elle t’attend dans le Studio', 'top'] : INVITE_DONE[late ? 'expired' : iv.state] || INVITE_DONE.off;
   const clash = open ? activeEvents(g).find((e) => e.player && Math.abs(e.due - iv.due) < 90 * 60000) : null;
   const cc = clash && g.chars[clash.c];
   const foe = open && iv.collab ? collabFoe(g, c) : null; // 0.18: a collab someone close to the player will not like
@@ -3076,8 +3078,8 @@ function InviteCard({ g, m, now }) {
   return html`<div class=${'dm-card ' + cls}>
     <span class="evt-kind">${label}</span>
     <b>${iv.what}</b>
-    <p>${cap1(iv.due <= now ? fmtPast(iv.due, now) : fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${cc.name.split(' ')[0]} à ce moment-là` : ''}</p>
-    ${foe ? html`<p class="collab-foe">💔 ${foe.name.split(' ')[0]} ne supporte pas ${c.name.split(' ')[0]} : ça risque de mal passer.</p>` : null}
+    <p>${cap1(iv.due <= now ? fmtPast(iv.due, now) : fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${firstName(cc)} à ce moment-là` : ''}</p>
+    ${foe ? html`<p class="collab-foe">💔 ${firstName(foe)} ne supporte pas ${firstName(c)} : ça risque de mal passer.</p>` : null}
     ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineInvite(g, iv); update(); }}>Décliner</button></div>` : null}
   </div>`;
 }
@@ -3121,7 +3123,7 @@ function ComposeLayer({ g, now, i }) {
   const costKind = accuse ? 'accuse' : rumor || secAns ? 'debunk' : 'post';
   const cost = Math.max(1, Math.round(costGuess(g, costKind) + (seeOn ? seeCafes(Math.min(S.vision, d.pics.length)) : 0))); // the images seen cost a little more
   const clues = accuse ? (g.clues || []).filter((k) => k.c === target.id && k.at <= now) : [];
-  const first = target ? target.name.split(' ')[0] : '';
+  const first = target ? firstName(target) : '';
   const fk = accuse ? d.fake : null; // a proof the player makes up
   const fakeOK = !fk || fk.desc.trim().length >= 6;
   const can = (!!val.trim() || photoOK) && (!hasPhoto || photoOK) && !S.busy.act && !low && canAfford(g, costKind) && (!accuse || !!val.replace('@' + target.handle, '').trim()) && fakeOK;
@@ -3387,7 +3389,7 @@ function Modal({ m, g }) {
       <span class="eyebrow">${m.late ? 'Contre-enquête' : px(g, 'Grillé', 'Grillée', 'Grillé·e') + ' en direct'}</span>
       <div class="burst">FAKE</div>
       <p>${m.late ? 'Quelqu’un a creusé. ' : 'Le réseau a tout de suite vu le montage. '}${K.f ? 'Ta' : 'Ton'} ${evLabel(m.kind)} contre ${c ? c.name : 'ta cible'} était ${K.f ? 'fausse' : 'faux'}, et maintenant tout le monde le sait.</p>
-      <div class="rewards">${m.loss > 0 ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Réputation au plus bas</span><span class="chip bad">Cancel</span>${c ? html`<span class="chip bad">${c.name.split(' ')[0]} ne te le pardonnera pas</span>` : null}</div>
+      <div class="rewards">${m.loss > 0 ? html`<span class="chip bad">−${nAbonnes(m.loss)}</span>` : null}<span class="chip bad">Réputation au plus bas</span><span class="chip bad">Cancel</span>${c ? html`<span class="chip bad">${firstName(c)} ne te le pardonnera pas</span>` : null}</div>
       <${CancelPaths} g=${g} close=${close} />
       <button class="btn btn-ghost" onClick=${close}>J’assume</button>
     </div>`;
@@ -3421,7 +3423,7 @@ function Modal({ m, g }) {
     const c = g.chars[m.charId];
     if (c) {
       card = html`<div class="modal-card badbuzz">
-        <span class="eyebrow">Ça tourne mal pour ${c.name.split(' ')[0]}</span>
+        <span class="eyebrow">Ça tourne mal pour ${firstName(c)}</span>
         <div class="burst">BAD BUZZ</div>
         <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${c.name}</b><span>@${c.handle}${c.badBuzz ? ' · −' + nAbonnes(c.badBuzz.loss) : ''}</span></div></div>
         <p>${m.exposed && c.secretOut ? html`<b>Son secret éclate :</b> ${c.secretOut}` : m.fake ? 'Le réseau a mordu à ta fausse preuve. Pourvu que personne ne creuse…' : 'Le réseau te croit. Attends-toi à une contre-attaque…'}</p>
@@ -3442,15 +3444,15 @@ function Modal({ m, g }) {
     const a = eventOf(g, m.a), b = eventOf(g, m.b);
     const ca = a && g.chars[a.c], cb = b && g.chars[b.c];
     if (a && b && ca && cb && a.state === 'scheduled' && b.state === 'scheduled') {
-      const keep = (k, drop) => () => { close(); cancelDate(g, drop, `pour voir ${g.chars[k.c].name.split(' ')[0]}`); update(); };
+      const keep = (k, drop) => () => { close(); cancelDate(g, drop, `pour voir ${firstName(g.chars[k.c])}`); update(); };
       const hurt = (ev) => { const h = cancelHurt(ev.due - Date.now()); return h === 0 ? 'prévenu·e tôt, ça passera' : h >= -3 ? 'ça va un peu piquer' : h >= -6 ? 'ça va mal passer' : 'ça va très mal passer'; };
       card = html`<div class="modal-card">
         <span class="eyebrow" style="color:var(--bad)">Deux rendez-vous en même temps</span>
         <div class="modal-big" style="font-size:38px" aria-hidden="true">📅</div>
         <p>${ca.name} (${fmtWhen(a.due)}) et ${cb.name} (${fmtWhen(b.due)}) : tu ne peux pas être aux deux. Qui tu préviens ?</p>
         <div class="paths">
-          <button class="path" onClick=${keep(a, b)}><b>Garder ${ca.name.split(' ')[0]}</b><span>Annuler avec ${cb.name.split(' ')[0]} : ${hurt(b)}.</span></button>
-          <button class="path" onClick=${keep(b, a)}><b>Garder ${cb.name.split(' ')[0]}</b><span>Annuler avec ${ca.name.split(' ')[0]} : ${hurt(a)}.</span></button>
+          <button class="path" onClick=${keep(a, b)}><b>Garder ${firstName(ca)}</b><span>Annuler avec ${firstName(cb)} : ${hurt(b)}.</span></button>
+          <button class="path" onClick=${keep(b, a)}><b>Garder ${firstName(cb)}</b><span>Annuler avec ${firstName(ca)} : ${hurt(a)}.</span></button>
         </div>
         <button class="btn btn-ghost" onClick=${close}>Je verrai plus tard</button>
       </div>`;
@@ -3639,7 +3641,7 @@ async function boot() {
 if (window.__HYPE_TEST__) {
   window.__hype = {
     ROLE_TPL, roleChar, criticOf, rebeccaOf, addRoleChar, ensureRoles, roleAskLines, roleLines, roleTag, decoratePost, applyRoleLine, criticAcct, CRIT_GAP, FIC_GAP, packPool, STYLE_OF, // 0.29
-    drawPsy, psyNow, psyStage, psySign, psyKill, psyEscape, psyCore, psyPublicLines, psyAccuseLines, psyAccusation, psyUnmask, tickRoles, psyDeadlyDate, psyDeadlyVisit, nightAt, fleeDate,
+    drawPsy, psyNow, psyStage, psySign, psyKill, psyEscape, psyCore, psyTalkCtx, psyVisitCtx, psyPublicLines, psyAccuseLines, psyAccusation, psyUnmask, tickRoles, psyDeadlyDate, psyDeadlyVisit, nightAt, fleeDate,
     PSY_DANGER_DAYS, PSY_DANGER_SIGNS, PSY_HOLD_DAYS, PSY_HOLD_SIGNS, ellipseTalk, ELLIPSE_LINE, LATER_LINE, isPsy, summarize, isLiveVisit, resolveAuthor,
     liveStories, storiesOf, addStory, postStory, openStory, voteStory, reactStory, storyViewers, storyViewsN, promptStory, addGroup, addGroupMsg, sendGroup, leaveGroup, quitGroup, liveGroups, unreadGroups, addLeak, addMom, addFanAcct, addShip, addFake, reportNpc, tickSocial, socialCtx, socialLines, applySocialLine, whoAny, // 0.29
     decorateSocial, postPoll, pollRes, votePoll, bdayOf, mdOf, dayKey, bdayWish, tickNet, memoryOf, ratioMark, ratioCheck, setMainDay, setOutage, setAlgo, algoMult, outageOn, algoOn, topFanOf, pinReply, netCtx, netLines, applyNetLine, replyLang, WORLD_LINE, addReplyTo,
@@ -3653,7 +3655,7 @@ if (window.__HYPE_TEST__) {
     vibePath, vibeOK, normVibe, breakUp, dateOutcome, partnerWord, meetKind, sameWhat,
     pickArc, addArc, liveArcs, isTroll, crowdFor, pickShootKind, shootWeights, MG_KINDS_AI, promptMiniGame, makeMontage, makeMemoire, DIFFS,
     // 0.7
-    budgetOf, cafesLeft, chargeBudget, canAfford, energyNow, calMoment, audienceAt, adSeason, gameDate, fmtGameClock, programOf, applyProgram, checkPayout, releaseViews, estimateViews, rpmOf,
+    budgetOf, cafesLeft, chargeBudget, canAfford, energyNow, calMoment, audienceAt, adSeason, gameDate, fmtGameClock, programOf, applyProgram, checkPayout, releaseViews, estimateViews, rpmOf, viewsCore, viewsParts, AUD, audSplit, audLong, audStart, vidAud, vidFans, warmK, promoViews, promoTargets, promoAfter, audAfter, audLine, releaseEarly,
     makeOffer, signDeal, dealFee, deliverDeal, sanction, addCandidate, hireStaff, quitStaff, staffMult, payroll, startSeries, seriesMult, endSeries, scheduleRelease,
     addRumor, liveRumor, rumorSource, turnAgainst, addIntel, leakIntel, allies, enemies, allyBoost, makeTrend, activeTrends, trendHeat, tickCareer, platformOf, PLATFORMS, nextAt, STAFF_ROLES,
     refreshFeed, skipTime,
@@ -3689,7 +3691,7 @@ if (window.__HYPE_TEST__) {
     compactCore, coreSize, saveGame, saveNow, // 0.14
     applyEdit, makeEdit, afterShoot, lookCtr, lookChoc, presetLook, drawnCtr, coupleBoost, acceptCollab, COLLAB_RE, fadeTalk, FADE_RE, initiativeLine, publishRelease, staffPower, canAiThumb, keepThumbImage,
     // 0.12: trials before the big steps, couples
-    TRIALS, openTrial, rivalFor, trialCheck, startTrial, startVeille, winTrial, loseTrial, heartsAfterAct, trialsOnRumor, tickCouples, announceCouple, keepCoupleSecret,
+    TRIALS, openTrial, rivalFor, trialCheck, startTrial, coupleAsked, stepNote, trialLines, featOK, featPartners, featAsked, askFeat, featText, featDMCtx, applyFeatLine, dropFeat, planCollab, COLLAB_RE, startVeille, winTrial, loseTrial, heartsAfterAct, trialsOnRumor, tickCouples, announceCouple, keepCoupleSecret,
     runAct, officialize, rumorResult,
     // 0.15: enemies who notice, bad buzz of their own, ties cut, the way out of a cancel, @ suggestions, toasts at the bottom
     foesOf, closeToFoe, foesNotice, BOND_VIBES, selfBuzzOK, startSelfBuzz, sideSelfBuzz, selfBuzzOver, bbByPlayer, cutTies, reconnect,

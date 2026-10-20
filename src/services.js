@@ -65,7 +65,7 @@ function addJob(g, c, o, at = later()) {
   g.jobs = (g.jobs || []).filter((x) => !JOB_LIVE.includes(x.state)).concat(keep, j).slice(-JOB_MAX);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push(tag({ id: uid('m'), me: false, sys: 'job', job: j.id, text: `[Commande : ${K.noun} « ${what} »${pay ? `, ${fmtMoney(g, pay)}` : ', entre amis'}]`, ts: at, at }));
-  addNotif(g, { k: 'money', c: c.id, at, text: `${K.emoji} Commande de ${c.name.split(' ')[0]} : ${what}${pay ? ` · ${fmtMoney(g, pay)}` : ' · entre amis'}` });
+  addNotif(g, { k: 'money', c: c.id, at, text: `${K.emoji} Commande de ${firstName(c)} : ${what}${pay ? ` · ${fmtMoney(g, pay)}` : ' · entre amis'}` });
   addMem(g, c, `le joueur va me faire ${K.noun} : ${str(what, 50)}`);
   return j;
 }
@@ -92,7 +92,7 @@ function jobGame(g, j, diff) {
   const c = g.chars[j.c];
   const D = diffOf(JOB_K[diff] ? diff : jobExpect(g, c, j).diff);
   const m = makeMontage({ what: JOB_KINDS.montage.what, topic: j.what }, D);
-  return Object.assign(m, { title: `Le montage pour ${c ? c.name.split(' ')[0] : 'ton client'}`, edit: true });
+  return Object.assign(m, { title: `Le montage pour ${c ? firstName(c) : 'ton client'}`, edit: true });
 }
 const thumbQual = (t) => clamp(0.35 + (t && t.ctr ? t.ctr : 0) * 2.2, 0, 1);
 function jobWorked(g, j, m, extra = {}) {
@@ -105,7 +105,7 @@ function jobWorked(g, j, m, extra = {}) {
 
 /* ---------- the delivery: they react, pay what was agreed, maybe share it ---------- */
 function promptJobDone(g, c, j, paid) {
-  const K = JOB_KINDS[j.kind], first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const K = JOB_KINDS[j.kind], first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const late = j.sentAt > j.due ? j.sentAt - j.due : 0;
   const msgs = ((g.dms[c.id] || {}).msgs || []).filter((m) => m.text && m.at <= Date.now()).slice(-8);
   return [RULES_PRIVATE, '', ctxText(g, { kind: 'private', about: c, focus: new Set() }), '',
@@ -167,7 +167,7 @@ async function sendJob(id) {
 }
 // What the work leaves: the money agreed, the XP, the creativity, the bond, and an audience if they share it.
 function jobOutcome(g, c, j, paid, fx = {}, at = later()) {
-  const K = JOB_KINDS[j.kind], first = c.name.split(' ')[0], q = qOf(j), legend = jobTier(q).id === 'legende';
+  const K = JOB_KINDS[j.kind], first = firstName(c), q = qOf(j), legend = jobTier(q).id === 'legende';
   Object.assign(j, { state: 'done', doneAt: Date.now(), paid });
   if (paid) { earn(g, paid, `${K.label} pour ${c.name}`, 'job'); addNotif(g, { k: 'money', c: c.id, at, text: `💸 ${first} te paie ${fmtMoney(g, paid)} pour ${K.noun}.` }); }
   gainXP(g, Math.round(10 + 25 * q));
@@ -208,7 +208,7 @@ function tickJobs(g, t = Date.now()) {
     if (j.state !== 'open' && j.state !== 'ready') continue;
     const c = g.chars[j.c];
     if (!c) { j.state = 'dropped'; ch = true; continue; }
-    const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), K = JOB_KINDS[j.kind];
+    const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), K = JOB_KINDS[j.kind];
     if (t > j.due + JOB_GRACE) {
       j.state = 'dropped';
       applyRel(g, c, -6, `tu n’as jamais rendu ${K.noun}`, later(), 10);
@@ -244,7 +244,7 @@ function jobDMCtx(g, c) {
 const JOB_RE = /\b(?:montages?|monteu(?:r|se)s?|monter (?:ta|tes|ton|ma|mes|mon|une|un|la|les|des|leurs?) (?:vid|clip|edit|short|vlog|rush|live|stream)\w*|edits?|miniatures?|thumbnails?|vignettes?|rush(?:es)?|clips?|fichiers?|je (?:te|vous) (?:fais|ferai|fait|monte|dessine)|logo|banni[èe]re)\b/i;
 const jobTalk = (history, text) => JOB_RE.test(text) || history.slice(-6).some((m) => m.text && JOB_RE.test(m.text));
 const JOB_LINE = (g, c) => {
-  const j = openJob(g, c.id), il = gx(c.g, 'il', 'elle', 'iel'), first = c.name.split(' ')[0];
+  const j = openJob(g, c.id), il = gx(c.g, 'il', 'elle', 'iel'), first = firstName(c);
   return [j ? null : `- Seulement si ${first} et le joueur se mettent d’accord pour que le joueur lui rende un service (monter ses vidéos, faire sa miniature…), une ligne : {"t":"job","kind":"montage ou miniature","what":"≤ 80 caractères : ce qui est demandé","pay":0,"days":3} (pay : ce que ${first} paie en euros, ${payCap(c, g)} au plus, 0 si c’est un service entre amis ; days : le délai convenu, de 1 à 7 jours).`,
     `- Quand ${first} envoie ses fichiers pour ${j ? 'cette commande' : 'une commande'} (rushes, clips, photos, logo…), une ligne par fichier : {"t":"file","name":"nom_du_fichier.mp4","in":0} ("in" : dans combien de minutes, si ${il} dit les envoyer plus tard ; 0 pour tout de suite). Les fichiers sont pour de faux : seul leur nom compte, un nom réaliste qui colle au contenu.`].filter(Boolean);
 };
@@ -269,7 +269,7 @@ function FileCard({ m }) {
 function JobLayer({ l, g, now, i }) {
   const j = jobOf(g, l.id), c = j && g.chars[j.c];
   if (!j || !c) return html`<${LayerShell} i=${i} title="Commande"><div class="empty"><b>Commande introuvable</b></div><//>`;
-  const K = JOB_KINDS[j.kind], first = c.name.split(' ')[0], got = filesIn(j, now), busy = S.busy.job === j.id;
+  const K = JOB_KINDS[j.kind], first = firstName(c), got = filesIn(j, now), busy = S.busy.job === j.id;
   const head = html`<div class="dlog-head job-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${44} /><div><b>${K.emoji} ${j.what}</b><small>${K.label} pour ${c.name} · ${j.pay ? fmtMoney(g, j.pay) : 'entre amis'} · ${now > j.due ? 'en retard' : 'à rendre ' + fmtWhen(j.due, now)}</small></div></div>`;
   const files = got.length ? html`<div class="job-files">${got.map((f) => html`<${FileCard} key=${f.name} m=${{ name: f.name, me: false }} />`)}</div>` : null;
   let body;
@@ -284,7 +284,7 @@ function JobLayer({ l, g, now, i }) {
 // 0.25.2: the difficulty first (the one picked last time, or what they expect), then the cut; a game already rolling
 // goes on at its own difficulty.
 function JobEdit({ g, j }) {
-  const c = g.chars[j.c], first = c ? c.name.split(' ')[0] : 'ton client', exp = jobExpect(g, c, j);
+  const c = g.chars[j.c], first = c ? firstName(c) : 'ton client', exp = jobExpect(g, c, j);
   const [game, setGame] = useState(() => (j.game && j.game.run && j.game.run.on ? j.game : null));
   const [diff, setDiff] = useState(() => (JOB_K[g.jobDiff] ? g.jobDiff : exp.diff));
   if (game) return html`<${MontageGame} game=${game} onDone=${(m) => jobWorked(g, j, m, { diff: game.diff })} run=${game.run || null} keep=${(part, soon) => mgKeep(game, part, soon)} />`;
@@ -314,7 +314,7 @@ function JobEdit({ g, j }) {
 }
 // Done: what it gives (from the score and the difficulty), against what they expect; sent, or done again.
 function JobReady({ g, j, c, busy }) {
-  const K = JOB_KINDS[j.kind], first = c.name.split(' ')[0], t = jobTier(qOf(j));
+  const K = JOB_KINDS[j.kind], first = firstName(c), t = jobTier(qOf(j));
   const exp = j.kind === 'montage' ? jobExpect(g, c, j).tier : null, gap = exp ? tierRank(t) - tierRank(exp) : 0;
   return html`<div class=${'job-ready tier-' + t.id}>
     <p><b>${K.label} : ${t.label}</b>${j.diff ? ` · ${pctOf(j.m)} % en ${diffOf(j.diff).emoji} ${diffOf(j.diff).label}` : ` · ${pctOf(j.m)} %`}</p>

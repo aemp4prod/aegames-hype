@@ -106,6 +106,21 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   check('becoming a couple starts a trial first (no couple yet; the AI is told; asked for a reaction when an answer decides); a crush at first sight skips it',
     t0.ok === false && t0.vibe === 'flirt' && t0.step === 'couple' && !!t0.k && t0.prompt && t0.line && t1.ok === true && t1.trials === 0, { t0, t1 });
 
+  // ---------- 0.29.1: asked in the player's own words, the trial starts before the answer, and the player is told ----------
+  // (a secret to tell first: a trial their very answer could judge, and must not, the player has not heard of it yet)
+  await flirt({ secret: 'a déjà menti sur son âge pour un casting', secretOut: null, secretTold: null });
+  const n0a = await G(page, () => { window.__trustRolls = [0.99]; return window.__prompts.length; });
+  await G(page, (id) => window.__hype.sendDM(id, 'bon du coup, on peut dire qu’on est officiellement en couple ?'), ids.nox);
+  await idle(page);
+  await sleep(4500); // (the notification comes a few seconds after the answer)
+  const asked = await G(page, ({ id, n0 }) => {
+    const H = window.__hype, g = H.S.game, c = g.chars[id], tr = (g.trials || []).find((x) => x.c === id && x.state === 'open');
+    const pr = window.__prompts.slice(n0).find((p) => p.includes('CONVERSATION PRIVÉE')) || '';
+    return { vibe: c.vibe, step: tr && tr.step, k: tr && tr.k, told: /ils ne sont PAS encore en couple/.test(pr), notif: g.notifs.some((n) => n.c === id && /ce n’est pas encore officiel/.test(n.text)), note: H.stepNote(g, c) || '' };
+  }, { id: ids.nox, n0: n0a });
+  check('asked in the player’s own words (« on est officiellement en couple ? »): the trial starts before the answer, which knows it (« oui, mais… ») and does not judge it yet; the player is told (a notification, a line on their sheet)',
+    asked.vibe === 'flirt' && asked.step === 'couple' && asked.k === 'secret' && asked.told && asked.notif && /^💞 Pas encore en couple : /.test(asked.note), asked);
+
   // ---------- their bad buzz: stand by them in public, and you are together (then: announce it or keep it secret) ----------
   await flirt();
   await G(page, (id) => { const H = window.__hype, g = H.S.game; H.startTrial(g, g.chars[id], 'couple', 'badbuzz'); }, ids.nox);

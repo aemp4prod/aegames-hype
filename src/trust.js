@@ -159,7 +159,7 @@ function adviceCard(g, c, a, text) {
 function resolveAdvice(g, a, t = Date.now()) {
   const c = g.chars[a.c];
   if (!c || !c.unlocked) { a.state = 'dropped'; return; }
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   if (a.bail) {
     a.state = 'bailed';
     addNotif(g, { k: 'advice', c: c.id, at: later(), text: `💡 ${first} a finalement laissé tomber ton conseil (« ${str(a.what, 60)} ») : pas encore assez confiance en toi.` });
@@ -187,7 +187,7 @@ function resolveAdvice(g, a, t = Date.now()) {
   else adviceFlop(g, c, a, post);
 }
 function adviceWin(g, c, a, post, reply) {
-  const t = later(), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
+  const t = later(), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const gain = Math.round(c.followers * rand(0.03, 0.08)) + randi(5, 40);
   c.followers += gain;
   if (reply) reply.likeT = Math.round((reply.likeT || 0) * 3 + randi(20, 90));
@@ -209,7 +209,7 @@ function adviceWin(g, c, a, post, reply) {
   addEcho(g, 'advice', { c: c.id, text: a.what });
 }
 function adviceFlop(g, c, a, post) {
-  const t = later(), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), decu = gx(c.g, 'déçu', 'déçue', 'déçu·e');
+  const t = later(), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), decu = gx(c.g, 'déçu', 'déçue', 'déçu·e');
   const loss = Math.round(c.followers * rand(0.005, 0.02));
   c.followers = Math.max(12, c.followers - loss);
   a.state = 'flop';
@@ -227,7 +227,7 @@ const ADVICE_BUZZ = [
   (h, t) => `quelqu’un peut expliquer à @${h} pourquoi c’était une mauvaise idée ? ${t}`,
 ];
 function adviceBuzz(g, c, a, post) {
-  const t = later(), first = c.name.split(' ')[0];
+  const t = later(), first = firstName(c);
   const loss = Math.round(c.followers * rand(0.06, 0.12));
   c.followers = Math.max(12, c.followers - loss);
   c.badBuzz = { at: t, until: t + BADBUZZ_MS, reason: str(a.what, 140), loss, strength: clamp(0.5 + 0.1 * a.risk, 0, 1), advice: a.id };
@@ -248,7 +248,7 @@ function adviceBuzz(g, c, a, post) {
 }
 // They understood: trust gone, and maybe the whole network hears it.
 function adviceCaught(g, c, a, loss) {
-  const t = later(), s = g.stats, first = c.name.split(' ')[0];
+  const t = later(), s = g.stats, first = firstName(c);
   const il = gx(c.g, 'il', 'elle', 'iel'), pg = gx(c.g, 'piégé', 'piégée', 'piégé·e'), fur = gx(c.g, 'furieux', 'furieuse', 'furieux·se');
   applyTrust(g, c, -45, `a compris que tu l’as ${pg}`, t + 1500);
   applyRel(g, c, -20, `a compris que tu l’as ${pg}`, t + 2000, 25);
@@ -335,7 +335,7 @@ function openAdvice(id) {
 }
 // On a main character's profile: where trust stands, what makes it hard, what comes next.
 function TrustSection({ g, c, now }) {
-  const t = trustOf(c), first = c.name.split(' ')[0];
+  const t = trustOf(c), first = firstName(c);
   const pa = plannedAdvice(g, c);
   const fame = fameNote(c);
   return html`<section class="section trust-sec">
@@ -366,7 +366,7 @@ function AdviceChip({ g, a, now }) {
   const due = () => { const x = S.game && (S.game.advice || []).find((y) => y.id === a.id && y.state === 'planned'); return x ? x.due : 0; };
   return html`<div class="evt-chip adv-chip" onClick=${stop(() => {})}>
     <span class="evt-emo" aria-hidden="true">${K.emoji}</span>
-    <span class="evt-mid"><b>${c.name.split(' ')[0]} suit ton conseil</b><small>${fmtWhen(a.due, now)} · « ${str(a.what, 70)} »</small></span>
+    <span class="evt-mid"><b>${firstName(c)} suit ton conseil</b><small>${fmtWhen(a.due, now)} · « ${str(a.what, 70)} »</small></span>
     <span class="evt-acts"><button class="btn btn-ghost btn-sm" onClick=${stop(() => skipTime(a.due - Date.now() + 1000, due))}><${Icon} n="ffwd" s=${14} /> Avancer</button></span>
   </div>`;
 }
@@ -377,7 +377,7 @@ function AdviceCard({ m }) {
 }
 // Above the DM box, in advice mode: what this level of trust allows.
 function adviceHint(c) {
-  const t = trustOf(c), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const t = trustOf(c), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   if (t < 40) return `${first} ne t’écoute pas encore (confiance ${t}/100, il en faut 40) : ${il} risque de refuser.`;
   if (t < 70) return `${first} suit tes petits conseils (un post, le ton d’une réponse). Pour une vidéo ou un clash, il faut 70.`;
   if (t < 90) return `${first} suit tes gros conseils (une vidéo, sa réponse à un clash). Les plus risqués demandent 90.`;

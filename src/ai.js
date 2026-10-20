@@ -322,7 +322,7 @@ function ctxText(g, o = {}) {
   return L.join('\n');
 }
 // The main characters a message talks of (by their @handle or their first name), but the one it is sent to.
-const namedIn = (g, text, but = null) => { const t = String(text || '').toLowerCase(); return mains(g).filter((x) => x !== but && (t.includes('@' + x.handle) || new RegExp('(^|[^\\p{L}])' + x.name.split(' ')[0].toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'u').test(t))).slice(0, 2); };
+const namedIn = (g, text, but = null) => { const t = String(text || '').toLowerCase(); return mains(g).filter((x) => x !== but && (t.includes('@' + x.handle) || new RegExp('(^|[^\\p{L}])' + firstName(x).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'u').test(t))).slice(0, 2); };
 // The player's story quests (about: in a talk with them, only theirs and the ones about no one in particular).
 const storyQuests = (g, about = null) => activeQuests(g).filter((q) => q.kind === 'story' && (!about || !q.charId || q.charId === about.id));
 
@@ -411,7 +411,7 @@ const ADS_RULE = ' Pour cette sortie, juge aussi ce qu’en penseraient les anno
 // When it happens: minutes for the next hours, or a day and a clock time (0.9.4: a date can be a few days away).
 const WHEN_HELP = '"in" = minutes d’ici là d’après l’heure qu’il est, pour les prochaines heures ; pour un autre jour ou une heure précise, mets plutôt "day" (jours à partir d’aujourd’hui : 0 aujourd’hui, 1 demain, 2 après-demain… jusqu’à 7) et "at":"20:30" (l’heure du jeu) à la place de "in"';
 const PLAN_LINE = '- Facultatif, rare : seulement si un personnage principal annonce dans ce que tu écris un événement public précis que le joueur pourra suivre (un live, une réponse officielle, une annonce, un concert, un match), ou fixe avec le joueur une vraie rencontre acceptée des deux côtés (en vrai, en appel ou en visio), avec un moment dit dans le texte (« ce soir », « dans 2 h », « samedi à 20 h ») : {"t":"plan","by":"handle","kind":"live","what":"≤ 80 caractères : ce qui va se passer","in":180} juste après la ligne où il l’annonce (kind parmi live, annonce, match, rdv ; ' + WHEN_HELP + '). Jamais pour une intention (« je regarde ça ce soir »), une échéance, une attente (« j’attends tes pièces »), une réponse privée (« je te réponds ce soir ») ou un « plus tard » vague.';
-const PLAN_DM = (c) => `- Seulement si un rendez-vous est vraiment fixé dans cet échange entre le joueur et ${c.name} (une rencontre en vrai, un appel ou une visio, acceptée des deux côtés, à un moment précis, même dans plusieurs jours) ou si ${c.name} y annonce un événement public précis à venir : {"t":"plan","kind":"rdv","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (kind rdv pour une rencontre avec le joueur, sinon live, annonce ou match ; ${WHEN_HELP}). Jamais pour une échéance, une attente ou une simple intention.`;
+const PLAN_DM = (c) => `- Seulement si un rendez-vous est vraiment fixé dans cet échange entre le joueur et ${c.name} (une rencontre en vrai, un appel ou une visio, acceptée des deux côtés, à un moment précis, même dans plusieurs jours) ou si ${c.name} y annonce un événement public précis à venir : {"t":"plan","kind":"rdv","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (kind rdv pour une rencontre avec le joueur, sinon live, annonce ou match ; ${WHEN_HELP}). Ajoute "collab":true si c’est pour faire ensemble une vidéo, un live ou un short (un feat). Jamais pour une échéance, une attente ou une simple intention.`;
 // A character asks the player out (0.9.4): the player gets a card to accept or decline in one tap.
 const INVITE_DM = (c) => `- Si ${c.name} PROPOSE dans ses messages de voir le joueur à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) et que ce n’est pas encore accepté : {"t":"invite","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble (une vidéo, un live, un short à deux). Pas pour un « un de ces jours » vague.`;
 const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un personnage principal PROPOSE au joueur, dans son message privé ("dm"), de se voir à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) : juste après ce "dm", {"t":"invite","by":"handle","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble. Les personnages proches du joueur (relation 30 ou plus) prennent ce genre d’initiative ${often}.`;
@@ -484,6 +484,8 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     else if (vid.tier === 'top' && VD.viral) L.push(`Réussi au niveau ${VD.label} : une exécution bluffante, ça part en viral.`);
     const F = vid.form || {};
     L.push(`Sur ${pfName(g, platformOf(g))}, format ${nounOf(r)}${r.series ? ` : épisode ${r.ep} de son défi quotidien (« Daily Upload »)` : ''}.${F.title ? ` Titre : « ${F.title} ».` : ''}${F.thumb && THUMBS[F.thumb] ? ` Miniature : ${THUMBS[F.thumb].label.toLowerCase()}.` : ''}${F.hook ? ` Accroche des premières secondes : « ${F.hook} ».` : ''}`);
+    const al = audLine(g, r); // 0.29.1: who watches it
+    if (al) L.push(al);
     const tr = F.trend ? g.trends.find((x) => x.id === F.trend) : null;
     if (tr) L.push(`Il surfe sur la tendance « ${tr.name} » (${TREND_KINDS[tr.kind].label.toLowerCase()}, ${heatWord(trendHeat(tr))}) : ${trendHeat(tr) >= 0.5 ? 'ça aide à toucher du monde' : 'certains trouvent ça déjà vu'}.`);
     if (F.collab && g.chars[F.collab]) L.push(`Publié en collab avec @${g.chars[F.collab].handle}, qui réagit forcément.`);
@@ -609,8 +611,8 @@ function sysLine(g, c, m) {
   if (m.sys === 'file') return `[fichier envoyé${m.me ? ' par le joueur' : ''} : ${m.name}]`; // 0.23
   if (m.sys === 'job') return str(m.text, 200);
   if (m.sys === 'buy') return m.buy ? `[${cap1(buyText(g, m.buy))}]` : ''; // 0.24
-  if (m.sys === 'gift') return `[${c.name.split(' ')[0]} offre au joueur : ${str(m.text.replace(/^🎁\s*/, ''), 80)}]`; // 0.26
-  if (m.sys === 'morning') return `[le lendemain matin, ${m.where === 'p' ? 'chez le joueur' : 'chez ' + c.name.split(' ')[0]} — ${str(m.text, 220)}]`; // 0.25.3
+  if (m.sys === 'gift') return `[${firstName(c)} offre au joueur : ${str(m.text.replace(/^🎁\s*/, ''), 80)}]`; // 0.26
+  if (m.sys === 'morning') return `[le lendemain matin, ${m.where === 'p' ? 'chez le joueur' : 'chez ' + firstName(c)} — ${str(m.text, 220)}]`; // 0.25.3
   const kind = m.sys === 'cancel' ? 'rendez-vous annulé' : m.sys === 'rdv' ? 'rendez-vous passé' : m.sys === 'deal' ? 'proposition de partenariat' : 'note';
   return `[${kind}${m.title ? ' : ' + str(m.title, 60) : ''}${m.text ? ' — ' + str(m.text, 140) : ''}]`;
 }
@@ -622,7 +624,7 @@ const talksMeet = (history, text) => MEET_RE.test(text) || history.slice(-6).som
 // together, and for a couple a cosy evening at home (tender, never explicit).
 function initiativeLine(g, c) {
   if (!c || !isMain(c) || c.rel < 30 || c.vibe === 'nemesis' || coolNow(c) || inBadBuzz(c)) return null;
-  const first = c.name.split(' ')[0], couple = PARTNER.includes(c.vibe);
+  const first = firstName(c), couple = PARTNER.includes(c.vibe);
   const ideas = [couple ? 'une soirée chez l’un ou l’autre (un film, un plaid, s’endormir blottis l’un contre l’autre : tendre, jamais explicite)' : null, 'une sortie ou une activité qui lui ressemble', 'tourner une vidéo ou un live ensemble ("collab":true)'].filter(Boolean).join(', ');
   const often = intensityOf(g).life.often;
   return `${often[0].toUpperCase() + often.slice(1)} (pas à chaque message, et seulement si ça vient naturellement), ${first} prend l’initiative et propose quelque chose : ${ideas}, avec un moment précis et la ligne "invite". En amour, tout reste pudique : si le joueur devient explicite, ${first} recentre avec tendresse ou humour.`;
@@ -670,6 +672,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   if (c.storySeen && Date.now() - c.storySeen.at < DAY_MS) { const st = storiesOf(g).find((x) => x.id === c.storySeen.id); if (st) L.push(`Le joueur a regardé ta story « ${str(st.text, 80)} » ${agoLabel(c.storySeen.at)}${st.reacted ? ` et y a réagi (${st.reacted})` : ''} : ${c.name} le sait (« vu par »).`); }
   if (main) L.push(...jobDMCtx(g, c)); // 0.23: an order the player is working on for them
   if (main) L.push(...merchDMCtx(g, c)); // 0.29: a merch in duo, proposed
+  if (main) L.push(...featDMCtx(g, c)); // 0.29.1: a feat, proposed
   if (trig.length) L.push('À jouer dans cette conversation : ' + trig.map((x) => x.text).join(' '));
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
   if (rumor) L.push(rumor);
@@ -692,7 +695,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     `Écris la réponse privée de ${c.name} : plus personnelle qu’en public, fidèle à sa voix, à sa mémoire et à sa relation avec le joueur (confidences, plans, questions, piques ou froideur selon le cas). Réagis vraiment à ce que dit le joueur, sur son ton : une blague appelle un rire, une vanne ou un sourire, pas un recadrage.`,
     ini,
     '', FORMAT, 'Lignes à produire :',
-    main && needsJudge(c, g) ? JUDGE_LINE(c.name.split(' ')[0]) : null,
+    main && needsJudge(c, g) ? JUDGE_LINE(firstName(c)) : null,
     advice ? ADVICE_LINE : null,
     `- ${advice || (main && needsJudge(c, g)) ? 'Puis ' : ''}${intensityOf(g).dmMsgs} lignes : {"t":"msg","text":"≤ 220 caractères"} (plusieurs messages courts, comme dans une vraie conversation)${advice ? ` : sa réponse au conseil, qu’${il} accepte ou refuse` : ''}`,
     c.rel <= -30 && !advice ? `- Ou bien, si ${c.name} préfère ignorer le joueur : une seule ligne {"t":"seen"} à la place des messages.` : null,
@@ -704,6 +707,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     canConfide(c) ? CONFIDE_LINE(c) : null,
     main && (meetHere || inv || date) ? PLAN_DM(c) : null,
     main && (meetHere || ini || inv) ? INVITE_DM(c) : null,
+    main && featAsked(g, c) ? FEAT_LINE(c) : null, // 0.29.1
     date ? `- Seulement si ${c.name} annule clairement ce rendez-vous dans cet échange (dispute, bad buzz, plus envie de voir le joueur) : {"t":"cancel","why":"≤ 70 caractères"}. Jamais pour un retard, une hésitation, une taquinerie ou une confusion sur l’heure ou le jour.` : null,
     main && intelHere ? INTEL_LINE(c) : null,
     canJoin(c) ? `- Facultatif, seulement si c’est vraiment le cas : si l’échange devient personnel (${c.name} se confie, flirte, a envie de voir le joueur en dehors du travail, ou une vraie complicité naît), ajoute {"t":"perso","why":"≤ 60 caractères"} : la relation n’est plus seulement pro (son travail ne change pas).` : null,
@@ -1193,7 +1197,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   const cited = callout ? (g.clues || []).filter((k) => k.c === accuse.id && (extra.accuse.clues || []).includes(k.id)).map((k) => k.text) : [];
   const fx = callout ? extra.accuse.fake : null; // a proof the player made up: the game rolls how closely the public looks
   const fake = fx && EV_KINDS[fx.kind] && str(fx.desc, 160).length >= 6 ? { kind: fx.kind, desc: str(fx.desc, 160), vig: rollVigilance(g, accuse, cited.length) } : null;
-  if (callout) autoSave(g, `Avant ton bad buzz contre ${accuse.name.split(' ')[0]}`); // the player can take it back (a release was saved before its shoot)
+  if (callout) autoSave(g, `Avant ton bad buzz contre ${firstName(accuse)}`); // the player can take it back (a release was saved before its shoot)
   else if (conf) autoSave(g, 'Avant ton aveu'); // 0.18
   else if (secAns) autoSave(g, 'Avant ta réponse sur ton secret');
   const md = kind === 'post' && extra.merch && !callout && !rumor && !secAns && !conf ? openDrop(g) : null;
@@ -1494,6 +1498,7 @@ function scoreEval(ctx, raw) {
   }
   const mods = ctx.accuse ? Object.assign({}, ctx.mods, { accuse: e.credibility == null ? 4 : e.credibility, busted: !!(fk && fk.busted) }) : ctx.mods;
   const out = ctx.outcome = computeOutcome(ctx.g, e, ctx.kind, ctx.boosts, mods);
+  if (ctx.video) releaseEarly(ctx, out); // 0.29.1: a long video's views first, its likes and subscribers after them
   const t = Date.now();
   const item = ctx.kind === 'post' ? ctx.post : ctx.mine;
   // a short suspense: the result shows once replies start coming in (0.28.1: counted from the click, like the replies,
@@ -1859,7 +1864,7 @@ async function sendDM(charId, text, opts = {}) {
   // 0.28: a present for them, bought now (given back if the message does not go)
   const gift = opts.gift && isMain(c) && !c.cut ? { what: str(opts.gift.what, 60), price: Math.round(num(opts.gift.price, 0)) } : null;
   if (opts.gift && !(gift && gift.what && gift.price >= 1)) return null;
-  if (gift && !pay(g, gift.price, `Cadeau pour ${c.name.split(' ')[0]} : ${gift.what}`, 'gift')) { toast('Pas assez d’argent pour ce cadeau.', 'bad'); return false; }
+  if (gift && !pay(g, gift.price, `Cadeau pour ${firstName(c)} : ${gift.what}`, 'gift')) { toast('Pas assez d’argent pour ce cadeau.', 'bad'); return false; }
   const advice = !!opts.advice && isMain(c);
   // 0.18: a secret of the player told in this message (with the button, or in the player's own words)
   const cs = isMain(c) ? (opts.confide ? secretOf(g, opts.confide) : null) || confidedIn(g, c, text) : null;
@@ -1874,7 +1879,7 @@ async function sendDM(charId, text, opts = {}) {
     const quiet = quietDM(g, c, convo, t);
     if (quiet) {
       const back = gift && quiet === 'bloque'; // 0.28.1: blocked: the present comes back (nothing reaches them)
-      if (back) { g.career.cash += gift.price; ledger(g, `Cadeau revenu : ${gift.what}`, gift.price, 'in'); toast(`🎁 Ton cadeau t’est revenu : ${c.name.split(' ')[0]} ne l’a pas pris.`, 'bad'); }
+      if (back) { g.career.cash += gift.price; ledger(g, `Cadeau revenu : ${gift.what}`, gift.price, 'in'); toast(`🎁 Ton cadeau t’est revenu : ${firstName(c)} ne l’a pas pris.`, 'bad'); }
       convo.msgs.push(Object.assign({ id: uid('m'), me: true, text, ts: t, at: t }, gift && !back ? { gift } : {}));
       if (gift && !back) { giftCounted(g, c, gift.price, t); giftMem(g, c, gift.what); } // (received, even unanswered)
       convo.readAt = t;
@@ -1947,7 +1952,8 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'memo' && !fx.memo) fx.memo = () => addChronicle(g, o.text, [c.id]); // 0.22.2: said in private
       else if (o.t === 'clue' && !fx.clue) { const when = at + 1200; fx.clue = () => addClue(g, c, o.text, when); }
       else if (o.t === 'psy' && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag
-      else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); }
+      else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => ((o.collab === true || o.collab === 'true' || COLLAB_RE.test(o.what || '')) && isMain(c) && planCollab(g, c, o)) || addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); } // (0.29.1: a feat agreed goes in the Studio)
+      else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
       else if (o.t === 'trust' && !fx.trust && isMain(c)) { const when = at + 400; fx.trust = () => applyTrust(g, c, int(o.d, -15, 8, 0), o.why, when); }
       else if (o.t === 'advice' && !fx.advice && advice) fx.advice = () => addAdvice(g, c, o, mine.id);
       else if (o.t === 'confide' && !fx.confide && isMain(c)) { const m = lastMsg; fx.confide = () => confideSecret(g, c, m); }
@@ -1978,7 +1984,7 @@ async function sendDM(charId, text, opts = {}) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
       if (isMain(c) && msgs && !fx.plan && !fx.noinv) dmDateFallback(g, c, text, saidNow.join(' '), invBefore, !!fx.invite, at);
@@ -2169,7 +2175,7 @@ function jumpClock(g, ms) {
    morning is told in their messages, and the player is still there (or they are still at the player's) until the player
    goes home, or late in the morning. Everyone's prompts know it; the others only if they know about the two of them. */
 const STAY_MS = 5 * 3600000;
-const MORNING_FALLBACK = (c) => `Le lendemain matin, chez ${c.name.split(' ')[0]} : la lumière qui passe entre les rideaux, un café partagé, et le sourire de la veille.`;
+const MORNING_FALLBACK = (c) => `Le lendemain matin, chez ${firstName(c)} : la lumière qui passe entre les rideaux, un café partagé, et le sourire de la veille.`;
 const stayOn = (g, t = Date.now()) => !!(g && g.stay && !g.stay.end && t >= g.stay.at && t < g.stay.until && g.chars[g.stay.c]);
 // How long until the next morning (8 h – 9 h 30 of the game's clock), from a night that starts now.
 function untilMorning(t = Date.now()) {
@@ -2182,8 +2188,8 @@ function nightTogether(g, c, ev) {
   let ms = untilMorning();
   const rl = activeRelease(g), stops = [rl, ...activeEvents(g).filter((e) => e.player && e !== ev)].filter((x) => x && x.due > Date.now()).map((x) => x.due);
   if (stops.length) ms = Math.min(ms, Math.min(...stops) - Date.now() - 60000); // (a release or a date in the night: the morning comes for it)
-  if (ms >= 3600000 && !skipBusy()) { autoSave(g, `Avant ta nuit avec ${c.name.split(' ')[0]}`); jumpClock(g, ms); g.lastPlayedAt = Date.now(); toast('🌙 La nuit passe…', 'flash'); }
-  const t = Date.now(), M = ev.morning, first = c.name.split(' ')[0];
+  if (ms >= 3600000 && !skipBusy()) { autoSave(g, `Avant ta nuit avec ${firstName(c)}`); jumpClock(g, ms); g.lastPlayedAt = Date.now(); toast('🌙 La nuit passe…', 'flash'); }
+  const t = Date.now(), M = ev.morning, first = firstName(c);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push({ id: uid('m'), sys: 'morning', ev: ev.id, where: M.where, text: M.text, ts: t, at: t });
   g.stay = { c: c.id, ev: ev.id, where: M.where, at: t, until: t + STAY_MS };
@@ -2192,7 +2198,7 @@ function nightTogether(g, c, ev) {
 }
 function endStay(g) {
   if (!stayOn(g)) return;
-  const c = g.chars[g.stay.c], first = c.name.split(' ')[0];
+  const c = g.chars[g.stay.c], first = firstName(c);
   g.stay.end = Date.now();
   toast(g.stay.where === 'c' ? `Tu rentres chez toi. ${first} te regarde partir.` : `${first} rentre chez ${gx(c.g, 'lui', 'elle', 'iel')}.`);
   update();
@@ -2200,7 +2206,7 @@ function endStay(g) {
 // What every prompt knows of it: the one it is with lives the morning with the player; the others, if they may know.
 function stayCtx(g, about) {
   if (!stayOn(g)) return null;
-  const c = g.chars[g.stay.c], first = c.name.split(' ')[0], home = g.stay.where === 'c';
+  const c = g.chars[g.stay.c], first = firstName(c), home = g.stay.where === 'c';
   if (about === c) return `Vous avez passé la nuit ensemble ${home ? 'chez ' + first : 'chez le joueur'} : ce matin, vous êtes encore ensemble ${home ? 'chez ' + first : 'chez le joueur'}. Ce que le joueur écrit ici, il le dit de vive voix (ou d’une pièce à l’autre) : réponds comme quelqu’un qui est là, avec lui.`;
   return `Ce matin, le joueur ${home ? `est encore chez @${c.handle}, où il a passé la nuit` : `a encore chez lui @${c.handle}, qui y a passé la nuit`}${vibePrivate(c) ? ' (c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion)' : ''}.`;
 }
@@ -2248,6 +2254,7 @@ function promptMiniGame(g, r, force) {
     `Le joueur va sortir ${sa(r)}. SON SUJET, choisi par lui : « ${r.topic} »${c ? ` (au sujet de @${c.handle})` : ''}. Respecte-le exactement : ne le remplace pas et ne le mélange pas avec d’autres intrigues du monde.`,
     r.said ? `Son annonce : « ${r.said.slice(0, 200)} »` : null,
     r.plot ? `Ce qui se passe dedans, raconté par le joueur : « ${r.plot} ». Le mini-jeu porte sur CE contenu-là.` : null,
+    r.collab && g.chars[r.collab] ? `Tourné en feat avec @${g.chars[r.collab].handle} (${g.chars[r.collab].name}, ${g.chars[r.collab].role || 'du réseau'}) : ${firstName(g.chars[r.collab])} est dans ${laW(r)} avec le joueur, le mini-jeu peut s’en servir.` : null, // 0.29.1
     words.length ? 'Ce qu’il disait juste avant (ses mots, pour comprendre ce qu’il veut montrer) :\n' + words.join('\n') : null,
     clues.length ? `Indices qu’il a vraiment remarqués sur ${c.name} (de bons éléments possibles, s’ils collent au sujet) : ${clues.join(' ; ')}` : null,
     `Avant la sortie, il passe un mini-jeu EN RAPPORT DIRECT avec ce sujet : sa réussite décidera si ${laW(r)} marche.`,
@@ -2336,7 +2343,7 @@ const genDate = (ev) => {
   if (isTalk(g, ev)) { openTalk(ev); return null; } // 0.11: after the first date, the evening is a real conversation
   if (S.busy.prep === ev.id) { ev.go = 1; update(false); return null; } // being written: it opens as soon as it is ready
   const c = g.chars[ev.c];
-  autoSave(g, `Avant ton rendez-vous avec ${c ? c.name.split(' ')[0] : 'quelqu’un'}`);
+  autoSave(g, `Avant ton rendez-vous avec ${c ? firstName(c) : 'quelqu’un'}`);
   if (arriveDate(g, ev)) delete ev.prep; // late since it was written: the evening starts otherwise
   if (prepFresh(g, ev)) { // written (and read again) while the player was at the date screen
     ev.game = Object.assign(ev.prep.game, { diff: ev.diff || 'moyen' });
@@ -2563,9 +2570,9 @@ function eventOutcome(g, ev, c, o, post) {
   let line = '';
   if (inBadBuzz(c)) {
     const bb = String(o.badbuzz || '').toLowerCase();
-    if (bb === 'ends') { c.badBuzz.until = Date.now(); c.buried = false; c.followers += Math.round((c.badBuzz.loss || 0) * 0.5); line = `${c.name.split(' ')[0]} se sort de son bad buzz`; }
-    else if (bb === 'worse') { c.badBuzz.until = Math.max(c.badBuzz.until, Date.now()) + BADBUZZ_MS; line = `${c.name.split(' ')[0]} s’enfonce dans son bad buzz`; }
-    else { c.badBuzz.until = Math.max(c.badBuzz.until, Date.now() + BADBUZZ_MS); line = `${c.name.split(' ')[0]} reste en plein bad buzz`; }
+    if (bb === 'ends') { c.badBuzz.until = Date.now(); c.buried = false; c.followers += Math.round((c.badBuzz.loss || 0) * 0.5); line = `${firstName(c)} se sort de son bad buzz`; }
+    else if (bb === 'worse') { c.badBuzz.until = Math.max(c.badBuzz.until, Date.now()) + BADBUZZ_MS; line = `${firstName(c)} s’enfonce dans son bad buzz`; }
+    else { c.badBuzz.until = Math.max(c.badBuzz.until, Date.now() + BADBUZZ_MS); line = `${firstName(c)} reste en plein bad buzz`; }
   }
   if ((o.secret === true || o.secret === 'true') && c.secret && !c.secretOut) { c.secretOut = c.secret; line += (line ? ' · ' : '') + 'son secret a éclaté'; }
   const rel = int(o.rel, -15, 15, 0);
@@ -2591,7 +2598,7 @@ const dateGame = (ev) => ({ kind: 'tri', title: 'Le rendez-vous', intro: 'Garde 
 // What a date must agree with (0.9.3): where the player and this character stand, and what they said to each other
 // lately, in private and in public (the mini-game used to know only a few posts of the feed).
 function dateSituation(g, c, nDm = 14, nPub = 6) {
-  const t = Date.now(), first = c.name.split(' ')[0];
+  const t = Date.now(), first = firstName(c);
   const state = [`relation ${fmtRel(c.rel)} (${relLabel(c.rel, c.g, c.vibe).toLowerCase()})`, ...vibeText(c), `confiance ${trustOf(c)}/100`];
   if (inBadBuzz(c)) state.push(!bbByPlayer(c) ? `${first} est en plein bad buzz (« ${str(c.badBuzz.reason, 90)} »)` : `${first} est en plein bad buzz À CAUSE DU JOUEUR, qui l’a accusé·e en public (« ${str(c.badBuzz.reason, 90)} »)`);
   if (playerBadBuzz(g, t)) state.push('le joueur est lui-même en plein bad buzz');
@@ -2682,7 +2689,7 @@ function promptDateEnd(g, ev) {
     '', FORMAT, 'Lignes à produire :',
     '- D’abord : {"t":"recap","text":"≤ 380 caractères : le récit de la soirée et ses moments forts"}',
     ev.talk && ev.talk.faded // 0.25.3: they spent the night together: the morning, not a message sent on the way home
-      ? `- Puis : {"t":"morning","where":"c","text":"≤ 420 caractères : le lendemain matin, au réveil, là où ils ont dormi : la lumière, le café, leurs premiers mots (dans la voix de ${c.name.split(' ')[0]}), tendre et pudique, aucun détail intime"} (where : "c" s’ils ont dormi chez ${c.name.split(' ')[0]}, "p" chez le joueur, d’après la soirée).`
+      ? `- Puis : {"t":"morning","where":"c","text":"≤ 420 caractères : le lendemain matin, au réveil, là où ils ont dormi : la lumière, le café, leurs premiers mots (dans la voix de ${firstName(c)}), tendre et pudique, aucun détail intime"} (where : "c" s’ils ont dormi chez ${firstName(c)}, "p" chez le joueur, d’après la soirée).`
       : `- Puis 1 ou 2 lignes : {"t":"msg","text":"≤ 200 caractères"} : le message privé que ${c.name} envoie au joueur en rentrant, dans sa voix.`,
     VIBE_LINE(false),
     `- Facultatif (au plus 1) : {"t":"mem","text":"≤ 90 caractères"} : ce que ${c.name} retient de la soirée.`,
@@ -2746,7 +2753,7 @@ async function endDate(ev) {
   ev.state = 'done';
   if (ev.played && ev.played.tier === 'top') addEcho(g, 'date', { c: c.id, text: ev.what });
   // the other date set for the same time: nobody warned them, they waited for nothing
-  for (const o of activeEvents(g)) if (o.player && Math.abs(o.due - ev.due) < 90 * 60000) standUp(g, o, later() + 4000, `(tu étais avec ${c.name.split(' ')[0]})`);
+  for (const o of activeEvents(g)) if (o.player && Math.abs(o.due - ev.due) < 90 * 60000) standUp(g, o, later() + 4000, `(tu étais avec ${firstName(c)})`);
   S.busy.ev = null;
   endFlow(f);
   dropLayers((l) => l.t === 'minigame' && l.id === ev.id);
@@ -2776,7 +2783,7 @@ function dateOutcome(g, ev, c) {
   }
   addMem(g, c, M.mem[ix]);
   touch(c);
-  const first = c.name.split(' ')[0], dk = dateKind(c, ev);
+  const first = firstName(c), dk = dateKind(c, ev);
   if (dk === 'wedding') { // the big day: a yes, unless it all went wrong
     if (tier !== 'flop') applyVibe(g, c, 'mariage', tier === 'top' ? 'un mariage magnifique' : 'vous vous êtes dit oui', t + 2200, true);
     else { applyRel(g, c, -6, 'un mariage gâché', t + 1500, 10); addTrigger(g, `Le mariage du joueur et de @${c.handle} a tourné au fiasco : la cérémonie est reportée, tout le monde en parle.`, c.id); }

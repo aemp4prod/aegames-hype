@@ -153,6 +153,7 @@ function newCareer(persona, st) {
   // a channel that already exists has a past (and a star is already in the partner program)
   if (start === 'rising') c.log.push({ at: t - 120 * DAY_MS, what: 'vidéo', views: 41000, hours: 3075, past: true });
   if (start === 'star') { c.log.push({ at: t - 60 * DAY_MS, what: 'vidéo', views: 2400000, hours: 180000, past: true }); c.prog = { state: 'on', at: t - 300 * DAY_MS }; }
+  c.aud = audStart({ career: c }, st ? st.followers : 0); // 0.29.1: who watches its long videos
   return c;
 }
 function migrateCareer(g) {
@@ -164,6 +165,7 @@ function migrateCareer(g) {
   for (const k of ['deals', 'staff', 'trends', 'rumors', 'intel']) if (!Array.isArray(g[k])) g[k] = [];
   if (g.series === undefined) g.series = null;
   if (!g.boosts) g.boosts = { reach: false, viral: false, push: false };
+  if (!c.aud || typeof c.aud !== 'object') c.aud = audStart(g); // 0.29.1: from what it has published so far
 }
 function ledger(g, label, amount, kind = '') {
   const c = g.career;
@@ -311,37 +313,178 @@ function checkAppeals(g, t) {
   }
   return ch;
 }
-// The views a release gets over its first week, without luck (the upload screen shows an estimate from it).
-function viewsCore(g, r, played, at, form) {
-  const s = g.stats, F = Math.max(0, s.followers), Fm = FORMATS[r.what] || FORMATS.vidéo;
-  const D = diffOf(played.diff || r.diff), d = gameDate(at);
-  let v = F * Fm.share * (TIER_VIEWS[played.tier] || 0.85) + Fm.disc * (0.4 + played.score) * Math.pow(D.mult, 0.6);
-  v *= 0.35 + 0.65 * audienceAt(d);
-  v *= staffMult(g, 'views', r.what, form && form.crew);
-  v *= 1 + trendBoost(g, r, form, at);
-  if (calFits(r.topic, d)) v *= 1.3;
-  if (form && typeof form.thumbCtr === 'number') v *= 1 + clamp(form.thumbCtr, 0, 0.4); // 0.14: the thumbnail made in the studio
-  else if (form && form.thumb) v *= (THUMBS[form.thumb] || { ctr: 0 }).ctr + 1;
-  if (form && form.hook && form.hook.trim().length >= 8) v *= 1.12;
-  if (form && form.collab) { const cc = g.chars[form.collab]; if (cc) v += Math.pow(cc.followers, 0.92) * 0.12; }
-  if (r.series) v *= seriesMult(g);
-  v *= coupleBoost(g); // 0.14: a couple just made public draws eyes to both
-  v *= gearViewsMult(g, r.what); // 0.20: what the player films, records and edits with
-  if (g.boosts.push) v *= 2;
-  if (s.reputation < 30) v *= 0.75;
-  return v;
+/* ---------- 0.29.1: two publics in the same subscribers (YouTube): the shorts', and the long videos' ----------
+   A short is found in a feed people swipe: it reaches the subscribers, and far more. A long video (or a live) is watched
+   by those who come for long videos (« ton public vidéo »), by a few short-form fans who click, and by those the
+   algorithm brings, more and more as good videos come out. Each one makes some of the short-form fans who watched it its
+   own public (more when it is good, far more when the community is warm), and a short that announces it, before or after,
+   sends it some of its viewers. The count on the profile stays one: what differs is who watches what. */
+const AUD = {
+  share0: 0.03, // a channel of shorts only: the part of its subscribers who also watch its long videos
+  trickle: { vidéo: 0.02, live: 0.012 }, // the short-form fans who click (a live notifies everyone: a few more come)
+  conv: { top: 0.3, mid: 0.12, flop: 0.02 }, // of the short-form fans who watched, those who stay for the long ones
+  convLive: 0.5, // (a live converts half as much)
+  trustK: 0.25, trustMax: 8, trustStep: { top: 1, mid: 0.4, flop: -1 }, // the algorithm's trust in its long videos
+  newFans: { vidéo: 0.85, live: 0.7, short: 0.04 }, // who the new subscribers of a release come for
+  folCap: 0.06, // a long video's new subscribers: at most 6 % of its views
+  tease: 0.01, link: 0.008, promoTier: { top: 1.3, mid: 1, flop: 0.5 }, promoDays: 7, linkDays: 14,
+};
+const audSplit = (g) => { const f = PF(g).fmts; return f.includes('short') && f.includes('vidéo'); };
+const audLong = (g, what) => audSplit(g) && what in AUD.trickle;
+// How much a warm community follows the player from one format to another (0,5 glaciale, 1 tiède, 1,75 at 100).
+const warmK = (g) => clamp(0.5 + warmOf(g) / 80, 0.5, 1.75);
+// Where a game's long-form public starts: what it has published (long videos: most of its subscribers; shorts: a few).
+// A channel with nothing out yet: half, until its releases decide.
+function audStart(g, F = g.stats ? g.stats.followers : 0) {
+  const log = (g.career && g.career.log) || [];
+  const nV = log.filter((x) => x.what === 'vidéo').length, nS = log.filter((x) => x.what === 'short').length;
+  const sh = nV + nS ? clamp(AUD.share0 + 0.92 * nV / (nV + 0.6 * nS), AUD.share0, 0.95) : 0.5;
+  F = Math.max(0, num(F, 0));
+  return { fans: Math.round(F * sh), trust: Math.min(6, 0.6 * nV), f0: F };
 }
-// The views a release really gets (computed once, shown counting up): luck, virality, the For You page.
-function releaseViews(g, r, played, viral, at, form) {
-  let v = viewsCore(g, r, played, at, form) * (1 + skillFx(g, 'views')); // 0.24: creativity
+// The long-form public now (F: the followers to count it at, by default the current ones). Followers that came or went
+// some other way (a post, a bad buzz) keep the same mix; a release says who its own come for (audAfter).
+function vidAud(g, F = g.stats.followers) {
+  const c = g.career;
+  if (!c.aud || typeof c.aud !== 'object' || !(c.aud.fans >= 0)) c.aud = audStart(g);
+  const A = c.aud;
+  F = Math.max(0, num(F, 0));
+  if (!(A.trust >= 0)) A.trust = 0;
+  if (F !== A.f0) { A.fans = A.f0 > 0 ? A.fans * F / A.f0 : F * 0.5; A.f0 = F; }
+  A.fans = clamp(A.fans, 0, F);
+  return A;
+}
+const vidFans = (g) => (audSplit(g) ? Math.round(vidAud(g).fans) : Math.max(0, g.stats.followers));
+// The shorts that announce a long video, already out: some of their viewers come when it is out (the best one in full,
+// the next ones less and less).
+const promoShorts = (g, r) => (g.releases || []).filter((x) => x.promo === r.id && x.state === 'released' && x.out);
+function promoViews(g, r, at = Date.now()) {
+  if (!r || !r.id) return 0;
+  const vs = promoShorts(g, r).filter((x) => x.releasedAt <= at && at - x.releasedAt < AUD.promoDays * DAY_MS)
+    .map((x) => { const p = g.posts.find((y) => y.id === x.out); return p && p.video ? (p.video.views || 0) * (AUD.promoTier[x.tier] || 1) : 0; })
+    .sort((a, b) => b - a);
+  return vs.reduce((n, v, k) => n + v * Math.pow(0.5, k), 0) * AUD.tease * warmK(g);
+}
+// The views a release gets over its first week, before luck, in two parts: a, what virality may carry further (its own
+// audience, the algorithm's discovery, a collab); b (0.29.1), the short-form fans who click a long video and the viewers
+// a short sends to it.
+function viewsParts(g, r, played, at, form) {
+  const s = g.stats, F = Math.max(0, s.followers), Fm = FORMATS[r.what] || FORMATS.vidéo;
+  const D = diffOf(played.diff || r.diff), d = gameDate(at), T = TIER_VIEWS[played.tier] || 0.85;
+  const disc = Fm.disc * (0.4 + played.score) * Math.pow(D.mult, 0.6);
+  let a, b = 0, tz = 0;
+  if (audLong(g, r.what)) {
+    const A = vidAud(g), L = Math.min(A.fans, F);
+    a = L * Fm.share * T + disc * (1 + AUD.trustK * A.trust);
+    tz = r.what === 'vidéo' ? promoViews(g, r, at) : 0;
+    b = (F - L) * AUD.trickle[r.what] * T * warmK(g) + tz;
+  } else a = F * Fm.share * T + disc;
+  let m = 0.35 + 0.65 * audienceAt(d);
+  m *= staffMult(g, 'views', r.what, form && form.crew);
+  m *= 1 + trendBoost(g, r, form, at);
+  if (calFits(r.topic, d)) m *= 1.3;
+  if (form && typeof form.thumbCtr === 'number') m *= 1 + clamp(form.thumbCtr, 0, 0.4); // 0.14: the thumbnail made in the studio
+  else if (form && form.thumb) m *= (THUMBS[form.thumb] || { ctr: 0 }).ctr + 1;
+  if (form && form.hook && form.hook.trim().length >= 8) m *= 1.12;
+  a *= m;
+  b *= m;
+  if (form && form.collab) { const cc = g.chars[form.collab]; if (cc) a += Math.pow(cc.followers, 0.92) * 0.12; }
+  let k = 1;
+  if (r.series) k *= seriesMult(g);
+  k *= coupleBoost(g); // 0.14: a couple just made public draws eyes to both
+  k *= gearViewsMult(g, r.what); // 0.20: what the player films, records and edits with
+  if (form && 'push' in form ? form.push : g.boosts.push) k *= 2; // (0.29.1: a release reads the push it had when it went out: the game resets it as it starts)
+  if (s.reputation < 30) k *= 0.75;
+  return { a: a * k, b: b * k, tease: tz * m * k };
+}
+// The views a release gets over its first week, without luck (the upload screen shows an estimate from it).
+function viewsCore(g, r, played, at, form) { const p = viewsParts(g, r, played, at, form); return p.a + p.b; }
+// The views a release really gets (computed once, shown counting up): luck, virality, the For You page. (0.29.1: a
+// long video's virality carries its own audience further, not the short-form fans who clicked.) out.b: the views of
+// the second part, as they came.
+function releaseViews(g, r, played, viral, at, form, out) {
+  const p = viewsParts(g, r, played, at, form), sk = 1 + skillFx(g, 'views'); // 0.24: creativity
+  let v = p.a * sk;
   if (viral) v *= rand(3, 6);
+  v += p.b * sk;
   if (platformOf(g) === 'tiktok' && r.what === 'short') v *= rand(0.6, 1.7); // the For You page: very irregular
-  return Math.max(3, Math.round(v * rand(0.85, 1.15)));
+  const luck = rand(0.85, 1.15);
+  if (out) { out.b = Math.round(p.b * sk * luck); out.tease = Math.round(p.tease * sk * luck); }
+  return Math.max(3, Math.round(v * luck));
 }
 function estimateViews(g, r, form) {
   const v = viewsCore(g, r, r.played || { tier: 'mid', score: 0.6 }, Date.now(), Object.assign({ crew: r.crew || [] }, form)) * (1 + skillFx(g, 'views'));
   const wide = platformOf(g) === 'tiktok' && r.what === 'short';
   return [Math.max(3, Math.round(v * (wide ? 0.5 : 0.8))), Math.max(5, Math.round(v * (wide ? 1.8 : 1.2)))];
+}
+// 0.29.1: a long video's views are known before its reactions (its own public, not every subscriber): its likes and its
+// new subscribers follow them (no video seen by 10 000 people bringing 15 000 subscribers). Called with its outcome.
+function releaseEarly(ctx, out) {
+  const g = ctx.g, v = ctx.video, r = v && v.r;
+  if (!r || !audLong(g, r.what)) return;
+  const form = Object.assign({}, v.form || {}, { crew: r.crew || [], push: !!(ctx.boosts && ctx.boosts.push) });
+  const o = {};
+  const views = releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!out.viral, Date.now(), form, o);
+  ctx.early = { views, b: o.b, tease: o.tease };
+  const seen = views * (form.membLive && r.what === 'live' && membOn(g) ? 0.35 : 1); // (a live for the members only: far fewer)
+  const lk = Math.max(1, Math.round(seen * rand(0.22, 0.38)));
+  if (out.likes > lk) { out.reposts = Math.round(out.reposts * lk / Math.max(1, out.likes)); out.likes = lk; }
+  const fc = Math.round(seen * AUD.folCap);
+  if (out.fol > fc) out.fol = fc;
+}
+// After a release on a platform of both: who its new subscribers come for, the short-form fans it won over, the trust
+// of the algorithm in the player's long videos. fol: what it brought (already counted). Returns the fans won over.
+function audAfter(g, r, tier, fol, early) {
+  if (!audSplit(g)) return 0;
+  const F = Math.max(0, g.stats.followers), A = vidAud(g, F - Math.max(0, fol)); // (as it was before its own)
+  const long = audLong(g, r.what);
+  const add = fol > 0 ? fol * (r.what in AUD.newFans ? AUD.newFans[r.what] : A.fans / Math.max(1, A.f0)) : 0;
+  const conv = long ? Math.round((early ? early.b : 0) * (AUD.conv[tier] || 0) * Math.min(1.3, warmK(g)) * (r.what === 'live' ? AUD.convLive : 1)) : 0;
+  if (r.what === 'vidéo') A.trust = clamp(A.trust + (AUD.trustStep[tier] || 0), 0, AUD.trustMax);
+  A.fans = clamp(A.fans + add + conv, 0, F);
+  A.f0 = F;
+  return conv;
+}
+// 0.29.1: the long videos a short can announce (programmed) or send viewers to (out in the last two weeks).
+function promoTargets(g, t = Date.now()) {
+  if (!audSplit(g)) return [];
+  const rs = g.releases || [];
+  return [...rs.filter((x) => x.state === 'scheduled' && x.what === 'vidéo').sort((a, b) => a.due - b.due),
+    ...rs.filter((x) => x.state === 'released' && x.what === 'vidéo' && x.out && t - (x.releasedAt || 0) < AUD.linkDays * DAY_MS).sort((a, b) => b.releasedAt - a.releasedAt)].slice(0, 4);
+}
+// 0.29.1: what the reactions know of who watches: a long video seen mostly by its own public; a short that announces one.
+function audLine(g, r) {
+  if (!r || !audSplit(g)) return '';
+  const sn = PF(g).shortName, out = [];
+  if (audLong(g, r.what)) {
+    const A = vidAud(g), F = Math.max(1, g.stats.followers);
+    if (A.fans / F < 0.4) out.push(`Le joueur est surtout connu pour ses ${sn}s : la plupart de ses abonnés ne regardent pas ses ${r.what === 'live' ? 'lives' : 'vidéos longues'}. ${cap1(laW(r))} touche surtout ceux qui aiment ce format, quelques fans de ses ${sn}s qui découvrent (« enfin une vraie vidéo », « je viens des ${sn}s ») et ceux que l’algorithme amène.`);
+    if (r.what === 'vidéo' && promoShorts(g, r).length) out.push(`Un ${sn} du joueur l’avait annoncée : certains viennent de là et le disent.`);
+  }
+  const vr = r.what === 'short' && r.promo ? (g.releases || []).find((x) => x.id === r.promo) : null;
+  if (vr && vr.state === 'scheduled') out.push(`Ce ${sn} annonce sa vidéo « ${str(vr.topic, 80)} », qui sort ${fmtWhen(vr.due)} : des gens disent qu’ils iront la voir.`);
+  else if (vr && vr.state === 'released') out.push(`Ce ${sn} renvoie vers sa vidéo « ${str(vr.topic, 80)} », déjà en ligne (le lien « vidéo associée ») : certains disent qu’ils vont la regarder.`);
+  return out.join(' ');
+}
+// 0.29.1: what a short does for the long video it is linked to. Out before it: nothing yet (its viewers come at the
+// video's release, promoViews). After it (the « vidéo associée » link): some of them go and watch it now.
+function promoAfter(g, r, post) {
+  const vr = r && r.promo ? (g.releases || []).find((x) => x.id === r.promo) : null;
+  if (!vr || !post || !post.video) return null;
+  if (vr.state === 'scheduled') return { before: vr };
+  const vp = vr.state === 'released' && vr.out ? g.posts.find((p) => p.id === vr.out) : null;
+  if (!vp || !vp.video || Date.now() - vr.releasedAt > AUD.linkDays * DAY_MS) return null;
+  const extra = Math.round((post.video.views || 0) * AUD.link * warmK(g) * (AUD.promoTier[r.tier] || 1) * rand(0.85, 1.15));
+  if (extra < 1) return null;
+  vp.video.views += extra;
+  vp.video.promo = (vp.video.promo || 0) + extra;
+  const c = g.career, Fm = FORMATS[vr.what] || FORMATS.vidéo, e = c.log.slice().reverse().find((x) => x.p === vp.id);
+  if (e) { e.views += extra; e.hours += Math.round(extra * Fm.mins / 60); } // (the partner program counts them)
+  const money = vp.video.claim ? 0 : Math.round(extra * rpmOf(g, vr.what, vp.video.ads) * adSeason(gameDate(Date.now())) / 10) / 100;
+  if (money > 0) { c.est += money; vp.video.money = Math.round(((vp.video.money || 0) + money) * 100) / 100; ledger(g, `${cap1(ta(vr))} « ${str(vr.topic, 40)} » : ${fmtN(extra)} vues venues de ton ${PF(g).shortName}`, money, 'est'); }
+  const A = vidAud(g), conv = Math.round(extra * (AUD.conv[vr.tier] || 0) * Math.min(1.3, warmK(g)));
+  A.fans = clamp(A.fans + conv, 0, Math.max(0, g.stats.followers));
+  return { after: vr, extra, conv };
 }
 // Logs the release (for the partner program) and books its money for the month.
 function bookRelease(g, r, views, post, ads) {
@@ -349,6 +492,7 @@ function bookRelease(g, r, views, post, ads) {
   const entry = { at: Date.now(), what: r.what, views, hours: r.what === 'short' ? 0 : Math.round(views * Fm.mins / 60) };
   if (post && post.res && post.res.viral) entry.viral = true; // 0.20: the brands price on the usual views
   if (r.what === 'live') entry.cc = Math.max(1, Math.round(views * 0.25)); // concurrent viewers, roughly
+  if (post) entry.p = post.id; // (0.29.1: a short that sends viewers later adds them here)
   c.log.push(entry);
   if (c.log.length > 150) c.log.splice(0, c.log.length - 150);
   const rpm = rpmOf(g, r.what, ads);
@@ -558,7 +702,7 @@ function dealFee(g, what) {
 const CONTACT_FIRST = { f: ['Inès', 'Clara', 'Maëlle', 'Sarah', 'Léa', 'Yasmine', 'Chloé', 'Nora', 'Jade', 'Lina'], m: ['Hugo', 'Karim', 'Maxime', 'Théo', 'Samir', 'Lucas', 'Adam', 'Nathan', 'Malik', 'Enzo'] };
 const CONTACT_LAST = ['Moreau', 'Benali', 'Laurent', 'Petit', 'Garnier', 'Haddad', 'Roussel', 'Faure', 'Lemaire', 'Da Silva', 'Ndiaye', 'Morel'];
 // 0.28.1: the first names already worn (the main characters, the player): never given to someone new.
-const takenFirsts = (g) => [...new Set(mains(g, false).map((c) => c.name.split(' ')[0]).concat(String((g.player && g.player.name) || '').split(' ')[0]))].filter(Boolean);
+const takenFirsts = (g) => [...new Set(mains(g, false).map((c) => firstName(c)).concat(String((g.player && g.player.name) || '').split(' ')[0]))].filter(Boolean);
 const firstsLine = (g, who) => { const L = takenFirsts(g); return L.length ? `Prénoms déjà pris, à ne pas reprendre${who ? ` pour ${who}` : ''} : ${L.slice(0, 24).join(', ')}.` : null; };
 // Someone the player can write to (a brand's partnerships manager, a job candidate…).
 function addContact(g, o) {
@@ -633,7 +777,7 @@ function makeOffer(g, o = {}) {
   g.deals.push(deal);
   trimDeals(g);
   const obvious = deal.scam === 'frais' || deal.scam === 'brief';
-  const pitch = (obvious && sc.pitch) || str(o.text, 300) || (sc && sc.pitch) || `Salut ${g.player.name.split(' ')[0]} ! Je gère les partenariats de ${brand}. On adore ce que tu fais : on aimerait te confier ${deal.product}. Je t’envoie notre proposition ⬇️`;
+  const pitch = (obvious && sc.pitch) || str(o.text, 300) || (sc && sc.pitch) || `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On adore ce que tu fais : on aimerait te confier ${deal.product}. Je t’envoie notre proposition ⬇️`;
   const at = later() + 1200;
   addIncomingDM(g, contact, pitch, at, { max: 400 });
   dmCard(g, contact, { sys: 'deal', deal: deal.id }, at + 400);
@@ -681,7 +825,7 @@ function agentCut(g, amount, brand) {
   const m = hasStaff(g, 'agent');
   if (!m || !(amount > 0)) return 0;
   const cut = Math.round(amount * m.rate) / 100;
-  charge(g, cut, `Commission ${g.chars[m.c] ? deN(g.chars[m.c].name.split(' ')[0]) : 'de ton agent'} (${brand})`, 'staff'); // (0.28.1: « d’Iris »)
+  charge(g, cut, `Commission ${g.chars[m.c] ? deN(firstName(g.chars[m.c])) : 'de ton agent'} (${brand})`, 'staff'); // (0.28.1: « d’Iris »)
   return cut;
 }
 // 0.27.6: a down payment that goes back takes the agent's cut on it back too (they kept it before).
@@ -949,7 +1093,7 @@ function payCrew(g, r) {
     if (!R || R.pay !== 'video' || !R.fmts.includes(r.what)) continue;
     const c = g.chars[m.c];
     if (pay(g, m.rate, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}`, 'staff')) crew.push(m.role);
-    else missed.push(c ? c.name.split(' ')[0] : roleName(m.role));
+    else missed.push(c ? firstName(c) : roleName(m.role));
   }
   r.crew = crew;
   if (missed.length) toast(`Pas assez d’argent pour payer ${missed.join(' et ')} : ${missed.length > 1 ? 'ils ne travailleront' : 'cette personne ne travaillera'} pas sur ${ta(r)}.`, 'bad');
@@ -963,7 +1107,7 @@ function payroll(g, t) {
     if (!R || R.pay !== 'week' || !c || t < m.next) continue;
     m.next += 7 * DAY_MS;
     ch = true;
-    if (pay(g, m.rate, `Salaire de ${c.name.split(' ')[0]} (${roleName(m.role, c.g).toLowerCase()})`, 'staff')) { m.unpaid = 0; repMove(g, { pro: 1.5 }, 'ton équipe payée à l’heure'); continue; }
+    if (pay(g, m.rate, `Salaire de ${firstName(c)} (${roleName(m.role, c.g).toLowerCase()})`, 'staff')) { m.unpaid = 0; repMove(g, { pro: 1.5 }, 'ton équipe payée à l’heure'); continue; }
     m.unpaid = (m.unpaid || 0) + 1;
     if (m.unpaid >= 2) { quitStaff(g, m, 'unpaid'); continue; }
     applyRel(g, c, -12, `pas ${gx(c.g, 'payé', 'payée', 'payé·e')} cette semaine`, later(), 15);
@@ -1000,7 +1144,7 @@ function hireStaff(g, c) {
   if (!o || c.kind !== 'cand') return false;
   const R = STAFF_ROLES[o.role];
   if (hasStaff(g, o.role)) { toast(`Tu as déjà ${gx(c.g, 'un', 'une', 'un·e')} ${roleName(o.role, c.g).toLowerCase()} : sépare-toi d’abord de la personne actuelle.`, 'bad'); return false; }
-  if (R.pay === 'week' && !pay(g, o.rate, `Première semaine de ${c.name.split(' ')[0]}`, 'staff')) { toast(`Il te faut ${fmtMoney(g, o.rate)} pour payer sa première semaine.`, 'bad'); return false; }
+  if (R.pay === 'week' && !pay(g, o.rate, `Première semaine de ${firstName(c)}`, 'staff')) { toast(`Il te faut ${fmtMoney(g, o.rate)} pour payer sa première semaine.`, 'bad'); return false; }
   const t = Date.now();
   g.staff.push({ id: uid('st'), c: c.id, role: o.role, tier: o.tier, rate: o.rate, since: t, next: t + 7 * DAY_MS, unpaid: 0 });
   c.kind = 'staff';
@@ -1094,6 +1238,7 @@ function scheduleRelease(g, o) {
   if (o.devis) r.devis = o.devis; // 0.20: its quote, paid
   if (o.deal) r.deal = o.deal; // the sponsor it carries, chosen with the quote
   if (o.fanQ) r.fanQ = o.fanQ; // 0.21: the question of a fan it answers
+  if (what === 'short' && o.promo && promoTargets(g).some((x) => x.id === o.promo)) r.promo = o.promo; // 0.29.1: the long video it announces
   g.releases.push(r);
   trimReleases(g);
   addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(topic, 60)} » est programmé${whatF(r) ? 'e' : ''} ${fmtWhen(o.due)}.` });
@@ -1265,7 +1410,7 @@ function lawyerNotice(g, r) {
   const m = hasStaff(g, 'avocat');
   if (!m || !r || r.state !== 'live') return false;
   const law = g.chars[m.c];
-  if (!pay(g, m.rate, `Mise en demeure (${law ? law.name.split(' ')[0] : 'avocat'})`, 'staff')) { toast(`Il te faut ${fmtMoney(g, m.rate)} pour cette mise en demeure.`, 'bad'); return false; }
+  if (!pay(g, m.rate, `Mise en demeure (${law ? firstName(law) : 'avocat'})`, 'staff')) { toast(`Il te faut ${fmtMoney(g, m.rate)} pour cette mise en demeure.`, 'bad'); return false; }
   const c = g.chars[r.by];
   if (Math.random() * 100 < Math.min(95, 45 + 15 * (m.tier + 1))) {
     r.state = 'retracted';
@@ -1283,8 +1428,8 @@ function turnAgainst(g, by, who, d, text) {
   if (!n || !c || n === c || !isMain(c) || !c.unlocked || !enemies(g).includes(n)) return false;
   let delta = -Math.abs(int(d, 1, 10, 5));
   if (c.rel >= 70) delta = Math.round(delta / 2); // close friends resist
-  applyRel(g, c, delta, `${n.name.split(' ')[0]} lui parle mal de toi`, later() + 2000, 10);
-  applyTrust(g, c, -Math.ceil(Math.abs(delta) / 2), `${n.name.split(' ')[0]} sème le doute sur toi`, later() + 2400);
+  applyRel(g, c, delta, `${firstName(n)} lui parle mal de toi`, later() + 2000, 10);
+  applyTrust(g, c, -Math.ceil(Math.abs(delta) / 2), `${firstName(n)} sème le doute sur toi`, later() + 2400);
   const al = allies(g).find((a) => a !== c && a !== n);
   if (al && Math.random() < 0.6) addIncomingDM(g, al, `Je préfère te prévenir : @${n.handle} est ${gx(n.g, 'allé', 'allée', 'allé·e')} voir @${c.handle} pour te descendre. ${str(text, 120) ? `Genre « ${str(text, 120)} ».` : ''}`, later() + randi(5000, 15000), { max: 400 });
   return true;
@@ -1309,8 +1454,8 @@ function leakIntel(g, o, postId) {
   if (!o.public && to && isMain(to) && to !== by) { // passed on in private
     if (!it.known.includes(to.id)) it.known.push(to.id);
     addMem(g, to, `${by.name} m’a montré un message privé du joueur : « ${str(it.quote, 70)} »`);
-    if (to.rel > -20) applyRel(g, to, -3 * it.w, `a lu tes DM avec ${by.name.split(' ')[0]}`, later() + 3000, 12);
-    applyTrust(g, to, -2 * it.w, `a lu tes DM avec ${by.name.split(' ')[0]}`, later() + 3400);
+    if (to.rel > -20) applyRel(g, to, -3 * it.w, `a lu tes DM avec ${firstName(by)}`, later() + 3000, 12);
+    applyTrust(g, to, -2 * it.w, `a lu tes DM avec ${firstName(by)}`, later() + 3400);
     const al = allies(g).find((a) => a !== to && a !== by);
     if (al && Math.random() < 0.5) addIncomingDM(g, al, `Fais gaffe, @${by.handle} fait tourner une capture de vos messages privés. @${to.handle} l’a vue.`, later() + randi(5000, 15000), { max: 300 });
     return true;
@@ -1584,7 +1729,8 @@ function releaseCareer(ctx) {
   const dl0 = form.deal ? dealOf(g, form.deal) : null;
   const fit = dl0 && dl0.state === 'signed' ? fitOf(r, dl0, ctx.eval) : null; // 0.21: a sponsor that fits the video, or not
   const mLive = !!(form.membLive && r.what === 'live' && membOn(g)); // 0.22: a live for the members only
-  const views0 = Math.round(releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!(post.res && post.res.viral), Date.now(), Object.assign({}, form, { crew })) * (mLive ? 0.35 : 1));
+  const early = ctx.early || null; // 0.29.1: a long video's, counted with its reactions
+  const views0 = Math.round((early ? early.views : releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!(post.res && post.res.viral), Date.now(), Object.assign({}, form, { crew, push: !!(ctx.boosts && ctx.boosts.push) }))) * (mLive ? 0.35 : 1));
   const views = fit ? Math.round(views0 * FIT_VIEWS[fit]) : views0;
   const gx = gearOnRelease(g, r, views); // 0.20: a live that drops, the neighbours, the rights holders
   const vs = gx.views;
@@ -1624,7 +1770,23 @@ function releaseCareer(ctx) {
   if (mLive && membDelivered(g, 'live')) post.video.memb = 'live'; // 0.22: a promise kept to the members
   else if (form.membAvant && r.what !== 'live' && membDelivered(g, 'avant')) post.video.memb = 'avant';
   if (r.what === 'live') { liveDonations(g, post, vs, ctx.dons); warmMove(g, 1.5, 'un live avec ta commu'); } // 0.21: the donations, a moment together
+  audNotes(g, r, v.tier, post, ctx.outcome ? ctx.outcome.fol : 0, early, vs / Math.max(1, views0)); // 0.29.1: the two publics
   gearWear(g, r); // 0.20: the gear used wears out
+}
+// 0.29.1: after a release on a platform of both publics, what it did to them, as the player is told.
+function audNotes(g, r, tier, post, fol, early, k = 1) {
+  if (!audSplit(g)) return;
+  const sn = PF(g).shortName + 's', e = early ? { b: Math.round(early.b * k), tease: Math.round((early.tease || 0) * k) } : null;
+  if (e && e.tease > 0) post.video.teased = e.tease; // (shown on the video)
+  const conv = audAfter(g, r, tier, fol, e), A = vidAud(g), F = Math.max(1, g.stats.followers);
+  if (audLong(g, r.what) && !g.career.audTold && A.fans / F < 0.4) { // the first one: why so few
+    g.career.audTold = Date.now();
+    addNotif(g, { k: 'release', p: post.id, at: later() + 6000, text: `📺 La plupart de tes abonnés te suivent pour tes ${sn} : ≈ ${fmtN(A.fans)} sur ${fmtN(F)} regardent tes vidéos longues et tes lives. Chaque bonne vidéo en convertit d’autres (plus si ta commu est chaleureuse), et un ${PF(g).shortName} qui annonce la prochaine en amène.` });
+  } else if (conv >= 10) addNotif(g, { k: 'relup', p: post.id, at: later() + 6000, text: `📺 ${nAbonnes(conv)} venus de tes ${sn} suivent maintenant aussi tes vidéos longues et tes lives : ton public vidéo passe à ≈ ${fmtN(A.fans)}.` });
+  if (conv > 0) post.video.conv = conv;
+  const pr = r.what === 'short' ? promoAfter(g, r, post) : null;
+  if (pr && pr.before) addNotif(g, { k: 'release', p: post.id, at: later() + 5000, text: `📣 Ton ${PF(g).shortName} annonce ${ta(pr.before)} « ${str(pr.before.topic, 50)} » (${fmtWhen(pr.before.due)}) : une partie de ses spectateurs ${whatF(pr.before) ? 'la' : 'le'} regardera à sa sortie.` });
+  else if (pr && pr.after) addNotif(g, { k: 'release', p: pr.after.out, at: later() + 5000, text: `📣 Ton ${PF(g).shortName} a envoyé ${fmtN(pr.extra)} ${plural(pr.extra, 'personne', 'personnes')} voir ${ta(pr.after)} « ${str(pr.after.topic, 50)} »${pr.conv >= 1 ? `, et ${fmtN(pr.conv)} ${plural(pr.conv, 'reste', 'restent')} dans ton public vidéo` : ''}.` });
 }
 
 /* ---------- 0.14: couples on show, videos made together ---------- */
@@ -1634,9 +1796,62 @@ function coupleBoost(g, t = Date.now()) {
   return h && t < h.until && c && PARTNER.includes(c.vibe) ? h.mult : 1;
 }
 // A video made with someone: their audience comes to see it, and the two of you grow closer (or not, if it flopped).
+/* ---------- 0.29.1: a feat, asked by the player for a release of theirs ----------
+   The player picks someone of the cast (programming the release, or later from the programme), tells them the topic in
+   their messages, and their AI says yes or no ({"t":"feat"}). Yes: they are in the video, and it goes out to both
+   audiences (the collab of the upload screen). No: the release stays the player's alone. */
+const featOK = (g, c) => !!c && isMain(c) && c.unlocked && !c.cut && !c.jailed && !(c.cool && c.cool.k === 'bloque' && Date.now() < c.cool.until);
+const featPartners = (g) => mains(g).filter((c) => featOK(g, c)).sort((a, b) => b.rel - a.rel);
+// The release whose feat waits for their answer.
+const featAsked = (g, c) => (g.releases || []).find((r) => r.state === 'scheduled' && r.feat && r.feat.c === c.id && r.feat.ok == null) || null;
+function askFeat(g, r, c) {
+  if (!r || r.state !== 'scheduled' || r.collab || !featOK(g, c) || featAsked(g, c)) return false;
+  r.feat = { c: c.id, ok: null, at: Date.now() };
+  return true;
+}
+// What the player sends them (left in their conversation, to edit and send).
+function featText(g, r) {
+  const l = whatF(r) ? 'la' : 'le';
+  return `Ça te dirait un feat ? Je sors ${unW(r)} ${fmtWhen(r.due)} : « ${str(r.topic, 80)} ». On ${l} fait ensemble, et nos deux publics ${l} verront.`;
+}
+function featDMCtx(g, c) {
+  const r = featAsked(g, c);
+  if (!r) return [];
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
+  return [`Le joueur te propose un FEAT : faire avec lui ${unW(r)} « ${str(r.topic, 90)} » (sur ${pfName(g, platformOf(g))}, ${fmtWhen(r.due)}) et ${whatF(r) ? 'la' : 'le'} publier à deux : vos deux publics ${whatF(r) ? 'la' : 'le'} voient (le joueur a ${fmtPlain(g.stats.followers)} abonnés, ${first} ${fmtPlain(c.followers)}). ${first} décide selon votre relation, son caractère, ce que ça lui apporte (son public, son image), le sujet (colle-t-il à son univers ?) et son emploi du temps.`];
+}
+const FEAT_LINE = (c) => `- Quand ${firstName(c)} a décidé pour le feat : {"t":"feat","ok":true,"why":"≤ 60 caractères"} (ok:false s’il ou elle refuse). Pas de ligne feat s’il ou elle hésite encore ou pose une condition.`;
+function applyFeatLine(g, c, o) {
+  const r = featAsked(g, c);
+  if (!r) return false;
+  const ok = o.ok === true || o.ok === 'true', first = firstName(c), why = str(o.why, 60);
+  if (ok) {
+    r.feat.ok = true;
+    r.collab = c.id;
+    addNotif(g, { k: 'relup', c: c.id, at: later() + 1500, text: `🤝 ${first} est partant${gx(c.g, '', 'e', '·e')} pour le feat : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(r.due)}.` });
+    addMem(g, c, `on va tourner « ${str(r.topic, 50)} » ensemble`);
+    touch(c);
+  } else {
+    r.feat = null;
+    addNotif(g, { k: 'reldown', c: c.id, at: later() + 1500, text: `${first} ne fera pas le feat${why ? ` : « ${why} »` : ''}. ${cap1(ta(r))} reste à toi.` });
+    addMem(g, c, `le joueur m’a proposé un feat (« ${str(r.topic, 40)} ») et j’ai dit non`);
+  }
+  return true;
+}
+// The feat asked, given up (another partner, or alone): nothing is said to them.
+function dropFeat(g, r) { if (r && r.feat && r.feat.ok == null) { r.feat = null; return true; } return false; }
+// A video to make together, agreed in their messages (« on fait un feat samedi ? » « grave ! »): it goes in the Studio.
+function planCollab(g, c, o) {
+  const due = planDue(o, Date.now());
+  if (!(due >= Date.now() + 15 * 60000)) return null;
+  const iv = { c: c.id, what: str(o.what, 100) || 'vidéo ensemble', due, collab: true, state: 'open' };
+  const r = acceptCollab(g, iv, c, true);
+  if (r) addNotif(g, { k: 'release', c: c.id, at: later() + 1200, text: `🎬 Feat avec ${firstName(c)} : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(r.due)}. Elle t’attend dans le Studio.` });
+  return r;
+}
 function collabDone(g, c, tier, views) {
   if (!c || !isMain(c)) return;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   applyRel(g, c, { top: 6, mid: 3, flop: -3 }[tier] || 0, tier === 'flop' ? 'votre vidéo à deux a fait un flop' : 'votre vidéo à deux', later() + 2600, 8);
   const fol = Math.round(Math.min(views * 0.01, Math.max(200, c.followers * 0.05)));
   if (fol > 0) c.followers += fol;

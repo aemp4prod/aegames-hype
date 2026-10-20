@@ -192,12 +192,12 @@ function resaleCtx(g) {
 /* ---------- what someone gives the player (a date, their messages) ---------- */
 const GIFT_RE = /\b(?:cadeaux?|offr\w*|offert\w*|anniv\w*|souvenir|surprise|pour toi|colis|envoy\w*|garde-le|garde-la|tiens)\b/i;
 const giftTalk = (text, history) => GIFT_RE.test(String(text || '')) || (history || []).slice(-6).some((m) => m && m.text && GIFT_RE.test(m.text));
-const GIFT_LINE = (g, c) => `- Seulement si ${c.name.split(' ')[0]} donne ou envoie pour de vrai un objet au joueur, maintenant (pas une promesse) : {"t":"gift","what":"≤ 60 caractères : l’objet","value":30} (value : ce qu’il vaut à peu près, en ${moneyWord(g)}).`;
+const GIFT_LINE = (g, c) => `- Seulement si ${firstName(c)} donne ou envoie pour de vrai un objet au joueur, maintenant (pas une promesse) : {"t":"gift","what":"≤ 60 caractères : l’objet","value":30} (value : ce qu’il vaut à peu près, en ${moneyWord(g)}).`;
 function receiveGift(g, c, o, at = later()) {
   const what = str(o.what, 60);
   if (!what || !c) return null;
   const x = invAdd(g, { kind: 'gift', name: what, emoji: '🎁', value: clamp(Math.round(buyPrice(o.value)), 0, 5000), cond: 'neuf', at, from: { how: 'cadeau', c: c.id } });
-  addNotif(g, { k: 'vibe', c: c.id, at, text: `🎁 ${c.name.split(' ')[0]} t’offre : ${what}. Il t’attend dans ton inventaire.` });
+  addNotif(g, { k: 'vibe', c: c.id, at, text: `🎁 ${firstName(c)} t’offre : ${what}. Il t’attend dans ton inventaire.` });
   return x;
 }
 
@@ -205,7 +205,7 @@ function receiveGift(g, c, o, at = later()) {
 const fromText = (g, x) => {
   const F = x.from || {}, c = F.c ? g.chars[F.c] : null;
   if (F.how === 'marque') return `Offert par ${F.brand || (c ? c.name : 'une marque')}`;
-  if (F.how === 'cadeau') return `Offert par ${c ? c.name.split(' ')[0] : 'quelqu’un'}`;
+  if (F.how === 'cadeau') return `Offert par ${c ? firstName(c) : 'quelqu’un'}`;
   if (F.how === 'ancien') return 'Ton ancien matos';
   if (F.how === 'achat') return 'Acheté';
   return '';

@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.29.0';
+const APP_VERSION = '0.29.1';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -124,6 +124,13 @@ const HOST = typeof window !== 'undefined' && window.hypeHost && window.hypeHost
 const AI_NAME = 'ChatGPT';
 function lsOK() {
   try { const k = '__hype_t'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch (e) { return false; }
+}
+// A first name, as people say it: « Théo » for Théo Marlin; a name that starts with an article or a title stays whole
+// (« Le Démineur », « La Fouine », « DJ Kenzo »: never « Le »). (0.29.1: one helper for the whole game)
+const NAME_HEADS = /^(le|la|les|l['’]|el|the|dj|mc|dr|mme|mlle|madame|monsieur|sir|lady|lord|capitaine|captain)$/i;
+function firstName(c) {
+  const n = String((c && c.name) || '').trim(), w = n.split(' ');
+  return w.length > 1 && NAME_HEADS.test(w[0]) ? n : w[0];
 }
 // Grammatical gender: characters carry g ('f' | 'm' | 'x'); the player picks il / elle / iel.
 const gx = (gd, m, f, x) => (gd === 'f' ? f : gd === 'm' ? m : x);
@@ -647,7 +654,7 @@ const JOIN_REL = 50; // this close, it is personal anyway
 const canJoin = (c) => !!c && !isMain(c) && JOIN_KINDS.includes(c.kind) && !!c.unlocked;
 function joinCast(g, c, why) {
   if (!g || !canJoin(c)) return false;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   c.joined = Date.now();
   delete c.slim;
   if (typeof c.trust !== 'number') initTrust(c, {});
@@ -1656,8 +1663,7 @@ function checkReleases(g, t = Date.now(), onScreen = () => false) {
 
 /* ---------- scheduled events: a character's live or announcement, a date with the player ---------- */
 // src: where it was announced ({ p: post, r: reply } or { dm: charId }) so a ⏩ button can sit right there.
-const firstName = (c) => c.name.split(' ')[0];
-const deN = (n) => (/^[aeiouyàâäéèêëîïôöûùüœæ]/i.test(n) ? 'd’' : 'de ') + n; // « d’Axel », « de Léandre »
+const deN = (n) => (/^le\s/i.test(n) ? 'du ' + n.slice(3) : /^les\s/i.test(n) ? 'des ' + n.slice(4) : (/^[aeiouyàâäéèêëîïôöûùüœæ]/i.test(n) ? 'd’' : 'de ') + n); // « d’Axel », « de Léandre », « du Démineur »
 const EVENT_KINDS = {
   rdv: { emoji: '🥂', label: (c) => `Rendez-vous avec ${firstName(c)}`, go: 'Y aller', now: (c) => `C’est l’heure de ton rendez-vous avec ${firstName(c)}` },
   live: { emoji: '🔴', label: (c) => `Live ${deN(firstName(c))}`, go: 'Voir le live', now: (c) => `Le live ${deN(firstName(c))} commence` },
@@ -1875,7 +1881,7 @@ function charCancelsDate(g, c, why, at = later()) {
   if (!ev) return null;
   ev.state = 'cancelled';
   ev.by = 'them';
-  const first = c.name.split(' ')[0], w = str(why, 80);
+  const first = firstName(c), w = str(why, 80);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push({ id: uid('m'), sys: 'cancel', title: str(ev.what, 100), text: `${first} a annulé${w ? ' : ' + w : ''}`, ts: at, at });
   addNotif(g, { k: 'reldown', c: c.id, at: at + 400, text: `❌ ${c.name} a annulé votre rendez-vous${w ? ` (${w})` : ''}.` });
@@ -1914,7 +1920,7 @@ function closeInvites(g, c, ev) {
 }
 const ACCEPT_LINES = [() => 'Ok, j’y serai !', () => 'Avec plaisir 🙂', () => 'Carrément, ça marche !'];
 // 0.14: a video (a live, a short…) to make together: it becomes the next release, with them in it.
-const COLLAB_RE = /\bcollab\b|\ben duo\b|(tourner|filmer|faire|enregistrer|cr[ée]er|monter)\s+(?:une?|le|la|des|notre|nos|un petit|une petite)?\s*(?:vid[ée]o|live|short|reel|tiktok|podcast|clip|vlog)/i;
+const COLLAB_RE = /\bcollab\b|\bfeat\b|\bfeaturing\b|\ben duo\b|(tourner|filmer|faire|enregistrer|cr[ée]er|monter)\s+(?:une?|le|la|des|notre|nos|un petit|une petite)?\s*(?:vid[ée]o|live|short|reel|tiktok|podcast|clip|vlog)/i;
 const collabWhat = (s) => (/\blive\b/i.test(s) ? 'live' : /short|reel|tiktok/i.test(s) ? 'short' : /podcast/i.test(s) ? 'podcast' : /\bclip\b/i.test(s) ? 'clip' : 'vidéo');
 const COLLAB_REPLIES = [(w) => `trop bien ! on tourne ${w} alors 🎬`, (w) => `yes ! ${w}, je ramène mes idées`, (w) => `parfait, ${w} : ça va être énorme`];
 function acceptCollab(g, iv, c, quiet) {
@@ -2055,7 +2061,7 @@ function checkEvents(g, t = Date.now(), onScreen = () => false) {
     const c = g.chars[ev.c];
     if (!c) continue;
     if (ev.bb && c.badBuzz) { // it happened without the player: the game decides whether they got out of their bad buzz
-      const esc = Math.random() < bbEscape(c), first = c.name.split(' ')[0];
+      const esc = Math.random() < bbEscape(c), first = firstName(c);
       if (esc) { c.badBuzz.until = Math.min(c.badBuzz.until, t); c.buried = false; c.followers += Math.round((c.badBuzz.loss || 0) * 0.5); }
       else c.badBuzz.until = Math.max(c.badBuzz.until, t) + BADBUZZ_MS;
       const line = esc ? `${first} s’est ${gx(c.g, 'sorti', 'sortie', 'sorti·e')} de son bad buzz` : `ça n’a pas suffi, ${first} reste en plein bad buzz`;
@@ -2149,7 +2155,7 @@ function applyVibe(g, by, v, why, at, force) {
 const BOND_VIBES = ['amitie', 'bff', 'famille', 'complices', 'colocs', 'partenaires', 'alliance', 'mentor', 'disciple', 'fan'];
 // A couple, an engagement, a wedding: the network notices, and whoever else the player was with feels betrayed.
 function officialize(g, c, v, at) {
-  const t = at || later(), V = VIBES[v], first = c.name.split(' ')[0];
+  const t = at || later(), V = VIBES[v], first = firstName(c);
   // 0.14: going public makes both grow, the way it does online: each one's audience discovers the other (the smaller
   // account gains the most), and for a week the player's releases draw more eyes.
   const share = ({ couple: 0.03, fiancailles: 0.05, mariage: 0.08 })[v] || 0.03, s = g.stats;

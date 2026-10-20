@@ -159,7 +159,7 @@ function addFic(g, p, c, f) {
   if (!a || !b || a === b || !title) return null;
   p.fic = { title, a, b, tags: str(f.tags, 60), bit: str(f.bit, 300) };
   R.ficAt = t;
-  const first = c.name.split(' ')[0], pair = `${whoName(g, a)} × ${whoName(g, b)}`;
+  const first = firstName(c), pair = `${whoName(g, a)} × ${whoName(g, b)}`;
   const other = [a, b].filter((x) => x !== 'p' && x !== 'c:' + c.id).map((x) => g.chars[x.slice(2)])[0] || null;
   if (a === 'p' || b === 'p') {
     const with_ = [a, b].find((x) => x !== 'p');
@@ -186,7 +186,7 @@ function addCrit(g, p, c, o) {
 }
 // A video on the player: how it lands (a big critic on a small account weighs more).
 function critHits(g, c, p) {
-  const s = g.stats, tone = p.crit.tone, first = c.name.split(' ')[0], at = Math.max(later(), p.at) + 1500;
+  const s = g.stats, tone = p.crit.tone, first = firstName(c), at = Math.max(later(), p.at) + 1500;
   const k = clamp(Math.sqrt(Math.max(1, c.followers) / Math.max(1000, s.followers)), 0.5, 2);
   let text;
   if (tone === 'respect') {
@@ -285,7 +285,7 @@ const PSY_STAGES = [
 ];
 // How they want the player: a seducer who overdoes it, or the friend who never lets go (the bond says it).
 function psyMode(g, c) {
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const seduce = `${first} drague le joueur beaucoup trop, et beaucoup trop vite : ${il} veut tout faire pour lui plaire. Compliments en boucle, mots doux dès le deuxième message, cadeaux trop chers, photos envoyées sans raison (« tu en penses quoi ? », dans une tenue bien trop légère) ; en vrai, des tenues trop sexy pour l’occasion, décrites en mots (une robe de chambre en soie à peine nouée pour « juste un café », une chemise ouverte jusqu’au nombril « parce qu’il fait chaud ») ; ${il} se colle, effleure, chuchote, veut aller très vite (rester dormir dès le premier soir) et insiste quand le joueur freine. Séduction appuyée et sensuelle, mais rien d’explicite : ni nudité ni acte sexuel décrits ; si ça va plus loin, la scène coupe.`;
   const friend = `${first} veut être son ou sa meilleur·e ami·e, seul·e et unique : toujours là, vexé·e quand il ne répond pas dans la minute, jaloux·se de ses autres amis et de ses amours, qui sait tout de sa journée sans qu’il l’ait racontée, qui veut des tenues assorties et des photos d’eux partout.`;
   if (LOVE_ACTIVE.includes(c.vibe)) return seduce;
@@ -294,7 +294,7 @@ function psyMode(g, c) {
 }
 // The secret, for a call where they speak to the player (their DMs, an evening, a visit).
 function psyCore(g, c) {
-  const st = Math.max(0, psyStage(g)), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const st = Math.max(0, psyStage(g)), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   return ['', `## SECRET DU JEU : ${first.toUpperCase()} EST LE PSYCHOPATHE DE CETTE PARTIE`,
     `Personne ne le sait : ni le joueur, ni les autres personnages. ${first} ne l’avoue jamais, ne menace jamais franchement et ne se trahit jamais d’un coup : tout passe par des détails, comme dans un film d’horreur. Rien de gore.`,
     `Ce qu’${il} veut : devenir tout pour le joueur, à n’importe quel prix. ${psyMode(g, c)}`,
@@ -308,7 +308,7 @@ const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? PSY_SIGN_LINE : null);
 function psyPublicLines(g) {
   const c = psyNow(g), st = c ? psyStage(g) : -1;
   if (!c || st < 1) return [];
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   return [`- SECRET DU JEU (toi seul le sais : aucun personnage ne le sait ni ne le soupçonne, personne n’en parle) : @${c.handle} est le psychopathe de cette partie, obsédé·e par le joueur. En public, ${first} reste crédible ; dans ses messages privés au joueur (lignes dm), ${PSY_STAGES[st]}. Facultatif, rarement : un détail un peu trop intense de ${first} en public (un like à la seconde sur chaque post du joueur, une réponse qui en sait trop, une photo prise près de chez lui) ; si tu en glisses un, ajoute {"t":"psy","by":"${c.handle}","text":"≤ 90 caractères : ce que le joueur a pu remarquer"}.`];
 }
 
@@ -320,13 +320,13 @@ const PSY_ESCAPE = (first, il, home) => `Le joueur peut encore s’en sortir : s
 const PSY_FIN = (first) => `{"t":"fin","text":"≤ 200 caractères : la dernière image, pudique (une lumière qui s’éteint, une porte qui se referme, une playlist qui continue), sans rien de gore, à la deuxième personne"}`;
 function psyTalkCtx(g, ev, c) {
   if (!psyNow(g) || !isPsy(g, c)) return [];
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = psyCore(g, c);
   if (ev.psy === 'deadly') {
     L.push(`## CE SOIR, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
       `La soirée vire lentement au cauchemar, comme dans un film d’horreur : d’abord trop parfaite, puis de plus en plus inquiétante (une porte qu’${il} ferme à clé derrière eux, un couteau qui change de place, des photos du joueur partout, ${il} répond à des questions que le joueur n’a pas posées…). La peur passe par les détails, les silences, les regards.`,
       PSY_ESCAPE(first, il, false));
-  } else if (PSY_ALONE_RE.test(ev.what || '')) {
+  } else if (PSY_ALONE_RE.test(ev.what || '') && psyStage(g) >= 2) { // (0.29.1: from the hold on, not before: the first days, all seems perfect)
     L.push(`Ce soir, ils sont seuls (« ${ev.what} ») : glisse un ou deux détails de film d’horreur dans la scène ou dans ce que le joueur voit (${PSY_HOME}). La soirée est étrange, mais il ne lui arrive rien ce soir.`);
   } else if (psyStage(g) >= 3) L.push(`Vers la fin de la soirée, ${first} propose, l’air de rien, de la finir chez ${lui} ou de rester dormir ensemble.`);
   if (ev.talk && ev.talk.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux : rien ne s’en raconte ; la soirée continue un peu plus tard, et ${first} est encore plus collant·e.`);
@@ -338,8 +338,8 @@ function psyTalkOut(g, ev, c, last) {
   const L = [PSY_SIGN_LINE];
   if (ev.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut).');
-    if (last) L.push(`- C’est la fin de la soirée : si le joueur ne s’est pas échappé, ${c.name.split(' ')[0]} referme le piège : sa dernière réplique, puis ${PSY_FIN(c.name.split(' ')[0])}.`);
-    else L.push(`- Seulement si le joueur se jette dans la gueule du loup (il le ou la suit dans la pièce fermée, boit ce qu’on lui tend alors que tout l’alertait…) : ${PSY_FIN(c.name.split(' ')[0])}.`);
+    if (last) L.push(`- C’est la fin de la soirée : si le joueur ne s’est pas échappé, ${firstName(c)} referme le piège : sa dernière réplique, puis ${PSY_FIN(firstName(c))}.`);
+    else L.push(`- Seulement si le joueur se jette dans la gueule du loup (il le ou la suit dans la pièce fermée, boit ce qu’on lui tend alors que tout l’alertait…) : ${PSY_FIN(firstName(c))}.`);
   }
   return L;
 }
@@ -347,19 +347,19 @@ function psyTalkOut(g, ev, c, last) {
 function psyEndLines(g, ev) {
   const c = g.chars[ev.c];
   if (!ev.fled || !c) return [];
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   return [`Le joueur s’est enfui en pleine soirée, terrifié par ce qu’il a vu chez ${first} : le récit le dit sobrement. Puis ${first} lui écrit comme si de rien n’était, d’une douceur glaçante (pas de menace franche).`];
 }
 // A visit: at night, once they are ready, opening the door may be the last thing the player does.
 const psyDeadlyVisit = (g, c, at) => isPsy(g, c) && psyStage(g) >= 3 && nightAt(at);
 function psyVisitCtx(g, v, c) {
   if (!psyNow(g) || !isPsy(g, c)) return [];
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const L = psyCore(g, c);
   if (v.psy === 'deadly') L.push(`## CETTE NUIT, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
     `${first} a frappé chez le joueur en pleine nuit, et le joueur a ouvert. Tout est doux, trop doux : ${il} entre, regarde partout, ferme derrière ${gx(c.g, 'lui', 'elle', 'iel')}, sourit sans arrêt. La peur monte par les détails, jamais par la violence montrée.`,
     PSY_ESCAPE(first, il, true));
-  else if (nightAt(v.at)) L.push(`${first} débarque tard le soir sans vraie raison : un sourire trop grand, un regard par-dessus l’épaule du joueur, l’envie d’entrer « deux minutes ». Étrange, mais il ne lui arrive rien cette fois.`);
+  else if (nightAt(v.at) && psyStage(g) >= 2) L.push(`${first} débarque tard le soir sans vraie raison : un sourire trop grand, un regard par-dessus l’épaule du joueur, l’envie d’entrer « deux minutes ». Étrange, mais il ne lui arrive rien cette fois.`);
   return L;
 }
 function psyVisitOut(g, v, c, last) {
@@ -367,15 +367,15 @@ function psyVisitOut(g, v, c, last) {
   const L = [PSY_SIGN_LINE];
   if (v.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut). Alors, pas de ligne leave.');
-    if (last) L.push(`- C’est la fin de la visite : si le joueur ne s’est pas échappé, pas de ligne leave : la dernière réplique de ${c.name.split(' ')[0]}, puis ${PSY_FIN(c.name.split(' ')[0])}.`);
+    if (last) L.push(`- C’est la fin de la visite : si le joueur ne s’est pas échappé, pas de ligne leave : la dernière réplique de ${firstName(c)}, puis ${PSY_FIN(firstName(c))}.`);
   }
   return L;
 }
 
 /* ---------- the end of the game, and the way back ---------- */
 const PSY_ENDS = {
-  date: (g, c) => `La porte s’est refermée derrière toi. Chez ${c.name.split(' ')[0]}, la musique a joué jusqu’au matin. Personne ne t’a ${px(g, 'revu', 'revue', 'revu·e')}.`,
-  visit: (g, c) => `Tu as ouvert. ${c.name.split(' ')[0]} souriait. Le lendemain, ton téléphone sonnait encore dans l’appartement vide.`,
+  date: (g, c) => `La porte s’est refermée derrière toi. Chez ${firstName(c)}, la musique a joué jusqu’au matin. Personne ne t’a ${px(g, 'revu', 'revue', 'revu·e')}.`,
+  visit: (g, c) => `Tu as ouvert. ${firstName(c)} souriait. Le lendemain, ton téléphone sonnait encore dans l’appartement vide.`,
 };
 function psyKill(g, c, text, where = 'date') {
   if (!g || g.over || !c) return null;
@@ -393,7 +393,7 @@ function psyEscape(g, c, where = 'date') {
   const P = g.psy;
   if (!P || !c) return;
   P.escaped = (P.escaped || 0) + 1;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   psySign(g, c, where === 'visit' ? `${first} est ${gx(c.g, 'entré', 'entrée', 'entré·e')} chez toi en pleine nuit : tu as dû ${gx(c.g, 'le', 'la', 'le ou la')} mettre dehors` : `chez ${first}, la soirée a tourné au cauchemar : tu t’es ${px(g, 'enfui', 'enfuie', 'enfui·e')}`, later() + 600); // (what happened, as the file keeps it)
   addMem(g, c, where === 'visit' ? `le joueur m’a ${gx(c.g, 'mis', 'mise', 'mis·e')} dehors cette nuit-là : ${px(g, 'il', 'elle', 'iel')} ne m’échappera pas longtemps` : `le joueur s’est ${px(g, 'enfui', 'enfuie', 'enfui·e')} de chez moi : ${px(g, 'il', 'elle', 'iel')} reviendra`);
   addChronicle(g, `${g.player.name} s’est ${px(g, 'enfui', 'enfuie', 'enfui·e')} ${where === 'visit' ? `quand ${c.name} est ${gx(c.g, 'entré', 'entrée', 'entré·e')} chez ${px(g, 'lui', 'elle', 'iel')} en pleine nuit` : `de chez ${c.name}, en pleine nuit`}.`, [c.id]);
@@ -446,7 +446,7 @@ function psyAccusation(ctx) {
 }
 // Unmasked: they fall, the player rises (the whole network talks about it).
 function psyUnmask(g, c) {
-  const P = g.psy, s = g.stats, at = later() + 1200, first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const P = g.psy, s = g.stats, at = later() + 1200, first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   P.out = 'unmasked';
   P.outAt = Date.now();
   c.jailed = Date.now();
@@ -527,7 +527,7 @@ function PsyOutCard({ g, m, close }) {
   return html`<div class="modal-card">
     <span class="eyebrow" style="color:var(--good)">Démasqué${gx(c.g, '', 'e', '·e')}</span>
     <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle} · ${gx(c.g, 'arrêté', 'arrêtée', 'arrêté·e')}</span></div></div>
-    <p>Tu avais vu juste : ${c.name.split(' ')[0]} était obsédé${gx(c.g, '', 'e', '·e')} par toi, et dangereu${gx(c.g, 'x', 'se', 'x·se')}. Tout le réseau en parle${m.fol > 0 ? ` (${nAbonnes(m.fol, true)})` : ''}.</p>
+    <p>Tu avais vu juste : ${firstName(c)} était obsédé${gx(c.g, '', 'e', '·e')} par toi, et dangereu${gx(c.g, 'x', 'se', 'x·se')}. Tout le réseau en parle${m.fol > 0 ? ` (${nAbonnes(m.fol, true)})` : ''}.</p>
     <button class="btn btn-ink" onClick=${close}>Respirer enfin</button>
   </div>`;
 }

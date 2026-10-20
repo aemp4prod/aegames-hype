@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.29.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.29.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -77,7 +77,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   s’éloigne jusqu’à la pause ; et une capture de tes messages à quelqu’un d’autre peut tout faire exploser. Un couple
   annoncé fait grandir les deux (le plus petit compte gagne le plus) et, pendant une semaine, tes vidéos sont plus
   regardées. En couple, une soirée peut devenir tendre (se blottir, rester dormir) : dès que ça irait plus loin, la
-  scène s’arrête sur « La suite appartient à leur intimité ».
+  scène s’arrête sur « La suite appartient à leur intimité ». Depuis la 0.29.1, demander à officialiser lance
+  l’épreuve tout de suite : la personne répond « oui, mais… », et une notification et sa fiche disent ce qui bloque.
   **Depuis la 0.25.3, la nuit continue** : quand la soirée se termine à deux, l’horloge avance jusqu’au lendemain matin
   (sans appel IA en plus) et une carte « 🌅 Le lendemain matin » raconte le réveil, chez l’un ou chez l’autre, tendre et
   pudique (elle se garde aussi dans « Tes rendez-vous »). Tu es encore là : un bandeau le dit au-dessus du fil et dans
@@ -174,6 +175,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   contenu-là (un jeu, une location, un circuit, des ingrédients…), à prix réalistes, jamais ton matos ni ce que tu as déjà
   acheté pour une ancienne vidéo. Il se paie pour programmer (un contenu sans rien à acheter reste gratuit) ; pour une
   vidéo annoncée dans un post, il arrive au tournage. C’est là qu’on associe une marque déjà signée, ou qu’on en démarche une.
+  Depuis la 0.29.1, **les feats** : en programmant une sortie, choisis un perso (« Feat ») ; un message part avec le
+  sujet, son IA accepte ou refuse, et la vidéo sort devant vos deux publics. « 🤝 Feat », dans le Programme, le propose
+  plus tard ; un feat calé en message programme la vidéo.
   Depuis la 0.27, il connaît ton inventaire et tes partenariats : ce qu’une marque t’a envoyé, un cadeau, ce que tu t’es
   offert couvre un besoin sans rien payer (« Déjà là »), et ce que le tournage consomme quitte l’inventaire.
   Depuis la 0.28.1, plus de plafond : une ligne coûte ce qu’elle coûte vraiment (même des millions), un gros devis
@@ -211,6 +215,14 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   sponsorisée qui cartonne peut valoir une prime surprise, et la marque revient plus vite.
 - **Ton audience** grandit de plus en plus lentement à mesure qu’elle grandit (0.20) : rien ne change jusqu’à 1 000
   abonnés, puis chaque nouvel abonné se mérite davantage.
+- **Shorts et vidéos longues** (0.29.1) : sur YouTube, deux publics dans tes abonnés. Un short touche tout le monde,
+  et bien plus ; une vidéo longue (ou un live) est surtout vue par ton **public vidéo**, par quelques abonnés de tes
+  shorts qui cliquent et par ceux que l’algorithme amène, de plus en plus à mesure que tes vidéos réussissent. Une
+  chaîne de shorts qui s’y met repart presque de zéro : le Studio affiche combien de tes abonnés regardent tes vidéos
+  longues. Chaque vidéo longue en fait passer d’autres dans ton public vidéo, plus si elle est réussie, et bien plus si
+  ta commu est chaleureuse. Un **short d’annonce** (« 📣 Short d’annonce », dans le Programme) lui amène une partie de
+  ses spectateurs : sorti avant elle, ils viennent quand elle sort ; après, il renvoie vers elle (« 📣 Un short qui
+  renvoie ici », pendant deux semaines).
 - **Les pubs de tes vidéos** (0.21) : chaque contenu est jugé à sa sortie, d’après ce qu’on y voit vraiment (le sujet,
   ce que tu racontes, le titre, la miniature) : 🟢 toutes les pubs, 🟡 pubs limitées, 🔴 démonétisé. Sur YouTube,
   1 000 vues rapportent selon ce que vaut le sujet pour les annonceurs : moins d’1 € pour ce qu’ils fuient (le trash,
@@ -403,7 +415,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype (Windows)
 
-1. Télécharge `Hype-Setup-0.29.0.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.29.1.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

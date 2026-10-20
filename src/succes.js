@@ -236,7 +236,7 @@ function myTrend(g, t = Date.now()) {
 function leftFor(g, c, handle, at = later()) {
   const o = handle ? charByHandle(g, normHandle(handle)) : null;
   if (!c || !o || o === c || !isMain(o) || !o.unlocked) return false; // (0.28.1: not for someone who is not on the network yet)
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   setTie(g, c.id, o.id, Math.max(tieOf(g, c.id, o.id), 70));
   addMem(g, c, `j’ai quitté le joueur pour ${o.name}`);
   addMem(g, o, `${c.name} a quitté le joueur pour moi`);

@@ -174,7 +174,7 @@ function addGroup(g, o, at) {
   groupsOf(g).push(gr);
   const by = charByHandle(g, normHandle(o.by));
   addGroupMsg(g, gr, by && ids.includes(by.id) ? by : g.chars[ids[0]], o.text, t);
-  addNotif(g, { k: 'dm', at: t, text: `👥 ${by && ids.includes(by.id) ? by.name.split(' ')[0] : 'Quelqu’un'} t’a ajouté${px(g, '', 'e', '·e')} au groupe « ${name} »` });
+  addNotif(g, { k: 'dm', at: t, text: `👥 ${by && ids.includes(by.id) ? firstName(by) : 'Quelqu’un'} t’a ajouté${px(g, '', 'e', '·e')} au groupe « ${name} »` });
   return gr;
 }
 function addGroupMsg(g, gr, c, text, at) {
@@ -268,7 +268,7 @@ function addLeak(g, o, at) {
   if (!by || !isMain(by) || !by.unlocked || by.cut || !name || lines.length < 2) return null;
   const t = at || later(), convo = g.dms[by.id] || (g.dms[by.id] = { msgs: [], readAt: 0 });
   convo.msgs.push(tag({ id: uid('m'), sys: 'leak', group: name, lines: lines.map((x) => ({ a: 'c:' + x.c.id, text: x.text })), text: `capture du groupe « ${name} »`, ts: t, at: t }));
-  addNotif(g, { k: 'dm', c: by.id, at: t, text: `📸 ${by.name.split(' ')[0]} t’a envoyé une capture du groupe « ${name} »… sans toi.` });
+  addNotif(g, { k: 'dm', c: by.id, at: t, text: `📸 ${firstName(by)} t’a envoyé une capture du groupe « ${name} »… sans toi.` });
   const who = [...new Set(lines.map((x) => x.c))];
   addMem(g, by, `j’ai montré au joueur la capture du groupe « ${str(name, 30)} »`);
   addChronicle(g, `${by.name} a montré à ${g.player.name} une capture du groupe « ${name} », où ${who.map((c) => c.name).join(' et ')} parlaient de ${px(g, 'lui', 'elle', 'iel')}.`, [by.id]);
@@ -447,7 +447,7 @@ function StoriesBar({ g, now }) {
       ${mine.length ? html`<button type="button" class="sb-plus" onClick=${() => openLayer({ t: 'storynew' })} aria-label="Publier une autre story"><${Icon} n="plus" s=${14} /></button>` : html`<span class="sb-plus" aria-hidden="true"><${Icon} n="plus" s=${14} /></span>`}
       <span>Ta story</span>
     </div>
-    ${list.map((x) => { const au = author(g, x.a); return html`<div class="sb-it" role="listitem" key=${x.a}><button type="button" class=${'sb-ring' + (x.unseen ? '' : ' seen')} onClick=${() => openStory(x.a)} aria-label=${'Story de ' + au.name}><${Avatar} who=${au} size=${56} /></button><span>${au.name.split(' ')[0]}</span></div>`; })}
+    ${list.map((x) => { const au = author(g, x.a); return html`<div class="sb-it" role="listitem" key=${x.a}><button type="button" class=${'sb-ring' + (x.unseen ? '' : ' seen')} onClick=${() => openStory(x.a)} aria-label=${'Story de ' + au.name}><${Avatar} who=${au} size=${56} /></button><span>${firstName(au)}</span></div>`; })}
   </div>`;
 }
 function openStory(a) {
@@ -492,7 +492,7 @@ function StoryView({ g, now }) {
     setVal('');
     setHold(false);
     const ok = await sendDM(c.id, text, { story: { by: s.a, text: s.text } });
-    if (ok === false) setVal(text); else toast(`Message envoyé à ${c.name.split(' ')[0]}.`);
+    if (ok === false) setVal(text); else toast(`Message envoyé à ${firstName(c)}.`);
   };
   const seen = s.a === 'p' ? storySeen(s, now) : [];
   return html`<div class="story-ov sv" role="dialog" aria-modal="true" aria-label=${'Story de ' + au.name}>
@@ -519,8 +519,8 @@ function StoryView({ g, now }) {
           ${(s.qs || []).filter((x) => x.at <= now).map((q, j) => html`<div class="sv-q" key=${j}><small>@${q.by} demande</small><p>${q.text}</p><button type="button" class="linkbtn" onClick=${() => { close(); openCompose({ text: `« ${q.text} » (@${q.by}) → ` }); }}>Répondre en public</button></div>`)}
         </div>` : null}
       </div>` : canDM ? html`<div class="sv-foot">
-        <div class="sv-reacts" role="group" aria-label="Réagir">${STORY_REACTS.map((e) => html`<button type="button" key=${e} class=${'sv-re' + (s.reacted === e ? ' on' : '')} onClick=${() => { reactStory(g, s, e); toast(`Réaction envoyée à ${c.name.split(' ')[0]}.`); }}>${emoParts(e)}</button>`)}</div>
-        <div class="sv-reply"><input class="input" maxlength=${DM_MAX} placeholder=${'Répondre à ' + c.name.split(' ')[0] + '…'} value=${val} onFocus=${() => setHold(true)} onBlur=${() => { if (!val.trim()) setHold(false); }} onInput=${(e) => setVal(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); send(); } }} />
+        <div class="sv-reacts" role="group" aria-label="Réagir">${STORY_REACTS.map((e) => html`<button type="button" key=${e} class=${'sv-re' + (s.reacted === e ? ' on' : '')} onClick=${() => { reactStory(g, s, e); toast(`Réaction envoyée à ${firstName(c)}.`); }}>${emoParts(e)}</button>`)}</div>
+        <div class="sv-reply"><input class="input" maxlength=${DM_MAX} placeholder=${'Répondre à ' + firstName(c) + '…'} value=${val} onFocus=${() => setHold(true)} onBlur=${() => { if (!val.trim()) setHold(false); }} onInput=${(e) => setVal(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); send(); } }} />
           <button type="button" class="send" onClick=${send} disabled=${!val.trim() || dmBusy(c.id)} aria-label="Envoyer"><${Icon} n="send" s=${16} /></button></div>
       </div>` : null}
     </div>
@@ -561,7 +561,7 @@ function GroupRows({ g, now }) {
     const last = gr.msgs.filter((m) => m.at <= now && !m.sys).pop(), n = unreadGroup(gr, now), ms = groupMembers(g, gr);
     return html`<button key=${gr.id} class=${'convo' + (n ? ' unread' : '')} onClick=${() => openLayer({ t: 'group', id: gr.id })}>
       <span class="gr-avs" aria-hidden="true">${ms.slice(0, 2).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${34} />`)}</span>
-      <div class="mid"><div><b>${gr.emoji} ${gr.name}</b><span>${ms.length + 1} membres</span></div><p>${last ? (last.a === 'p' ? 'Toi : ' : author(g, last.a).name.split(' ')[0] + ' : ') : ''}${last ? emoParts(last.text) : ''}</p></div>
+      <div class="mid"><div><b>${gr.emoji} ${gr.name}</b><span>${ms.length + 1} membres</span></div><p>${last ? (last.a === 'p' ? 'Toi : ' : firstName(author(g, last.a)) + ' : ') : ''}${last ? emoParts(last.text) : ''}</p></div>
       <div class="side-meta"><span>${last ? fmtAgo(last.at, now) : ''}</span>${n ? html`<span class="dot-count">${n}</span>` : null}</div>
     </button>`;
   })}`;
@@ -585,7 +585,7 @@ function GroupLayer({ l, g, now, i }) {
     if (ok === false) setVal(text);
   };
   return html`<${LayerShell} i=${i} title=${gr.name}
-    head=${html`<div class="who"><span class="gr-avs" aria-hidden="true">${ms.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${30} />`)}</span><div><b>${gr.emoji} ${gr.name}</b><span>Toi, ${ms.map((c) => c.name.split(' ')[0]).join(', ')}</span></div></div>`}
+    head=${html`<div class="who"><span class="gr-avs" aria-hidden="true">${ms.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${30} />`)}</span><div><b>${gr.emoji} ${gr.name}</b><span>Toi, ${ms.map((c) => firstName(c)).join(', ')}</span></div></div>`}
     foot=${gr.left ? html`<p class="muted" style="text-align:center;font-size:13.5px">Tu as quitté ce groupe.</p>` : html`<div>
       <div class="reply-box">
         <textarea ref=${ref} rows="1" maxlength=${DM_MAX} placeholder=${'Message au groupe…'} value=${val} onInput=${(e) => { setVal(e.target.value); autosize(e.target); }}
@@ -597,10 +597,10 @@ function GroupLayer({ l, g, now, i }) {
     <div class="bubbles gr-bubbles" ref=${box}>
       <div class="dm-intro"><b>${gr.emoji} ${gr.name}</b><span>Groupe · toi et ${ms.length} ${plural(ms.length, 'autre', 'autres')}</span></div>
       ${msgs.map((m, k) => {
-        if (m.sys) return html`<div key=${m.id} class="gr-sys">${m.sys === 'quit' ? `${author(g, m.a).name.split(' ')[0]} a quitté le groupe${m.text ? ' (' + m.text + ')' : ''}` : `Le groupe s’appelle maintenant « ${m.text} »`}</div>`;
+        if (m.sys) return html`<div key=${m.id} class="gr-sys">${m.sys === 'quit' ? `${firstName(author(g, m.a))} a quitté le groupe${m.text ? ' (' + m.text + ')' : ''}` : `Le groupe s’appelle maintenant « ${m.text} »`}</div>`;
         if (m.a === 'p') return html`<div key=${m.id} class="bubble me">${emoParts(m.text)}</div>`;
         const au = author(g, m.a), prev = msgs[k - 1], head = !prev || prev.a !== m.a || prev.sys;
-        return html`<div key=${m.id} class="gr-line">${head ? html`<${Avatar} who=${au} size=${28} />` : html`<span class="gr-pad"></span>`}<div>${head ? html`<small class="gr-name" style=${'--h:' + au.hue}>${au.name.split(' ')[0]}</small>` : null}<div class="bubble them">${emoParts(m.text)}</div></div></div>`;
+        return html`<div key=${m.id} class="gr-line">${head ? html`<${Avatar} who=${au} size=${28} />` : html`<span class="gr-pad"></span>`}<div>${head ? html`<small class="gr-name" style=${'--h:' + au.hue}>${firstName(au)}</small>` : null}<div class="bubble them">${emoParts(m.text)}</div></div></div>`;
       })}
       ${typing ? html`<div class="bubble them typing-b" aria-label="Le groupe écrit"><${Typing} /></div>` : null}
     </div>
@@ -609,7 +609,7 @@ function GroupLayer({ l, g, now, i }) {
 // A screenshot of a group without the player, in the conversation of the friend who sent it.
 function LeakCard({ g, m }) {
   return html`<div class="dm-card leak"><span class="evt-kind">📸 Capture d’écran</span>
-    <div class="leak-shot"><b>${m.group}</b>${(m.lines || []).map((x, j) => { const au = author(g, x.a); return html`<div key=${j} class="leak-l"><small>${au.name.split(' ')[0]}</small><span>${emoParts(x.text)}</span></div>`; })}</div>
+    <div class="leak-shot"><b>${m.group}</b>${(m.lines || []).map((x, j) => { const au = author(g, x.a); return html`<div key=${j} class="leak-l"><small>${firstName(au)}</small><span>${emoParts(x.text)}</span></div>`; })}</div>
   </div>`;
 }
 // The ships the player is part of, on their profile.
@@ -709,7 +709,7 @@ function tickBdays(g, t = Date.now()) {
     if (c.rel >= 40 || LOVE_ACTIVE.includes(c.vibe)) {
       applyRel(g, c, -4, 'tu as oublié son anniversaire', later() + 2000, 6);
       addMem(g, c, 'le joueur a oublié mon anniversaire');
-      addNotif(g, { k: 'reldown', c: c.id, text: `😕 C’était l’anniversaire de ${c.name.split(' ')[0]} hier… et tu as oublié.` });
+      addNotif(g, { k: 'reldown', c: c.id, text: `😕 C’était l’anniversaire de ${firstName(c)} hier… et tu as oublié.` });
     }
   }
   for (const c of bdaysToday(g, t)) {

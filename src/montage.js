@@ -71,7 +71,7 @@ function applyEdit(g, r, m, by) {
   m = clamp(num(m, 0.5), 0, 1);
   const s0 = r.played.score, s1 = clamp(s0 + (m - 0.5) * EDIT_SWING, 0, 1);
   const ed = by === 'staff' ? hasStaff(g, 'monteur') : null;
-  r.edit = { m, by: by || 'me', s0, who: ed && g.chars[ed.c] ? g.chars[ed.c].name.split(' ')[0] : '' };
+  r.edit = { m, by: by || 'me', s0, who: ed && g.chars[ed.c] ? firstName(g.chars[ed.c]) : '' };
   r.render = null; // 0.20: a new edit, a new render
   r.played.score = s1;
   r.played.tier = tierOf(s1);
@@ -160,7 +160,7 @@ const lookChoc = (L) => !!L && ['😱', '🤯'].includes(L.emo) && !!String(L.te
 const drawnCtr = (sk) => Math.round(clamp(0.06 + 0.1 * Math.min(1, ((sk && sk.cover) || 0) / 0.3) + 0.02 * Math.min(3, Math.max(0, ((sk && sk.colors) || 1) - 1)), 0, 0.22) * 100) / 100;
 const AI_THUMB_CTR = 0.26;
 function staffThumb(g, r) {
-  const m = hasStaff(g, 'miniature'), who = m && g.chars[m.c] ? g.chars[m.c].name.split(' ')[0] : '';
+  const m = hasStaff(g, 'miniature'), who = m && g.chars[m.c] ? firstName(g.chars[m.c]) : '';
   const look = { bg: pick(['jaune', 'rouge', 'ciel', 'rose']), emo: pick(THUMB_FACES.slice(0, 6)), text: thumbWords(r.topic), deco: pick(['fleche', 'cercle', 'none']) };
   return { kind: 'staff', look, ctr: Math.min(lookCtr(look), 0.2), choc: false, who }; // their own bonus comes on top (staffMult)
 }

@@ -184,7 +184,7 @@ function ripple(g, dir, lv, k, t = Date.now()) {
     if (kind === 'fidele' && dir === 'down') addMem(g, c, 'je reste aux côtés du joueur malgré la tempête');
     if (kind === 'trouble' && dir === 'down') addMem(g, c, 'je me suis rapproché·e du joueur pendant sa tempête');
   }
-  const first = (c) => c.name.split(' ')[0];
+  const first = (c) => firstName(c);
   const names = (list) => (list.length === 1 ? first(list[0]) : list.slice(0, -1).map(first).join(', ') + ' et ' + first(list[list.length - 1]));
   const parts = TEMPER_IDS.filter((x) => said[x]).map((x) => `${names(said[x])} ${W[x].say[said[x].length > 1 ? 1 : 0]}`);
   for (const x of TEMPER_IDS) if (said[x]) beat.push(`${said[x].map((c) => '@' + c.handle).join(' et ')} ${{ fidele: dir === 'down' ? 'le soutient' : 's’en réjouit', integre: dir === 'down' ? 'prend ses distances' : 'salue un succès mérité', opportuniste: dir === 'down' ? 'le lâche' : 'se rapproche de lui par intérêt', detache: 's’en fiche', envieux: dir === 'down' ? 'savoure sa chute' : 'le jalouse (piques, sous-entendus)', trouble: 'se rapproche de lui, étrangement' }[x]}`);
@@ -353,13 +353,13 @@ function StandingCard({ g, close }) {
     <span class="eyebrow">Ta cote en ce moment</span>
     <div class="modal-big" style="font-size:34px">${L.emoji} ${L.label || 'Normale'}</div>
     <ul class="stand-fx">${(STAND_EFFECTS[String(lv)] || ['Rien de spécial : ni scandale, ni gloire.']).map((x, k) => html`<li key=${k}>${x}</li>`)}</ul>
-    ${known.length ? html`<p class="muted" style="font-size:13.5px">Ce que tu sais d’eux : ${known.map((c) => `${c.name.split(' ')[0]} ${TEMPERS[temperOf(c)].emoji} ${temperLabel(c).toLowerCase()}`).join(' · ')}</p>` : null}
+    ${known.length ? html`<p class="muted" style="font-size:13.5px">Ce que tu sais d’eux : ${known.map((c) => `${firstName(c)} ${TEMPERS[temperOf(c)].emoji} ${temperLabel(c).toLowerCase()}`).join(' · ')}</p>` : null}
     <button class="btn btn-hot" onClick=${close}>Compris</button>
   </div>`;
 }
 // On a main character's profile: how they react when the player's name moves (known once they have shown it).
 function TemperSection({ c }) {
-  const T = TEMPERS[temperOf(c)], first = c.name.split(' ')[0];
+  const T = TEMPERS[temperOf(c)], first = firstName(c);
   const seen = !!c.temperSeen;
   return html`<section class="section temper-sec">
     <div class="section-h"><h3>Face à ta réputation</h3><span>${seen ? `${T.emoji} ${temperLabel(c)}` : 'à découvrir'}</span></div>

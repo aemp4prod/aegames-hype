@@ -59,9 +59,9 @@ function sheetLine(g, d) {
   return `${cap1(since)} · ${fmtN(s.fol)} abonnés · ${s.reviews ? `avis clients ${String(s.rating).replace('.', ',')}/5 (${fmtN(s.reviews)} avis)` : 'aucun avis client'} · ${s.collabs} ${plural(s.collabs, 'partenariat', 'partenariats')} avec des créateurs${s.site ? '' : ' · site web introuvable'}`;
 }
 const PITCH = {
-  frais: (g, d) => `Félicitations ${g.player.name.split(' ')[0]} ! 🎉 Ton profil a été sélectionné pour rejoindre le programme ambassadeur de ${d.brand}. Places très limitées : je t’envoie les détails ⬇️`,
-  brief: (g, d) => `Bonjour ${g.player.name.split(' ')[0]}, je suis ${gx((g.chars[d.contact] || {}).g, 'chargé', 'chargée', 'chargé·e')} des campagnes de ${d.brand}. Budget validé pour une collaboration avec toi. Le contrat et le brief sont prêts, il ne reste qu’à les télécharger ⬇️`,
-  impaye: (g, d) => `Salut ${g.player.name.split(' ')[0]} ! On lance ${d.product} et on veut des créateurs qui ont du style : on a un beau budget pour toi. Je t’envoie la proposition ⬇️`,
+  frais: (g, d) => `Félicitations ${firstName(g.player)} ! 🎉 Ton profil a été sélectionné pour rejoindre le programme ambassadeur de ${d.brand}. Places très limitées : je t’envoie les détails ⬇️`,
+  brief: (g, d) => `Bonjour ${firstName(g.player)}, je suis ${gx((g.chars[d.contact] || {}).g, 'chargé', 'chargée', 'chargé·e')} des campagnes de ${d.brand}. Budget validé pour une collaboration avec toi. Le contrat et le brief sont prêts, il ne reste qu’à les télécharger ⬇️`,
+  impaye: (g, d) => `Salut ${firstName(g.player)} ! On lance ${d.product} et on veut des créateurs qui ont du style : on a un beau budget pour toi. Je t’envoie la proposition ⬇️`,
 };
 // Called by makeOffer once the offer exists: maybe a scam (terms changed accordingly); returns { pitch } or null.
 function scamOffer(g, d, o) {
@@ -130,7 +130,7 @@ function agentGamble(g, d) {
   const m = hasStaff(g, 'agent'), c = m && g.chars[m.c];
   if (!c || d.state !== 'offer' || d.hard !== 'agent' || d.tried) return false;
   d.tried = true;
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   if (Math.random() < (d.luck || 0)) {
     d.hard = ''; // (the brand gives what it can, now)
     const nf = Math.min(dealBounds(d).cap, niceRound(d.fee * rand(1.15, 1.3)));
@@ -211,8 +211,8 @@ function tickScams(g, t = Date.now()) {
   for (const d of g.deals) {
     if (!d.scam) continue;
     const c = g.chars[d.contact];
-    if (d.lostAt && t >= d.lostAt && d.gift) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le colis de ${d.brand} (${giftName(g, d.gift)}) n’est jamais arrivé, et ${c ? c.name.split(' ')[0] + ' ne répond plus' : 'la marque a disparu'}.` }); }
-    if (d.lostAt && t >= d.lostAt) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le « kit ambassadeur » de ${d.brand} n’est jamais arrivé, et ${c ? c.name.split(' ')[0] : 'ton contact'} ne répond plus. Tes ${fmtMoney(g, d.costs)} sont perdus.` }); }
+    if (d.lostAt && t >= d.lostAt && d.gift) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le colis de ${d.brand} (${giftName(g, d.gift)}) n’est jamais arrivé, et ${c ? firstName(c) + ' ne répond plus' : 'la marque a disparu'}.` }); }
+    if (d.lostAt && t >= d.lostAt) { d.lostAt = 0; d.state = 'scammed'; burnBrand(g, d.brand); ch = true; if (c) c.ghost = true; addNotif(g, { k: 'money', text: `📦 Le « kit ambassadeur » de ${d.brand} n’est jamais arrivé, et ${c ? firstName(c) : 'ton contact'} ne répond plus. Tes ${fmtMoney(g, d.costs)} sont perdus.` }); }
     if (d.unpaidAt && t >= d.unpaidAt) {
       d.unpaidAt = 0; d.unpaid = true; ch = true; burnBrand(g, d.brand);
       if (c) c.ghost = true;
@@ -311,13 +311,13 @@ function loyalOffer(g, L) {
   if (g.deals.some((x) => x.brand.toLowerCase() === L.brand.toLowerCase() && DEAL_OPEN.includes(x.state))) return false;
   const c = g.chars[L.contact];
   return !!makeOffer(g, { brand: L.brand, sector: L.sector, what: L.what, emoji: L.emoji, product: L.product, contactId: c ? c.id : '', loyal: true, bonus: 1.15 * (hasBonus(g, 'produits') ? 1.1 : 1),
-    text: `Re-coucou ${g.player.name.split(' ')[0]} ! Après le carton de notre dernière collab, on a tout de suite pensé à toi pour la suite. On remet ça ? ⬇️` });
+    text: `Re-coucou ${firstName(g.player)} ! Après le carton de notre dernière collab, on a tout de suite pensé à toi pour la suite. On remet ça ? ⬇️` });
 }
 
 /* ---------- what the AI knows of all this ---------- */
 // For the brand's own DM: the secret it never admits, or a negotiation without mercy.
 function scamCtx(g, d, c) {
-  const n = c.name.split(' ')[0];
+  const n = firstName(c);
   const never = `Elle ne l’avoue JAMAIS, même si le joueur l’accuse : elle s’indigne, rassure, invente des références, ou change de sujet.`;
   const S0 = {
     impaye: `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’a aucune intention de payer. ${n} promet un paiement « à ${d.payLate} jours, comme tout le monde », esquive les questions sur l’entreprise, pousse à signer vite, et refuse tout acompte avec une excuse (« la compta », « chez nous c’est comme ça »). ${never})`,
@@ -333,8 +333,8 @@ function scamCtx(g, d, c) {
   return S0[d.scam] || '';
 }
 const HARD_CTX = (g, d, c) => d.hard === 'alone'
-  ? `Ce contrat est énorme et le joueur négocie seul, sans agent : ${c.name.split(' ')[0]} est une négociatrice redoutable. Elle exige des chiffres précis, ne cède presque rien (quelques pourcents au mieux, jamais au-delà de ${fmtMoney(g, dealBounds(d).cap)}), et coupe court s’il bluffe ou insiste.`
-  : d.hard === 'agent' ? `Ce contrat dépasse le niveau de l’agent du joueur : ${c.name.split(' ')[0]} préfère traiter avec des pros et lâche très peu.` : '';
+  ? `Ce contrat est énorme et le joueur négocie seul, sans agent : ${firstName(c)} est une négociatrice redoutable. Elle exige des chiffres précis, ne cède presque rien (quelques pourcents au mieux, jamais au-delà de ${fmtMoney(g, dealBounds(d).cap)}), et coupe court s’il bluffe ou insiste.`
+  : d.hard === 'agent' ? `Ce contrat dépasse le niveau de l’agent du joueur : ${firstName(c)} préfère traiter avec des pros et lâche très peu.` : '';
 // When the player asks a friend about a brand (named in the message): what the milieu may say of it.
 function brandRumorLine(g, c, text) {
   const t = foldAcc(text || '');
@@ -354,6 +354,6 @@ function brandRumorLine(g, c, text) {
 function DealExtra({ g, d }) {
   const m = hasStaff(g, 'agent'), ag = m && g.chars[m.c];
   return html`${d.info ? html`<details class="dl-sheet"><summary>La marque</summary><p>${sheetLine(g, d)}</p></details>` : null}
-    ${d.state === 'offer' && d.hard === 'agent' && ag && !d.tried ? html`<div class="dl-agent"><span>${STAFF_ROLES.agent.emoji} Ce contrat dépasse le niveau de ${ag.name.split(' ')[0]} (${tierName(m.tier, ag.g).toLowerCase()} : jusqu’à ${fmtMoney(g, AGENT_CEIL[m.tier])}). ${gx(ag.g, 'Il', 'Elle', 'Iel')} peut tenter de le négocier : ${Math.round((d.luck || 0) * 100)} % de chances de faire monter le prix, sinon la marque se retire.</span>
-      <button class="btn btn-ghost btn-sm" onClick=${() => { agentGamble(g, d); update(); }}>Laisser ${ag.name.split(' ')[0]} négocier</button></div>` : null}`;
+    ${d.state === 'offer' && d.hard === 'agent' && ag && !d.tried ? html`<div class="dl-agent"><span>${STAFF_ROLES.agent.emoji} Ce contrat dépasse le niveau de ${firstName(ag)} (${tierName(m.tier, ag.g).toLowerCase()} : jusqu’à ${fmtMoney(g, AGENT_CEIL[m.tier])}). ${gx(ag.g, 'Il', 'Elle', 'Iel')} peut tenter de le négocier : ${Math.round((d.luck || 0) * 100)} % de chances de faire monter le prix, sinon la marque se retire.</span>
+      <button class="btn btn-ghost btn-sm" onClick=${() => { agentGamble(g, d); update(); }}>Laisser ${firstName(ag)} négocier</button></div>` : null}`;
 }

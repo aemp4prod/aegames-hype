@@ -232,6 +232,8 @@ async function newGame(page) {
   await clickText(page, '.feed-tools button', 'Actualiser');
   await idle(page);
   await sleep(1500);
+  // (a loaded machine may draw the post a moment later: wait for its photo, at most a few seconds)
+  for (let k = 0; k < 30 && !(await G(page, (id) => { const g = window.__hype.S.game, p = g.posts.filter((x) => x.a === 'c:' + id && x.prog).pop(); return !p || !!document.querySelector(`.post[data-p="${p.id}"] .photo.real img`); }, zara)); k++) await sleep(200);
   const fed = await G(page, ({ id, n0 }) => {
     const H = window.__hype, g = H.S.game, c = g.chars[id], p = g.posts.filter((x) => x.a === 'c:' + id && x.prog).pop();
     const el = p && document.querySelector(`.post[data-p="${p.id}"] .photo.real img`);

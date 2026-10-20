@@ -57,7 +57,7 @@ function fanAnswered(g, c, t = Date.now()) {
   if (t - (c.fan.lastAnswer || 0) < DAY_MS) return false;
   c.fan.lastAnswer = t;
   c.rel = clamp((c.rel || 0) + (first ? 5 : 2), -100, 100);
-  warmMove(g, first ? 3 : 1, `tu as répondu à ${c.name.split(' ')[0]}, ${gx(c.g, 'un abonné', 'une abonnée', 'un·e abonné·e')}`, t);
+  warmMove(g, first ? 3 : 1, `tu as répondu à ${firstName(c)}, ${gx(c.g, 'un abonné', 'une abonnée', 'un·e abonné·e')}`, t);
   return true;
 }
 // A release that answers a fan's question: the fan becomes a regular, the community warms up a lot.
@@ -68,13 +68,13 @@ function fanVideoDone(g, r, post) {
   c.fan.open = false;
   c.regular = true;
   c.rel = clamp((c.rel || 0) + 15, -100, 100);
-  warmMove(g, 8, `une vidéo sur la question de ${c.name.split(' ')[0]}`);
+  warmMove(g, 8, `une vidéo sur la question de ${firstName(c)}`);
   addIncomingDM(g, c, pick(['TU AS RÉPONDU À MA QUESTION EN VIDÉO 😭 merci merci, je l’ai partagée partout', 'je viens de voir la vidéo… c’est ma question !! t’es trop gentil·le, je suis là pour de bon 💛', 'oh la la ma question en vidéo, j’en reviens pas. merci, sincèrement 🙏']), later() + 4000, { max: 300 });
   addNotif(g, { k: 'relup', c: c.id, text: `💛 ${c.name} devient ${gx(c.g, 'un habitué', 'une habituée', 'un·e habitué·e')} de ta commu : tu as répondu à sa question en vidéo.` });
   return true;
 }
 // The topic of a video on a fan's question.
-const qaTopic = (c) => { const t = String(c.fan.text || ''), q = t.length > 52 ? t.slice(0, 52).replace(/[\s,;:!?.]+\S*$/, '') + '…' : t; return `Je réponds à ${c.name.split(' ')[0]} : ${q}`.slice(0, 80); };
+const qaTopic = (c) => { const t = String(c.fan.text || ''), q = t.length > 52 ? t.slice(0, 52).replace(/[\s,;:!?.]+\S*$/, '') + '…' : t; return `Je réponds à ${firstName(c)} : ${q}`.slice(0, 80); };
 // A release on a fan's question, as the AI should see it.
 const fanVideoLine = (g, r) => { const c = r && r.fanQ ? g.chars[r.fanQ] : null; return c && c.fan ? `C’est une vidéo « vos questions » : le joueur répond à la question de son abonné·e @${c.handle} (« ${str(c.fan.text, 120)} »). @${c.handle} réagit forcément, ravi·e.` : ''; };
 
@@ -83,7 +83,7 @@ function tickCommu(g, t = Date.now()) {
   const c = g.career;
   if (!c) return false;
   let ch = false;
-  for (const f of fanList(g)) if (f.fan.open && !f.fan.ignored && t - f.fan.at > 3 * DAY_MS) { f.fan.ignored = true; warmMove(g, -1.5, `${f.name.split(' ')[0]} attend toujours ta réponse`, t); ch = true; }
+  for (const f of fanList(g)) if (f.fan.open && !f.fan.ignored && t - f.fan.at > 3 * DAY_MS) { f.fan.ignored = true; warmMove(g, -1.5, `${firstName(f)} attend toujours ta réponse`, t); ch = true; }
   if (g.pbb && g.pbb.at && c.warmPbb !== g.pbb.at) { c.warmPbb = g.pbb.at; warmMove(g, -8, 'ton bad buzz', t); ch = true; } // any bad buzz of the player
   const day = gameDay(t);
   if (c.warmDay !== day) { // little by little, back toward lukewarm (faster from far): a warm community needs care
@@ -116,7 +116,7 @@ function CommuSection({ g, now }) {
       <div class="mid"><b>${c.name}</b><span>« ${str(c.fan.text, 120)} »</span>
         <div class="row"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Répondre</button>${fanPlanned(g, c) ? html`<span class="chip">📅 Vidéo prévue</span>` : html`<button class="btn btn-hot btn-sm" disabled=${!planRoom(g)} onClick=${() => openLayer({ t: 'series', id: 'single', fanQ: c.id })}><${Icon} n="calendar" s=${14} /> En faire une vidéo</button>${planRoom(g) ? null : html`<small class="muted">${MAX_PLANNED} sorties déjà prévues</small>`}`}</div></div>
     </div>`)}</div>` : html`<p class="muted">${g.stats.followers < 300 ? 'Tes abonnés t’écriront à partir de 300 abonnés.' : 'Pas de question d’abonné en attente. Elles arrivent en message privé, quand ton fil bouge.'}</p>`}
-    ${regs.length ? html`<p class="commu-regs">💛 Tes habitués : ${regs.slice(-8).map((c) => c.name.split(' ')[0]).join(', ')}</p>` : null}
+    ${regs.length ? html`<p class="commu-regs">💛 Tes habitués : ${regs.slice(-8).map((c) => firstName(c)).join(', ')}</p>` : null}
     <${MembBlock} g=${g} />
     ${log.length ? html`<details class="ledger"><summary>Ce qui a bougé</summary><ul>${log.map((x, k) => html`<li key=${k}><span>${x.why}</span><b class=${x.d < 0 ? 'neg' : 'pos'}>${x.d > 0 ? '+' : '−'}${fmtDec(Math.abs(x.d))}</b></li>`)}</ul></details>` : null}
   </section>`;

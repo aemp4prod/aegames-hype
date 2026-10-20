@@ -187,7 +187,7 @@ const buyTalk = (text) => BUY_RE.test(String(text || ''));
 const moneyWord = (g) => (WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros');
 // The line that asks the AI (a private message, a date). geste: the player pays the bill (a gesture of the date).
 function BUY_LINE(g, c, geste) {
-  const first = c.name.split(' ')[0], W = WORLD_MONEY[g.world.preset], sym = moneyWord(g), cash = Math.max(0, Math.floor(g.career.cash));
+  const first = firstName(c), W = WORLD_MONEY[g.world.preset], sym = moneyWord(g), cash = Math.max(0, Math.floor(g.career.cash));
   return `- ${geste ? 'Le joueur paie : ajoute' : 'Seulement si, dans ce message, le joueur achète, offre ou paie pour de vrai quelque chose qui coûte de l’argent (des fleurs, un cadeau, l’addition, un verre, une tournée, des places, un taxi…), maintenant :'} une ligne {"t":"buy","what":"≤ 60 caractères : ce qu’il paie","kind":"cadeau","price":40}. kind : cadeau (offert à ${first}), sortie (ce qu’ils consomment ou font ensemble et qu’il paie : l’addition, une tournée, des places), perso (pour lui), pro (pour son travail). Pour perso et pro, ajoute "obj":true si c’est un objet qu’il garde (vêtement, accessoire, gadget, matériel…). price : le vrai prix${W ? `, en ${sym} (les prix de ce monde)` : ', en euros, en France (≈ un café 3, une tournée 25, un bouquet 40, un dîner pour deux 90, un bijou 150 à 800)'}, selon le lieu et ce qu’il choisit. Le joueur a ${fmtPlain(cash)} ${sym} : si c’est plus cher, sa carte est refusée (joue-le), et la ligne porte "refused":true. Une promesse (« je t’offrirai… ») n’est pas un achat.`;
 }
 const buyPrice = (v) => { const x = moneyIn(v); return Number.isFinite(x) ? Math.round(x * 100) / 100 : 0; }; // (0.28.1: « 1e+22 », « 2 millions »…)
@@ -204,7 +204,7 @@ function applyBuy(g, c, o, where, at = later()) {
   const refused = due > 0 && due > g.career.cash + 1e-9;
   const R = { id: uid('b'), at, c: c.id, what, kind, price, paid: refused ? 0 : due, off: refused || free ? 0 : off, free, refused, where };
   if (refused) R.left = Math.max(0, g.career.cash); // (the receipt says what was left then, not now)
-  if (!refused && due > 0) pay(g, due, `${K.emoji} ${cap1(what)} (${c.name.split(' ')[0]})`, 'buy');
+  if (!refused && due > 0) pay(g, due, `${K.emoji} ${cap1(what)} (${firstName(c)})`, 'buy');
   if (!refused && kind === 'cadeau') { giftMem(g, c, what); giftCounted(g, c, R.paid, at); } // (0.28.1: « Coin coin » counts the gifts paid in a message too)
   if (!refused && kind === 'sortie') addMem(g, c, `le joueur a payé ${what}`, `Tu as payé ${what}`);
   if (!refused && (kind === 'perso' || kind === 'pro') && (o.obj === true || o.obj === 'true')) invAdd(g, { kind: 'buy', name: what, emoji: K.emoji, value: R.paid, cond: 'neuf', at, from: { how: 'achat', c: c.id } }); // 0.26: kept, in the inventory (0.28.1: worth what it cost)

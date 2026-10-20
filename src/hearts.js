@@ -86,7 +86,7 @@ function noticed(g, c, t = Date.now()) {
   if (!c || c.coeur !== 'inaccessible' || c.noticed) return true;
   const f = amiOf(g, c);
   const why = g.stats.followers >= c.followers * 0.25 ? 'tu commences à compter' : g.lastViralAt && t - g.lastViralAt < 72 * HR ? 'ton post viral'
-    : f && f.rel >= 45 ? `${f.name.split(' ')[0]} lui a parlé de toi` : c.rel >= 30 ? 'vous avez fini par accrocher' : '';
+    : f && f.rel >= 45 ? `${firstName(f)} lui a parlé de toi` : c.rel >= 30 ? 'vous avez fini par accrocher' : '';
   if (!why) return false;
   c.noticed = t;
   addTrigger(g, `@${c.handle}, qui ignorait le joueur jusqu’ici, l’a enfin remarqué (${why}) : ${gx(c.g, 'il', 'elle', 'iel')} pourrait lui écrire, ou lui répondre enfin.`, c.id);
@@ -159,14 +159,14 @@ function startCool(g, c, k, why) {
 // 0.15: blocked a second time, they cut ties: the player's messages no longer reach them (and cost nothing), they ignore
 // the player in public, and only a public gesture (a kind post or reply that names them) may bring them back.
 function cutTies(g, c) {
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   c.cut = { at: Date.now() };
   addMem(g, c, 'j’ai coupé les ponts avec le joueur');
   addNotif(g, { k: 'reldown', c: c.id, at: later() + 1500, text: `🚫 ${first} a coupé les ponts : tes messages ne lui parviennent plus. Il faudrait un geste fort, en public, pour qu’${il} te reparle.` });
   addTrigger(g, `@${c.handle} a coupé les ponts avec le joueur : ${il} ne lui répond plus et l’ignore en public.`, c.id);
 }
 function reconnect(g, c) {
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), t = later();
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), t = later();
   c.cut = null;
   c.blocks = 1; // blocked once more, and it is over again
   if (c.cool && c.cool.k === 'bloque') endCool(g, c, 'gesture');
@@ -196,7 +196,7 @@ function escalate(g, c) {
   const out = tp === 'envieux' || tp === 'opportuniste' || c.coeur === 'jaloux' ? 'affiche' : tp === 'fidele' || tp === 'trouble' || c.coeur === 'anxieux' ? 'ghost' : 'colere';
   if (out === 'affiche') {
     applyRel(g, c, -10, 'tu as insisté lourdement', t + 800, 12);
-    repMove(g, { kind: -10, image: -4 }, `${c.name.split(' ')[0]} t’a ${px(g, 'affiché', 'affichée', 'affiché·e')} : tu as insisté lourdement`);
+    repMove(g, { kind: -10, image: -4 }, `${firstName(c)} t’a ${px(g, 'affiché', 'affichée', 'affiché·e')} : tu as insisté lourdement`);
     addTrigger(g, `@${c.handle} en a assez : le joueur insiste malgré ses limites. ${cap1(il)} l’affiche en public dans un post (sans tout raconter, mais tout le monde comprend de qui ${il} parle).`, c.id);
     startCool(g, c, 'bloque', 'tu as insisté lourdement');
   } else if (out === 'ghost') { applyRel(g, c, -5, 'tu as insisté', t + 800, 8); startCool(g, c, 'ghost', 'tu as insisté'); }
@@ -209,7 +209,7 @@ function escalate(g, c) {
 function confide(g, c, k) {
   const f = amiOf(g, c);
   if (!f || roll() > ({ louche: 0.85, panique: 0.6, ghost: 0.5 }[k] || 0.4)) return;
-  const first = c.name.split(' ')[0], lui = gx(c.g, 'lui', 'elle', 'iel');
+  const first = firstName(c), lui = gx(c.g, 'lui', 'elle', 'iel');
   addMem(g, f, `${first} m’a confié que le joueur ${{ louche: `va bizarrement vite avec ${lui} (love bombing ?)`, panique: `va trop vite avec ${lui}`, ghost: `le ou la met mal à l’aise` }[k] || 'va trop vite'}`);
   if (c.cool) c.cool.told = f.id;
   const r = roll();
@@ -240,7 +240,7 @@ function resolveInquiry(g, iq) {
   iq.state = 'done';
   const c = g.chars[iq.c], f = g.chars[iq.by];
   if (!c || !f) return;
-  const dirt = dirtOn(g, c), first = c.name.split(' ')[0], ff = f.name.split(' ')[0], t = later();
+  const dirt = dirtOn(g, c), first = firstName(c), ff = firstName(f), t = later();
   if (dirt.length) {
     const d = dirt[0];
     iq.found = d.you;
@@ -290,7 +290,7 @@ function tickHearts(g, t = Date.now()) {
 /* ---------- daring moves: skipping steps ---------- */
 const MOVE_RES = [
   ['fianc', /\b(epouse[- ]moi|veux[- ]tu m'?epouser|tu veux m'?epouser|on se marie|marions[- ]nous|fiancons[- ]nous|on se fiance)\b/],
-  ['couple', /\b(on se met ensemble|sortir avec moi|tu veux (etre|sortir) avec moi|tu veux etre (ma copine|mon copain|ma meuf|mon mec)|on officialise|etre en couple)\b/],
+  ['couple', /\b(on se met ensemble|on se met en couple|sortir avec moi|tu veux (etre|sortir) avec moi|tu veux etre (ma copine|mon copain|ma meuf|mon mec)|on officialise|officialiser (notre|ce|le) (couple|relation)|etre en couple|on (est|serait|soit|sera) (offic\w* |vraiment |enfin |maintenant )?en couple|on (est|serait|soit|sera) offic\w* ensemble)\b/], // (0.29.1: « on est officiellement en couple ? »)
   ['decl', /\b(je t'?aime|je suis (amoureux|amoureuse) de toi|je suis (fou|folle|dingue) de toi|je crois que je (t'?aime|suis amoureux|suis amoureuse)|je craque (pour|sur) toi|j'?ai des sentiments pour toi|tu me plais (vraiment|beaucoup|grave|trop))\b/],
   ['rdv', /\b(on se voit (ce soir|demain|samedi|dimanche|ce week-?end|quand)|(boire|prendre) un verre (ensemble|avec moi)|tu veux (sortir|diner|boire un verre|aller boire|aller manger|aller au cine)|un (resto|restau|diner|cine) (ensemble|avec moi)|rencard|on se fait un (date|resto|cine|verre))\b/],
 ];
@@ -333,6 +333,15 @@ function heartBeforeDM(g, c, text) {
   const gap = moveGap(g, c, move);
   if (gap >= 1) startDare(g, c, move, gap);
   else if (move !== 'rdv' && tooFast(c, nextLove(c), t) && coolOf(c)) { startCool(g, c, coolOf(c), 'tu vas trop vite'); unlockAch(g, 'too-fast'); } // (0.28.1: turned down for going too fast)
+  else if (move === 'couple') { const tr = coupleAsked(g, c, t); if (tr) tr.fresh = 1; } // (their answer to this very message does not judge it yet)
+}
+// 0.29.1: the player asks for the couple in their words. If a trial must come first, it starts now: the answer they get
+// already says « yes, but… » (it used to start after a « yes », and the game stayed on « Flirt » without a word).
+function coupleAsked(g, c, t = Date.now()) {
+  if (!c || !isMain(c) || PARTNER.includes(c.vibe) || !vibeOK(c, 'couple') || openTrial(g, c)) return null;
+  if ((c.trialsWon || []).includes('couple') || (c.dareWon && t - c.dareWon < 6 * HR)) return null; // (nothing to pass first)
+  if (coolNow(c, t) || (!likesSpeed(c) && t - paceFrom(c) < paceNeed(c, 'couple'))) return null; // (too soon: their pace answers)
+  return startTrial(g, c, 'couple');
 }
 // After it: their reaction (the AI's judge line, capped by the game) decides a dare, or clears their doubts.
 function heartAfterDM(g, c, text, react, at) {
@@ -409,7 +418,7 @@ const needsJudge = (c, g) => !!(c && (c.dare || (coolNow(c) && COOLS[c.cool.k].j
 // The heart, the pace, a cool under way, a dare: lines of context for a private message.
 function heartLines(g, c, t = Date.now(), withDare = true) {
   if (!c || !isMain(c)) return [];
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = [`Côté cœur, ${first} est ${heartOf(c).ai} (le joueur ne le sait pas : ça se voit à sa façon de répondre).`];
   const cl = coolNow(c, t), next = nextLove(c);
   if (cl && COOLS[cl.k].ai) L.push(COOLS[cl.k].ai(first, il, lui));
@@ -487,7 +496,7 @@ function gestesFor(g, ev) { const c = g.chars[ev.c]; return (GESTES[meetKind(c, 
 const gesteOf = (g, ev, id) => gestesFor(g, ev).find((x) => x.id === id) || Object.values(GESTES).flat().find((x) => x.id === id) || null;
 // What was said tonight, for the prompts.
 function talkTranscript(g, ev) {
-  const c = g.chars[ev.c], T = ev.talk, first = c.name.split(' ')[0], P = g.player.name;
+  const c = g.chars[ev.c], T = ev.talk, first = firstName(c), P = g.player.name;
   const out = T.scene ? [`(la scène) ${T.scene}`] : [];
   for (const x of T.lines) {
     if (x.who === 'c') out.push(`${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}`);
@@ -509,7 +518,7 @@ const BIG_NIGHT_RE = /demande|bague|fian[cç]|parents|famille|(?:ses|tes|mes) (?
 const DINNER_RE = /d[îi]ner|chandelle|gastro|romanti|tête-à-tête/i;
 const FAMOUS = 50000; // that well known, people recognize you in the street
 function dateExigence(g, ev, t = Date.now()) {
-  const c = g.chars[ev.c], why = [], ai = [], first = c.name.split(' ')[0], mk = meetKind(c, ev);
+  const c = g.chars[ev.c], why = [], ai = [], first = firstName(c), mk = meetKind(c, ev);
   const say = (you, them) => { why.push(you); ai.push(them); }; // what the player reads, what the AI reads
   let k = 1; // « Moyen »
   if (c.rel >= 60 && trustOf(c) >= 50) { k -= 1; say('💞 Vous êtes proches', 'ils sont proches'); }
@@ -521,7 +530,7 @@ function dateExigence(g, ev, t = Date.now()) {
   if (liveRumor(g)) weigh.push(['🗣️ Une rumeur court sur toi', 'une rumeur court sur le joueur']);
   if (inBadBuzz(c, t)) weigh.push(['🔥 Son bad buzz pèse', `le bad buzz de ${first} pèse`]);
   const other = mk === 'love' ? mains(g).find((o) => o !== c && LOVE_ACTIVE.includes(o.vibe) && knowsOf(c, o)) : null; // 0.22.2: if they know of it
-  if (other) weigh.push([`💔 Il y a ${other.name.split(' ')[0]} dans ta vie`, `il y a ${other.name.split(' ')[0]} dans la vie du joueur`]);
+  if (other) weigh.push([`💔 Il y a ${firstName(other)} dans ta vie`, `il y a ${firstName(other)} dans la vie du joueur`]);
   k += Math.min(2, weigh.length);
   for (const [you, them] of weigh.slice(0, 2)) say(you, them);
   if (dateKind(c, ev) === 'proposal' || BIG_NIGHT_RE.test(ev.what)) { k += 2; say('💍 Un grand soir', 'un grand soir'); }
@@ -538,7 +547,7 @@ const EXPECT_BONUS = 0.08, EXPECT_MISS = 0.05;
 const fadeOK = (g, c, ev) => PARTNER.includes(c.vibe) || (isPsy(g, c) && (meetKind(c, ev) === 'love' || LOVE_ACTIVE.includes(c.vibe)));
 function promptTalk(g, ev, said) {
   const c = g.chars[ev.c], T = ev.talk, D = diffOf(ev.diff || fameDiff(c)), M = MEET[meetKind(c, ev)];
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const n = T ? T.turn : 0, last = !!T && n + 1 >= T.max;
   const hasDM = ((g.dms[c.id] || {}).msgs || []).filter((m) => m.text && !m.sys).length >= 4;
   const askTest = !!T && said && !last && n === 1 && hasDM && T.testAt == null;
@@ -610,7 +619,7 @@ async function openTalk(ev) {
   const g = S.game, c = g && ev && g.chars[ev.c];
   if (!g || !c || ev.state !== 'scheduled' || ev.played || ev.talk || S.busy.talk) return;
   if (!canAfford(g, 'talk')) { budgetBlocked(); return; }
-  autoSave(g, `Avant ton rendez-vous avec ${c.name.split(' ')[0]}`);
+  autoSave(g, `Avant ton rendez-vous avec ${firstName(c)}`);
   arriveDate(g, ev);
   const T = { scene: '', lines: [], turn: 0, max: TALK_TURNS, reacts: [], used: [], at: Date.now() };
   T.ex = dateExigence(g, ev); // 0.16: set for the evening (lateness included), and the gains follow it
@@ -653,6 +662,7 @@ async function talkTurn(ev, text, geste) {
     return true;
   }
   if (!canAfford(g, 'talk')) { budgetBlocked(); return false; }
+  if (!G && loveMove(text) === 'couple') coupleAsked(g, c); // 0.29.1: asked tonight: a trial first, if one must come
   const theirs = T.lines.filter((x) => x.who === 'c').slice(-1)[0], before = T.lines.filter((x) => x.who === 'p' && x.text).slice(-1)[0];
   const prompt = promptTalk(g, ev, G ? { geste: G.id } : { text });
   const mine = G ? { who: 'p', geste: G.id } : { who: 'p', text };
@@ -797,13 +807,13 @@ function afterDate(g, ev, c) {
   if (ev.photoOk) addTrigger(g, `Pendant leur rendez-vous, le joueur et @${c.handle} ont pris une photo ensemble : elle se retrouve en ligne (postée par l’un d’eux, ou elle fuite). Réactions des fans et des jaloux.`, c.id);
   else if (ev.stolen) { // 0.16: recognized in public: a stolen photo goes around
     addTrigger(g, `Quelqu’un a reconnu le joueur et @${c.handle} pendant leur sortie : une photo volée d’eux deux circule. Le réseau s’emballe (fans, curieux, jaloux).`, c.id);
-    if (c.vibe === 'couple' && c.officiel === 'secret') { c.officiel = 'leaked'; addNotif(g, { k: 'drama', c: c.id, at: later(), text: `📸 Une photo volée de votre soirée circule : ton couple avec ${c.name.split(' ')[0]} n’est plus un secret.` }); officialize(g, c, 'couple', later() + 500); }
+    if (c.vibe === 'couple' && c.officiel === 'secret') { c.officiel = 'leaked'; addNotif(g, { k: 'drama', c: c.id, at: later(), text: `📸 Une photo volée de votre soirée circule : ton couple avec ${firstName(c)} n’est plus un secret.` }); officialize(g, c, 'couple', later() + 500); }
   }
   if (ev.coolAfter) startCool(g, c, ev.coolAfter, 'un geste trop tôt');
   // the jealous ones the player is seeing hear about it (0.22.2: when it was seen; otherwise, word of mouth, later)
   if (meetKind(c, ev) === 'love' && ev.seen) for (const o of mains(g)) {
     if (o === c || o.coeur !== 'jaloux' || !LOVE_ACTIVE.includes(o.vibe) || coolNow(o)) continue;
-    applyRel(g, o, -6, `${gx(o.g, 'jaloux', 'jalouse', 'jaloux·se')} de ton rendez-vous avec ${c.name.split(' ')[0]}`, later() + 2600, 8);
+    applyRel(g, o, -6, `${gx(o.g, 'jaloux', 'jalouse', 'jaloux·se')} de ton rendez-vous avec ${firstName(c)}`, later() + 2600, 8);
     if (PARTNER.includes(o.vibe)) startCool(g, o, 'colere', 'ton rendez-vous avec quelqu’un d’autre');
   }
 }
@@ -841,7 +851,7 @@ function logDate(g, ev, c, recap) {
     const rm = ((g.dms[c.id] || {}).msgs || []).slice().reverse().find((m) => m.sys === 'rdv' && (m.ev ? m.ev === ev.id : m.title === str(ev.what, 100)));
     recap = rm ? rm.text : '';
   }
-  const first = c.name.split(' ')[0], T = ev.talk;
+  const first = firstName(c), T = ev.talk;
   const e = { id, c: c.id, name: c.name, what: str(ev.what, 100), at: ev.played.at || ev.due || Date.now(), mk: meetKind(c, ev), tier: ev.played.tier,
     score: Math.round((ev.played.score || 0) * 100), kind: T && T.lines && T.lines.length ? 'talk' : 'game' };
   if (e.kind === 'talk') {
@@ -872,7 +882,7 @@ function backfillDates(g) {
 const DATE_TIERS = { top: 'Réussi', mid: 'Mitigé', flop: 'Raté' };
 // The evening as text, to paste anywhere.
 function dateLogText(g, e) {
-  const first = e.name.split(' ')[0], me = g.player.name.split(' ')[0];
+  const first = firstName(e), me = firstName(g.player);
   const out = [`${(MEET[e.mk] || MEET.love).emoji} Rendez-vous avec ${e.name} : « ${e.what} »`, `${fmtDate(e.at)} · ${DATE_TIERS[e.tier] || ''} (${e.score} %)`, ''];
   if (e.kind !== 'talk') out.push(`Joué en mini-jeu : ${e.score} %.`);
   if (e.scene) out.push(`(${e.scene})`);
@@ -910,7 +920,7 @@ function DateLogLayer({ l, g, i }) {
   const all = (g.dateLog || []).slice().reverse();
   const e = l.id ? all.find((x) => x.id === l.id) : null;
   if (e) {
-    const first = e.name.split(' ')[0], M = MEET[e.mk] || MEET.love;
+    const first = firstName(e), M = MEET[e.mk] || MEET.love;
     const copy = async () => { const ok = await copyText(dateLogText(g, e)); toast(ok ? 'Le récit est copié : colle-le où tu veux.' : 'Impossible de copier ici.', ok ? 'good' : 'bad'); };
     return html`<${LayerShell} i=${i} title=${'Rendez-vous · ' + first} foot=${html`<button class="btn btn-hot" onClick=${copy}>Copier le récit</button>`}><div class="lpad">
       <div class="dlog-head"><${Avatar} who=${author(g, 'c:' + e.c)} size=${44} /><div><b>${M.emoji} ${e.what}</b><small>${e.name} · ${fmtDate(e.at)}</small></div><span class=${'chip dlog-tier ' + e.tier}>${DATE_TIERS[e.tier] || ''} · ${e.score} %</span></div>
@@ -928,7 +938,7 @@ function DateLogLayer({ l, g, i }) {
     </div><//>`;
   }
   const c = l.c ? g.chars[l.c] : null, list = c ? all.filter((x) => x.c === c.id) : all;
-  return html`<${LayerShell} i=${i} title=${c ? 'Vos rendez-vous · ' + c.name.split(' ')[0] : 'Tes rendez-vous'}><div class="lpad">
+  return html`<${LayerShell} i=${i} title=${c ? 'Vos rendez-vous · ' + firstName(c) : 'Tes rendez-vous'}><div class="lpad">
     ${list.length ? html`<div class="dlog-list">${list.map((x) => html`<button key=${x.id} class="rel-row dlog-row" onClick=${() => openLayer({ t: 'datelog', id: x.id })}>
       <${Avatar} who=${author(g, 'c:' + x.c)} size=${40} />
       <div class="mid"><div><b>${x.name}</b></div><span class="dlog-what">${(MEET[x.mk] || MEET.love).emoji} ${x.what}</span><small>${fmtDate(x.at)}</small></div>
@@ -941,7 +951,7 @@ function DateLogLayer({ l, g, i }) {
 /* ---------- the screen of a date played for real ---------- */
 const GESTE_ASK = ['demande']; // (the gestures that commit the player for good)
 function DateTalk({ ev, g, now }) {
-  const c = g.chars[ev.c], T = ev.talk, first = c.name.split(' ')[0];
+  const c = g.chars[ev.c], T = ev.talk, first = firstName(c);
   const [val, setVal] = useState('');
   const ref = useRef(null), box = useRef(null);
   const busy = S.busy.talk === ev.id;
@@ -1030,6 +1040,26 @@ const TRIALS = {
   doute: { need: 2, judge: true, wedding: true },
   invites: { need: 1, wedding: true },
 };
+const TRIAL_SHOWN = {
+  badbuzz: (f, il) => `${il} prend un bad buzz pile maintenant, et attend de voir si tu l’assumes`,
+  tonbuzz: (f, il) => `une rumeur court sur toi, ${il} veut des explications`,
+  photo: (f, il) => `${il} a vu une photo ambiguë de toi et attend tes explications`,
+  rival: (f, il) => `quelqu’un d’autre tente sa chance, et ${il} hésite`,
+  ami: (f, il, c, g, tr) => `${il} attend que tu gagnes l’estime de ${((g.chars[tr.ami] || {}).name || 'son ami·e').split(' ')[0]}, son ou sa confident·e`,
+  depart: (f, il) => `${il} part quelques jours, et regarde si tu gardes le lien`,
+  secret: (f, il) => `${il} veut d’abord te confier quelque chose`,
+  doute: (f, il) => `${il} a un doute, et a besoin d’être rassuré·e`,
+  invites: () => 'tout le monde attend de savoir qui est invité',
+};
+// A line for their sheet: a step held back (a trial before the couple or the wedding), or their pace asking for time.
+function stepNote(g, c, t = Date.now()) {
+  if (!c || !isMain(c)) return null;
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), tr = openTrial(g, c);
+  if (tr && TRIAL_SHOWN[tr.k]) return `${tr.step === 'mariage' ? '💒 Avant le mariage' : '💞 Pas encore en couple'} : ${TRIAL_SHOWN[tr.k](first, il, c, g, tr)}.`;
+  const cl = coolNow(c, t);
+  if (cl && COOL_SHOWN[cl.k] && ROMANCE.includes(c.vibe)) return `⏳ ${COOL_SHOWN[cl.k](g)} : pas de nouvelle étape pour l’instant.`;
+  return null;
+}
 const TRIAL_MEM = { badbuzz: 'j’ai pris un bad buzz au pire moment : je veux voir si le joueur assume', tonbuzz: 'une rumeur court sur le joueur : j’ai besoin d’explications', photo: 'j’ai vu une photo du joueur avec quelqu’un d’autre', rival: 'quelqu’un d’autre me fait la cour… et je suis flatté·e', ami: 'mon ami·e le plus proche ne sent pas le joueur', depart: 'je pars quelques jours : on verra si le joueur garde le lien', secret: 'j’ai envie de tout dire au joueur avant de m’engager', doute: 'à l’approche du mariage, j’ai un doute', invites: 'le mariage approche : qui sera invité ?' };
 const openTrial = (g, c) => (g.trials || []).find((x) => x.state === 'open' && x.c === c.id) || null;
 // Someone of the cast who might make a move on them (single, not their friend, of a gender that fits, not hostile to them).
@@ -1046,7 +1076,7 @@ function trialCheck(g, c, v, t = Date.now()) {
   return 'trial';
 }
 function startTrial(g, c, step, kind) {
-  const t = Date.now(), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
+  const t = Date.now(), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const kinds = Object.keys(TRIALS).filter((k) => !TRIALS[k].wedding && TRIALS[k].ok(g, c));
   const k = kind || kinds[Math.min(kinds.length - 1, Math.floor(roll() * kinds.length))];
   const T = TRIALS[k];
@@ -1080,12 +1110,13 @@ function startTrial(g, c, step, kind) {
   } else if (k === 'secret') {
     addTrigger(g, `Avant de s’engager, @${c.handle} veut tout dire au joueur : ${il} lui confie en privé son secret (${c.secret}).`, c.id);
   }
+  addNotif(g, { k: 'vibe', c: c.id, at: later() + 4000, text: `💞 Avec ${first}, ce n’est pas encore officiel : ${TRIAL_SHOWN[k](first, il, c, g, tr)}.` }); // 0.29.1: said, not left to guess
   return tr;
 }
 // Before the wedding: a doubt, or the guest list.
 function startVeille(g, c, ev) {
   if (!c || openTrial(g, c)) return null;
-  const t = Date.now(), first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
+  const t = Date.now(), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const k = roll() < 0.5 ? 'doute' : 'invites';
   const tr = { id: uid('tr'), c: c.id, step: 'mariage', k, at: t, until: ev.due, state: 'open', need: TRIALS[k].need, got: 0, ev: ev.id };
   if (k === 'invites') tr.close = mains(g).filter((o) => o !== c && o.rel >= 60).map((o) => o.id);
@@ -1097,14 +1128,14 @@ function startVeille(g, c, ev) {
 }
 const TRIAL_WON = {
   badbuzz: (c) => `tu l’as ${gx(c.g, 'soutenu', 'soutenue', 'soutenu·e')} dans la tempête`, tonbuzz: (c) => `tu as su ${gx(c.g, 'le', 'la', 'le ou la')} rassurer`, photo: () => 'tu as tout expliqué',
-  rival: (c) => `tu ne l’as pas ${gx(c.g, 'laissé', 'laissée', 'laissé·e')} filer`, ami: (c, g, tr) => { const f = g.chars[tr.ami]; return f ? `${f.name.split(' ')[0]} t’a ${px(g, 'adopté', 'adoptée', 'adopté·e')}` : 'son entourage t’a adopté·e'; },
+  rival: (c) => `tu ne l’as pas ${gx(c.g, 'laissé', 'laissée', 'laissé·e')} filer`, ami: (c, g, tr) => { const f = g.chars[tr.ami]; return f ? `${firstName(f)} t’a ${px(g, 'adopté', 'adoptée', 'adopté·e')}` : 'son entourage t’a adopté·e'; },
   depart: () => 'tu as gardé le lien', secret: () => 'tu as bien réagi à son secret', doute: (c) => `tu as su ${gx(c.g, 'le', 'la', 'le ou la')} rassurer`, invites: () => 'tout le monde est invité',
 };
 function winTrial(g, tr) {
   const c = g.chars[tr.c];
   tr.state = 'won';
   if (!c) return;
-  const first = c.name.split(' ')[0], t = later(), why = TRIAL_WON[tr.k](c, g, tr);
+  const first = firstName(c), t = later(), why = TRIAL_WON[tr.k](c, g, tr);
   c.trialsWon = (c.trialsWon || []).concat(tr.step);
   applyRel(g, c, 6, why, t + 500, 8);
   applyTrust(g, c, 5, why, t + 700, { free: true });
@@ -1118,7 +1149,7 @@ function loseTrial(g, tr) {
   const c = g.chars[tr.c];
   tr.state = 'lost';
   if (!c) return;
-  const first = c.name.split(' ')[0], t = later();
+  const first = firstName(c), t = later();
   if (tr.step === 'couple') {
     applyRel(g, c, tr.k === 'badbuzz' ? -8 : -6, { badbuzz: 'tu n’as pas été là dans la tempête', secret: 'ta réaction à son secret', photo: 'cette photo reste en travers', tonbuzz: 'cette rumeur reste en travers' }[tr.k] || 'pas maintenant', t + 500, 10);
     if (tr.k === 'secret') applyTrust(g, c, -10, 'ta réaction à son secret', t + 700);
@@ -1144,10 +1175,10 @@ function trialBeforeDM(g, c, text, t = Date.now()) {
   if (!p || t - (p.caughtAt || 0) < 24 * HR || roll() >= (p.coeur === 'jaloux' ? 0.45 : 0.2)) return;
   p.caughtAt = t;
   noteCaught(g, t); // 0.28: the discipline of a charmer starts again
-  const first = c.name.split(' ')[0];
+  const first = firstName(c);
   applyRel(g, p, -12, `une capture de tes messages à ${first}`, later() + 4000, 15);
   addMem(g, p, `j’ai vu une capture : le joueur drague ${c.name}`);
-  addNotif(g, { k: 'screen', c: p.id, at: later() + 3500, text: `📸 Une capture de tes messages à ${first} est arrivée jusqu’à ${p.name.split(' ')[0]}.` });
+  addNotif(g, { k: 'screen', c: p.id, at: later() + 3500, text: `📸 Une capture de tes messages à ${first} est arrivée jusqu’à ${firstName(p)}.` });
   addTrigger(g, `@${p.handle}, qui est ${VIBES[p.vibe].ai} avec le joueur, a vu une capture où le joueur drague @${c.handle} : crise, explications.`, p.id);
   startCool(g, p, 'colere', 'une capture de tes messages');
 }
@@ -1180,7 +1211,7 @@ function heartsAfterAct(ctx) {
 }
 // 0.15: someone in a bad buzz of their own doing: the player stood by them in public, or piled on.
 function sideSelfBuzz(g, c, how) {
-  const first = c.name.split(' ')[0], t = later();
+  const first = firstName(c), t = later();
   c.badBuzz.sided = how;
   if (how === 'defend') {
     const fin = gx(c.g, 'défendu', 'défendue', 'défendu·e');
@@ -1228,14 +1259,17 @@ const TRIAL_AI = {
 function trialLines(g, c) {
   const tr = openTrial(g, c);
   if (!tr) return [];
-  const first = c.name.split(' ')[0], il = gx(c.g, 'il', 'elle', 'iel');
-  return [TRIAL_AI[tr.k](first, il, c, g, tr)];
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
+  const L = [TRIAL_AI[tr.k](first, il, c, g, tr)];
+  if (tr.step === 'couple') L.push(`Tant que ce n’est pas réglé, ils ne sont PAS encore en couple : si le joueur propose d’officialiser, ${first} ne dit pas un oui franc (« oui, mais… », « laisse-moi un peu de temps »), sans le repousser pour autant ; pas de ligne vibe "couple".`); // 0.29.1
+  return L;
 }
 const trialJudge = (g, c) => { const tr = c && openTrial(g, c); return !!(tr && TRIALS[tr.k].judge); };
 // A judged answer in private: a trial moves on (secret: a bad reaction ends it at once).
 function trialAfterDM(g, c, react) {
   const tr = openTrial(g, c);
   if (!tr || !TRIALS[tr.k].judge) return false;
+  if (tr.fresh) { delete tr.fresh; return true; } // 0.29.1: opened by the message they answer: the next ones are judged
   const good = react === 'charme' || react === 'amuse';
   if (good) { tr.got += 1; if (tr.got >= tr.need) winTrial(g, tr); }
   else if (react === 'refroidi' || (tr.k === 'secret' && react === 'gene')) loseTrial(g, tr);
@@ -1268,7 +1302,7 @@ function tickCouples(g, t = Date.now()) {
   }
   for (const c of mains(g)) {
     if (!PARTNER.includes(c.vibe)) continue;
-    const first = c.name.split(' ')[0];
+    const first = firstName(c);
     if (c.vibe === 'couple' && c.officiel === 'pending' && t - ((c.pace && c.pace.at) || t) > 24 * HR) { c.officiel = 'secret'; c.secretAt = t; ch = true; }
     // a secret leaks: about once a week for the famous, rarely for a small account nobody watches (0.28.1: 4 % a day at
     // a thousand followers between them, 14 % at ten million)

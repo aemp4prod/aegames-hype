@@ -251,8 +251,12 @@ const setPsy = (page, o) => G(page, (o) => { const H = window.__hype, g = H.S.ga
   check('a red flag in a DM of theirs, and one in public (a refresh): noted in the file on them (clues to cite), « Indice noté sur Théo Marlin »',
     sg.signs === 2 && sg.clues.length === 2 && /dîné avec Zara/.test(sg.clues[0]) && /40 derniers posts/.test(sg.clues[1]) && sg.notif.some((t) => /^Indice noté sur Théo Marlin : sait que tu as dîné/.test(t)), sg);
 
-  // ---------- an evening at their place, early on: strange, nothing more ----------
+  // ---------- an evening at their place: nothing yet during the first signals (0.29.1); from the hold, strange, nothing more ----------
   await setPsy(page, { days: 2, signs: 2 });
+  const early = await G(page, () => { const H = window.__hype, g = H.S.game, t = H.charByHandle(g, 'theo.marlin'); return { st: H.psyStage(g), lines: H.psyTalkCtx(g, { c: t.id, what: 'Soirée chez Théo, plaid et film' }, t).join('\n') }; });
+  check('an evening at their place during the first signals (stage 1): no horror film yet, only their discreet signals',
+    early.st === 1 && !/Ce soir, ils sont seuls/.test(early.lines) && /les premiers signaux/.test(early.lines), early);
+  await setPsy(page, { days: 3.5, signs: 2 });
   const e1 = await evening(page, { h: 'theo.marlin', what: 'Soirée chez Théo, plaid et film', vibe: 'flirt' });
   const e1p = await G(page, (n0) => window.__prompts.slice(n0).filter((p) => p.includes('LE RENDEZ-VOUS, EN VRAI')).join('\n'), e1.n0);
   for (let k = 0; k < 5; k++) { await turn(page, e1.ev, 'c’est joli chez toi'); await idle(page); }

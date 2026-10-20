@@ -61,7 +61,7 @@ const devisStock = (g) => invLive(g).filter((x) => !x.sale && x.kind !== 'gear')
 function stockFrom(g, x) {
   const F = x.from || {}, c = F.c ? g.chars[F.c] : null;
   if (x.kind === 'goods' || F.how === 'marque') return `envoyé par ${F.brand || (c && c.brand) || 'une marque'}`;
-  if (x.kind === 'gift' || F.how === 'cadeau') return c ? `offert par ${c.name.split(' ')[0]}` : 'un cadeau';
+  if (x.kind === 'gift' || F.how === 'cadeau') return c ? `offert par ${firstName(c)}` : 'un cadeau';
   return 'à toi';
 }
 const devisDeals = (g, o) => signedDeals(g).filter((d) => d.what === o.what);

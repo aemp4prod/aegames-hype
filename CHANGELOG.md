@@ -5,6 +5,24 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.29.1 — 20 octobre 2026 (build 29001)
+
+**Tes vidéos longues ont maintenant leur propre public, tu peux tourner des feats avec les persos, et officialiser un couple ne te laisse plus dans le flou.**
+
+### ✨ Nouveautés
+
+- **🎬 Shorts et vidéos longues, deux publics** : comme sur le vrai YouTube, les abonnés venus de tes shorts regardent peu tes vidéos longues. Une chaîne de shorts qui s’y met repart presque de zéro : ses premières vidéos font une petite partie des vues de ses shorts, et leurs j’aime et nouveaux abonnés suivent. Le Studio affiche combien de tes abonnés regardent tes vidéos longues.
+- **📺 Fidélise ton public** : chaque vidéo longue fait passer dans ton public vidéo une partie des abonnés shorts qui l’ont regardée. Il en passe plus quand elle est réussie, et beaucoup plus quand ta commu est chaleureuse. Plus tes vidéos réussissent, plus l’algorithme les pousse. Tes lives suivent aussi ton public vidéo, en un peu plus doux.
+- **📣 Le short d’annonce** : dans le Programme, « 📣 Short d’annonce » prépare un short relié à ta vidéo. S’il sort avant elle, une partie de ses spectateurs vient la voir à sa sortie. S’il sort après, il renvoie vers elle, comme le lien « vidéo associée » (« 📣 Un short qui renvoie ici », pendant deux semaines). Un short qui cartonne peut doubler une vidéo moyenne.
+- **🤝 Les feats** : en programmant une sortie, choisis un perso dans « Feat ». Un message part avec le sujet, et son IA accepte ou refuse. « 🤝 Feat », dans le Programme, le propose à quelqu’un d’autre plus tard. Un feat calé en message programme une vidéo, plus un rendez-vous.
+
+### 🛠️ Corrigé
+
+- **💞 Officialiser un couple** : quand une épreuve doit passer avant, elle commence dès ta demande. La personne te répond « oui, mais… », une notification et sa fiche disent ce qui bloque, et le jeu ne reste plus sur « Flirt » sans rien dire. Le jeu comprend aussi plus de façons de le demander (« on se met en couple », « on officialise ? »).
+- **🔪 Le psychopathe** ne se dévoile plus trop tôt dans une partie.
+- **💎 La mise en avant** achetée avec des gemmes double bien les vues de ta prochaine sortie : elle ne s’appliquait pas.
+- **Les noms** : « Le Démineur » ou « DJ Nova » ne deviennent plus « Le » ou « DJ » dans les boutons et les messages.
+
 ## 0.29.0 — 20 octobre 2026 (build 29000)
 
 **Chaque partie a ses rôles (un critique, une autrice de fanfictions… et un psychopathe caché), le réseau se met à vivre pour de vrai, et ta boutique reste ouverte.**
