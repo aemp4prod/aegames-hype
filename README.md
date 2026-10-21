@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.30.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.30.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -327,6 +327,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   design avec ta commu, les grandes saisons, les contrefaçons, une séance de dédicaces. Ce qu’affirme ton post de
   lancement (« fabriqué en France »…), les acheteurs le vérifient tôt ou tard. Depuis la 0.30.1, la séance de
   dédicaces et l’ouverture du pop-up te prennent une demi-journée (ce qui tombe pendant est dit quand tu les organises).
+  Depuis la 0.30.2, l’onglet **Les stats** montre tes ventes jour par jour (14 jours, la boutique ou un produit), les
+  avis de tes acheteurs (de 1 à 5 ★, ce qu’ils adorent, ce qu’ils te reprochent), ce que le réseau dit de ta boutique
+  et un verdict : retours très positifs, globalement positifs, mitigés ou globalement négatifs.
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro

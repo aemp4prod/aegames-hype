@@ -1902,7 +1902,10 @@ function featText(g, r) {
 }
 function featDMCtx(g, c) {
   const r = featAsked(g, c);
-  if (!r) return [];
+  if (!r) { // 0.30.2: the feat already planned with them: said, so that a confirmation does not plan it again
+    const P = (g.releases || []).filter((x) => x && x.state === 'scheduled' && !x.big && x.collab === c.id).slice(0, 2);
+    return P.map((x) => `Déjà calé, dans le programme du joueur : votre feat, ${unW(x)} « ${str(x.topic, 70)} », tournage ensemble ${fmtWhen(x.due)}${relAnn(x) !== x.due ? `, sortie ${fmtWhen(relAnn(x))}` : ''}. Pas de nouvelle ligne plan pour ce tournage : il est déjà prévu.`);
+  }
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   return [`Le joueur te propose un FEAT : faire avec lui ${unW(r)} « ${str(r.topic, 90)} » (sur ${pfName(g, platformOf(g))}, ${fmtWhen(relAnn(r))}) et ${whatF(r) ? 'la' : 'le'} publier à deux : vos deux publics ${whatF(r) ? 'la' : 'le'} voient (le joueur a ${fmtPlain(g.stats.followers)} abonnés, ${first} ${fmtPlain(c.followers)}). ${first} décide selon votre relation, son caractère, ce que ça lui apporte (son public, son image), le sujet (colle-t-il à son univers ?) et son emploi du temps.`];
 }
@@ -1926,9 +1929,30 @@ function applyFeatLine(g, c, o) {
 }
 // The feat asked, given up (another partner, or alone): nothing is said to them.
 function dropFeat(g, r) { if (r && r.feat && r.feat.ok == null) { r.feat = null; return true; } return false; }
+// 0.30.2: the feat with them already in the programme for about that moment (12 h either side of its shoot or its
+// release): a confirmation or a detail in their messages is that one, never a second release.
+const COLLAB_SAME = 12 * 3600000;
+function collabPlanned(g, c, due) {
+  if (!c || !(due > 0)) return null;
+  return (g.releases || []).find((r) => r && r.state === 'scheduled' && !r.big && r.collab === c.id && Math.min(Math.abs(r.due - due), Math.abs(relAnn(r) - due)) < COLLAB_SAME) || null;
+}
+// 0.30.2: before, each confirmation planned it again: the copies go (nothing was paid for them), the first one stays.
+// Only those agreed in their messages (a feat the player asked for a release of theirs has r.feat), of the same kind.
+function dedupeCollabs(g) {
+  const keep = [], out = new Set();
+  for (const r of g.releases || []) {
+    if (!r || r.state !== 'scheduled' || r.big || !r.collab || r.feat) continue;
+    if (keep.some((x) => x.collab === r.collab && x.what === r.what && Math.min(Math.abs(x.due - r.due), Math.abs(relAnn(x) - relAnn(r))) < COLLAB_SAME)) out.add(r);
+    else keep.push(r);
+  }
+  if (out.size) g.releases = g.releases.filter((r) => !out.has(r));
+  return out.size;
+}
 // A video to make together, agreed in their messages (« on fait un feat samedi ? » « grave ! »): it goes in the Studio.
 function planCollab(g, c, o) {
   const due = planDue(o, Date.now());
+  const old = collabPlanned(g, c, due);
+  if (old) return old; // 0.30.2: already planned (they confirm it, add a detail): nothing new
   if (!(due >= Date.now() + 15 * 60000)) return null;
   const iv = { c: c.id, what: str(o.what, 100) || 'vidéo ensemble', due, collab: true, state: 'open' };
   const r = acceptCollab(g, iv, c, true);

@@ -411,10 +411,11 @@ function sellProd(g, p, day, t) {
   const ret = p.mode === 'preco' ? 0 : Math.round(q * (1 - p.q) * 0.12 * (p.badAt ? 2 : 1) * rand(0.6, 1.4)); // (returns: what disappoints comes back)
   p.sold += q; p.revenue += gross; p.refunds += ret * p.price;
   S.sold += q; S.revenue += gross; S.weekSold += q;
+  noteSale(S, p, day, q, gross, ret); // 0.30.2: the day's line of the stats
   S.pend += net - ret * p.price;
   if (half) S.partner = Object.assign(S.partner || {}, { [c.id]: ((S.partner || {})[c.id] || 0) + q * half });
   if (give) { S.given = (S.given || 0) + q * give; const a = p.asso || 'une asso'; S.asso = !S.asso || S.asso === a ? a : 'plusieurs assos'; }
-  if (p.sold >= 10 && !p.rev) p.rev = Math.round(clamp(1 + 4 * p.q + rand(-0.3, 0.3), 1, 5) * 10) / 10; // (the reviews)
+  if (p.sold >= 10 && !p.rev && !starsN(p)) p.rev = Math.round(clamp(1 + 4 * p.q + rand(-0.3, 0.3), 1, 5) * 10) / 10; // (the reviews: 0.30.2, until the first ones are written)
   return q;
 }
 // Each week: the sales paid (the share for a charity paid out, the partner's half paid to them). After a long skip,
@@ -427,10 +428,192 @@ function payShop(g, t) {
   if (given > 0) charge(g, given, `Boutique : reversés à ${S.asso || 'une asso'}`, 'merch');
   if (S.weekSold || v) {
     const parts = Object.entries(S.partner || {}).filter(([id, n]) => g.chars[id] && n > 0).map(([id, n]) => `${firstName(g.chars[id])} a touché sa moitié (${fmtMoney(g, Math.round(n))})`);
-    addNotif(g, { k: 'money', text: `🛍️ Ta boutique : ${fmtN(S.weekSold)} ${plural(S.weekSold, 'pièce vendue', 'pièces vendues')} ${weeks > 1 ? `ces ${weeks} dernières semaines` : 'cette semaine'}, ${net >= 0 ? '+' : '−'}${fmtMoney(g, Math.abs(net))} pour toi${given > 0 ? ` (et ${fmtMoney(g, Math.round(given))} reversés à ${S.asso || 'une asso'})` : ''}${parts.length ? ' · ' + parts.join(', ') : ''}.` });
+    const V = shopVerdict(g, null, t); // 0.30.2: and what the buyers say (a product going wrong said apart)
+    const sour = V && V.tone !== 'bad' ? shopShown(g).filter((x) => { const v = shopVerdict(g, x, t); return v && v.tone === 'bad' && v.n >= 5; }).map((x) => prodYour(x)) : [];
+    addNotif(g, { k: 'money', text: `🛍️ Ta boutique : ${fmtN(S.weekSold)} ${plural(S.weekSold, 'pièce vendue', 'pièces vendues')} ${weeks > 1 ? `ces ${weeks} dernières semaines` : 'cette semaine'}, ${net >= 0 ? '+' : '−'}${fmtMoney(g, Math.abs(net))} pour toi${given > 0 ? ` (et ${fmtMoney(g, Math.round(given))} reversés à ${S.asso || 'une asso'})` : ''}${parts.length ? ' · ' + parts.join(', ') : ''}.${V && V.recent ? ` Retours ${V.label.toLowerCase()} (${V.pct} % de bons avis)${sour.length ? `, sauf pour ${sour.join(' et ')}` : ''}.` : ''}` });
   }
   S.pend = 0; S.weekSold = 0; S.given = 0; S.partner = null; S.asso = '';
   S.payAt = t + 7 * DAY_MS;
+}
+
+/* ---------- 0.30.2: the stats of the shop ----------
+   Each game day of the shop is kept (60 days): the pieces sold, the money, the returns, the reviews written that day
+   (good: 4-5 ★, mixed: 3 ★, bad: 1-2 ★) and what the network said about it (the posts and comments about the shop,
+   judged + or − by the AI that writes them anyway, only while something is on sale). Each product keeps its last 30
+   days, its stars and what its reviews praise or blame, from how it was made, its price and what happened to it.
+   The reviews come from the game's own numbers: no call to the AI. */
+const STAT_DAYS = 60, ITEM_DAYS = 30, SAID_MAX = 6;
+const REV_RATE = 0.08; // the buyers who write a review (a creator's fans write more than in an ordinary shop)
+const REV_PACE = 0.4; // what is waiting to be written that is written each day (they review a few days after)
+function dayStat(S, d) {
+  if (!Array.isArray(S.days)) S.days = [];
+  let D = S.days.find((x) => x.d === d);
+  if (!D) {
+    D = { d, n: 0, ca: 0, ret: 0, rp: 0, rm: 0, rb: 0, np: 0, nb: 0 };
+    S.days.push(D);
+    S.days.sort((a, b) => a.d - b.d);
+    if (S.days.length > STAT_DAYS) S.days.splice(0, S.days.length - STAT_DAYS);
+  }
+  return D;
+}
+function itemDay(p, d) {
+  if (!Array.isArray(p.days)) p.days = [];
+  let I = p.days.find((x) => x.d === d);
+  if (!I) {
+    I = { d, n: 0, ca: 0, rp: 0, rm: 0, rb: 0 };
+    p.days.push(I);
+    p.days.sort((a, b) => a.d - b.d);
+    if (p.days.length > ITEM_DAYS) p.days.splice(0, p.days.length - ITEM_DAYS);
+  }
+  return I;
+}
+// A day's orders, noted (a pre-order is reviewed once delivered).
+function noteSale(S, p, d, q, gross, ret) {
+  const D = dayStat(S, d), I = itemDay(p, d);
+  D.n += q; D.ca = Math.round((D.ca + gross) * 100) / 100; D.ret += ret;
+  I.n += q; I.ca = Math.round((num(I.ca, 0) + gross) * 100) / 100;
+  if (!p.preco) p.toRev = num(p.toRev, 0) + q * REV_RATE;
+}
+// How good it is in the buyers' hands, that day: its making, and what happened to it (a bad batch, the false « made in
+// France », late pre-orders, a « limited » edition made again, fakes going around), its price against the fair one.
+function revQ(p, t = Date.now()) {
+  let q = num(p.q, 0.5);
+  if (p.badAt) q -= 0.35;
+  if (p.exposedAt) q -= 0.12;
+  if (p.preco && p.preco.lateAt && t >= p.preco.lateAt) q -= 0.15;
+  if (p.betrayed) q -= 0.15;
+  if (p.fake && p.fake.state === 'on') q -= 0.05;
+  const r = num(p.price, 0) / Math.max(0.01, prodFair(p));
+  if (r > 1.15) q -= 0.15 * Math.min(1, (r - 1.15) / 0.6);
+  else if (r < 0.9) q += 0.05;
+  if (p.charity) q += 0.03;
+  if (p.collab && p.collab.ok) q += 0.02;
+  return clamp(q, 0, 1);
+}
+// What the reviews blame, what they praise: [what they say, how often, for this product that day].
+const fairRatio = (p) => num(p.price, 0) / Math.max(0.01, prodFair(p));
+const REV_WHY = {
+  lot: ['des pièces défectueuses', (p) => (p.badAt ? 6 : 0)],
+  faux: ['le faux « fabriqué en France »', (p) => (p.exposedAt ? 4 : 0)],
+  retard: ['les retards de livraison', (p, t) => (p.preco && p.preco.lateAt && t >= p.preco.lateAt ? 4 : 0)],
+  tissu: ['le tissu qui gratte', (p) => (MERCH[p.k].textile && p.mat === 'poly' ? 2.5 : 0)],
+  impression: ['l’impression qui craquelle au lavage', (p) => (MERCH[p.k].print && p.print === 'transfert' && p.mode !== 'pod' ? 2.5 : 0)],
+  finition: ['une finition bas de gamme', (p) => (p.mode === 'pod' ? 0.6 : p.origin === 'cn' ? 2 : p.origin === 'tr' ? 1 : 0.3)],
+  prix: ['trop cher pour ce que c’est', (p) => (fairRatio(p) > 1.1 ? 1 + 4 * Math.min(1, (fairRatio(p) - 1.1) / 0.5) : 0.2)],
+  copie: ['les contrefaçons', (p) => (p.fake && p.fake.state === 'on' ? 1.5 : 0)],
+  edition: ['l’édition « limitée » refaite', (p) => (p.betrayed ? 3 : 0)],
+  decu: ['pas comme sur la photo', () => 0.5],
+};
+const REV_LIKE = {
+  qualite: ['la qualité', (p) => (num(p.q, 0) >= 0.75 ? 2.5 : 0.8)],
+  design: ['le design', (p) => (MERCH[p.k].book || MERCH[p.k].line ? 0.6 : 2)],
+  france: ['fabriqué en France', (p) => (p.mode !== 'pod' && p.origin === 'fr' ? 1.2 : 0)],
+  bio: ['le coton bio', (p) => (MERCH[p.k].textile && p.mat === 'bio' ? 1.2 : 0)],
+  tient: ['l’impression qui tient au lavage', (p) => (MERCH[p.k].print && p.print === 'seri' && p.mode !== 'pod' ? 1 : 0)],
+  prix: ['le prix', (p) => (fairRatio(p) < 0.95 ? 1.2 : 0.2)],
+  asso: ['la part pour l’asso', (p) => (p.charity ? 1 : 0)],
+  duo: ['le duo', (p) => (p.collab && p.collab.ok ? 1 : 0)],
+  soutien: ['soutenir le créateur', () => 1],
+};
+const REV_KIND = { // the same, said for a book, a perfume, make-up, a drink
+  livre: { why: { finition: 'le papier et la reliure', decu: 'l’histoire m’a déçu' }, like: { qualite: 'l’histoire', design: 'la couverture' } },
+  parfum: { why: { finition: 'l’odeur qui ne tient pas', decu: 'l’odeur, pas comme annoncé' }, like: { qualite: 'l’odeur' } },
+  makeup: { why: { finition: 'la tenue', decu: 'les teintes, pas comme sur la photo' }, like: { qualite: 'la tenue' } },
+  boisson: { why: { finition: 'le goût', decu: 'pas le goût annoncé' }, like: { qualite: 'le goût' } },
+};
+const revLabel = (k, key, bad) => ((REV_KIND[k] || {})[bad ? 'why' : 'like'] || {})[key] || ((bad ? REV_WHY : REV_LIKE)[key] || [key])[0];
+function revPick(T, p, t) {
+  const W = Object.keys(T).map((k) => [k, Math.max(0, T[k][1](p, t))]).filter((x) => x[1] > 0);
+  let x = Math.random() * W.reduce((n, w) => n + w[1], 0);
+  for (const [k, w] of W) { if (x < w) return k; x -= w; }
+  return W.length ? W[W.length - 1][0] : null;
+}
+// One buyer's review: the stars (around what the product is worth to them), and why.
+function writeReview(p, t = Date.now()) {
+  const e = 1 + 4 * revQ(p, t), w = [1, 2, 3, 4, 5].map((s) => Math.exp(-((s - e) ** 2) / 1.6));
+  let x = Math.random() * w.reduce((a, b) => a + b, 0), s = 1;
+  for (; s < 5 && x >= w[s - 1]; s++) x -= w[s - 1];
+  if (!Array.isArray(p.stars) || p.stars.length !== 5) p.stars = [0, 0, 0, 0, 0];
+  p.stars[s - 1]++;
+  const bad = s <= 2 || (s === 3 && Math.random() < 0.5), key = s >= 4 ? revPick(REV_LIKE, p, t) : bad ? revPick(REV_WHY, p, t) : null;
+  if (key) { const o = s >= 4 ? 'likes' : 'why'; if (!p[o] || typeof p[o] !== 'object') p[o] = {}; p[o][key] = (p[o][key] || 0) + 1; }
+  return s;
+}
+const starsN = (p) => (Array.isArray(p.stars) ? p.stars.reduce((a, b) => a + b, 0) : 0);
+const avgStars = (p) => { const n = starsN(p); return n ? Math.round((p.stars.reduce((a, c, k) => a + c * (k + 1), 0) / n) * 10) / 10 : null; };
+// The reviews written on a day, for a product (those waiting since its orders, a few each day).
+function reviewDay(S, p, d, t) {
+  const k = num(p.toRev, 0) * REV_PACE;
+  const n = Math.min(200, Math.floor(k) + (Math.random() < k - Math.floor(k) ? 1 : 0));
+  if (!(n > 0)) return 0;
+  p.toRev = Math.max(0, num(p.toRev, 0) - n);
+  const D = dayStat(S, d), I = itemDay(p, d);
+  for (let i = 0; i < n; i++) { const s = writeReview(p, t), f = s >= 4 ? 'rp' : s === 3 ? 'rm' : 'rb'; D[f]++; I[f]++; }
+  p.rev = avgStars(p);
+  return n;
+}
+// A shop from before the stats: the reviews its sales had, written now (their days were not kept).
+function seedShopStats(g, S, t = Date.now()) {
+  S.statsAt = t;
+  if (!Array.isArray(S.days)) S.days = [];
+  for (const p of S.items) {
+    if (Array.isArray(p.stars) || !(p.sold > 0)) continue;
+    const n = Math.min(400, Math.round(p.sold * REV_RATE));
+    p.stars = [0, 0, 0, 0, 0];
+    for (let i = 0; i < n; i++) writeReview(p, t);
+    if (n) p.rev = avgStars(p);
+  }
+  if (S.sold > 0) S.since = gameDay(t); // (the days before: only the totals were kept)
+}
+// A post or a comment about the player's shop, judged by the AI that wrote it (+ or −): the day counts it, the last
+// ones are quoted. Only while the shop shows something.
+function merchSaid(g, x, v, at = Date.now()) {
+  const s = v === '+' || v === 1 || v === '1' || v === 'plus' ? 1 : v === '-' || v === '−' || v === -1 || v === '-1' || v === 'moins' ? -1 : 0;
+  if (!s || !x || !x.a || x.a === 'p' || !g.career || !g.career.shop || !shopShown(g).length) return false;
+  x.mx = s;
+  const S = shopOf(g), D = dayStat(S, gameDay(at)), au = author(g, x.a);
+  if (s > 0) D.np++; else D.nb++;
+  S.said = (Array.isArray(S.said) ? S.said : []).concat({ at, name: str(au.name, 40), h: au.handle, text: str(x.text, 160), s }).slice(-SAID_MAX);
+  return true;
+}
+// For the prompts that write posts and comments, while something is on sale: tag what is said about the shop.
+function merchTagLine(g) {
+  if (!g.career || !g.career.shop) return null;
+  const live = shopLive(g);
+  if (!live.length) return null;
+  return `- Si une de ces lignes (post ou réponse) parle de la boutique du joueur (${live.slice(0, 3).map((p) => prodName(p)).join(', ')}${live.length > 3 ? '…' : ''}), ajoute-lui "merch":"+" si elle en dit du bien, "merch":"-" si elle en dit du mal (rien sinon).`;
+}
+// The verdict: the reviews of the last 14 days (and what the network said, for the whole shop), else all of them.
+// trend: this week against the one before.
+function shopVerdict(g, p = null, now = Date.now()) {
+  const S = shopOf(g), d0 = gameDay(now), days = (p ? p.days : S.days) || [];
+  const sum = (a, b) => days.filter((x) => x.d > d0 - a && x.d <= d0 - b).reduce((o, x) => ({ p: o.p + x.rp + (p ? 0 : x.np || 0), m: o.m + x.rm, b: o.b + x.rb + (p ? 0 : x.nb || 0) }), { p: 0, m: 0, b: 0 });
+  let T = sum(14, 0), recent = true;
+  if (T.p + T.m + T.b < 5) {
+    const st = (p ? [p] : shopItems(g)).reduce((a, x) => a.map((v, k) => v + ((Array.isArray(x.stars) && x.stars[k]) || 0)), [0, 0, 0, 0, 0]);
+    T = { p: st[3] + st[4], m: st[2], b: st[0] + st[1] };
+    recent = false;
+  }
+  const n = T.p + T.m + T.b;
+  if (n < 3) return null;
+  const sh = (o) => (o.p + 0.5 * o.m) / Math.max(1, o.p + o.m + o.b), share = sh(T);
+  const lv = share >= 0.8 ? ['Très positifs', 'good'] : share >= 0.62 ? ['Globalement positifs', 'good'] : share >= 0.42 ? ['Mitigés', 'warn'] : ['Globalement négatifs', 'bad'];
+  const A = sum(7, 0), B = sum(14, 7);
+  const trend = recent && A.p + A.m + A.b >= 3 && B.p + B.m + B.b >= 3 ? (sh(A) - sh(B) >= 0.1 ? 1 : sh(B) - sh(A) >= 0.1 ? -1 : 0) : 0;
+  return { label: lv[0], tone: lv[1], share, pct: Math.round((100 * T.p) / n), good: T.p, mid: T.m, bad: T.b, n, recent, trend };
+}
+// What comes back the most in the reviews (key: why, what they blame; likes, what they praise), for the shop or a product.
+function revTop(g, p, key) {
+  const tot = {};
+  for (const x of p ? [p] : shopShown(g)) for (const [k, n] of Object.entries(x[key] || {})) { const lb = revLabel(x.k, k, key === 'why'); tot[lb] = (tot[lb] || 0) + n; }
+  const best = Object.entries(tot).sort((a, b) => b[1] - a[1])[0];
+  return best && best[1] >= 2 ? { label: best[0], n: best[1] } : null;
+}
+// A save too big: the stats keep less.
+function shopSlim(S) {
+  if (Array.isArray(S.days) && S.days.length > 30) S.days = S.days.slice(-30);
+  for (const p of S.items || []) if (Array.isArray(p.days) && p.days.length > 14) p.days = p.days.slice(-14);
+  if (Array.isArray(S.said) && S.said.length > 3) S.said = S.said.slice(-3);
 }
 
 /* ---------- what happens to a product ---------- */
@@ -477,7 +660,8 @@ function precoStep(g, p, t) {
   if (P.closed && !P.shipped && t >= P.shipAt) {
     P.shipped = true;
     p.state = 'gone'; p.goneAt = t; // (a pre-order is one batch: launched again, it is a new one)
-    if (!p.rev && P.qty >= 10) p.rev = Math.round(clamp(1 + 4 * p.q + rand(-0.3, 0.3), 1, 5) * 10) / 10;
+    p.toRev = num(p.toRev, 0) + P.qty * REV_RATE; // 0.30.2: delivered, it gets reviewed
+    if (!p.rev && P.qty >= 10 && !starsN(p)) p.rev = Math.round(clamp(1 + 4 * p.q + rand(-0.3, 0.3), 1, 5) * 10) / 10;
     addNotif(g, { k: 'money', text: `🛍️ Tes précommandes sont livrées : ${nfFull.format(P.qty)} × ${prodName(p)}.` });
     return true;
   }
@@ -567,10 +751,12 @@ function tickMerch(g, t = Date.now()) {
   let ch = false;
   const day = gameDay(t);
   if (S.day == null) S.day = day;
+  if (!S.statsAt) seedShopStats(g, S, t); // 0.30.2: the stats start (a shop from before: its reviews, written now)
   for (let k = 0; S.day < day && k < 60; k++) {
     S.day++;
     const td = Math.min(t, dayEndAt(S.day));
     if (shopSteps(g, S, td)) ch = true;
+    for (const p of S.items) if (reviewDay(S, p, S.day, td)) ch = true; // 0.30.2: written a few days after the orders
     for (const p of S.items) if (sellProd(g, p, S.day, td)) ch = true;
   }
   if (S.day < day) S.day = day; // (beyond sixty days, the shop slept)
@@ -722,7 +908,8 @@ function merchCtx(g) {
     if (p.fake && p.fake.state !== 'gone') x.push('des contrefaçons circulent');
     return x.join(', ');
   });
-  return `Sa boutique de merch : ${bits.join(' ; ')}${S.popup && S.popup.state !== 'over' ? ` ; un pop-up store à ${S.popup.city} ${S.popup.state === 'on' ? 'en ce moment' : fmtWhen(S.popup.at)}` : ''} (${fmtN(S.sold)} pièces vendues en tout).`;
+  const V = shopVerdict(g), top = V ? revTop(g, null, 'why') : null; // 0.30.2: what its buyers say, so that what is written matches
+  return `Sa boutique de merch : ${bits.join(' ; ')}${S.popup && S.popup.state !== 'over' ? ` ; un pop-up store à ${S.popup.city} ${S.popup.state === 'on' ? 'en ce moment' : fmtWhen(S.popup.at)}` : ''} (${fmtN(S.sold)} pièces vendues en tout).${V ? ` Les retours de ses clients : ${V.label.toLowerCase()} (${V.pct} % de bons avis${top && top.n >= 3 ? `, on lui reproche surtout ${top.label}` : ''}).` : ''}`;
 }
 
 /* ---------- the Studio: « Ta boutique » ---------- */
@@ -730,12 +917,14 @@ function BoutiqueSection({ g, now }) {
   const nt = shopNextTier(g);
   if (!merchOK(g)) return html`<section class="section boutique"><div class="section-h"><h3>Ta boutique</h3></div><p class="muted">Ta boutique ouvre à ${nfFull.format(MERCH_MIN)} abonnés : stickers, badges, porte-clés, puis le reste à mesure que ta commu grandit.</p></section>`;
   const S = shopOf(g), live = shopLive(g), ready = launchable(g), making = S.items.filter((p) => p.state === 'making').length;
-  const sea = shopSeason(now);
+  const sea = shopSeason(now), V = shopVerdict(g, null, now); // 0.30.2: what the buyers say, at a glance
   return html`<section class="section boutique">
     <div class="section-h"><h3>Ta boutique</h3><span>${fmtN(S.sold)} ${plural(S.sold, 'pièce vendue', 'pièces vendues')}</span></div>
     <p class="muted">${live.length ? `${live.length} ${plural(live.length, 'produit', 'produits')} en vente` : 'Rien en vente pour l’instant'}${making ? ` · ${making} en fabrication` : ''}${ready.length ? ` · ${ready.length} ${plural(ready.length, 'prêt', 'prêts')} à lancer` : ''}${sea ? ` · ${sea.label} : tes ventes s’envolent` : ''}.</p>
     ${nt ? html`<small class="muted">À ${nfFull.format(nt[0])} abonnés : ${nt[1].toLowerCase()}.</small>` : null}
+    ${V ? html`<small class=${'shop-verdict ' + V.tone}>Retours ${V.label.toLowerCase()} · ${V.pct} % de bons avis${V.trend ? (V.trend > 0 ? ' · en hausse' : ' · en baisse') : ''}</small>` : null}
     <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'merch' })}><${Icon} n="cart" s=${15} /> Gérer ta boutique</button>
+      ${V || S.sold ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'merch', view: 'stats' })}>📊 Les stats</button>` : null}
       ${ready.length ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { const L = launchAll(g); if (L) openCompose({ merch: L.id }); }}><${Icon} n="pen" s=${14} /> Lancer avec un post</button>` : null}</div>
   </section>`;
 }
@@ -768,19 +957,22 @@ function MerchLayer({ g, now, i, l }) {
   const [pre, setPre] = useState(null); // a contest's design, carried to the form
   const S = shopOf(g), shown = shopShown(g).slice().sort((a, b) => (a.state === 'live' ? 0 : 1) - (b.state === 'live' ? 0 : 1) || b.at - a.at);
   const ready = launchable(g), sea = shopSeason(now), nt = shopNextTier(g);
-  const revs = shown.filter((p) => p.rev), avg = revs.length ? revs.reduce((n, p) => n + p.rev, 0) / revs.length : 0;
+  // 0.30.2: the average of every review (the same as « Les stats »); before the first ones, the products' marks
+  const st = shopItems(g).reduce((a, x) => a.map((v, k) => v + ((Array.isArray(x.stars) && x.stars[k]) || 0)), [0, 0, 0, 0, 0]), nRev = st.reduce((a, b) => a + b, 0);
+  const revs = shown.filter((p) => p.rev), avg = nRev ? st.reduce((a, c, k) => a + c * (k + 1), 0) / nRev : revs.length ? revs.reduce((n, p) => n + p.rev, 0) / revs.length : 0;
   const go = (v) => { setView(v); const el = document.querySelector('.shop-body'); if (el) el.scrollTop = 0; };
   return html`<${LayerShell} i=${i} title="Ta boutique">
     <div class="shop-head">
       <div class="shop-stats"><span><b>${shopLive(g).length}</b> en vente</span><span><b>${fmtN(S.sold)}</b> ${plural(S.sold, 'vendu', 'vendus')}</span><span><b>${fmtN(S.weekSold)}</b> cette semaine</span>${avg ? html`<span><b>${avg.toFixed(1).replace('.', ',')} ★</b> avis</span>` : null}</div>
       ${sea ? html`<p class="shop-sea">C’est ${sea.label} : tes ventes ×${String(sea.mult).replace('.', ',')}.</p>` : null}
-      <${Seg} items=${[['items', 'Tes produits'], ['new', 'Nouveau produit'], ['extras', 'Événements']]} value=${view} onPick=${go} label="Ta boutique" />
+      <${Seg} items=${[['items', 'Tes produits'], ['stats', 'Les stats'], ['new', 'Nouveau produit'], ['extras', 'Événements']]} value=${view} onPick=${go} label="Ta boutique" />
     </div>
     <div class="lpad shop-body">
       ${view === 'items' ? html`
         ${ready.length ? html`<div class="shop-launch"><span>🛍️ ${ready.length} ${plural(ready.length, 'produit prêt', 'produits prêts')} : ${ready.map((p) => itemTitle(p)).join(', ')}</span><button class="btn btn-hot btn-sm" onClick=${() => { const L = launchAll(g); if (L) openCompose({ merch: L.id }); }}><${Icon} n="pen" s=${14} /> ${ready.length > 1 ? 'Les lancer ensemble' : 'Le lancer'} avec un post</button></div>` : null}
         ${shown.length ? shown.map((p) => html`<${ShopCard} key=${p.id} g=${g} p=${p} now=${now} />`) : html`<div class="empty"><b>Ta boutique est vide</b><span>Crée ton premier produit.</span><button class="btn btn-hot btn-sm" onClick=${() => go('new')}>Nouveau produit</button></div>`}
         ${nt ? html`<p class="muted shop-next">À ${nfFull.format(nt[0])} abonnés : ${nt[1].toLowerCase()}${shopTierKeys(nt[0]).length > 1 ? ` (${shopTierKeys(nt[0]).map((k) => MERCH[k].label.toLowerCase()).join(', ')})` : ''}.</p>` : null}`
+      : view === 'stats' ? html`<${ShopStats} g=${g} now=${now} />`
       : view === 'new' ? html`<${NewItemForm} g=${g} now=${now} pre=${pre} done=${() => { setPre(null); go('items'); }} />`
       : html`<${ShopExtras} g=${g} now=${now} pick=${(e) => { setPre(e); go('new'); }} />`}
     </div>
@@ -857,6 +1049,104 @@ function NewItemForm({ g, now, pre, done }) {
     <div class="sn-sum"><span>${mode === 'pod' ? `${fmtMoney(g, cost)} par pièce imprimée` : `Fabrication : ${fmtMoney(g, cost)} la pièce`}</span><span>Marge : <b class=${mg > 0 ? 'good' : 'bad'}>${fmtMoney(g, mg)}</b> la pièce${F.collab ? ' (ta moitié)' : ''}</span><span>Qualité ${starsTxt(stars(q))}</span>${up ? html`<span>À avancer : <b>${fmtMoney(g, up)}</b></span>` : null}${days ? html`<span>Prêt dans ${days} jours environ</span>` : null}</div>
     <button class="btn btn-hot" disabled=${!(o.price >= M.min) || (up && g.career.cash < up)} onClick=${make}><${Icon} n="cart" s=${16} /> ${days ? 'Lancer la fabrication' : 'Préparer'}${up ? ` · ${fmtMoney(g, up)}` : ''}</button>
     ${up && g.career.cash < up ? html`<small class="muted why-off">Il te manque ${fmtMoney(g, up - g.career.cash)}.</small>` : null}
+  </div>`;
+}
+/* ---------- 0.30.2: « Les stats » ----------
+   The verdict first (what the buyers and the network say), then three numbers, the sales of the last 14 days, the
+   reviews of those days (good above the line, bad below), the stars, and what the network said. One filter row on top:
+   the whole shop or one product; every chart follows it. Each chart has its table. */
+const STAT_WIN = 14;
+const WD = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+const dayNoon = (d) => d * DAY_MS + 12 * 3600000 - clockOff(); // (a moment of that game day, on the stored clock)
+// The last 14 game days, oldest first, for the shop or a product: what was sold, the reviews, what marked the day.
+function statWindow(g, p, now = Date.now()) {
+  const S = shopOf(g), d0 = gameDay(now), src = (p ? p.days : S.days) || [], out = [];
+  const inDays = (o, d) => !!o && o.state !== 'planned' && gameDay(o.at) <= d && d <= gameDay(o.end - 1);
+  for (let d = d0 - STAT_WIN + 1; d <= d0; d++) {
+    const x = src.find((y) => y.d === d) || {}, at = dayNoon(d), sea = shopSeason(at);
+    const peak = inDays(S.popup, d) ? 'ton pop-up store' : inDays(S.signing, d) && (!p || S.signing.p === p.id) ? 'tes dédicaces' : sea ? sea.label : '';
+    out.push({ d, at, n: x.n || 0, ca: x.ca || 0, ret: x.ret || 0, rp: x.rp || 0, rm: x.rm || 0, rb: x.rb || 0, np: p ? 0 : x.np || 0, nb: p ? 0 : x.nb || 0,
+      launch: (p ? [p] : S.items).filter((y) => y.launchAt && gameDay(y.launchAt) === d).map((y) => itemTitle(y)), peak });
+  }
+  return out;
+}
+const dayName = (x) => { const D = gameDate(x.at); return `${WEEKDAYS[D.getDay()]} ${D.getDate()}`; };
+// One chart's frame: its title, the plot, a tooltip for the day under the pointer (or the keyboard), its table.
+function StatChart({ title, sub, days, plot, tip, legend, table, cls }) {
+  const [on, setOn] = useState(-1), x = on >= 0 ? days[on] : null;
+  return html`<figure class=${'st-fig ' + (cls || '')}>
+    <figcaption><b>${title}</b>${sub ? html`<span>${sub}</span>` : null}</figcaption>
+    ${legend ? html`<div class="st-legend">${legend}</div>` : null}
+    <div class="st-area" onPointerLeave=${() => setOn(-1)}>
+      ${plot((i) => ({ onPointerEnter: () => setOn(i), onPointerDown: () => setOn(i), onFocus: () => setOn(i), onBlur: () => setOn(-1) }), on)}
+      ${x ? html`<div class=${'st-tip' + (on > days.length / 2 ? ' left' : '')} style=${`--i:${on};--n:${days.length}`} role="status">${tip(x)}</div>` : null}
+    </div>
+    <div class="st-x" aria-hidden="true">${days.map((y, i) => html`<span key=${y.d} class=${i === days.length - 1 ? 'today' : ''}>${i === days.length - 1 ? 'auj.' : gameDate(y.at).getDate()}${y.launch.length ? html`<i class="st-launch" title="lancement"></i>` : null}</span>`)}</div>
+    <details class="st-table"><summary>Voir en tableau</summary>${table}</details>
+  </figure>`;
+}
+function SalesChart({ g, days }) {
+  const max = Math.max(1, ...days.map((x) => x.n)), top = days.reduce((a, x) => (x.n > a.n ? x : a), days[0]);
+  const peaks = [...new Set(days.filter((x) => x.peak).map((x) => x.peak))], launches = days.some((x) => x.launch.length);
+  const legend = peaks.length || launches ? html`${launches ? html`<span><i class="st-launch"></i> lancement</span>` : null}${peaks.length ? html`<span><i class="st-peakkey"></i> ${peaks.join(', ')}</span>` : null}` : null;
+  return html`<${StatChart} title="Ventes par jour" sub=${`${fmtN(days.reduce((n, x) => n + x.n, 0))} ${plural(days.reduce((n, x) => n + x.n, 0), 'pièce', 'pièces')} en ${STAT_WIN} jours`} days=${days} legend=${legend} cls="st-sales"
+    tip=${(x) => html`<b>${fmtN(x.n)} ${plural(x.n, 'vendu', 'vendus')}</b><span>${dayName(x)}${x.ca ? ` · ${fmtMoney(g, Math.round(x.ca))}` : ''}${x.ret ? ` · ${x.ret} ${plural(x.ret, 'retour', 'retours')}` : ''}</span>${x.launch.length ? html`<span>🚀 ${x.launch.join(', ')}</span>` : null}${x.peak ? html`<span>${x.peak}</span>` : null}`}
+    plot=${(on, sel) => html`<div class="st-plot">${days.map((x, i) => html`<div key=${x.d} class=${'st-col' + (x.peak ? ' peak' : '') + (sel === i ? ' on' : '')} tabindex="0" aria-label=${`${dayName(x)} : ${x.n} ${plural(x.n, 'vendu', 'vendus')}`} ...${on(i)}>
+        ${x === top && x.n ? html`<b class="st-val" style=${`bottom:calc(${(100 * x.n) / max}% + 3px)`}>${fmtN(x.n)}</b>` : null}
+        <span class="st-bar" style=${`height:${x.n ? Math.max(2, (100 * x.n) / max) : 0}%`}></span></div>`)}</div>`}
+    table=${html`<table><thead><tr><th>Jour</th><th>Vendus</th><th>Chiffre d’affaires</th><th>Retours</th></tr></thead><tbody>${days.slice().reverse().map((x) => html`<tr key=${x.d}><td>${dayName(x)}</td><td>${fmtN(x.n)}</td><td>${fmtMoney(g, Math.round(x.ca))}</td><td>${x.ret}</td></tr>`)}</tbody></table>`} />`;
+}
+// The reviews of each day: the good ones (4-5 ★) above the line, the bad ones (1-2 ★) below; the mixed in the tooltip.
+function ReviewChart({ days }) {
+  const max = Math.max(1, ...days.map((x) => Math.max(x.rp, x.rb))), n = days.reduce((a, x) => a + x.rp + x.rm + x.rb, 0);
+  return html`<${StatChart} title="Avis par jour" sub=${`${fmtN(n)} ${plural(n, 'avis', 'avis')} en ${STAT_WIN} jours`} days=${days} cls="st-revs"
+    legend=${html`<span><i class="st-key good"></i> bons avis (4-5 ★), au-dessus</span><span><i class="st-key bad"></i> mauvais avis (1-2 ★), en dessous</span>`}
+    tip=${(x) => html`<b>${x.rp} ${plural(x.rp, 'bon', 'bons')} · ${x.rb} ${plural(x.rb, 'mauvais', 'mauvais')}</b><span>${dayName(x)}${x.rm ? ` · ${x.rm} ${plural(x.rm, 'moyen', 'moyens')} (3 ★)` : ''}</span>`}
+    plot=${(on, sel) => html`<div class="st-plot st-div">${days.map((x, i) => html`<div key=${x.d} class=${'st-col' + (sel === i ? ' on' : '')} tabindex="0" aria-label=${`${dayName(x)} : ${x.rp} bons avis, ${x.rb} mauvais`} ...${on(i)}>
+        <span class="st-up"><span class="st-bar good" style=${`height:${x.rp ? Math.max(3, (100 * x.rp) / max) : 0}%`}></span></span>
+        <span class="st-down"><span class="st-bar bad" style=${`height:${x.rb ? Math.max(3, (100 * x.rb) / max) : 0}%`}></span></span></div>`)}</div>`}
+    table=${html`<table><thead><tr><th>Jour</th><th>Bons</th><th>Moyens</th><th>Mauvais</th></tr></thead><tbody>${days.slice().reverse().map((x) => html`<tr key=${x.d}><td>${dayName(x)}</td><td>${x.rp}</td><td>${x.rm}</td><td>${x.rb}</td></tr>`)}</tbody></table>`} />`;
+}
+// The stars of every review (the product, or the whole shop): 5 ★ on top.
+function StarsBars({ st }) {
+  const n = st.reduce((a, b) => a + b, 0), max = Math.max(1, ...st);
+  return html`<figure class="st-fig st-stars"><figcaption><b>Les étoiles</b><span>${fmtN(n)} ${plural(n, 'avis', 'avis')} depuis le début</span></figcaption>
+    <div class="st-rows">${[5, 4, 3, 2, 1].map((s) => html`<div class="st-row" key=${s}><span class="st-s">${s} ★</span><span class="st-track"><span class="st-fill" style=${`width:${st[s - 1] ? Math.max(2, (100 * st[s - 1]) / max) : 0}%`}></span></span><span class="st-n">${fmtN(st[s - 1])}<small>${n ? ` · ${Math.round((100 * st[s - 1]) / n)} %` : ''}</small></span></div>`)}</div></figure>`;
+}
+function ShopStats({ g, now }) {
+  const S = shopOf(g), [pid, setPid] = useState(null), items = shopItems(g).filter((p) => p.launchAt || starsN(p));
+  const p = pid ? items.find((x) => x.id === pid) || null : null;
+  const days = statWindow(g, p, now), V = shopVerdict(g, p, now), bad = revTop(g, p, 'why'), good = revTop(g, p, 'likes');
+  const st = (p ? [p] : shopItems(g)).reduce((a, x) => a.map((v, k) => v + ((Array.isArray(x.stars) && x.stars[k]) || 0)), [0, 0, 0, 0, 0]);
+  const sold = days.reduce((a, x) => a + x.n, 0), money = days.reduce((a, x) => a + x.ca, 0), ns = st.reduce((a, b) => a + b, 0);
+  const avg = ns ? st.reduce((a, c, k) => a + c * (k + 1), 0) / ns : 0;
+  const np = days.reduce((a, x) => a + x.np, 0), nb = days.reduce((a, x) => a + x.nb, 0), said = (S.said || []).slice(-3).reverse();
+  const since = S.since && S.since > days[0].d ? days.find((x) => x.d === S.since) : null;
+  const alerts = p ? [] : items.map((x) => ({ x, v: shopVerdict(g, x, now) })).filter((o) => o.v && o.v.tone !== 'good' && o.v.n >= 5).map((o) => Object.assign(o, { t: revTop(g, o.x, 'why') })); // (one product going wrong, in a shop that does well)
+  if (!items.length) return html`<div class="empty"><b>Pas encore de stats</b><span>Elles arrivent avec tes premières ventes : lance un produit avec un post.</span></div>`;
+  return html`<div class="shop-stats-view">
+    ${items.length > 1 ? html`<div class="tr-chips st-pick" role="group" aria-label="Les stats de">${[null, ...items].map((x) => html`<button type="button" key=${x ? x.id : 'all'} class=${'chip-btn' + ((x ? x.id : null) === (p ? p.id : null) ? ' on' : '')} onClick=${() => setPid(x ? x.id : null)}>${x ? `${MERCH[x.k].emoji} ${itemTitle(x)}` : 'Toute la boutique'}</button>`)}</div>` : null}
+    <section class=${'st-verdict ' + (V ? V.tone : 'none')}>
+      ${V ? html`<span class="st-vlbl">Retours ${V.label.toLowerCase()}</span>
+        <p><b>${V.pct} %</b> de bons avis${V.recent ? ` ces ${STAT_WIN} derniers jours` : ' depuis le début'}${p ? '' : ' (avec ce que dit le réseau)'}${V.trend ? html` <span class=${'chip ' + (V.trend > 0 ? 'good' : 'bad')}>${V.trend > 0 ? '↗ en hausse cette semaine' : '↘ en baisse cette semaine'}</span>` : null}</p>
+        ${bad && (V.tone !== 'good' || bad.n >= Math.max(3, 0.1 * ns)) ? html`<p class="st-why">👎 Ce qu’on ${p ? 'lui' : 'te'} reproche le plus : <b>${bad.label}</b> (${bad.n} avis)</p>` : null}
+        ${good ? html`<p class="st-why">👍 Ce qu’ils adorent : <b>${good.label}</b> (${good.n} avis)</p>` : null}
+        ${alerts.map(({ x, v, t }) => html`<button type="button" key=${x.id} class="st-alert" onClick=${() => setPid(x.id)}>⚠️ <b>${itemTitle(x)}</b> : retours ${v.label.toLowerCase()}${t ? ` (${t.label})` : ''}</button>`)}`
+      : html`<span class="st-vlbl">Pas encore assez d’avis</span><p class="muted">Les acheteurs écrivent quelques jours après avoir reçu leur commande.</p>`}
+    </section>
+    <div class="st-kpis">
+      <div><span>Vendus</span><b>${fmtN(sold)}</b><small>${STAT_WIN} derniers jours</small></div>
+      <div><span>Chiffre d’affaires</span><b>${fmtMoney(g, Math.round(money))}</b><small>${STAT_WIN} derniers jours</small></div>
+      <div><span>Note</span><b>${ns ? `${avg.toFixed(1).replace('.', ',')} ★` : '–'}</b><small>${fmtN(ns)} ${plural(ns, 'avis', 'avis')}</small></div>
+    </div>
+    ${since ? html`<p class="muted st-since">Jour par jour depuis le ${gameDate(since.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} : avant, le jeu ne gardait que les totaux.</p>` : null}
+    <${SalesChart} g=${g} days=${days} />
+    <${ReviewChart} days=${days} />
+    <${StarsBars} st=${st} />
+    ${p ? null : html`<section class="st-fig st-net"><figcaption><b>Ce que le réseau en dit</b><span>${STAT_WIN} derniers jours</span></figcaption>
+      ${np + nb ? html`<p><b>${np}</b> ${plural(np, 'post ou commentaire', 'posts ou commentaires')} qui en ${plural(np, 'dit', 'disent')} du bien, <b>${nb}</b> du mal.</p>` : html`<p class="muted">Personne n’en a parlé ces derniers jours.</p>`}
+      ${said.length ? html`<ul class="st-said">${said.map((x, k) => html`<li key=${k}><span class=${'chip ' + (x.s > 0 ? 'good' : 'bad')}>${x.s > 0 ? '👍 du bien' : '👎 du mal'}</span><span><b>@${x.h}</b> « ${x.text} »</span></li>`)}</ul>` : null}
+    </section>`}
   </div>`;
 }
 // The contest, the book signing, the pop-up store, the high seasons.

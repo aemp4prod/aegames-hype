@@ -5,6 +5,20 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.30.2 — 21 octobre 2026 (build 30002)
+
+**Les stats de ta boutique, de vrais avis sur ton merch, un feat qui ne se programme plus en plusieurs exemplaires, et des devis qui savent quand il faut acheter.**
+
+### ✨ Nouveautés
+
+- **📊 Les stats de ta boutique** : un nouvel onglet montre tes ventes jour par jour sur 14 jours (toute la boutique ou un seul produit), les avis du jour, les étoiles, ce que tes acheteurs adorent et ce qu’ils te reprochent, et ce que le réseau dit de ta boutique. En haut, un verdict : retours très positifs, globalement positifs, mitigés ou globalement négatifs, en hausse ou en baisse cette semaine, et le produit qui déçoit, s’il y en a un. Le Studio et le récap de chaque semaine le disent aussi.
+- **⭐ De vrais avis** : quelques jours après leur commande, une partie de tes acheteurs donnent leur avis, selon la façon dont le produit est fait, son prix et ce qui lui arrive. La note de chaque produit est la moyenne de ces avis, et ce que les persos en disent compte aussi.
+
+### 🛠️ Corrigé
+
+- **🤝 Un feat calé en message** n’est plus reprogrammé chaque fois que le perso le confirme ou ajoute un détail : il reste une seule sortie, et son IA sait que c’est déjà prévu. Les doublons d’une partie en cours disparaissent.
+- **🧾 Les devis** : ce que ta vidéo modifie, casse ou consomme s’achète (une voiture qu’on prépare pour rouler à 200 km/h n’est plus louée), ce qu’on teste puis qu’on rend se loue. Et le devis chiffre ce que ta vidéo fait vraiment, sans le remplacer par des effets spéciaux.
+
 ## 0.30.1 — 21 octobre 2026 (build 30001)
 
 **La romance devient sensuelle, jouer les méchants a enfin des conséquences (et des avantages), faire une vidéo prend du temps, les grosses productions arrivent dès 100 000 abonnés, et ton absence ne te coûte plus rien.**

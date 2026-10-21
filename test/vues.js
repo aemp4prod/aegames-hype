@@ -149,6 +149,7 @@ async function publish(page, a) {
 
   // ---------- a short that announces a long video, from the programme ----------
   await clear(page);
+  await G(page, () => { const H = window.__hype, g = H.S.game, h = new Date(Date.now() + (g.clockOff || 0)).getHours(); if (h < 7) H.jumpClock(g, (10 - h) * 3600000); }); // (in the night the days are named, « Demain » is not offered: the day first)
   const vid = await G(page, () => { const H = window.__hype, g = H.S.game; const r = H.scheduleRelease(g, { what: 'vidéo', topic: 'Je teste 10 potions interdites', due: Date.now() + 2 * 86400000 + 3600000 }); H.goTab('studio'); H.update(); return r.id; });
   await sleep(500);
   await page.locator('.plan-row', { hasText: '10 potions interdites' }).locator('button', { hasText: 'Short d’annonce' }).click();

@@ -285,7 +285,7 @@ async function publishLaunch(page, text, merch) {
     return out;
   });
   check('a poor product (China, polyester, transfer): after its first week, the reviews say why (« ça gratte », the printing cracks), some pieces come back; a bad batch: complaints and refunds',
-    quality.sold >= 30 && quality.complained && /ça gratte/.test(quality.notif) && /craquelle/.test(quality.notif) && quality.refunds && quality.rev <= 2.5 && quality.badAt && /se plaignent de ton mug/.test(quality.badNotif), quality);
+    quality.sold >= 30 && quality.complained && /ça gratte/.test(quality.notif) && /craquelle/.test(quality.notif) && quality.refunds && quality.rev < 3.5 && quality.badAt && /se plaignent de ton mug/.test(quality.badNotif), quality);
 
   // ---------- counterfeits ----------
   const law = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = 80000; const c = H.addCandidate(g, 'avocat', { tier: 1, name: 'Agnès Morel', g: 'f' }); if (c) H.hireStaff(g, c); const p = H.shopItems(g).find((x) => x.k === 'stickers'); H.counterfeit(g, p, Date.now()); H.update(); return { fake: p.fake && p.fake.state, staff: !!H.hasStaff(g, 'avocat') }; });

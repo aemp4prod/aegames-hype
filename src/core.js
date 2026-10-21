@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.30.1';
+const APP_VERSION = '0.30.2';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -594,6 +594,7 @@ function migrate(g) {
     if (r && r.state === 'scheduled' && r.editGame && r.editGame.kind === 'etalonnage' && !r.edit) r.editGame = null;
     if (r && r.state === 'scheduled' && r.outAt == null && r.prod == null) r.prod = 0; // 0.30.1: planned before the time it takes: as it was
   }
+  dedupeCollabs(g); // 0.30.2: a feat confirmed several times in the messages had been planned each time
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
   if (!Array.isArray(g.arcs)) g.arcs = [];
@@ -2074,6 +2075,8 @@ const COLLAB_RE = /\bcollab\b|\bfeat\b|\bfeaturing\b|\ben duo\b|(tourner|filmer|
 const collabWhat = (s) => (/\blive\b/i.test(s) ? 'live' : /short|reel|tiktok/i.test(s) ? 'short' : /podcast/i.test(s) ? 'podcast' : /\bclip\b/i.test(s) ? 'clip' : 'vidéo');
 const COLLAB_REPLIES = [(w) => `trop bien ! on tourne ${w} alors 🎬`, (w) => `yes ! ${w}, je ramène mes idées`, (w) => `parfait, ${w} : ça va être énorme`];
 function acceptCollab(g, iv, c, quiet) {
+  const old = collabPlanned(g, c, iv.due);
+  if (old) { iv.state = 'accepted'; iv.rl = old.id; return old; } // 0.30.2: that feat is already in the programme
   if (!planRoom(g)) return null; // the programme is full: they meet to talk it over instead
   // 0.22: made with what the player has: no computer for a long video, so a vertical one on the phone (never a refusal)
   const asked = normWhat(collabWhat(iv.what));
@@ -2939,6 +2942,7 @@ function addAmbientPost(g, o, at, ts, opts = {}) {
   if (opts.quoteOf) { const q = opts.quoteOf; p.q = { id: q.id, a: q.a, text: q.text.slice(0, 220), photo: q.photo || null }; }
   if (opts.cool) p.cd = 1; // a reaction during play: counts for its author's cooldown
   g.posts.push(tag(p));
+  if (o.merch) merchSaid(g, p, o.merch, at); // 0.30.2: about the player's shop, + or −
   bumpLive(at + 2000);
   if (mentionRe(g.player.handle).test(text)) {
     const au = author(g, a);
@@ -2968,6 +2972,7 @@ function addReplyTo(g, post, o, at) {
   const r = { id: uid('r'), a, text, ts: at, at, likeT: randi(0, 4) + Math.round(rand(0, 1) * authorFollowers(g, a) * 0.002), ls: at, animMs: 30000 };
   replyLang(r, o); // 0.29: from abroad, in their language
   post.replies.push(tag(r));
+  if (o.merch) merchSaid(g, r, o.merch, at); // 0.30.2: about the player's shop, + or −
   bumpLive(at + 1000);
   return r;
 }
@@ -3217,6 +3222,7 @@ function compactCore(g, cap, size) {
       for (const gr of g.groups || []) if (gr.msgs.length > 20) gr.msgs = gr.msgs.slice(-20);
     },
     () => { for (const c of chars()) if (c.kind === 'gone' && !c.slim) slimContact(c); },
+    () => { if (g.career && g.career.shop) shopSlim(g.career.shop); }, // 0.30.2: the shop's stats keep less
     () => { for (const c of chars()) if (c.kind === 'brand' && !c.joined && !c.slim && !busy(c) && t - lastSeen(c) > CONTACT_IDLE_MS) slimContact(c); },
     () => { for (const c of chars()) if (c.kind === 'gone' && !refd(c.id)) { delete g.chars[c.id]; if (g.dms) delete g.dms[c.id]; g.order = g.order.filter((id) => id !== c.id); } },
     () => {

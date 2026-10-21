@@ -86,6 +86,7 @@ const ahead = (page, ms) => G(page, (ms) => { const H = window.__hype; H.jumpClo
 
   // ---------- « Feat » ticked when programming: the proposal, ready in their conversation ----------
   await clear(page);
+  await G(page, () => { const H = window.__hype, g = H.S.game, h = new Date(Date.now() + (g.clockOff || 0)).getHours(); if (h < 7) H.jumpClock(g, (10 - h) * 3600000); }); // (in the night the days are named, « Demain » is not offered: the day first)
   await G(page, () => window.__hype.openLayer({ t: 'series', id: 'single' }));
   await page.waitForSelector('.layer #se-theme');
   await page.fill('.layer #se-theme', 'je teste les potions du marché noir');
@@ -156,10 +157,35 @@ const ahead = (page, ms) => G(page, (ms) => { const H = window.__hype; H.jumpClo
     const H = window.__hype, g = H.S.game, sch = g.releases.filter((x) => x.state === 'scheduled');
     const r = sch.find((x) => x.collab === id && /potions préférées/.test(x.topic));
     const pr = window.__prompts.slice(n1).find((p) => p.includes('on fait un feat samedi')) || '';
-    return { release: !!r, more: sch.length - before.rel, dates: (g.events || []).length - before.ev, offered: /"collab":true/.test(pr), notif: g.notifs.some((n) => /^🎬 Feat avec Théo/.test(n.text)) };
+    return { release: !!r, more: sch.length - before.rel, dates: (g.events || []).length - before.ev, offered: /"collab":true/.test(pr), notif: g.notifs.some((n) => /^🎬 Feat avec Théo/.test(n.text)), notifN: g.notifs.filter((n) => /^🎬 Feat avec Théo/.test(n.text)).length, datesN: (g.events || []).length };
   }, { id: ids.theo, n1, before });
   check('a feat agreed in their messages (« on fait un feat samedi ? » « grave ! »): a video with them in the Studio, not a date',
     words.release && words.more === 1 && words.dates === 0 && words.offered && words.notif, words);
+
+  // ---------- 0.30.2: the same feat confirmed again (a detail, « plans validés »): still one; their AI is told ----------
+  await G(page, () => { window.__mockOnce = [{ has: 'on valide les plans', lines: [{ t: 'msg', text: 'oui, plans validés ensemble, sans public !' }, { t: 'rel', d: 1, why: 'le feat' }, { t: 'plan', kind: 'rdv', what: 'feat : nos potions préférées, plans validés ensemble', day: 2, at: '18:00', collab: true }] }]; });
+  const n2 = await G(page, () => window.__prompts.length);
+  await G(page, (id) => window.__hype.sendDM(id, 'on valide les plans pour samedi 18h ? sans public'), ids.theo);
+  await idle(page);
+  await sleep(2000);
+  const again = await G(page, ({ id, n2 }) => {
+    const H = window.__hype, g = H.S.game, sch = g.releases.filter((x) => x.state === 'scheduled' && x.collab === id && /potions préférées/.test(x.topic));
+    const pr = window.__prompts.slice(n2).find((p) => p.includes('on valide les plans')) || '';
+    return { n: sch.length, told: /Déjà calé, dans le programme du joueur : votre feat/.test(pr) && /potions préférées/.test(pr), notifs: g.notifs.filter((x) => /^🎬 Feat avec Théo/.test(x.text)).length, dates: (g.events || []).length };
+  }, { id: ids.theo, n2 });
+  // a game saved with the copies (before the fix): one stays, the first; another feat with them, two days later, too
+  const cleaned = await G(page, (id) => {
+    const H = window.__hype, g = H.S.game, r = g.releases.find((x) => x.state === 'scheduled' && x.collab === id && /potions préférées/.test(x.topic));
+    for (let k = 0; k < 3; k++) g.releases.push(Object.assign(JSON.parse(JSON.stringify(r)), { id: 'rl-copy' + k, topic: k === 2 ? 'feat : nos potions, plans validés' : r.topic, at: r.at + 1000 * (k + 1) }));
+    const later = Object.assign(JSON.parse(JSON.stringify(r)), { id: 'rl-later', topic: 'un autre feat', due: r.due + 2 * 86400000 });
+    if (later.outAt != null) later.outAt += 2 * 86400000;
+    g.releases.push(later);
+    const gone = H.dedupeCollabs(g);
+    const left = g.releases.filter((x) => x.state === 'scheduled' && x.collab === id).map((x) => x.id);
+    return { gone, kept: left.includes(r.id), copies: left.filter((x) => /rl-copy/.test(x)).length, later: left.includes('rl-later') };
+  }, ids.theo);
+  check('0.30.2: the same feat confirmed again in their messages stays one release (their AI is told it is already planned); a game saved with copies keeps the first (another feat two days later stays)',
+    again.n === 1 && again.told && again.notifs === words.notifN && again.dates === words.datesN && cleaned.gone === 3 && cleaned.kept && cleaned.copies === 0 && cleaned.later, { again, cleaned });
 
   // ---------- on a phone ----------
   await clear(page);

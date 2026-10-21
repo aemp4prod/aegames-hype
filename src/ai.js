@@ -607,6 +607,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     isPost
       ? `- Puis ${intensityOf(g).actPosts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"} : ` + 'd’autres posts du fil (réactions indirectes, vies des personnages ou du public ; un média seulement si ça fait vraiment du bruit). Facultatif : "quote":true pour citer le post du joueur (le soutenir ou s’en moquer), "later":3 (minutes, 1 à 8) pour qu’il arrive plus tard, "photo" pour un post photo ("son code" pour une vraie photo d’un personnage, voir LEURS VRAIES PHOTOS ; sinon "ce qu’on voit" : une image où il n’est pas).'
       : '- Seulement si cet échange fait vraiment du bruit (rare) : une ligne {"t":"post","by":"handle","text":"≤ 220 caractères"}. Pas de récap d’un simple échange, surtout pas par un média.',
+    merchTagLine(g), // 0.30.2: what is said about the shop, + or −
     `- Facultatif (au plus ${intensityOf(g).actDms}) : ` + '{"t":"dm","by":"handle","text":"≤ 200 caractères"} si un personnage a une vraie raison d’écrire en privé au joueur ("later" possible aussi).',
     '- Facultatif (au plus 2) : {"t":"mem","by":"handle","text":"≤ 90 caractères"} : ce qu’un personnage retient du joueur après cette action (une promesse, une insulte, un secret…), seulement si c’est nouveau par rapport à ce qu’il ou elle retient déjà.',
     relHere ? VIBE_LINE(true) : null,
@@ -815,6 +816,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
     arc && activeQuests(g).filter((q) => q.kind === 'story').length < 3 ? '- Facultatif, si ça s’y prête : une quête pour que le joueur puisse se mêler de ce nouveau sujet : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}' : null,
     `- ${absentMs ? intensityOf(g).refresh.absent : intensityOf(g).refresh.posts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"}, dont deux ou trois de gens du PUBLIC (habitués, ou nouveaux figurants avec "name" et "bio") : trolls, vanneurs, shitposts, gens qui parlent de leur vie ou du sujet du moment. Pas deux posts du même compte. Facultatif : une photo pour environ un post sur cinq ("photo":"son code" pour une vraie photo d’un personnage, voir LEURS VRAIES PHOTOS ; sinon "photo":"ce qu’on voit" : une image où il n’est pas)${absentMs ? '' : ' ; "later":3 (minutes, 1 à 8) pour un ou deux posts qui arriveront plus tard'}.`,
     `- ${intensityOf(g).refresh.replies} réponses sous ces nouveaux posts : {"t":"reply","to":0,"by":"handle","text":"≤ 160 caractères"} ("to" = numéro du post visé dans ta réponse, en comptant à partir de 0 ; facultatif : "re":"handle" quand elle répond à un autre commentaire de ce post)`,
+    merchTagLine(g), // 0.30.2
     `- Facultatif (au plus ${absentMs ? intensityOf(g).refresh.absentDms : intensityOf(g).refresh.dms}) : {"t":"dm","by":"handle","text":"≤ 200 caractères"} si un personnage a une raison d’écrire au joueur en privé`,
     mix && g.chars[mix.c] ? MIX_LINE(g, mix) : null,
     INVITE_LINE(intensityOf(g).life.often),
@@ -1851,6 +1853,7 @@ function promptWave(g, p, n, wave) {
     `Écris ${n} nouvelles réponses : des gens qui découvrent le post maintenant (curieux, fans, haters, trolls, vanneurs), un personnage principal qui n’avait pas encore réagi s’il est concerné, et des réponses aux commentaires déjà là. Jamais deux fois la même idée, des tons variés, et pas toujours d’accord. Les habitués gardent leur handle ; un nouveau figurant ajoute "name" et "bio".${TROLL_ASK(g)}`,
     '', FORMAT, `${n} lignes : {"t":"reply","by":"handle","text":"≤ 200 caractères"} (ajoute "to":"handle" quand elle répond à un commentaire déjà là).`,
     '- Facultatif (au plus 1) : {"t":"post","by":"handle","text":"≤ 220 caractères","quote":true} : quelqu’un cite le post du joueur dans son propre post.',
+    merchTagLine(g), // 0.30.2
     p.res && p.res.viral ? WORLD_LINE : null, // 0.29: gone around the world
   ].filter((x) => x !== null).join('\n');
 }
@@ -1883,6 +1886,7 @@ function promptMore(g, p, n) {
     seen.length ? 'Les commentaires déjà affichés :\n' + seen.join('\n') : 'Personne n’a encore commenté.',
     `Écris ${n} autres commentaires, ceux que le compteur annonce : surtout du PUBLIC (habitués et nouveaux figurants : fans, curieux, haters, trolls, vanneurs), parfois un personnage principal concerné, et des réponses entre eux (des petits débats, des vannes qui se répondent). Fidèles au ton du monde et à ce qui se passe en ce moment, jamais deux fois la même idée.${TROLL_ASK(g)}`,
     '', FORMAT, `${n} lignes : {"t":"reply","by":"handle","text":"≤ 180 caractères"} (ajoute "to":"handle" pour répondre à un commentaire ; un nouveau figurant ajoute "name" et "bio").`,
+    merchTagLine(g), // 0.30.2
     p.res && p.res.viral ? WORLD_LINE : null, // 0.29: gone around the world
   ].filter((x) => x !== null).join('\n');
 }
