@@ -137,7 +137,7 @@ const COOLS = {
   panique: { ms: 36 * HR, insist: 2, judge: true, slow: [2 * HR, 7 * HR], ai: (f, il) => `${f} panique : tout va trop vite. ${cap1(il)} répond court, hésite, esquive les sujets sérieux, met du temps à répondre.` },
   louche: { ms: 48 * HR, insist: 3, judge: true, ai: (f, il) => `${f} trouve que tout va bizarrement vite et se demande si le joueur ne fait pas du love bombing : ${il} reste sur ses gardes et teste sa sincérité (une question précise, un petit piège).` },
   ghost: { ms: 60 * HR, insist: 3, silent: true },
-  colere: { ms: 24 * HR, insist: 2, ai: (f, il) => `${f} est en colère : le joueur insiste alors qu’${il} avait posé ses limites. ${cap1(il)} le dit franchement, sèchement.` },
+  colere: { ms: 24 * HR, insist: 2, judge: true, ai: (f, il, lui, cl) => (cl && cl.ai ? `${f} est en colère contre le joueur (${cl.ai}) : ${il} le lui fait sentir (froid, sec, des reproches) et attend des explications ou des excuses sincères ; c’est ${lui} qui juge si ça suffit.` : `${f} est en colère : le joueur insiste alors qu’${il} avait posé ses limites. ${cap1(il)} le dit franchement, sèchement.`) }, // (0.31: judged, its reason told)
   bloque: { ms: 72 * HR, insist: 99, silent: true },
 };
 const COOL_MEM = { frein: 'ça va un peu vite avec le joueur, j’ai besoin de temps', panique: 'tout va trop vite avec le joueur, ça me fait peur', louche: 'je me demande si le joueur est sincère : tout va bizarrement vite', ghost: 'j’ai besoin de prendre du recul avec le joueur', colere: 'le joueur ne respecte pas mes limites', bloque: 'j’ai bloqué le joueur, il insistait trop' };
@@ -146,15 +146,31 @@ const COOL_SHOWN = { frein: () => 'Ça va un peu vite avec toi : besoin de temps
 // By heart (the impulsive just laugh a refusal off).
 const coolOf = (c) => ({ serein: 'frein', anxieux: 'panique', prudent: 'louche', forteresse: 'louche', inaccessible: 'ghost', jaloux: 'frein' })[c.coeur] || null;
 const coolNow = (c, t = Date.now()) => (c && c.cool && t < c.cool.until ? c.cool : null);
-function startCool(g, c, k, why) {
+function startCool(g, c, k, why, aiWhy) {
   const C = COOLS[k];
   if (!c || !C) return;
   const t = Date.now();
   c.cool = { k, at: t, until: t + Math.round(C.ms * (k === 'bloque' ? 1 : 1 - skillFx(g, 'coolShort'))), insist: 0, ok: 0, why: str(why, 60) }; // 0.24: charisma, tier 20
+  if (aiWhy) c.cool.ai = str(aiWhy, 100); // 0.31: angry for a reason (a capture, a date elsewhere, a door closed): said as it is
   c.dare = null;
-  addMem(g, c, COOL_MEM[k], COOL_SHOWN[k] ? COOL_SHOWN[k](g) : undefined);
+  if (k === 'colere' && aiWhy) { // (not « the player does not respect my limits »: they are angry, and why)
+    addMem(g, c, `je suis en colère contre le joueur : ${str(aiWhy, 100)}`, `T’en veut : ${str(why, 60)}`);
+    addNotif(g, { k: 'reldown', c: c.id, at: later() + 4200, text: `😠 ${firstName(c)} t’en veut (${str(why, 60)}). Prends le temps de t’expliquer.` });
+  } else addMem(g, c, COOL_MEM[k], COOL_SHOWN[k] ? COOL_SHOWN[k](g) : undefined);
   if (k === 'louche' || k === 'panique' || k === 'ghost') confide(g, c, k);
   if (k === 'bloque') { c.blocks = (c.blocks || 0) + 1; if (c.blocks >= 2 && !c.cut) cutTies(g, c); } // 0.15: the second time, it is over
+}
+// 0.31, once per game: before, an angry partner counted every message as insisting (two, and blocked) and « je t’aime » to
+// a partner was « going too fast ». A partner who still loves the player and blocked them that way is unblocked (what
+// made them angry stays in their memory, not the « limits » the old anger wrote down: their AI takes it from there).
+function unblockFix31(g, t = Date.now()) {
+  for (const c of Object.values(g.chars || {})) {
+    const cl = c.cool;
+    if (!cl || cl.k !== 'bloque' || t >= cl.until || !/^tu as insisté/.test(cl.why || '') || !PARTNER.includes(c.vibe) || c.rel < 40 || c.cut) continue;
+    c.cool = null;
+    c.blocks = Math.max(0, (c.blocks || 1) - 1);
+    if (Array.isArray(c.mem)) c.mem = c.mem.filter((m) => (m && m.t) !== COOL_MEM.bloque && (m && m.t) !== COOL_MEM.colere); // (and « limits » the old anger made up)
+  }
 }
 // 0.15: blocked a second time, they cut ties: the player's messages no longer reach them (and cost nothing), they ignore
 // the player in public, and only a public gesture (a kind post or reply that names them) may bring them back.
@@ -294,6 +310,9 @@ const MOVE_RES = [
   ['decl', /\b(je t'?aime|je suis (amoureux|amoureuse) de toi|je suis (fou|folle|dingue) de toi|je crois que je (t'?aime|suis amoureux|suis amoureuse)|je craque (pour|sur) toi|j'?ai des sentiments pour toi|tu me plais (vraiment|beaucoup|grave|trop))\b/],
   ['rdv', /\b(on se voit (ce soir|demain|samedi|dimanche|ce week-?end|quand)|(boire|prendre) un verre (ensemble|avec moi)|tu veux (sortir|diner|boire un verre|aller boire|aller manger|aller au cine)|un (resto|restau|diner|cine) (ensemble|avec moi)|rencard|on se fait un (date|resto|cine|verre))\b/],
 ];
+// 0.31: the step a move pushes toward, from where they stand: none when they are there already (« je t’aime » to a
+// partner pushes nothing; before, it was judged against the next step, the engagement: « tu vas trop vite »)
+const moveStep = (c, move) => { const rk = loveRank(c.vibe); return move === 'decl' ? (rk < 1 ? 'flirt' : rk < 2 ? 'couple' : null) : move === 'couple' ? (rk < 2 ? 'couple' : null) : move === 'fianc' ? (rk < 3 ? 'fiancailles' : null) : null; };
 // A romantic move in the player's words: a date, a declaration, a couple, marriage (or nothing).
 function loveMove(text) {
   const s = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’`]/g, '\'');
@@ -326,13 +345,14 @@ function heartBeforeDM(g, c, text) {
     // (0.28.1) where their reaction is judged, only a step forward pushes now, or writing again while their answer is
     // still on its way (panic); the rest is judged after (heartAfterDM)
     const k = c.cool.k, pending = k === 'panique' && ((g.dms[c.id] || {}).msgs || []).some((m) => !m.me && m.at > t + 60000);
-    if (!COOLS[k].judge || move || pending) bumpInsist(g, c, move ? 2 : 1);
+    const push = !!move && (!!moveStep(c, move) || (move === 'rdv' && loveRank(c.vibe) < 2)); // (0.31: a partner told « je t’aime », or asked out, is not pushed)
+    if (!COOLS[k].judge || push || pending) bumpInsist(g, c, push ? 2 : 1);
     return;
   }
   if (!move || c.dare) return;
   const gap = moveGap(g, c, move);
   if (gap >= 1) startDare(g, c, move, gap);
-  else if (move !== 'rdv' && tooFast(c, nextLove(c), t) && coolOf(c)) { startCool(g, c, coolOf(c), 'tu vas trop vite'); unlockAch(g, 'too-fast'); } // (0.28.1: turned down for going too fast)
+  else if (moveStep(c, move) && tooFast(c, moveStep(c, move), t) && coolOf(c)) { startCool(g, c, coolOf(c), 'tu vas trop vite'); unlockAch(g, 'too-fast'); } // (0.28.1: turned down for going too fast; 0.31: only toward a step not reached yet)
   else if (move === 'couple') { const tr = coupleAsked(g, c, t); if (tr) tr.fresh = 1; } // (their answer to this very message does not judge it yet)
 }
 // 0.29.1: the player asks for the couple in their words. If a trial must come first, it starts now: the answer they get
@@ -361,6 +381,11 @@ function heartAfterDM(g, c, text, react, at) {
   } else if (coolNow(c) && (c.cool.k === 'frein' || c.cool.k === 'panique')) {
     // 0.28.1: respecting their pace costs nothing; a message that makes them uneasy is pushing
     if (react === 'gene' || react === 'refroidi') bumpInsist(g, c, 1);
+  } else if (coolNow(c) && c.cool.k === 'colere') {
+    // 0.31: angry, they judge what the player says (their AI): explanations or apologies that land calm them down, a
+    // message that makes it worse counts (twice: they block). Before, every message counted: two, and blocked.
+    if (good) { c.cool.ok += 1; if (c.cool.ok >= 2) endCool(g, c, 'passed'); }
+    else if (react === 'refroidi') bumpInsist(g, c, 1);
   }
 }
 function winDare(g, c, d, at = later()) {
@@ -421,7 +446,7 @@ function heartLines(g, c, t = Date.now(), withDare = true) {
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = [`Côté cœur, ${first} est ${heartOf(c).ai} (le joueur ne le sait pas : ça se voit à sa façon de répondre).`];
   const cl = coolNow(c, t), next = nextLove(c);
-  if (cl && COOLS[cl.k].ai) L.push(COOLS[cl.k].ai(first, il, lui));
+  if (cl && COOLS[cl.k].ai) L.push(COOLS[cl.k].ai(first, il, lui, cl));
   else if (!cl && !c.dare && next && (ROMANCE.includes(c.vibe) || c.rel >= 20)) {
     if (likesSpeed(c)) L.push(`${first} adore quand ça va vite.`);
     else if (tooFast(c, next, t)) L.push(`Rythme : passer à « ${VIBES[next].label.toLowerCase()} » maintenant serait trop rapide pour ${lui} (ils se connaissent depuis ${fmtDur(t - paceFrom(c))}) : si le joueur pousse dans ce sens, ${first} ${{ frein: 'freine', panique: 'panique', louche: 'trouve ça louche', ghost: 'prend ses distances' }[coolOf(c)] || 'freine'}.`);
@@ -609,7 +634,7 @@ function promptTalk(g, ev, said) {
       '', FORMAT, 'Lignes à produire :',
       `- D’abord : {"t":"judge","react":"charme"${T.expect && !T.met ? ',"met":false' : ''}} : la réaction intérieure de ${first}, que le joueur ne voit pas (react parmi charme, amuse, neutre, gene, refroidi)${T.expect && !T.met ? ` ; "met":true seulement si cette réplique répond vraiment à ce que ${first} attendait de la soirée` : ''}.`,
       `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères","seen":"≤ 50 caractères : ce que le joueur voit (une expression, un geste ; lui, c’est « tu » : « te prend la main »), sans dire ce qu’${il} pense"}`,
-      fadeOK(g, c, ev) ? (sensual(g) ? FADE_SENSUAL(first, last) : `- Facultatif : si la scène devient trop intime pour être racontée (au-delà de câlins et de bisous)${PARTNER.includes(c.vibe) ? '' : ', seulement si le joueur répond vraiment à ses avances'}, une dernière ligne {"t":"fade"} : la scène coupe là, pudiquement${last ? '' : ', et la soirée reprend un peu plus tard'}.`) : null,
+      fadeOK(g, c, ev) ? (sensual(g) ? FADE_SENSUAL(first, last, AFTER_TALK(first, il)) : `- Facultatif : si la scène devient trop intime pour être racontée (au-delà de câlins et de bisous)${PARTNER.includes(c.vibe) ? '' : ', seulement si le joueur répond vraiment à ses avances'}, ${last ? 'une dernière ligne' : 'une ligne'} {"t":"fade"} : la scène coupe là, pudiquement${last ? '' : `, et la soirée reprend un peu plus tard ; ${AFTER_TALK(first, il)}`}.`) : null,
       G && G.id === 'payer' ? BUY_LINE(g, c, true) : !G && buyTalk(said.text) ? BUY_LINE(g, c) : null, // 0.24: what the player pays, charged for real
       giftTalk(said.text, T.lines.slice(-4)) ? GIFT_LINE(g, c) : null); // 0.26: a present for the player
   }
@@ -675,11 +700,12 @@ async function talkTurn(ev, text, geste) {
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, fade = false, metNow = false, buy = null, gift = null, sign = null, esc = null, fin = null;
+  let react = null, says = 0, ok = true, fade = false, after = null, metNow = false, buy = null, gift = null, sign = null, esc = null, fin = null;
   const deadly = ev.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
       if (o.t === 'fade' && fadeOK(g, c, ev)) fade = true;
+      else if ((o.t === 'apres' || (o.t === 'say' && fade)) && !after) { const x = str(o.text, 260); if (x) after = { who: 'c', text: x, seen: str(o.seen, 70) }; } // 0.31: a little later, they speak again
       else if (o.t === 'psy' && !sign) sign = o.text; // 0.29: a red flag; tonight, a way out, or the end
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
@@ -709,7 +735,7 @@ async function talkTurn(ev, text, geste) {
   if (esc != null) { fleeDate(g, ev, c, esc); update(); return true; } // 0.29: they got away
   const stayed = !!(G && G.id === 'rester' && (react === 'charme' || react === 'amuse'));
   if ((fin != null && T.turn >= 2) || (stayed && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // a night with them, once they are ready
-  if (fade && !stayed && T.turn < T.max) { ellipseTalk(g, ev); update(); return true; } // 0.29: the scene cuts, the evening goes on
+  if (fade && !stayed && T.turn < T.max) { ellipseTalk(g, ev); if (after) T.lines.push(after); update(); return true; } // 0.29: the scene cuts, the evening goes on (0.31: and they pick it back up)
   if (fade || stayed) { fadeTalk(g, ev, 0.78); update(); return true; } // 0.14: they stay together
   if (T.turn >= T.max) T.lastAt = Date.now(); // 0.22.3: the evening draws to its end; the player may still have a last word
   update();
@@ -818,7 +844,7 @@ function afterDate(g, ev, c) {
   if (meetKind(c, ev) === 'love' && ev.seen) for (const o of mains(g)) {
     if (o === c || o.coeur !== 'jaloux' || !LOVE_ACTIVE.includes(o.vibe) || coolNow(o)) continue;
     applyRel(g, o, -6, `${gx(o.g, 'jaloux', 'jalouse', 'jaloux·se')} de ton rendez-vous avec ${firstName(c)}`, later() + 2600, 8);
-    if (PARTNER.includes(o.vibe)) startCool(g, o, 'colere', 'ton rendez-vous avec quelqu’un d’autre');
+    if (PARTNER.includes(o.vibe)) startCool(g, o, 'colere', 'ton rendez-vous avec quelqu’un d’autre', `le rendez-vous du joueur avec ${c.name}`);
   }
 }
 // A date that happened but whose end the player never opened, or an evening left halfway: it ends on its own (a short
@@ -993,6 +1019,7 @@ function DateTalk({ ev, g, now }) {
           : x.who === 'gf' ? html`<div key=${j} class="talk-buy talk-gift">🎁 ${first} t’offre : ${x.text}</div>`
             : html`<div key=${j} class="talk-line me"><div class="bubble me">${x.text}</div></div>`))}
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
+      ${!busy && !over && T.lines.length && T.lines[T.lines.length - 1].text === LATER_LINE ? html`<p class="talk-hint">À toi de reprendre la conversation.</p>` : null}
     </div>
     ${over ? html`<div class="talk-foot talk-over">
       <p>${T.fled ? 'Tu es dehors, le cœur qui cogne. Tu ne te retournes pas.' : T.faded ? 'La soirée se termine à deux.' : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
@@ -1188,7 +1215,7 @@ function trialBeforeDM(g, c, text, t = Date.now()) {
   addMem(g, p, `j’ai vu une capture : le joueur drague ${c.name}`);
   addNotif(g, { k: 'screen', c: p.id, at: later() + 3500, text: `📸 Une capture de tes messages à ${first} est arrivée jusqu’à ${firstName(p)}.` });
   addTrigger(g, `@${p.handle}, qui est ${VIBES[p.vibe].ai} avec le joueur, a vu une capture où le joueur drague @${c.handle} : crise, explications.`, p.id);
-  startCool(g, p, 'colere', 'une capture de tes messages');
+  startCool(g, p, 'colere', 'une capture de tes messages', `une capture où le joueur drague ${c.name}`);
 }
 // After a post or a reply: standing by someone in a bad buzz; the guest list of a wedding.
 function heartsAfterAct(ctx) {

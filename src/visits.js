@@ -245,7 +245,7 @@ function refuseVisit(g, v) {
     addTrigger(g, v.urge === 'urgent'
       ? `@${c.handle} est ${word} : le joueur lui a fermé la porte alors qu’${il} venait lui parler de « ${str(v.why, 60)} ». ${cap1(il)} le fait savoir (un message sec, une pique en public, ou ${il} en parle à un proche).`
       : `@${c.handle} est ${parti} ${word} : le joueur n’a pas voulu lui parler (« ${str(v.why, 60)} »). ${cap1(il)} le lui fait sentir, à sa façon.`, c.id);
-    if (v.urge === 'urgent' && PARTNER.includes(c.vibe) && !coolNow(c)) startCool(g, c, 'colere', 'tu lui as fermé la porte');
+    if (v.urge === 'urgent' && PARTNER.includes(c.vibe) && !coolNow(c)) startCool(g, c, 'colere', 'tu lui as fermé la porte', `le joueur lui a fermé la porte alors qu’${il} venait lui parler de « ${str(v.why, 50)} »`);
     visitCard(g, c, v, `${first} est ${passe} te voir, tu as dit « pas maintenant » : ${il} est ${parti} ${word}.`, 'fache');
     addNotif(g, { k: 'reldown', c: c.id, at, text: `🚪 ${first} est ${parti} ${word} : tu lui as fermé la porte.` });
   } else {

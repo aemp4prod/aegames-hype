@@ -370,7 +370,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -1460,6 +1460,7 @@ function PostRow({ g, p, now, repost }) {
       ${p.deny ? html`<div class="post-flag"><${Icon} n="megaphone" s=${13} /> Démenti</div>` : null}
       ${p.rumor ? html`<div class="post-flag bad"><span aria-hidden="true">🗣️</span> Rumeur</div>` : null}
       <${AccuseFlag} g=${g} p=${p} />
+      ${p.sp ? html`<div class="post-flag"><span aria-hidden="true">🤝</span> Collaboration commerciale · ${p.sp}</div>` : null}
       ${p.text ? html`<p class="post-text"><${RichText} text=${p.text} g=${g} /></p>` : null}
       <${Evidence} p=${p} g=${g} />
       ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
@@ -2667,6 +2668,7 @@ function Layer(props) {
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
   if (t === 'feat') return html`<${FeatLayer} ...${props} />`; // 0.29.1: a feat for a release
+  if (t === 'agent') return html`<${AgentLayer} ...${props} />`; // 0.31: becoming someone's agent
   if (t === 'big') return html`<${BigPlanLayer} ...${props} />`; // 0.30.1: a big production, planned
   if (t === 'bigcast') return html`<${BigCastLayer} ...${props} />`; // 0.30.1: and its cast
   if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
@@ -2830,6 +2832,7 @@ function ThreadBody({ l, g, now, i, p, au, replies, writing }) {
       <div class="post-head"><${Avatar} who=${au} size=${48} onClick=${() => openAuthor(au)} /><div class="who"><${AuthorName} au=${au}>${au.verified ? html`<${Verified} />` : null}<${BuzzTag} g=${g} a=${p.a} now=${now} /><//><${AuthorHandle} au=${au} /></div></div>
       ${p.apology ? html`<div class="post-flag"><${Icon} n="shield" s=${13} /> Excuses publiques</div>` : null}
       <${AccuseFlag} g=${g} p=${p} />
+      ${p.sp ? html`<div class="post-flag"><span aria-hidden="true">🤝</span> Collaboration commerciale · ${p.sp}</div>` : null}
       ${p.text ? html`<p class="post-text"><${RichText} text=${p.text} g=${g} /></p>` : null}
       <${Evidence} p=${p} g=${g} />
       ${p.video ? html`<${PlatformVideo} g=${g} p=${p} now=${now} />` : null}
@@ -2880,6 +2883,7 @@ function CharLayer({ l, g, now, i }) {
     </div>
     ${main ? html`<${TrustSection} g=${g} c=${c} now=${now} />` : null}
     ${main ? html`<${TemperSection} c=${c} />` : null}
+    ${main ? html`<${AgentSection} g=${g} c=${c} now=${now} />` : null}
     ${main ? html`<${SecretToldSection} c=${c} />` : null}
     ${main ? html`<${SecretsKnownSection} g=${g} c=${c} />` : null}
     ${main && c.secretOut ? html`<section class="section secret-out">
@@ -3067,7 +3071,8 @@ function DMLayer({ l, g, now, i }) {
     <div class="bubbles" ref=${ref}>
       <div class="dm-intro"><${Avatar} who=${au} size=${64} /><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span><span>${c.kind === 'brand' ? 'Un contact pro : parle chiffres, négocie, demande un devis.' : c.kind === 'cand' ? 'Une candidature : pose tes questions, négocie son tarif.' : 'Ce qui se dit ici reste entre vous… en principe. Une capture est vite faite.'}</span></div>
       ${convo && (convo.trimmed || convo.msgs.length >= 60) ? html`<div class="dm-trim">Seuls les 60 derniers messages sont gardés.</div>` : null}
-      ${msgs.map((m, k) => m.sys === 'deal' ? (msgs.slice(k + 1).some((x) => x.sys === 'deal' && x.deal === m.deal) ? html`<div key=${m.id} class="dm-card dl-old"><span class="evt-kind">📄 Proposition remplacée par la suivante</span></div>` : html`<${DealCard} key=${m.id} g=${g} d=${dealOf(g, m.deal)} now=${now} inDM=${true} />`) : m.sys === 'advice' ? html`<${AdviceCard} key=${m.id} m=${m} />` : m.sys === 'invite' ? html`<${InviteCard} key=${m.id} g=${g} m=${m} now=${now} />`
+      ${msgs.map((m, k) => m.sys === 'tdeal' ? (msgs.slice(k + 1).some((x) => x.sys === 'tdeal' && x.tdeal === m.tdeal && !!x.talent === !!m.talent) ? html`<div key=${m.id} class="dm-card dl-old"><span class="evt-kind">📄 Proposition remplacée par la suivante</span></div>` : html`<${TdealCard} key=${m.id} g=${g} d=${tdealOf(g, m.tdeal)} now=${now} inDM=${true} talentView=${!!m.talent} />`) // 0.31: a contract for a talent
+        : m.sys === 'deal' ? (msgs.slice(k + 1).some((x) => x.sys === 'deal' && x.deal === m.deal) ? html`<div key=${m.id} class="dm-card dl-old"><span class="evt-kind">📄 Proposition remplacée par la suivante</span></div>` : html`<${DealCard} key=${m.id} g=${g} d=${dealOf(g, m.deal)} now=${now} inDM=${true} />`) : m.sys === 'advice' ? html`<${AdviceCard} key=${m.id} m=${m} />` : m.sys === 'invite' ? html`<${InviteCard} key=${m.id} g=${g} m=${m} now=${now} />`
         : m.sys === 'visit' ? html`<div key=${m.id} class=${'dm-card visit ' + (MOODS[m.mood] && MOODS[m.mood].good ? 'top' : MOODS[m.mood] && MOODS[m.mood].bad ? 'flop' : 'mid')}><span class="evt-kind">🚪 Visite surprise</span>${m.title ? html`<b>${m.title}</b>` : null}<p>${m.text}</p></div>`
         : m.sys === 'file' ? html`<${FileCard} key=${m.id} m=${m} />` // 0.23: a file sent for an order (role-play)
         : m.sys === 'job' ? html`<${JobCard} key=${m.id} g=${g} c=${c} m=${m} />`
@@ -3075,7 +3080,7 @@ function DMLayer({ l, g, now, i }) {
         : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${firstName(c)}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
         : m.sys === 'leak' ? html`<${LeakCard} key=${m.id} g=${g} m=${m} />` // 0.29: a group without the player
-        : m.sys === 'fade' ? html`<div key=${m.id} class="dm-fade"><i>${m.text}</i><small>Un peu plus tard…</small></div>` // 0.30: the scene cut
+        : m.sys === 'fade' ? html`<div key=${m.id} class="dm-fade"><i>${m.text}</i><small>Un peu plus tard…</small>${k === msgs.length - 1 && !typing ? html`<small class="dm-fade-hint">À toi de reprendre la conversation.</small>` : null}</div>` // 0.30: the scene cut (0.31: and who speaks next, if they did not)
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + firstName(c)}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
           <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
@@ -3736,7 +3741,7 @@ if (window.__HYPE_TEST__) {
     mgKeep, runOver, settleRuns, dropUnplayed, snapshotOf, addRelease, finishShoot, openLayer, closeLayer, loadSave, enterGame,
     // 0.11: hearts, pace, cools, dares, dates played for real
     COEURS, heartOf, isDefi, normCoeur, guessCoeur, ensureHearts, amiOf, heartScale, noticed, paceCheck, tooFast, paceNeed, paceFrom, nextLove, startCool, endCool,
-    bumpInsist, escalate, confide, startInquiry, resolveInquiry, dirtOn, tickHearts, loveMove, moveGap, startDare, heartBeforeDM, heartAfterDM, winDare,
+    bumpInsist, escalate, confide, startInquiry, resolveInquiry, dirtOn, tickHearts, loveMove, moveGap, moveStep, unblockFix31, startDare, heartBeforeDM, heartAfterDM, winDare,
     loseDare, forceLove, normReact, capReact, heartLines, quietDM, isTalk, gestesFor, promptTalk, openTalk, talkTurn, talkScore, finishTalk, afterDate, coolNow,
     TALK_TURNS, endDate, applyRel, roll,
     // 0.13: ties among them, word of mouth
@@ -3789,6 +3794,7 @@ if (window.__HYPE_TEST__) {
     parseMoney, moneyIn, MONEY_MAX, laterChoices, earlyMove, canPostpone, keptToInv, prodMult, prodLine, giftMem, FIXES, REP_IDS, noJson, dmBusy, PR_CAP, lightTier, settledGame, exportSum, ACH_ICONS, achIcon, writeForMe, TAG_RE, // 0.28.1 (the studio's tests)
     toastsOn, toastHold, TOAST_Q, TOAST_ON, openAch, fmtPast, wordCut, fmtShort, fmtMoneyShort, postCut, POST_MAX, exportAny, importAny, importErr, winMinH, WIN_GRAB, meetWords, agoLabel, FEED_PAGE, postsWithTag, revealedPosts, // 0.28.1: the screens
     penalClause, scamOnDeliver, tickScams, criticExposes, brandLove, loyalOffer, scamCtx, brandRumorLine, genShoot, postponeRelease, dropRelease, trimDeals, NOISE_FIX, growthK, grow, dmCareerCtx, NEW_BY_ID, subPrice, franchiseOf, gearValue, FRANCHISE, CPM, pickSector, sectorWeights, sectorHint, adsShy, pickGift, sendGift, GIFT_GEAR, ADV_RPM, ADS_STATES, DECL, adsOf, declOn, nicheAdv, adsStrike, liveStrikes, demonetized, appealAds, checkAppeals, STRIKE_MAX, monetized, warmOf, warmMove, warmWord, warmGain, fanMessage, fanAnswered, fanVideoDone, fanList, fansWaiting, fanQuestions, fanRegulars, tickCommu, commuCtx, postCommu, FAN_LINE, fanLineOK, qaTopic, DON_SHARE, donOK, donTotal, liveDonations, thankDonors, DON_LINE, fitOf, FIT_VIEWS, FIT_WORDS, fitPct, gameDay, MEMB_PF, MEMB_PRICES, MEMB_PERKS, membOf, membOn, membCan, membTarget, membNet, openMemb, closeMemb, membDelivered, membMissing, tickMemb, membCtx, MERCH, MERCH_MIN, merchOK, openDrop, launchDrop, tickMerch, restock, stopDrop, merchCtx, merchLine, unitCost, // 0.29: the shop that stays open
+    agencyOf, talentOf, talentOn, talentsOn, agencyFounded, talentCap, tdealOf, agentWhy, askAgent, agentText, applyAgentLine, endTalent, talentFee, makeTalentOffer, askTalentDeal, tdealDraft, declineTdeal, applyTdealAnswer, signTdeal, refuseTdeal, applyTdealLine, talentPosted, deliverTdeal, applyBehindBack, claimBehind, applyRival, agencyWhy, foundAgency, tickAgency, agencyCtx, agentDMCtx, agentDMLines, tdealBrandCtx, agencyRefreshLines, applyAgencyLine, cutOf, AGENT_CUTS, FOUND_COST, TALENT_MIN, // 0.31: the agent, the agency
     dayStat, itemDay, noteSale, revQ, writeReview, reviewDay, seedShopStats, merchSaid, merchTagLine, shopVerdict, revTop, revLabel, avgStars, starsN, shopSlim, REV_RATE, REV_WHY, REV_LIKE, STAT_DAYS, // 0.30.2: the stats of the shop
     shopOf, shopItems, shopLive, shopShown, prepItem, setPrice, pauseItem, resumeItem, retireItem, launchable, launchList, qualityOf, prodFair, marginOf, prodUpfront, sellProd, payShop, shopSeason, curveAt, audienceOf,
     collabOK, collabText, merchDMCtx, applyCollabLine, contestLine, addDesign, contestStarted, contestClose, collabSolo, restockWhy, retireText, claimsFrance, shopSteps, dayEndAt, launchAll, MERCH_MAX, PRECO_DAYS, badBatch, precoStep, madeNow, signingStep, popupStep, MERCH_CHARITY, qtysOf, planSigning, planPopup, fakeAction, counterfeit, exposeClaim, qualityComplaint, FR_CLAIM, MERCH_TIERS, ORIGINS, MATERIALS, PRINTS, MODES, BOOK_BY, POPUP, SIGNING_COST, MERCH_QTY, MERCH_LIMITED, shopDays, prodName, prodYour, prodHis, madeOf, shopTierKeys, shopNextTier, clockOff, hasStaff,

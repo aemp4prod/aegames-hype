@@ -5,6 +5,26 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.31.0 — 22 octobre 2026 (build 31000)
+
+**Deviens l’agent des persos : trouve-leur des marques, négocie leurs contrats, touche ta commission, puis monte ta propre agence d’influence.**
+
+### ✨ Nouveautés
+
+- **🤝 Devenir l’agent d’un perso** : depuis son profil (dès 1 000 abonnés), propose-lui de t’occuper de ses partenariats, avec ta commission (10, 15 ou 20 %) et, si tu veux, l’exclusivité. C’est son IA qui décide, selon votre relation, sa confiance, ce que tu pèses dans le milieu et son ambition, et elle peut négocier ta commission.
+- **📨 Les marques passent par toi** : elles t’écrivent pour tes talents, plus souvent pour un gros compte ou un agent qu’elles apprécient, et tu négocies le prix et le délai dans leurs messages. Puis tu transmets l’offre à ton talent, qui a le dernier mot selon que la marque lui ressemble ou non.
+- **📢 Le post sponsorisé** : une fois le contrat signé, ton talent publie son post quand ça l’arrange (« Collaboration commerciale » dans le fil), la marque paie et tu touches ta commission. En retard, la marque se plaint ; si le post n’arrive jamais, le contrat est perdu.
+- **⭐ Ta réputation d’agent** monte avec chaque contrat bien livré et baisse avec les retards et les contrats perdus. Plus elle est haute, plus les marques viennent, et mieux elles paient.
+- **😤 Les embrouilles** : un talent peut signer avec une marque sans passer par toi (avec l’exclusivité, tu peux réclamer ta commission, au risque qu’il le prenne mal), un autre jalouser le contrat d’un collègue, et un talent peut te quitter. Et si tu signes toi-même avec une marque que tu négociais pour l’un d’eux, il finit par l’apprendre.
+- **🏢 Ton agence d’influence** : dès deux talents, monte ton agence (un nom, un emoji, 2 000 €) pour gérer jusqu’à six talents, attirer plus de marques un peu mieux payées et engager un agent pour elle dans le Studio. Chaque mois, elle te fait son bilan.
+- **🦈 Les agences rivales** essaient de débaucher tes talents : à toi de leur parler. Et le scandale d’un talent éclabousse ton agence.
+
+### 🛠️ Corrigé
+
+- **💔 Les blocages sans raison** : quelqu’un en colère contre toi (une capture, un rendez-vous ailleurs…) te bloquait au bout de deux messages, quoi que tu écrives ; c’est maintenant son IA qui juge si tes explications ou tes excuses passent. Le jeu te dit aussi quand quelqu’un t’en veut, et pourquoi.
+- **❤️ En couple** : « je t’aime » ne passe plus pour aller trop vite, et une baisse de votre jauge n’affiche plus « Ami proche » comme si vous n’étiez plus ensemble. Un perso bloqué à tort par ce bug est débloqué à l’ouverture de ta partie.
+- **🌙 Après une coupure** (« Ce moment ne regarde pas les voyeurs. »), c’est le perso qui reprend la conversation un peu plus tard, pendant un rendez-vous comme dans vos messages. S’il ne le fait pas, le jeu te dit que c’est à toi de la reprendre.
+
 ## 0.30.2 — 21 octobre 2026 (build 30002)
 
 **Les stats de ta boutique, de vrais avis sur ton merch, un feat qui ne se programme plus en plusieurs exemplaires, et des devis qui savent quand il faut acheter.**

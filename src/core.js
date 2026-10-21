@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.30.2';
+const APP_VERSION = '0.31.0';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -595,6 +595,7 @@ function migrate(g) {
     if (r && r.state === 'scheduled' && r.outAt == null && r.prod == null) r.prod = 0; // 0.30.1: planned before the time it takes: as it was
   }
   dedupeCollabs(g); // 0.30.2: a feat confirmed several times in the messages had been planned each time
+  if (!g.fix31) { g.fix31 = 1; unblockFix31(g); } // 0.31: a partner who blocked the player for two messages while angry
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
   if (!Array.isArray(g.arcs)) g.arcs = [];
@@ -2355,7 +2356,7 @@ function applyRel(g, handle, d, why, at, cap = 15) {
   const reason = str(why, 90);
   addNotif(g, { k: real > 0 ? 'relup' : 'reldown', c: c.id, at, text: `${c.name} ${real > 0 ? '+' : '−'}${Math.abs(real)}${reason ? ' · ' + reason : ''}` });
   const lb = relLabel(before, c.g, c.vibe), la = relLabel(c.rel, c.g, c.vibe);
-  if (lb !== la) {
+  if (lb !== la && !(PARTNER.includes(c.vibe) && before >= 10 && c.rel >= 10)) { // (0.31: a partner stays a partner: « c’est maintenant : Amie proche » read as a break-up)
     addNotif(g, { k: real > 0 ? 'relup' : 'reldown', c: c.id, at: at + 300, text: `${c.name} et toi, c’est maintenant : ${la}` });
     if (BIG_LABELS.includes(la)) addTrigger(g, `@${c.handle} et le joueur viennent de passer à « ${la.toLowerCase()} » : que @${c.handle} le montre (message privé, post ou réaction).`, c.id);
     if (real > 0 && isMain(c) && c.rel >= 55) foesNotice(g, c, 'close', at); // 0.15: close friends now: their enemies notice
@@ -2943,6 +2944,7 @@ function addAmbientPost(g, o, at, ts, opts = {}) {
   if (opts.cool) p.cd = 1; // a reaction during play: counts for its author's cooldown
   g.posts.push(tag(p));
   if (o.merch) merchSaid(g, p, o.merch, at); // 0.30.2: about the player's shop, + or −
+  if (o.deal) talentPosted(g, p, o.deal, at); // 0.31: a talent's sponsored post, delivered
   bumpLive(at + 2000);
   if (mentionRe(g.player.handle).test(text)) {
     const au = author(g, a);
@@ -3212,9 +3214,9 @@ function compactCore(g, cap, size) {
   const t = Date.now();
   const chars = () => Object.values(g.chars || {});
   const lastSeen = (c) => { const m = g.dms && g.dms[c.id] ? g.dms[c.id].msgs : null; return Math.max(c.unlockedAt || 0, m && m.length ? m[m.length - 1].ts || 0 : 0); };
-  const busy = (c) => (g.staff || []).some((s) => s.c === c.id) || (g.deals || []).some((d) => d.contact === c.id && (d.state === 'signed' || DEAL_OPEN.includes(d.state)));
+  const busy = (c) => (g.staff || []).some((s) => s.c === c.id) || (g.deals || []).some((d) => d.contact === c.id && (d.state === 'signed' || DEAL_OPEN.includes(d.state))) || (g.agency ? g.agency.deals : []).some((d) => d.contact === c.id && TDEAL_OPEN.includes(d.state)); // (0.31: and a talent's)
   const said = (id) => (g.posts || []).some((p) => p.a === 'c:' + id || (p.replies || []).some((r) => r.a === 'c:' + id));
-  const refd = (id) => (g.notifs || []).some((n) => n.c === id) || said(id) || (g.quests || []).some((q) => q.charId === id) || (g.events || []).some((e) => e.c === id) || (g.deals || []).some((d) => d.contact === id) || (g.staff || []).some((s) => s.c === id);
+  const refd = (id) => (g.notifs || []).some((n) => n.c === id) || said(id) || (g.quests || []).some((q) => q.charId === id) || (g.events || []).some((e) => e.c === id) || (g.deals || []).some((d) => d.contact === id) || (g.agency ? g.agency.deals : []).some((d) => d.contact === id || d.c === id) || (g.staff || []).some((s) => s.c === id);
   const steps = [
     () => { if (g.notifs.length > 60) g.notifs = g.notifs.slice(-60); },
     () => { // 0.29: the stories gone by, the old talk of the groups

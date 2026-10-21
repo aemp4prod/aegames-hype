@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.30.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.31.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -330,6 +330,14 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Depuis la 0.30.2, l’onglet **Les stats** montre tes ventes jour par jour (14 jours, la boutique ou un produit), les
   avis de tes acheteurs (de 1 à 5 ★, ce qu’ils adorent, ce qu’ils te reprochent), ce que le réseau dit de ta boutique
   et un verdict : retours très positifs, globalement positifs, mitigés ou globalement négatifs.
+- **Agent et agence d’influence** (0.31) : depuis le profil d’un perso qui a au moins 1 000 abonnés, tu proposes de
+  devenir son agent, avec ta commission (10, 15 ou 20 %) et, ou non, l’exclusivité ; son IA accepte, refuse ou négocie.
+  Les marques t’écrivent alors pour lui (environ 10 € les 1 000 abonnés pour un post sponsorisé, selon la saison et ta
+  réputation d’agent) : tu négocies dans leurs messages, ton talent dit oui ou non dans les vôtres, puis publie son post
+  quand ça l’arrange ; la marque paie et tu touches ta commission. Un retard fait baisser ta réputation d’agent, un post
+  jamais livré encore plus. Un talent peut signer dans ton dos (avec l’exclusivité, ta commission se réclame), te quitter,
+  ou être courtisé par une agence rivale. Avec deux talents, ton agence (2 000 €) en accueille jusqu’à six, attire plus de
+  marques, qui paient un peu mieux, et peut engager un agent (Studio → Recruter).
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro
@@ -523,7 +531,8 @@ src/                le jeu : core.js, ai.js, career.js (la carrière : argent,
                     (les dilemmes), visits.js (les visites surprises), gear.js (le matos, le départ, la connexion, les
                     abonnements, les pannes, les nouveautés), devis.js (le devis d’un contenu), scams.js (les arnaques,
                     les agents, les marques qui reviennent), commu.js (ta commu, les questions des abonnés, les
-                    habitués, les dons en live, les adhésions), merch.js (« Ta boutique »), roles.js (les rôles de
+                    habitués, les dons en live, les adhésions), merch.js (« Ta boutique »), agency.js (l’agent et
+                    l’agence d’influence), roles.js (les rôles de
                     chaque partie : le critique, Rebecca Silver, le psychopathe), social.js (le réseau qui vit :
                     stories, groupes, la mère, les fans, les faux comptes, les petits faits du quotidien), studio.js (ses
                     écrans), montage.js (le

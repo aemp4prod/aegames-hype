@@ -662,6 +662,7 @@ function StudioTab({ g, now }) {
       ${!offers.length && !signed.length ? html`<p class="muted">${g.stats.followers < 800 ? 'Les marques te contacteront quand ton audience aura grandi.' : 'Pas d’offre en ce moment. Elles arrivent en message privé (plus souvent avec un agent).'}</p>` : null}
       ${past.length ? html`<details class="ledger"><summary>Anciens contrats</summary><ul>${past.map((x) => html`<li key=${x.id}><span>${x.emoji} ${x.brand}</span><b>${DEAL_STATES[x.state] || x.state}</b></li>`)}</ul></details>` : null}
     </section>
+    <${AgencySection} g=${g} now=${now} />
     <section class="section">
       <div class="section-h"><h3>Ton équipe</h3><span>${g.staff.length ? `${g.staff.length} ${plural(g.staff.length, 'personne', 'personnes')}` : 'personne pour l’instant'}</span></div>
       ${g.staff.map((m) => { const p = g.chars[m.c]; if (!p) return null; const R = STAFF_ROLES[m.role]; return html`<div class="staff-row" key=${m.id}>
@@ -865,7 +866,7 @@ function RecruitLayer({ g, now, i }) {
   const cur = hasStaff(g, role);
   const busy = S.busy.cand === role;
   return html`<${LayerShell} i=${i} title="Recruter">
-    <div class="role-grid">${Object.keys(STAFF_ROLES).map((k) => html`<button key=${k} type="button" class=${'role-opt' + (role === k ? ' on' : '') + (hasStaff(g, k) ? ' taken' : '')} onClick=${() => setRole(k)} aria-pressed=${role === k ? 'true' : 'false'}><span aria-hidden="true">${STAFF_ROLES[k].emoji}</span>${STAFF_ROLES[k].x}</button>`)}</div>
+    <div class="role-grid">${Object.keys(STAFF_ROLES).filter((k) => k !== 'agence' || agencyFounded(g) || role === k).map((k) => html`<button key=${k} type="button" class=${'role-opt' + (role === k ? ' on' : '') + (hasStaff(g, k) ? ' taken' : '')} onClick=${() => setRole(k)} aria-pressed=${role === k ? 'true' : 'false'}><span aria-hidden="true">${STAFF_ROLES[k].emoji}</span>${STAFF_ROLES[k].x}</button>`)}</div>
     <section class="section">
       <div class="section-h"><h3>${R.emoji} ${R.x}</h3><span>${R.pay === 'cut' ? 'à la commission' : R.pay === 'week' ? 'salaire par semaine' : R.pay === 'case' ? 'payé par dossier' : 'payé par sortie'}</span></div>
       <p class="muted">${R.desc}</p>

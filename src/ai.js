@@ -632,7 +632,7 @@ const INVITE_STATE = { open: 'en attente de réponse', accepted: 'acceptée par 
 function sysLine(g, c, m) {
   if (m.sys === 'visit') return `[visite surprise${m.why || m.title ? ' : « ' + str(m.why || m.title, 60) + ' »' : ''} — ${str(m.text, 140)}]`; // 0.18
   if (m.sys === 'invite') { const iv = inviteOf(g, m.inv); return iv ? `[invitation de ${c.name} : « ${str(iv.what, 80)} », ${fmtWhen(iv.due)} — ${INVITE_STATE[iv.state] || iv.state}]` : '[invitation]'; }
-  if (m.sys === 'deal') return str(m.text, 220);
+  if (m.sys === 'deal' || m.sys === 'tdeal') return str(m.text, 220); // (0.31: a contract for a talent)
   if (m.sys === 'file') return `[fichier envoyé${m.me ? ' par le joueur' : ''} : ${m.name}]`; // 0.23
   if (m.sys === 'job') return str(m.text, 200);
   if (m.sys === 'buy') return m.buy ? `[${cap1(buyText(g, m.buy))}]` : ''; // 0.24
@@ -703,6 +703,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   if (main) L.push(...jobDMCtx(g, c)); // 0.23: an order the player is working on for them
   if (main) L.push(...merchDMCtx(g, c)); // 0.29: a merch in duo, proposed
   if (main) L.push(...featDMCtx(g, c)); // 0.29.1: a feat, proposed
+  if (main) L.push(...agentDMCtx(g, c)); // 0.31: the player as their agent
   if (main) L.push(...castDMCtx(g, c)); // 0.30.1: the cast of a big production
   if (trig.length) L.push('À jouer dans cette conversation : ' + trig.map((x) => x.text).join(' '));
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
@@ -739,9 +740,10 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     main && (meetHere || inv || date) ? PLAN_DM(c) : null,
     main && (meetHere || ini || inv) ? INVITE_DM(c) : null,
     main && featAsked(g, c) ? FEAT_LINE(c) : null, // 0.29.1
+    ...(main ? agentDMLines(g, c) : []), // 0.31: yes or no to the agent, to a brand, or the end of it
     main && castAsked(g, c) ? CAST_LINE(c) : null, // 0.30.1: in the production, or not
     main && castOn(g, c) && hitchOK(g, bigOn(g)) ? CAST_HITCH_LINE(c) : null, // 0.30.1: unable to come after all (their AI decides)
-    main && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id ? FADE_SENSUAL(firstName(c), false) : null, // 0.30: together in person, the scene may cut
+    main && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id ? FADE_SENSUAL(firstName(c), false, AFTER_DM(firstName(c), gx(c.g, 'il', 'elle', 'iel'))) : null, // 0.30: together in person, the scene may cut (0.31: and they pick it back up)
     main && awayHome(g) && g.stay.c === c.id && !g.stay.gear && !g.stay.lent ? LEND_LINE(c) : null, // 0.30.1: their gear, lent or not
     date ? `- Seulement si ${c.name} annule clairement ce rendez-vous dans cet échange (dispute, bad buzz, plus envie de voir le joueur) : {"t":"cancel","why":"≤ 70 caractères"}. Jamais pour un retard, une hésitation, une taquinerie ou une confusion sur l’heure ou le jour.` : null,
     main && (intelHere || traitOf(g, c)) ? INTEL_LINE(c) : null, // (0.30: a traitor keeps everything)
@@ -1991,7 +1993,7 @@ async function sendDM(charId, text, opts = {}) {
   S.busy.dms = Object.assign({}, S.busy.dms, { [c.id]: true });
   S.busy.dm = c.id;
   update(false);
-  let at = t + (coolNow(c) && c.cool.k === 'panique' ? rand(COOLS.panique.slow[0], COOLS.panique.slow[1]) : rand(1600, 3200)), msgs = 0, got = false, ok = true, seen = false;
+  let at = t + (coolNow(c) && c.cool.k === 'panique' ? rand(COOLS.panique.slow[0], COOLS.panique.slow[1]) : rand(1600, 3200)), msgs = 0, got = false, ok = true, seen = false, faded = false;
   const fx = { judge: null, rel: null, mem: null, vibe: null, quest: null, prog: null, memo: null, clue: null, plan: null, trust: null, advice: null, confide: null, cancel: null, invite: null, noinv: null, choice: null };
   const careerFx = []; // a brand's new figure, a candidate's price, what the player let slip (kept as intel)
   let lastMsg = null, relD = null, relSk = null;
@@ -1999,7 +2001,7 @@ async function sendDM(charId, text, opts = {}) {
   try {
     await aiStream(prompt, (o) => {
       got = true;
-      if (o.t === 'msg' && msgs < intensityOf(g).dmMax && !seen) {
+      if (o.t === 'msg' && msgs < intensityOf(g).dmMax + (faded ? 1 : 0) && !seen) { // (0.31: one more, after the cut)
         const m = str(o.text, 320);
         if (!m) return;
         saidNow.push(m);
@@ -2024,6 +2026,8 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'psy' && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag
       else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => ((o.collab === true || o.collab === 'true' || COLLAB_RE.test(o.what || '')) && isMain(c) && planCollab(g, c, o)) || addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); } // (0.29.1: a feat agreed goes in the Studio)
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
+      else if (o.t === 'agent' && !fx.agent && isMain(c)) fx.agent = () => applyAgentLine(g, c, o); // 0.31: the player as their agent
+      else if (o.t === 'partenariat' && !fx.tdeal && isMain(c)) fx.tdeal = () => applyTdealAnswer(g, c, o); // 0.31: a brand their agent found
       else if (o.t === 'casting' && !fx.cast && isMain(c)) fx.cast = () => applyCastLine(g, c, o); // 0.30.1: in the production, or not
       else if (o.t === 'imprevu' && !fx.hitch && isMain(c) && castOn(g, c)) { const o2 = Object.assign({}, o, { by: c.handle }); fx.hitch = () => applyHitch(g, o2); } // 0.30.1: unable to come after all
       else if (o.t === 'trust' && !fx.trust && isMain(c)) { const when = at + 400; fx.trust = () => applyTrust(g, c, int(o.d, -15, 8, 0), o.why, when); }
@@ -2032,7 +2036,7 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'cancel' && !fx.cancel && isMain(c)) { const when = at + 600; fx.cancel = () => charCancelsDate(g, c, o.why, when); }
       else if (o.t === 'invite' && !fx.invite && isMain(c)) { const when = at + 300; fx.invite = () => addInvite(g, c, o, when); }
       else if (o.t === 'noinvite' && !fx.noinv && isMain(c)) fx.noinv = () => dropInvite(g, c);
-      else if (o.t === 'fade' && !fx.fade && isMain(c) && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id) { const when = at + 600; fx.fade = () => { convo.msgs.push({ id: uid('m'), sys: 'fade', me: false, text: ELLIPSE_LINE, ts: when, at: when }); intimateMem(g, c, null, when); }; } // 0.30
+      else if (o.t === 'fade' && !fx.fade && isMain(c) && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id) { const when = at + 600; convo.msgs.push(tag({ id: uid('m'), sys: 'fade', me: false, text: ELLIPSE_LINE, ts: when, at: when })); at = when + 2500; faded = true; fx.fade = () => intimateMem(g, c, null, when); } // 0.30 (0.31: in its place at once, so that what they write next comes after it, a little later)
       else if (o.t === 'traitre' && !fx.trait && isMain(c)) { const when = at + 1200, tx = o.text; fx.trait = () => traitSign(g, c, tx, when); } // 0.30: a detail that does not fit
       else if (o.t === 'demasque' && !fx.unmask && isMain(c)) { const when = at + 800; fx.unmask = () => traitUnmask(g, c, when); } // 0.30: seen through
       else if (o.t === 'preter' && !fx.lend && isMain(c) && awayHome(g) && g.stay.c === c.id) { const when = at + 700; fx.lend = () => { if (!stayOn(g) || g.stay.lent) return; g.stay.lent = when; addNotif(g, { k: 'relup', c: c.id, at: when, text: `💻 ${firstName(c)} te prête son matos : tu peux tourner chez ${gx(c.g, 'lui', 'elle', 'iel')}.` }); }; } // 0.30.1
@@ -2061,7 +2065,7 @@ async function sendDM(charId, text, opts = {}) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
       if (isMain(c) && msgs && !fx.plan && !fx.noinv) dmDateFallback(g, c, text, saidNow.join(' '), invBefore, !!fx.invite, at);

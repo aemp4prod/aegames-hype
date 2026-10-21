@@ -117,7 +117,7 @@ function hear(g, w, teller, to) {
       const partner = PARTNER.includes(to.vibe), lf = firstName(lc);
       applyRel(g, to, partner ? -12 : -5, `on lui a parlé de toi et ${lf}`, later() + 2000, partner ? 20 : 8);
       addTrigger(g, `@${to.handle} a appris par @${teller.handle} que le joueur ${w.text} : ça lui fait quelque chose (jalousie, tristesse, colère, ou ${il} fait comme si de rien n’était, selon son caractère), sans forcément dire qui le lui a dit.`, to.id);
-      if (partner && !coolNow(to)) startCool(g, to, 'colere', `toi et ${lf}`);
+      if (partner && !coolNow(to)) startCool(g, to, 'colere', `toi et ${lf}`, `ce qu’on lui a raconté : le joueur ${str(w.text, 70)}`);
       return 'jealous';
     }
   }
@@ -126,7 +126,7 @@ function hear(g, w, teller, to) {
     applyRel(g, to, w.seed === 'cheat' && PARTNER.includes(to.vibe) ? -18 : -12, why, later() + 2000, 20);
     applyTrust(g, to, -6, why, later() + 2400);
     addTrigger(g, `@${to.handle} a appris par @${teller.handle} que le joueur ${w.text} : ${il} le prend très mal (en privé, ou en public selon son caractère), sans forcément dire qui le lui a dit.`, to.id);
-    if (w.seed === 'cheat' && PARTNER.includes(to.vibe) && !coolNow(to)) startCool(g, to, 'colere', 'un rendez-vous avec quelqu’un d’autre');
+    if (w.seed === 'cheat' && PARTNER.includes(to.vibe) && !coolNow(to)) startCool(g, to, 'colere', 'un rendez-vous avec quelqu’un d’autre', `ce qu’on lui a raconté : le joueur ${str(w.text, 70)}`);
     w.state = 'done';
     return 'subject';
   }

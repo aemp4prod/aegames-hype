@@ -55,7 +55,11 @@ function intimateMem(g, c, ev, t = Date.now()) {
   addMem(g, c, `on a partagé un moment intime${ev && ev.what ? ` (« ${str(ev.what, 40)} »)` : ''}, coupé à l’écran : on peut y faire allusion entre nous`);
 }
 // The line that cuts a scene, in a date, a visit or a conversation in person (sensual: when it becomes sex and they want it too).
-const FADE_SENSUAL = (first, last) => `- Facultatif : si ça va jusqu’au sexe (préliminaires compris) et que ${first} le veut aussi, une dernière ligne {"t":"fade"} : la scène coupe là${last ? '' : ', et reprend un peu plus tard'}. Juste avant, tu peux aller jusqu’au seuil (des gestes sensuels, une tenue qui glisse), sans détail cru.`;
+const FADE_SENSUAL = (first, last, after = '') => `- Facultatif : si ça va jusqu’au sexe (préliminaires compris) et que ${first} le veut aussi, ${last || !after ? 'une dernière ligne' : 'une ligne'} {"t":"fade"} : la scène coupe là${last ? '' : `, et reprend un peu plus tard${after ? ` ; ${after}` : ''}`}. Juste avant, tu peux aller jusqu’au seuil (des gestes sensuels, une tenue qui glisse), sans détail cru.`;
+// 0.31: after the cut, it is them who pick the conversation back up (in the same answer: no call more), a little later
+const AFTER_SAY = 'une allusion, un regard, une complicité nouvelle ; jamais de détail';
+const AFTER_TALK = (first, il) => `puis une dernière ligne {"t":"apres","text":"≤ 200 caractères","seen":"≤ 50 caractères : ce que le joueur voit"} : ce que ${first} dit un peu plus tard, quand la soirée reprend : c’est ${il} qui relance la conversation (${AFTER_SAY})`;
+const AFTER_DM = (first, il) => `puis encore 1 message {"t":"msg"} de ${first}, un peu plus tard : c’est ${il} qui relance la conversation (${AFTER_SAY})`;
 // The settings: a box on the new game, and in the game's settings.
 function RomanceBox({ on, set }) {
   return html`<label class=${'check-card' + (on ? ' on' : '')}>
