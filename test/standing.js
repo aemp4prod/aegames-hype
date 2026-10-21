@@ -206,9 +206,11 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   // ---------- declined, taken back, expired ----------
   await G(page, () => { window.__mockInvite = 'line'; window.__mockInviteDay = 1; });
   await dm(page, ids.zara, 'salut la championne');
+  const decId = await G(page, (id) => { const g = window.__hype.S.game; return (g.invites || []).filter((x) => x.c === id).slice(-1)[0].id; }, ids.zara);
+  await G(page, () => { window.__mockInvite = null; }); // (0.30: their answer to « Décliner » is their AI's now: no new invitation in it)
   await clickText(page, '.layer .dm-card.invite .btn', 'Décliner');
   await sleep(2800);
-  const dec = await G(page, (id) => { const H = window.__hype, g = H.S.game, iv = (g.invites || []).filter((x) => x.c === id).slice(-1)[0], msgs = g.dms[id].msgs; return { state: iv.state, ev: H.activeEvents(g).some((e) => e.c === id && e.player), mine: msgs.filter((m) => m.me).slice(-1)[0].text, past: !!document.querySelector('.layer .dm-card.past') }; }, ids.zara);
+  const dec = await G(page, (a) => { const id = a.id, H = window.__hype, g = H.S.game, iv = (g.invites || []).find((x) => x.id === a.decId), msgs = g.dms[id].msgs; return { state: iv.state, ev: H.activeEvents(g).some((e) => e.c === id && e.player), mine: msgs.filter((m) => m.me).slice(-1)[0].text, past: !!document.querySelector('.layer .dm-card.past') }; }, { id: ids.zara, decId });
   check('« Décliner »: a polite answer, nothing on the agenda', dec.state === 'declined' && !dec.ev && /pas pouvoir|pas dispo|pas le faire/i.test(dec.mine) && dec.past, dec);
   await G(page, () => { window.__mockInvite = 'line'; window.__mockInviteDay = 2; });
   await dm(page, ids.zara, 'et la semaine prochaine ?');

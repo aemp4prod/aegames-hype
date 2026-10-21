@@ -276,6 +276,10 @@ function SettingsLayer({ g, i, l }) {
         <${CareDatesBox} on=${!!(g.opts && g.opts.careDates)} set=${(v) => { g.opts = Object.assign({}, g.opts, { careDates: v }); lsSet('hype:careDates', v ? '1' : '0'); update(); }} />
       </div>
       <div class="field">
+        <span class="lbl">Romance</span>
+        <${RomanceBox} on=${sensual(g)} set=${(v) => { g.opts = Object.assign({}, g.opts, { romance: v ? 'sensuel' : 'pudique' }); update(); }} />
+      </div>
+      <div class="field">
         <span class="lbl">Ambiance du monde</span>
         <${Seg} items=${CHAOS.map((c, k) => [k, c.label])} value=${g.world.chaos == null ? 1 : g.world.chaos} onPick=${(k) => { g.world.chaos = k; update(); }} label="Ambiance" />
         <small>${(CHAOS[g.world.chaos == null ? 1 : g.world.chaos] || CHAOS[1]).desc}</small>
@@ -805,9 +809,9 @@ function MoveLayer({ l, g, i, now }) {
 function LaterLayer({ l, g, i, now }) {
   const r = (g.releases || []).find((x) => x.id === l.id);
   if (!r || !canPostpone(r, now)) return html`<${LayerShell} i=${i} title="Repousser"><div class="empty"><b>${r && r.state === 'scheduled' ? 'Tu ne peux plus la repousser' : 'Cette sortie n’est plus prévue'}</b>${r && r.state === 'scheduled' && !r.series ? html`<small>Publie-la, ou abandonne-la.</small>` : null}</div><//>`;
-  const early = earlyMove(r, now), opts = laterChoices(g, r, now);
+  const early = earlyMove(r, now) || awayMove(r, now), opts = laterChoices(g, r, now); // (0.30: back from an absence: free too)
   const go = (o) => {
-    const late = !earlyMove(r);
+    const late = !earlyMove(r) && !awayMove(r);
     if (!postponeRelease(g, r, o.at)) return;
     dropLayers((x) => x.t === 'minigame' && x.id === r.id);
     toast(`${cap1(ta(r))} sort ${fmtWhen(r.due)}.${late ? ' Ton public s’impatiente.' : ''}`, late ? 'bad' : 'good');
@@ -815,7 +819,7 @@ function LaterLayer({ l, g, i, now }) {
   };
   return html`<${LayerShell} i=${i} title="Repousser">
     <div class="mg-setup">
-      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. ${early ? 'Bien à l’avance : aucun malus, ton public patientera.' : postponeCost(g, r) + ' Choisis la nouvelle heure.'}</p>
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. ${awayMove(r, now) ? 'Son heure est passée pendant ton absence : tu peux la décaler une fois sans malus.' : early ? 'Bien à l’avance : aucun malus, ton public patientera.' : postponeCost(g, r) + ' Choisis la nouvelle heure.'}</p>
       <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
       <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
     </div>
@@ -888,7 +892,8 @@ const PLAN_HOURS = [8, 12, 17, 18, 19, 20, 21, 22];
 function dayDue(d, h, t = Date.now()) { const x = gameDate(t); x.setDate(x.getDate() + d); x.setHours(h, 0, 0, 0); return x.getTime() - clockOff(); }
 const dayFree = (d, h) => dayDue(d, h) > Date.now() + 60000;
 function dayWord(d, t = Date.now()) {
-  if (d < 3) return ['Aujourd’hui', 'Demain', 'Après-demain'][d];
+  if (d < 0) return '⚡ Maintenant'; // 0.30: made right away
+  if (d < 3 && !(d < 2 && gameDate(t).getHours() < 6)) return ['Aujourd’hui', 'Demain', 'Après-demain'][d]; // (0.30: in the night, the day said)
   const x = gameDate(t);
   x.setDate(x.getDate() + d);
   const w = cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }));
@@ -925,7 +930,8 @@ function SeriesLayer({ l, g, i }) {
   const needDevis = !easyGear(), dv = needDevis ? devisFor(o) : null, dvBusy = S.busy.devis === devisKey(o);
   const total = dv ? devisTotal(dv) : 0;
   const askQ = needDevis && (!dv || dv.cut), broke = !canAfford(g, 'devis'); // 0.28.1: a quote cut on the way is asked again
-  const dueAt = single ? dayDue(day, hour) : 0, late = single && !dayFree(day, hour);
+  const now = single && day < 0; // 0.30: « Maintenant »: shot and published right away, never announced
+  const dueAt = single ? (now ? Date.now() : dayDue(day, hour)) : 0, late = single && !now && !dayFree(day, hour);
   const go = () => { // (what is checked here holds until it is paid: nothing runs in between)
     if (lock.current || !ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
     if (dv && (dv.paid || dv.cut || devisFor(o) !== dv)) return; // 0.28.1: a second tap, that quote is paid and gone
@@ -934,12 +940,13 @@ function SeriesLayer({ l, g, i }) {
     if (st) { staleSay(st, dv); update(false); return; }
     const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
     if (single) {
-      const due = dayDue(day, hour);
-      if (!dayFree(day, hour)) { toast('Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
+      const due = now ? Date.now() : dayDue(day, hour);
+      if (!now && !dayFree(day, hour)) { toast('Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
       lock.current = true;
-      const r = scheduleRelease(g, { what, topic: theme.trim(), due, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '', promo: pt ? pt.id : '' });
+      const r = scheduleRelease(g, { what, topic: theme.trim(), due, now, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '', promo: pt ? pt.id : '' });
       if (!r) { lock.current = false; return; }
       if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); }
+      if (now) { closeLayer(); update(); startShoot(r); return; } // 0.30: straight to the shoot
       toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer();
       const fc = feat && g.chars[feat];
       if (fc && askFeat(g, r, fc)) { S.drafts.dm[fc.id] = featText(g, r); openDM(fc.id); } // 0.29.1: the proposal, ready to send
@@ -964,12 +971,12 @@ function SeriesLayer({ l, g, i }) {
       ${single ? null : html`<p class="lede-sm">${days} jours de suite, ${what === 'live' ? 'un live' : `${what === 'vidéo' ? 'une' : 'un'} ${noun(what)}`} par jour à heure fixe. Chaque épisode qui n’est pas raté (même moyen) fait grimper ton bonus de défi (×${fmtDec(1 + step)}, ×${fmtDec(1 + 2 * step)}… jusqu’à ×${cap}) : vues, abonnés et argent. Pas de report possible.</p>`}
       <div class="field"><span class="lbl">Format</span><${Seg} items=${P.fmts.map((f) => [f, cap1(noun(f)), !canMake(g, f).ok])} value=${what} onPick=${setWhat} label="Format" />
         ${P.fmts.filter((f) => !canMake(g, f).ok).map((f) => html`<small class="muted gear-why" key=${f}>${canMake(g, f).why}</small>`)}</div>
-      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><div class="tr-chips" role="group" aria-label="Jour">${DAY_PICKS.map((d) => html`<button key=${d} type="button" class=${'chip-btn' + (day === d ? ' on' : '')} aria-pressed=${day === d ? 'true' : 'false'} disabled=${d === 0 && !PLAN_HOURS.some((h) => dayFree(0, h))} onClick=${() => pickDay(d)}>${dayWord(d)}</button>`)}</div></div>`
+      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><div class="tr-chips" role="group" aria-label="Jour">${[-1].concat(DAY_PICKS).map((d) => html`<button key=${d} type="button" class=${'chip-btn' + (day === d ? ' on' : '')} aria-pressed=${day === d ? 'true' : 'false'} disabled=${d === 0 && !PLAN_HOURS.some((h) => dayFree(0, h))} onClick=${() => pickDay(d)}>${dayWord(d)}</button>`)}</div></div>`
         : html`<div class="field"><span class="lbl">Durée du défi</span><${Seg} items=${SERIES_DAYS.map((n) => [n, n + ' jours'])} value=${days} onPick=${setDays} label="Durée" /></div>`}
-      <div class="field"><span class="lbl">Heure de sortie</span>
+      ${now ? html`<p class="muted now-note">Tu ${what === 'live' ? 'lances le live' : 'tournes'} tout de suite et ça sort dans la foulée, sans annonce : personne ne l’attend, personne ne sera déçu.</p>` : html`<div class="field"><span class="lbl">Heure de sortie</span>
         <div class="hour-pick">${PLAN_HOURS.map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} disabled=${single && day === 0 && !dayFree(0, h)} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
-        <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>
-      ${partners.length ? html`<div class="field"><span class="lbl">Feat (facultatif)</span>
+        <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>`}
+      ${partners.length && !now ? html`<div class="field"><span class="lbl">Feat (facultatif)</span>
         <div class="tr-chips" role="group" aria-label="Feat">${[['', px(g, 'Seul', 'Seule', 'Seul·e')]].concat(partners.map((c) => [c.id, firstName(c)])).map(([id, label]) => html`<button type="button" key=${id || 'solo'} class=${'chip-btn' + (feat === id ? ' on' : '')} aria-pressed=${feat === id ? 'true' : 'false'} onClick=${() => setFeat(id)}>${label}</button>`)}</div>
         ${feat && g.chars[feat] ? html`<small class="muted">Une fois programmée, tu ${g.chars[feat].g === 'f' ? 'la' : g.chars[feat].g === 'm' ? 'le' : 'le ou la'} lui proposes en message (le texte est prêt, à toi de le changer) : ${firstName(g.chars[feat])} accepte ou refuse.</small>` : null}</div>` : null}
       ${targets.length ? html`<div class="field"><span class="lbl">Annoncer une vidéo (facultatif)</span>
@@ -987,10 +994,10 @@ function SeriesLayer({ l, g, i }) {
       <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le bonus de défi grimpe presque deux fois plus vite (jusqu’à ×4) ; à la fin, deux fois plus de gemmes et +50 % d’abonnés et d’XP. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
       <${SeriesStakes} days=${days} hard=${hard} />`}
       ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; update(false); } : null} />` : null}
-      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${fmtGameAt(single ? dueAt : nextAt(hour, 0))}</p>
+      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${now ? 'maintenant' : fmtGameAt(single ? dueAt : nextAt(hour, 0))}</p>
       <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (askQ ? broke : (total > 0 && total > g.career.cash) || late)}>${askQ
         ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> ${(dv && dv.cut) || S.devisErr === devisKey(o) ? 'Redemander le devis' : 'Demander le devis'} · ≈ ${costLabel(g, 'devis')} ☕`)
-        : html`<${Icon} n="calendar" s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${single ? 'programmer' : 'lancer le défi'}` : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
+        : html`<${Icon} n=${now ? 'clapper' : 'calendar'} s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${now ? (what === 'live' ? 'lancer le live' : 'tourner') : single ? 'programmer' : 'lancer le défi'}` : now ? (what === 'live' ? 'Lancer le live maintenant' : 'Tourner maintenant') : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
       ${!ok ? html`<small class="muted why-off">Écris d’abord ${single ? 'le sujet' : 'le thème du défi'}.</small>` : !planRoom(g) ? html`<small class="muted why-off">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : !single && seriesOn(g) ? html`<small class="muted why-off">Un défi est déjà en cours.</small>`
         : askQ && broke && !dvBusy ? html`<small class="muted why-off">Ton budget IA du jour est épuisé. <button class="linkbtn" onClick=${budgetBlocked}>Options</button></small>`
         : !askQ && late ? html`<small class="muted why-off">Cette heure est déjà passée aujourd’hui : choisis-en une autre, ou un autre jour.</small>` : null}

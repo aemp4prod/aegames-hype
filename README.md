@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.29.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.30.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -58,6 +58,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   quitter (le raccompagner, rentrer ensemble, rester dormir, se revoir vite… avec tes mots), ou tu te dis juste au
   revoir. Il ou elle accepte ou refuse selon son cœur, son rythme et la soirée ; si c’est oui, la scène s’arrête à la
   porte, pudiquement.
+  Depuis la 0.30, **un rappel** arrive une heure avant chaque rendez-vous et l’heure reste dans la cloche ; un rendez-vous
+  raté pendant que le jeu était fermé attend ton message (quelques heures) avant de compter comme un lapin, et après un
+  lapin, ton excuse est crue ou non par son IA (votre confiance, son cœur, tes lapins passés). « Décliner » une
+  invitation laisse son IA te répondre.
   Depuis la 0.22.4, chaque soirée se garde : **« Tes rendez-vous »** (dans ton profil, sur la fiche de la personne, ou
   « Relire la soirée » sous son récit dans vos messages) la redonne en entier, le lieu, vos mots, tes gestes, le dernier
   mot, la fin et le récit, avec un bouton pour la copier et la montrer. Ce que la personne a pensé reste secret.
@@ -77,7 +81,13 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   s’éloigne jusqu’à la pause ; et une capture de tes messages à quelqu’un d’autre peut tout faire exploser. Un couple
   annoncé fait grandir les deux (le plus petit compte gagne le plus) et, pendant une semaine, tes vidéos sont plus
   regardées. En couple, une soirée peut devenir tendre (se blottir, rester dormir) : dès que ça irait plus loin, la
-  scène s’arrête sur « La suite appartient à leur intimité ». Depuis la 0.29.1, demander à officialiser lance
+  scène s’arrête sur « La suite appartient à leur intimité ». **Depuis la 0.30, la romance est sensuelle** (cochée
+  par défaut à la création de la partie, et dans les réglages ; décochée, elle reste pudique) : entre adultes qui le
+  veulent, les rapprochements peuvent être sensuels (caresses, massages, tenue légère, se retrouver au lit), au rythme du
+  cœur de chacun (l’impulsif va vite, même en flirt ; le prudent plus tard ; la forteresse très tard), et les persos
+  peuvent en prendre l’initiative. Jamais explicite : si ça devient du sexe et que le perso le veut aussi, la scène
+  coupe (« Ce moment ne regarde pas les voyeurs. »), même en flirt ; un « pas encore » se dit avec tendresse, et ce qui a
+  été coupé revient en allusions entre vous deux. Depuis la 0.29.1, demander à officialiser lance
   l’épreuve tout de suite : la personne répond « oui, mais… », et une notification et sa fiche disent ce qui bloque.
   **Depuis la 0.25.3, la nuit continue** : quand la soirée se termine à deux, l’horloge avance jusqu’au lendemain matin
   (sans appel IA en plus) et une carte « 🌅 Le lendemain matin » raconte le réveil, chez l’un ou chez l’autre, tendre et
@@ -105,6 +115,21 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   même personne, clasher un de leurs proches, oublier le post d’un ami… Les persos concernés le voient, d’autant plus
   que c’est répété et que tu es connu. Quand ça devient flagrant, chacun réagit à sa façon : une question, une pique,
   une taquinerie, bouder, ou laisser couler.
+- **La réputation toxique** (0.30) : une deuxième jauge, sur ton profil et dans « Ton statut ». Elle monte quand tu t’en
+  prends aux gens (l’IA juge ce que tes posts et tes vidéos ont de toxique), redescend doucement quand tu te calmes, et
+  bien plus vite avec des excuses sincères (tes fans toxiques te lâchent alors). Haute, elle t’amène un public qui adore
+  le drama (tes clashs font plus de vues, les autres partent par vagues), des marques louches qui paient de ×1,5 à ×3,
+  et des gens qui lui ressemblent. **Les clashs** : une riposte bien envoyée, même violente, ne coûte rien à ta
+  réputation (attaquer ton ennemi juré compte comme une riposte) ; une attaque gratuite se paie. **Le harcèlement**
+  n’est jamais récompensé : contenu retiré avec un avertissement, la personne visée peut porter plainte, puis visibilité
+  réduite, puis chaîne suspendue trois jours (jamais supprimée : tes sorties t’attendent).
+- **Tout le monde n’est pas ce qu’il prétend** (0.30) : certains persos jouent la comédie, en amour comme en amitié, et
+  peuvent te trahir. Plus ta réputation est toxique, plus tu attires ce genre de personnes.
+- **Plus de limite de persos** (0.30) : en plus de ceux qui arrivent avec les niveaux, l’histoire fait venir de nouvelles
+  personnes (l’IA décide quand). Ceux à qui tu ne parles plus depuis plusieurs jours passent « en retrait » : ils sortent
+  des appels de l’IA (ils ne coûtent plus rien) et reviennent dès que tu leur écris, que tu les cites, que l’IA les fait
+  parler, ou de temps en temps d’eux-mêmes ; il en reste toujours au moins dix. Sans visage dans le pack, un nouveau
+  venu a un emoji pour photo.
 - **L’âge des persos** : chacun a un âge (18 ans et plus, toujours) et une maturité qui va avec. À 19 ans on est souvent
   immature (trolls, blagues bêtes, tacles), parfois très mûr. Une partie sur deux, un ou deux persos plus âgés (de 35 à
   68 ans). Depuis la 0.28, la romance est possible à tout âge adulte : plus de « rôle à part » pour eux.
@@ -190,6 +215,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   un détail) ou tu la dessines au doigt. Dans l’appli ChatGPT, en budget « Sans limite », l’IA peut finaliser ton
   croquis (si ta connexion ChatGPT permet de créer des images). Un monteur ou un graphiste dans ton équipe s’en charge.
   Une partie commence avec tes économies (de 0 à 1 000 €) : l’argent se gagne.
+  Depuis la 0.30, **« ⚡ Maintenant »** (à la place du jour) tourne et publie tout de suite, sans annonce : personne ne
+  l’attend, personne n’est déçu si tu y renonces. Une sortie dont l’heure est passée pendant que le jeu était fermé
+  garde son délai à partir de ton retour, et se décale une fois sans pénalité.
 - **Le matos et ton point de départ** (0.20) : chaque partie démarre autrement (un vieux téléphone ou un récent,
   l’ADSL, une box 4G ou la fibre, des économies, parfois un atout ou un handicap), résumé sur la carte « Ton point de
   départ ». Au début, ton téléphone suffit pour les formats verticaux ; il faut un ordinateur pour les vidéos longues et
@@ -212,9 +240,12 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   l’arnaque et cite ceux qui en ont fait la promo. Un agent lit les offres et te prévient en privé (mieux selon son
   niveau), mais un débutant peut t’amener une arnaque sans la voir ; au-dessus de son niveau, un gros contrat est un
   coup de poker (5 % de chances pour un débutant), et sans agent une grosse marque ne lâche presque rien. Une vidéo
-  sponsorisée qui cartonne peut valoir une prime surprise, et la marque revient plus vite.
+  sponsorisée qui cartonne peut valoir une prime surprise, et la marque revient plus vite. Depuis la 0.30, le tarif
+  compte aussi tes vidéos virales (plafonnées) : quand tout ce que tu sors cartonne, il ne repart plus de tes vieux
+  shorts.
 - **Ton audience** grandit de plus en plus lentement à mesure qu’elle grandit (0.20) : rien ne change jusqu’à 1 000
-  abonnés, puis chaque nouvel abonné se mérite davantage.
+  abonnés, puis chaque nouvel abonné se mérite davantage. Depuis la 0.30, aucun format ne te donne plus de likes ni de
+  nouveaux abonnés que ses vues ne le permettent, et ton profil affiche ton temps de jeu.
 - **Shorts et vidéos longues** (0.29.1) : sur YouTube, deux publics dans tes abonnés. Un short touche tout le monde,
   et bien plus ; une vidéo longue (ou un live) est surtout vue par ton **public vidéo**, par quelques abonnés de tes
   shorts qui cliquent et par ceux que l’algorithme amène, de plus en plus à mesure que tes vidéos réussissent. Une
@@ -415,7 +446,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype (Windows)
 
-1. Télécharge `Hype-Setup-0.29.1.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.30.0.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.

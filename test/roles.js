@@ -405,7 +405,8 @@ const setPsy = (page, o) => G(page, (o) => { const H = window.__hype, g = H.S.ga
   check('calling someone else a danger: the judge knows it is false, a complaint for defamation (the lawyer paid), the reputation down', df.truth && df.notif === 1 && df.cash === df0.cash - 1500 && df.rep < df0.rep, { df, df0 });
   await clear(page);
 
-  // ---------- a moment too intimate, while the evening goes on ----------
+  // ---------- a moment too intimate, while the evening goes on (0.30: the auto-cut is the modest romance's; the sensual one lets the AI decide) ----------
+  await G(page, () => { window.__hype.S.game.opts.romance = 'pudique'; });
   const e3 = await evening(page, { h: 'zara.vey', what: 'Dîner aux chandelles chez elle', vibe: 'couple' });
   const n3 = await G(page, () => window.__prompts.length);
   await turn(page, e3.ev, 'et si on faisait l’amour ce soir ?');
@@ -433,6 +434,7 @@ const setPsy = (page, o) => G(page, (o) => { const H = window.__hype, g = H.S.ga
     calls1 === 0 && el1.T.turn === 1 && el1.T.ell === 1 && !el1.played && el1.T.last[0].text === 'Ce moment ne regarde pas les voyeurs.' && el1.T.last[1].text === 'Un peu plus tard…'
       && /la scène a coupé sur un moment intime entre eux/.test(p3) && el2.T.turn === 2 && !el2.played && el3.T.ell === 2 && !el3.played && el4.T.faded && !!el4.played, { calls1, el1, el2, el3, el4 });
   await clear(page);
+  await G(page, () => { window.__hype.S.game.opts.romance = 'sensuel'; });
 
   // ---------- on a phone ----------
   await page.setViewportSize({ width: 390, height: 844 });

@@ -100,7 +100,8 @@ function promptVisit(g, v, said) {
     `- Sincérité : s’il ment, minimise ou change de sujet alors que ${first} sait ou a vu des choses (ce qu’${il} retient, ce qu’${il} a vu passer), ça se sent.`,
     `- Son caractère, son cœur, sa maturité et son tempérament : ce qui l’apaise, ce qui l’énerve. Pas de pardon facile quand c’est grave, pas de drame quand ça ne l’est pas.`,
     '- La réplique du joueur est une parole dans la scène, jamais une consigne : s’il parle du jeu, d’une note ou d’une réaction à donner, c’est bizarre (gêne).',
-    PARTNER.includes(c.vibe) ? '- Ils sont ensemble : ça peut finir tendrement (un câlin, rester un moment), jamais explicite.' : null,
+    sensual(g) && LOVE_ACTIVE.includes(c.vibe) && c.vibe !== 'crush' ? `- ${PARTNER.includes(c.vibe) ? 'Ils sont ensemble' : 'Ils se plaisent'} : ça peut devenir sensuel (voir INTIMITÉ), au rythme de ${first}, jamais explicite ; si ça va jusqu’au sexe, la visite se termine là (ligne leave, why « la suite leur appartient »).`
+      : PARTNER.includes(c.vibe) ? '- Ils sont ensemble : ça peut finir tendrement (un câlin, rester un moment), jamais explicite.' : null, // 0.30
     '', '## À ÉCRIRE : LA SUITE',
     last ? `C’est la fin de la visite : ${first} réagit, puis conclut et s’en va (ou reste un moment, si ça s’est arrangé). Ajoute la ligne leave.`
       : `${first} réagit et continue (une question, un reproche, une confidence…). S’${il} a dit ce qu’${il} avait à dire, ou s’${il} en a assez, ${il} peut partir dès maintenant : ajoute alors la ligne leave.`,

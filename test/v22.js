@@ -367,7 +367,7 @@ const studio = async (page, sel) => { await G(page, () => { const H = window.__h
     window.__mockReacts = ['charme'];
     await H.lastWord(e1, 'Tu veux rentrer avec moi ?');
     const p1 = window.__prompts.slice(n0).find((x) => x.includes('## LE DERNIER MOT DU JOUEUR')) || '';
-    out.prompt = p1.includes('« Tu veux rentrer avec moi ? »') && p1.includes('{"t":"stay"}') && p1.includes('pudiquement');
+    out.prompt = p1.includes('« Tu veux rentrer avec moi ? »') && p1.includes('{"t":"stay"}') && /pudiquement|au seuil : rien d’explicite/.test(p1); // (0.30: « au seuil » in the sensual romance, the default)
     const l1 = e1.talk.lines.slice(-1)[0] || {};
     out.faded = !!e1.talk.faded && /La suite appartient à leur intimité/.test(l1.text || '') && !!e1.played && e1.played.score >= 0.78;
     const e2 = mk('evLast2');

@@ -522,6 +522,7 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
       return L({ t: 'msg', text: good ? 'wow, c’est trop bien, merci !!' : 'hmm… c’est pas ouf, honnêtement.' }, { t: 'rel', d: good ? 5 : -3, why: good ? 'un super montage' : 'un montage bâclé' },
         { t: 'jobpost', text: good ? `nouvelle vidéo ! monté par ${handle}, il a géré 🔥` : `nouvelle vidéo… montage ${handle}` });
     }
+    if (p.includes('CONVERSATION PRIVÉE') && window.__mockExcuse !== undefined && p.includes('{"t":"excuse"')) return L({ t: 'msg', text: window.__mockExcuse ? 'bon… je te crois. mais la prochaine fois, préviens.' : 'mouais. j’y crois moyen, ton histoire.' }, { t: 'excuse', ok: !!window.__mockExcuse }, { t: 'rel', d: 0, why: 'ton explication' }); // 0.30: an excuse, believed or not
     if (p.includes('CONVERSATION PRIVÉE') && window.__mockCancel && p.includes('{"t":"cancel"')) return L({ t: 'msg', text: 'laisse tomber pour ce soir. je viendrai pas.' }, { t: 'cancel', why: 'trop déçue par ton message' }, { t: 'rel', d: -4, why: 'déçue' });
     if (p.includes('CONVERSATION PRIVÉE') && window.__mockInvite) { const r = inviteDM(p); if (r) return r; }
     if (p.includes('CONVERSATION PRIVÉE') && p.includes('{"t":"judge"')) { // 0.11: a dare or doubts: their reaction, then their answer
@@ -560,6 +561,11 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     }
     if (window.__mockSk && prompt.includes('"sk":""')) full = full.replace('{"t":"rel",', `{"t":"rel","sk":"${window.__mockSk}",`); // 0.24
     if (window.__mockKindness != null && prompt.includes('kindness -5 à 5')) full = full.replace('{"t":"eval",', `{"t":"eval","kindness":${window.__mockKindness},`); // 0.10
+    if (window.__mockTox && prompt.includes('tox 0-3')) { // 0.30: what is toxic in the player's action, a comeback, its target
+      const X = window.__mockTox;
+      full = full.replace('{"t":"eval",', `{"t":"eval","tox":${X.tox || 0},"riposte":${!!X.riposte},"cible":"${X.cible || ''}",`);
+      for (const k of ['reception', 'controversy', 'kindness', 'virality']) if (X[k] != null) full = full.replace(new RegExp(`("t":"eval"[^\n]*?"${k}":)-?\\d+`), `$1${X[k]}`);
+    }
     if (window.__mockFlirt && prompt.includes('flirt 0-3')) full = full.replace('{"t":"eval",', `{"t":"eval","flirt":${window.__mockFlirt.flirt},"flirtWith":"${window.__mockFlirt.with}",`); // 0.17: flirting in public
     let text = '';
     let i = 0;

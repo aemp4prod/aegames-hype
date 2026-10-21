@@ -380,6 +380,7 @@ function RepSection({ g, now }) {
       <small>${cap1(REP_PILLARS[k].desc)}</small>
     </div>`)}</div>
     <p class="muted rep-how">Elle se gagne lentement (de plus en plus lentement vers le sommet) et se perd vite. Les marques, les recrues et les persos la regardent.</p>
+    <${ToxBlock} g=${g} now=${now} />
     ${log.length ? html`<div class="rep-log"><span class="rl-h">Pourquoi elle bouge</span>${log.map((x, k) => html`<div class="rl-row" key=${k}>
       <span class=${'rl-d ' + (x.d > 0 ? 'good' : 'bad')}>${repPts(x.d) > 0 ? '+' : '−'}${Math.abs(repPts(x.d))}</span><span class="rl-why">${cap1(x.why)}</span><time>${fmtAgo(x.at, now)}</time>
     </div>`)}</div>` : null}

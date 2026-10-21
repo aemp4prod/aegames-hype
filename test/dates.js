@@ -113,9 +113,10 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await sleep(1200);
   await dismiss(page);
   const g0 = await G(page, () => { const g = window.__hype.S.game; return { opts: g.opts, adult: g.adultAt > 0, saved: localStorage.getItem('hype:careDates') }; });
-  check('a new game asks: « Rendez-vous soignés » (≈ +1 café, unticked) and « J’ai 18 ans ou plus »; the choices are kept with the game',
-    form.cards.length === 2 && /Rendez-vous soignés/.test(form.cards[0]) && /\+1 café par rendez-vous/.test(form.cards[0]) && /J’ai 18 ans ou plus/.test(form.cards[1]) && form.on.every((x) => !x)
-    && g0.opts && g0.opts.careDates === true && g0.adult && g0.saved === '1', { form, g0 });
+  check('a new game asks: « Rendez-vous soignés » (≈ +1 café, unticked), « Romance sensuelle 🔥 » (ticked: 0.30) and « J’ai 18 ans ou plus »; the choices are kept with the game',
+    form.cards.length === 3 && /Rendez-vous soignés/.test(form.cards[0]) && /\+1 café par rendez-vous/.test(form.cards[0]) && /Romance sensuelle/.test(form.cards[1]) && /J’ai 18 ans ou plus/.test(form.cards[2])
+    && form.on.join() === 'false,true,false'
+    && g0.opts && g0.opts.careDates === true && g0.opts.romance === 'sensuel' && g0.adult && g0.saved === '1', { form, g0 });
   const ids = await G(page, () => { const H = window.__hype, g = H.S.game; const id = (h) => H.charByHandle(g, h).id; return { nox: id('nox.ombre'), theo: id('theo.marlin') }; });
 
   // ---------- a date with Nox, set in DMs; what the DMs know about it ----------

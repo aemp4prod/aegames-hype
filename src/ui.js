@@ -618,6 +618,7 @@ function enterGame(g, restore = {}) {
   refreshTrends(g, t);
   for (const k in SCROLL) delete SCROLL[k];
   const away = t - (g.lastSeenAt || g.lastPlayedAt || t);
+  if (!restore.hot) absenceGrace(g, g.lastSeenAt || g.lastPlayedAt, t); // 0.30: what came due while the game was closed: from now on
   if (away > ABSENCE_MS && !restore.hot) {
     const gain = applyAbsence(g, away);
     S.catchup = { ms: away, gain };
@@ -1140,6 +1141,7 @@ function PersonaStep() {
     <div class="field">
       <span class="lbl">Option IA</span>
       <${CareDatesBox} on=${!!P.careDates} set=${(v) => set('careDates', v)} />
+      <${RomanceBox} on=${P.romance !== false} set=${(v) => set('romance', v)} />
     </div>
     <label class=${'check-card age-ok' + (P.adult ? ' on' : '') + (errs.adult ? ' bad' : '')}>
       <input id="p18" type="checkbox" checked=${!!P.adult} onChange=${(e) => set('adult', e.target.checked)} aria-invalid=${errs.adult ? 'true' : undefined} />
@@ -1326,6 +1328,7 @@ function Side({ g, now }) {
       <div><div class="bignum">${fmtN(s.followers)}</div><span class="muted">${plural(s.followers, 'abonné', 'abonnés')}</span></div>
       <div class="kv"><span>Réputation</span><b>${repLabel(s.reputation)} · ${rep1000(s.reputation)}</b></div>
       <${Meter} frac=${s.reputation / 100} tone=${s.reputation < 35 ? 'bad' : s.reputation >= 60 ? 'good' : ''} />
+      ${toxOf(g) >= 1 ? html`<${ToxBlock} g=${g} now=${now} side=${true} />` : null}
       <div class="kv"><span>Niveau ${s.level}</span><b class="mono">${s.xp}/${xpNeed(s.level)} XP</b></div>
       <${Meter} frac=${s.xp / xpNeed(s.level)} />
       ${s.cancelled ? html`<span class="chip bad">Tu es cancel</span>` : null}
@@ -1363,7 +1366,7 @@ function QuoteCard({ g, q }) {
 const revealed = (p, now) => !p.pending && p.res && now >= (p.res.revealAt || 0);
 // 0.18: the answer to a secret that came out, as the network took it
 const SEC_RES = { dement: ['Démenti cru', 'Démenti qui divise', 'Démenti qui ne passe pas'], assume: ['Tu assumes : respect', 'Tu assumes : ça passe à moitié', 'Tu assumes : ça passe mal'], excuse: ['Excuses convaincantes', 'Excuses moyennes', 'Excuses de façade'] };
-function ResChips({ r, now, apology, ev }) {
+function ResChips({ r, now, apology, ev, removed }) {
   const k = ease((now - (r.revealAt || 0)) / 2500); // followers count up as the result appears
   const fol = Math.round(r.fol * k);
   const late = !!(r.fake && !r.fake.busted && ev && ev.busted); // swallowed at first, taken apart later
@@ -1379,13 +1382,15 @@ function ResChips({ r, now, apology, ev }) {
     <span class="chip hot">+${r.xp} XP</span>
     ${r.repD && repPts(r.repD) ? html`<span class=${'chip ' + (r.repD > 0 ? 'good' : 'bad')}>Réputation ${repPts(r.repD) > 0 ? '+' : '−'}${Math.abs(repPts(r.repD))}</span>` : null}
     ${r.verdict ? html`<span class=${'chip' + (r.viral ? ' flash' : '')}>${r.verdict}</span>` : null}
+    ${removed ? html`<span class="chip bad">🚫 Retiré pour harcèlement</span>` : null}
+    ${r.toxLoss ? html`<span class="chip bad">−${nAbonnes(r.toxLoss)} lassés</span>` : null}
   </div>`;
 }
 function PostResult({ p, g, now }) {
   if (!revealed(p, now)) return p.pending || p.res ? html`<div class="res"><span class="chip pending"><${Typing} /> La commu réagit…</span></div>` : null;
   const liked = (p.likedBy || []).filter((x) => x.at <= now).map((x) => g.chars[x.id]).filter(Boolean);
   const others = Math.max(0, shownLikes(p, now) - liked.length); // the rest are people from the public
-  return html`<${ResChips} r=${p.res} now=${now} apology=${!!p.apology} ev=${p.ev} />
+  return html`<${ResChips} r=${p.res} now=${now} apology=${!!p.apology} ev=${p.ev} removed=${!!p.removed} />
     ${liked.length ? html`<div class="liked-by"><span class="avs">${liked.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${20} />`)}</span><span>Aimé par ${liked[0].name}${liked.length + others > 1 ? ` et ${fmtN(liked.length - 1 + others)} ${plural(liked.length - 1 + others, 'autre', 'autres')}` : ''}</span></div>` : null}`;
 }
 const rpCost = () => (S.game ? costLabel(S.game, 'repost') : 1); // 0.28.1: a repost has its author react (an AI call): its cost said
@@ -1492,7 +1497,7 @@ function ReplyRow({ g, p, r, now, depth, parent }) {
       ${p.ratio === r.id ? html`<span class="ratio-tag">💀 Ratio</span>` : null}
       ${eventsAt(g, (x) => x.r === r.id).map((ev) => html`<${EventChip} key=${ev.id} g=${g} ev=${ev} now=${now} compact=${true} />`)}
       ${me && !revealed(r, now) ? html`<div class="res"><span class="chip pending"><${Typing} /> On te lit…</span></div>` : null}
-      ${me && revealed(r, now) ? html`<${ResChips} r=${r.res} now=${now} />` : null}
+      ${me && revealed(r, now) ? html`<${ResChips} r=${r.res} now=${now} removed=${!!r.removed} />` : null}
       <div class="post-actions" style="max-width:240px">
         <button class=${'act' + (picked ? ' on-reply' : '')} onClick=${() => replyToReply(p, r)} aria-label=${'Répondre à @' + au.handle}><${Icon} n="msg" s=${17} /><span>Répondre</span></button>
         <button class=${'act act-like' + (r.liked ? ' on' : '')} disabled=${me} onClick=${() => { r.liked = !r.liked; update(); }} aria-label="J’aime" aria-pressed=${r.liked ? 'true' : 'false'}><${Icon} n="heart" s=${17} fill=${!!r.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
@@ -1611,7 +1616,7 @@ const NOTIF_ICON = {
   new: ['sparkles', 'hot'], dm: ['msg', 'hot'], viral: ['flame', 'flash'], cancel: ['alert', 'bad'], uncancel: ['shield', 'good'],
   milestone: ['trend', 'good'], drama: ['megaphone', 'bad'], collab: ['megaphone', 'good'], info: ['sparkles', ''],
   vibe: ['heart', 'hot'], seen: ['msg', 'bad'], screen: ['alert', 'bad'], apology: ['shield', ''], low: ['moon', 'good'],
-  trend: ['trend', 'flash'], clue: ['search', 'hot'], badbuzz: ['flame', 'bad'], crowd: ['users', ''], busted: ['mask', 'bad'], release: ['clapper', 'hot'], releasedue: ['clapper', 'hot'], delay: ['clock', 'bad'], event: ['calendar', 'hot'],
+  trend: ['trend', 'flash'], clue: ['search', 'hot'], badbuzz: ['flame', 'bad'], crowd: ['users', ''], busted: ['mask', 'bad'], release: ['clapper', 'hot'], releasedue: ['clapper', 'hot'], delay: ['clock', 'bad'], event: ['calendar', 'hot'], eventdue: ['calendar', 'hot'], tox: ['flame', 'bad'],
   money: ['cash', 'good'], gear: ['wrench', 'flash'], // 0.20
   advice: ['bulb', 'flash'], trust: ['trust', 'good'], trustup: ['trust', 'good'], trustdown: ['trust', 'bad'], secret: ['lock', 'hot'],
   standdown: ['trend', 'bad'], standup: ['trend', 'good'], echo: ['sparkles', 'flash'],
@@ -1786,7 +1791,7 @@ function ProfileTab({ g, now }) {
   const P = g.player, s = g.stats;
   const stamp = (p) => (p.a === 'p' ? p.ts : p.rpAt || p.ts);
   const mine = revealedPosts(g, now).filter((p) => p.a === 'p' || p.reposted).sort((a, b) => stamp(b) - stamp(a));
-  const rels = mains(g).slice().sort((a, b) => b.rel - a.rel);
+  const rels = mains(g, true, true).slice().sort((a, b) => b.rel - a.rel); // (0.30: those « en retrait » too: writing to them brings them back)
   const fans = rels.filter((c) => c.followsYou).length;
   const journal = g.chronicle.slice(-8).reverse();
   return html`
@@ -1796,6 +1801,7 @@ function ProfileTab({ g, now }) {
       <div><h2>${P.name}</h2><span class="handle">@${P.handle}</span></div>
       <${BioBox} g=${g} />
       <p class="muted" style="font-size:14px">${g.world.emoji} ${g.world.name} · ${P.identity}</p>
+      <p class="muted play-time" style="font-size:14px">⏱️ ${s.playEst ? '≈ ' : ''}${fmtPlay(s.playMs)} de jeu${s.playEst ? ' (le temps d’avant la 0.30 est estimé)' : ''}</p>
       <${PlayerSocialLinks} g=${g} now=${now} />
       <${ShipsRow} g=${g} />
       <div class="prof-stats"><span><b>${fmtN(s.followers)}</b> ${plural(s.followers, 'abonné', 'abonnés')}</span><span><b>${s.following}</b> ${plural(s.following, 'abonnement', 'abonnements')}</span><span><b>${s.posts}</b> ${plural(s.posts, 'post', 'posts')}</span>${s.cancelled ? html`<span class="chip bad">Cancel</span>` : null}${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz</span>` : null}${isShady(g, now) ? html`<span class="chip bad" title="On se méfie de tes conseils">${px(g, 'Manipulateur', 'Manipulatrice', 'Manipulateur·rice')} · encore ${fmtDur(g.shady.until - now)}</span>` : null}</div>
@@ -1813,7 +1819,7 @@ function ProfileTab({ g, now }) {
       <div class="section-h"><h3>Relations</h3><span>${fans === 0 ? 'Personne ne te suit encore' : fans === 1 ? '1 te suit' : fans + ' te suivent'}</span></div>
       ${rels.map((c) => html`<button class="rel-row" key=${c.id} onClick=${() => openChar(c.id)}>
         <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} />
-        <div class="mid"><div><b>${c.name}</b><span>${relShown(c)}${vibeTag(c)}${c.followsYou ? ' · te suit' : ''} · confiance ${trustOf(c)}</span></div><${RelMeter} rel=${c.rel} /></div>
+        <div class="mid"><div><b>${c.name}</b><span>${relShown(c)}${vibeTag(c)}${c.followsYou ? ' · te suit' : ''} · confiance ${trustOf(c)}${c.asleep ? ' · 😴 en retrait' : ''}</span></div><${RelMeter} rel=${c.rel} /></div>
         <span class="num">${fmtRel(c.rel)}</span>
       </button>`)}
       ${mains(g, false).some((c) => !c.unlocked) ? html`<p class="muted" style="font-size:13px">D’autres personnages arriveront quand tu monteras de niveau.</p>` : null}
@@ -1913,6 +1919,11 @@ function EventChip({ g, ev, now, compact }) {
   const busy = evBusy();
   const rl = activeRelease(g);
   const held = !!(rl && rl.due <= now); // a release to shoot first: time cannot move on
+  if (ev.awayUntil && now < ev.awayUntil) return html`<div class=${'evt-chip due away' + (compact ? ' compact' : '')} onClick=${stop(() => {})}>
+    <span class="evt-emo" aria-hidden="true">${emo}</span>
+    <span class="evt-mid"><b>${eventLabel(g, ev)}</b><small>Raté pendant ton absence · écris-lui avant ${hourOf(ev.awayUntil)}</small></span>
+    <span class="evt-acts"><button class="btn btn-hot btn-sm" onClick=${stop(() => openDM(c.id))}>Lui écrire</button></span>
+  </div>`; // 0.30: their time came while the game was closed: a word, before it counts
   return html`<div class=${'evt-chip' + (due ? ' due' : '') + (compact ? ' compact' : '')} onClick=${stop(() => {})}>
     <span class="evt-emo" aria-hidden="true">${emo}</span>
     <span class="evt-mid"><b>${eventLabel(g, ev)}</b><small>${due ? 'C’est maintenant' : fmtWhen(ev.due, now)} · « ${str(ev.what, 70)} »</small>${held && !due && !compact ? html`<small class="evt-held">${heldWhy(rl)}</small>` : null}</span>
@@ -3039,6 +3050,7 @@ function DMLayer({ l, g, now, i }) {
         : m.me && m.gift ? html`<div key=${m.id} class="dm-card gift mine"><span class="evt-kind">🎁 Ton cadeau à ${firstName(c)}</span><p>${m.gift.what}</p><small class="muted">${fmtMoney(g, m.gift.price)}</small></div>` // 0.28: a present from the player
         : m.sys === 'gift' ? html`<div key=${m.id} class="dm-card gift"><span class="evt-kind">🎁 Un cadeau pour toi</span><p>${m.text.replace(/^🎁\s*/, '')}</p><small class="muted">Dans ton inventaire.</small></div>` // 0.26
         : m.sys === 'leak' ? html`<${LeakCard} key=${m.id} g=${g} m=${m} />` // 0.29: a group without the player
+        : m.sys === 'fade' ? html`<div key=${m.id} class="dm-fade"><i>${m.text}</i><small>Un peu plus tard…</small></div>` // 0.30: the scene cut
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + firstName(c)}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
           <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
@@ -3080,7 +3092,7 @@ function InviteCard({ g, m, now }) {
     <b>${iv.what}</b>
     <p>${cap1(iv.due <= now ? fmtPast(iv.due, now) : fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${firstName(cc)} à ce moment-là` : ''}</p>
     ${foe ? html`<p class="collab-foe">💔 ${firstName(foe)} ne supporte pas ${firstName(c)} : ça risque de mal passer.</p>` : null}
-    ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineInvite(g, iv); update(); }}>Décliner</button></div>` : null}
+    ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineByButton(g, iv); update(); }}>Décliner</button></div>` : null}
   </div>`;
 }
 // 0.28.1: a post's limit, in characters as they are seen (an emoji is one): what the counter says is what is kept
@@ -3514,6 +3526,11 @@ function tick() {
   let fast = S.toasts.length > 0 || S.busy.create || S.busy.refresh || !!S.busy.act || !!S.busy.dm || !!S.busy.mg || S.busy.ideas || S.busy.newchar || t < S.liveUntil || S.modals.length > 0;
   const g = S.game;
   if (S.phase === 'game' && g && !g.over) { // (0.29: a game that ended waits on its last screen)
+    // 0.30: out of sight (another app, the window hidden), nothing is given up; back, what came due meanwhile starts again
+    const hidden = document.visibilityState !== 'visible' && !(S.os || []).length;
+    if (!hidden && g.lastSeenAt && t - g.lastSeenAt > AWAY_MIN) { absenceGrace(g, g.lastSeenAt, t); g.lastSeenAt = t; update(false); }
+    if (!hidden && t - (S.lastInputAt || 0) < AUTO_IDLE_MS && S.playTickAt) g.stats.playMs = (g.stats.playMs || 0) + Math.max(0, Math.min(5000, t - S.playTickAt)); // 0.30: the time really played
+    S.playTickAt = t;
     if (t - achTickAt > 4000) { achTickAt = t; tickAch(g, t); } // 0.28: the achievements read what stands
     const shown = dmsShown(); // (0.27.9: a conversation out of the game is being read too)
     // 0.10.2: no toast over a mini-game being played (it hid the question while the clock ran); the notifications keep them
@@ -3555,13 +3572,15 @@ function tick() {
     if (g.fakes && g.fakes.length && checkFakes(g, t)) update(); // a counter-investigation that was due
     const onScreen = (id) => S.stack.some((l) => l.t === 'minigame' && l.id === id); // 0.27.6: being played: never pulled away
     if (settleRuns(g, t)) update(); // 0.10.2: a mini-game left finished, or whose clock ran out while the player was away (0.27.6: scored before any grace runs out)
-    if (g.releases && g.releases.length && checkReleases(g, t, onScreen)) update(); // a release forgotten long after its time
-    if (((g.events && g.events.length) || (g.invites && g.invites.length)) && checkEvents(g, t, onScreen)) update(); // a stood-up date, an event nobody watched, an invitation left unanswered
+    if (!hidden && g.releases && g.releases.length && checkReleases(g, t, onScreen)) update(); // a release forgotten long after its time
+    if (!hidden && ((g.events && g.events.length) || (g.invites && g.invites.length)) && checkEvents(g, t, onScreen)) update(); // a stood-up date, an event nobody watched, an invitation left unanswered
     for (const ev of activeEvents(g)) { // wherever the player is, the time is called out
+      const ec = g.chars[ev.c];
+      if (ev.player && ec && !ev.soonSaid && !hidden && ev.due - t > 0 && ev.due - t <= 3600000 && t - (ev.at || 0) > 15 * 60000) { ev.soonSaid = true; addNotif(g, { k: 'event', c: ec.id, at: t, text: `⏰ Dans ${fmtLeft(ev.due - t)} : ton rendez-vous avec ${ec.name} (« ${str(ev.what, 50)} »), à ${hourOf(ev.due)}.` }); update(); } // 0.30: a reminder, an hour before
       if (ev.dueSaid || t < ev.due || (inMiniGame() && !S.stack.some((l) => l.t === 'minigame' && l.id === ev.id))) continue; // (0.27.6: after the game being played: its toast opened a second game over the first)
       ev.dueSaid = true;
       const K = EVENT_KINDS[ev.kind] || EVENT_KINDS.autre;
-      const ec = g.chars[ev.c];
+      if (ev.player && ec) addNotif(g, { k: 'eventdue', c: ec.id, at: t, text: `🥂 C’est l’heure de ton rendez-vous avec ${ec.name} : « ${str(ev.what, 60)} ».` }); // 0.30: it stays in the bell
       if (ec && !S.stack.some((l) => l.t === 'minigame' && l.id === ev.id)) toast(`${evEmoji(g, ev)} ${K.now(ec)}`, 'flash', { label: K.go, run: () => goEvent(ev), ev: ev.id });
       update();
     }
@@ -3574,7 +3593,7 @@ function tick() {
       if (!inMiniGame()) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -3664,7 +3683,7 @@ if (window.__HYPE_TEST__) {
     igList, ttList, makeSlides, pickSlides, genNewChar, loadAtelier, syncShipped, phSrc, atImg, atPortrait, removePerson, PH_PER_PERSON, packExportText, packImportText, creatorOn, openAtelier, guessTags, hintTags, addAmbientPost, charPortrait, cleanPhoto,
     // 0.9: trust and advice
     trustOf, gardeOf, trustMult, trustLabel, applyTrust, initTrust, migrateTrust, migrate, addAdvice, tickAdvice, resolveAdvice, plannedAdvice, confideSecret, secretBetrayed, isShady,
-    sendDM, standUp, fakeBusted, startBadBuzz, ADVICE_NEED, TRUST_STEPS, openAdvice, openChar, promptWrite,
+    expectedViews, estimatePlay, fmtPlay, momentLine, fmtWhen, toxOf, toxLv, toxMove, toxShare, toxAfterEval, modStrike, modCut, suspended, tickToxic, toxCtx, feudLine, toxFeeK, toxBannedP, harassComplaint, toxRedeem, actRepPlan, commitEval, scoreEval, refreshCareerLines, maybeTraitor, traitOf, traitStage, traitSign, traitCore, traitUnmask, traitBetray, tickTraitors, newcomerRoll, traitorsOf, tickCast, wake, sleepy, arrivalOK, ARRIVAL_LINE, genNewChar, promptNewChar, applyCareerLine, fadeOK, intimacyLv, intimacyLine, romanceCtx, sensual, intimateMem, promptTalk, sendDM, standUp, absenceGrace, excuseJudged, lapinLine, awayDateOf, awayMove, fansLine, sameFan, lastsLine, fakeBusted, startBadBuzz, ADVICE_NEED, TRUST_STEPS, openAdvice, openChar, promptWrite,
     // 0.9.1: series, the week of their pages, the player's own photos
     visibleShots, carouselOf, shotOf, IG_WINDOW, MEDIA, mediaGet, mediaSrc, ownPosts, exportGameText, importGameText, deleteGame, loadGameData,
     mediaPut, mediaDel, picDrafts, markDrafts, sweepDrafts, MEDIA_MAX,
@@ -3673,7 +3692,7 @@ if (window.__HYPE_TEST__) {
     // 0.9.3: dates that fit the story
     prepDate, genDate, prepFresh, charCancelsDate, dateSituation, publicBetween, promptDateGame, promptDateCheck,
     // 0.9.4: invitations, dates days away, standing and temperaments, echoes
-    addInvite, acceptInvite, declineInvite, dropInvite, inviteOf, openInvite, inviteIn, saysYes, planDue, parseWhen, dayOffset, dmDateFallback, dmInviteFallback,
+    addInvite, acceptInvite, declineInvite, declineByButton, aWhen, dropInvite, inviteOf, openInvite, inviteIn, saysYes, planDue, parseWhen, dayOffset, dmDateFallback, dmInviteFallback,
     TEMPERS, temperOf, initTemper, setTemper, migrateTemper, standingOf, tickStanding, standLv, standMult, ripple, addEcho, surfaceEcho, runEcho, standCtx, temperText,
     candPrice, maybeOffer, genCandidates, promptCandidates, ctxText, sysLine,
     // 0.10: the reputation on 1000 and its pillars, the intensity, more comments, the budget tiers

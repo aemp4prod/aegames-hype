@@ -25,8 +25,9 @@ const CRITIC = { by: 'le.demineur', name: 'Le Démineur', bio: 'youtubeur · je 
 function scamChance(g, via) {
   const F = g.stats.followers;
   const base = F < 10000 ? 0.3 : F < 100000 ? 0.22 : F < 1e6 ? 0.15 : 0.1;
-  if (via === 'agent') { const m = hasStaff(g, 'agent'); return m ? [0.2, 0.08, 0.02, 0][clamp(m.tier, 0, 3)] : base; }
-  return via === 'pitch' ? base * 0.5 : base;
+  const tox = [0, 0.04, 0.1, 0.16][toxLv(g)]; // 0.30: a toxic name draws the crooks too (never said)
+  if (via === 'agent') { const m = hasStaff(g, 'agent'); return m ? [0.2, 0.08, 0.02, 0][clamp(m.tier, 0, 3)] + tox / 2 : base + tox; }
+  return (via === 'pitch' ? base * 0.5 : base) + tox;
 }
 const DANGER = {
   boisson: ['sa boisson « énergie ×10 », sans limite de caféine', 'ses shots détox « qui nettoient le foie en 24 h »'],
@@ -199,7 +200,7 @@ function penalClause(g, d) {
 // At delivery: the money that never comes, the recall, the complaints, the face in an ad. true: the brand paid.
 function scamOnDeliver(g, d) {
   const t = Date.now();
-  if (d.scam === 'impaye') { d.unpaidAt = t + d.payLate * DAY_MS; return false; }
+  if (d.scam === 'impaye') { if (d.payLate) d.unpaidAt = t + d.payLate * DAY_MS; return false; } // (0.30: the gear that never ships has no payment date: its own clock, lostAt)
   if (d.scam === 'dangereux') d.recallAt = t + randi(1, 4) * DAY_MS;
   if (d.scam === 'nul') d.flopAt = t + randi(1, 3) * DAY_MS;
   if (d.scam === 'clause' && d.clause.kind === 'image') d.imageAt = t + randi(3, 10) * DAY_MS;
@@ -271,7 +272,8 @@ function criticExposes(g, d) {
   if (!mine && Math.random() < 0.5) return; // not every scam makes a video
   burnBrand(g, d.brand); // 0.28.1: exposed
   const lines = {
-    impaye: `🧨 ARNAQUE : ${d.brand} ne paie pas les créateurs. Même méthode à chaque fois : gros cachet promis, zéro acompte, paiement « à ${d.payLate} jours »… puis plus rien.`,
+    impaye: d.gift || !d.payLate ? `🧨 ARNAQUE : ${d.brand} promet aux créateurs du matos hors de prix pour une seule vidéo. Même méthode à chaque fois : « le colis part cette semaine »… et il n’arrive jamais.` // 0.30: (the gear that never ships has no payment date)
+      : `🧨 ARNAQUE : ${d.brand} ne paie pas les créateurs. Même méthode à chaque fois : gros cachet promis, zéro acompte, paiement « à ${d.payLate} jours »… puis plus rien.`,
     frais: `🧨 ARNAQUE : le « programme ambassadeur » de ${d.brand}. Tu paies des « frais », tu reçois trois babioles et un code promo. Personne n’est payé, sauf eux.`,
     dangereux: `🧨 DANGER : ${d.product} (${d.brand}) n’a aucune autorisation et des gens ont fini chez le médecin. Ceux qui en ont fait la promo devraient s’expliquer.`,
     nul: `🧨 J’ai testé ${d.product} de ${d.brand} : c’est du vent. Leurs avis clients sont catastrophiques pour une raison. Créateurs, vérifiez avant de vendre.`,
@@ -320,7 +322,8 @@ function scamCtx(g, d, c) {
   const n = firstName(c);
   const never = `Elle ne l’avoue JAMAIS, même si le joueur l’accuse : elle s’indigne, rassure, invente des références, ou change de sujet.`;
   const S0 = {
-    impaye: `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’a aucune intention de payer. ${n} promet un paiement « à ${d.payLate} jours, comme tout le monde », esquive les questions sur l’entreprise, pousse à signer vite, et refuse tout acompte avec une excuse (« la compta », « chez nous c’est comme ça »). ${never})`,
+    impaye: d.gift || !d.payLate ? `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’enverra jamais ${d.product || 'le matériel promis'}. ${n} promet que le colis part « cette semaine », esquive les questions sur l’entreprise et pousse à signer vite. ${never})` // 0.30
+      : `(Secret que le joueur ne doit jamais apprendre de ta bouche : ${d.brand} n’a aucune intention de payer. ${n} promet un paiement « à ${d.payLate} jours, comme tout le monde », esquive les questions sur l’entreprise, pousse à signer vite, et refuse tout acompte avec une excuse (« la compta », « chez nous c’est comme ça »). ${never})`,
     frais: `(Secret : c’est une arnaque au « programme ambassadeur » : le joueur paie ${fmtMoney(g, d.costs)} de frais et ne recevra rien de valable. ${n} présente ça comme une chance rare « réservée aux meilleurs profils ». ${never})`,
     dangereux: `(Secret : ${d.product} est dangereux et n’a aucune autorisation. ${n} vante des résultats « incroyables » et répond de façon floue sur la sécurité ou les certifications. ${never})`,
     nul: `(Secret : le produit est de très mauvaise qualité, les clients se plaignent beaucoup. ${n} parle de « quelques avis de concurrents jaloux ». ${never})`,

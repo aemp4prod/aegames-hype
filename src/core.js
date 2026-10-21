@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.29.1';
+const APP_VERSION = '0.30.0';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -531,7 +531,7 @@ function blankGame(world, persona) {
       followers: st.followers, following: 0, reputation: st.rep, xp: 0, level: 1, gems: 15,
       rep4: { image: st.rep, cred: st.rep, pro: st.rep, kind: st.rep }, repLog: [], // 0.10: the four pillars of the reputation
       skills: { charisme: 0, humour: 0, audace: 0, creativite: 0 }, skillXp: { charisme: 0, humour: 0, audace: 0, creativite: 0 }, skillPoints: 0, // 0.24: levels (0-50), from their XP
-      cancelled: false, cancels: 0, posts: 0, replies: 0, replyc: 0, dms: 0, mentions: 0, virals: 0, bestLikes: 0, milestone: 0,
+      cancelled: false, cancels: 0, posts: 0, replies: 0, replyc: 0, dms: 0, mentions: 0, virals: 0, bestLikes: 0, milestone: 0, playMs: 0,
       fakes: 0, busts: 0,
     },
     budget: { daily: persona.budget == null ? BUDGET_DEFAULT : persona.budget, day: realDay(t), used: 0, extra: 0, chars: 0, total: 0, avg: {}, warned: false },
@@ -545,11 +545,29 @@ function blankGame(world, persona) {
     gear, // 0.20: the phone, the computer, the camera… the connection and the subscriptions
     advice: [], // v0.9: the advice characters follow because they trust the player
     visits: [], dilemmas: [], // 0.18: surprise visits, dilemmas
-    opts: Object.assign({ careDates: !!persona.careDates, intensity: INTENSITY[persona.intensity] ? persona.intensity : 'normal' }, // v0.9.3: the player's AI options for this game (0.10: the intensity)
+    opts: Object.assign({ careDates: !!persona.careDates, intensity: INTENSITY[persona.intensity] ? persona.intensity : 'normal', romance: persona.romance === false ? 'pudique' : 'sensuel' }, // (0.30: the romance, sensual unless unticked) // v0.9.3: the player's AI options for this game (0.10: the intensity)
       COMMENTS[persona.comments] ? { comments: persona.comments } : typeof persona.chatty === 'boolean' ? { chatty: persona.chatty } : {},
       LIVE[persona.live] ? { live: persona.live } : typeof persona.autoLive === 'boolean' ? { autoLive: persona.autoLive } : {}), // 0.19: the two switches, when changed (0.23.1: four steps each)
     adultAt: persona.adult ? t : 0, // v0.9.3: when the player said they are 18 or older
   };
+}
+// 0.30: the time really played. A game from before gets an estimate from what it kept: the player's messages, posts,
+// evenings and releases, counted as one sitting when they are less than 20 minutes apart.
+function estimatePlay(g) {
+  const ts = [];
+  for (const id in g.dms || {}) for (const m of (g.dms[id] && g.dms[id].msgs) || []) if (m.me && m.ts) ts.push(m.ts);
+  for (const p of g.posts || []) { if (p.a === 'p' && p.ts) ts.push(p.ts); for (const r of p.replies || []) if (r.a === 'p' && r.ts) ts.push(r.ts); }
+  for (const ev of g.events || []) if (ev.talk && ev.talk.at) { const n = (ev.talk.lines || []).filter((x) => x.who === 'p').length; for (let k = 0; k < n; k++) ts.push(ev.talk.at + k * 90000); }
+  for (const x of (g.career && g.career.log) || []) if (x.at && !x.past) ts.push(x.at);
+  ts.sort((a, b) => a - b);
+  let ms = ts.length * 30000;
+  for (let k = 1; k < ts.length; k++) { const d = ts[k] - ts[k - 1]; if (d <= 20 * 60000) ms += d; }
+  return Math.round(ms);
+}
+// « 2 h 15 min », « 45 min », « moins d’une minute »
+function fmtPlay(ms) {
+  const m = Math.floor((ms || 0) / 60000), h = Math.floor(m / 60);
+  return h ? `${h} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + ' min' : ''}` : m ? `${m} min` : 'moins d’une minute';
 }
 function migrate(g) {
   const d = blankGame({ name: g.world ? g.world.name : 'Monde' }, g.player || { name: 'Toi', handle: 'toi', start: 'anon' });
@@ -559,6 +577,7 @@ function migrate(g) {
   if (!INTENSITY[g.opts.intensity]) g.opts.intensity = 'normal'; // 0.10
   ensureRep(g.stats); // 0.10: a game from before the pillars starts with all four at its reputation (before the defaults below)
   if (g.stats && !g.stats.skillXp) ensureSkills(g); // 0.24: the old skills converted (before the defaults below, which have none)
+  if (g.stats && g.stats.playMs === undefined) { g.stats.playMs = estimatePlay(g); g.stats.playEst = 1; } // 0.30: a game from before: its time played, estimated
   for (const k of ['world', 'player', 'stats']) for (const kk of Object.keys(d[k])) if (g[k][kk] === undefined) g[k][kk] = d[k][kk];
   for (const k of Object.keys(d.stats.skills)) if (g.stats.skills[k] === undefined) g.stats.skills[k] = g.stats.skillXp ? 0 : 5; // (5: the old scale's start)
   ensureSkills(g); // 0.24: levels from practice (a game from before: its old values, converted)
@@ -672,8 +691,41 @@ function joinCast(g, c, why) {
 }
 // Their job, for the AI (they keep it once they joined the cast).
 const jobLine = (c) => (c && c.joined && c.kind !== 'main' ? `${c.kind === 'ex' ? 'a travaillé pour le joueur' : c.kind === 'cand' ? 'postule chez le joueur' : c.kind === 'staff' ? 'travaille pour le joueur' : 'contact pro du joueur'} (${c.role || 'son métier'}), et c’est devenu personnel entre eux` : '');
-function mains(g, unlockedOnly = true) {
-  return g.order.map((id) => g.chars[id]).filter((c) => c && isMain(c) && (!unlockedOnly || c.unlocked));
+// (0.30: those « en retrait » are left out, unless asked for: withAsleep)
+function mains(g, unlockedOnly = true, withAsleep = false) {
+  return g.order.map((id) => g.chars[id]).filter((c) => c && isMain(c) && (!unlockedOnly || (c.unlocked && (withAsleep || !c.asleep))));
+}
+/* 0.30: no limit to the cast any more (newcomers come with the levels, and with the story, when the AI brings someone).
+   Those the player no longer talks to step back (« en retrait »): left out of the AI's calls (they cost nothing), they come
+   back as soon as the player writes to them or names them, when the AI makes them speak, or now and then by themselves.
+   Never someone close, in love, at war, with a date, nor the roles of the game. */
+const SLEEP_DAYS = 5, AWAKE_MIN = 10;
+const sleepy = (g, c, t) => isMain(c) && c.unlocked && !c.asleep && !c.fixed && !c.jailed && !isPsy(g, c) && !traitOf(g, c) && !LOVE_ACTIVE.includes(c.vibe) && !BOND_VIBES.includes(c.vibe) && !['nemesis', 'rival', 'ex', 'complique'].includes(c.vibe)
+  && c.rel < 50 && !(g.events || []).some((e) => e.c === c.id && e.state === 'scheduled') && !openInvite(g, c) && t - Math.max(c.lastTouch || 0, c.unlockedAt || 0, c.wokeAt || 0) >= SLEEP_DAYS * DAY_MS;
+function wake(g, c, why, t = Date.now()) {
+  if (!c || !c.asleep) return false;
+  delete c.asleep;
+  c.wokeAt = t;
+  if (why) addTrigger(g, `@${c.handle}, qu’on n’avait pas vu depuis un moment, revient dans le fil : ${why}.`, c.id);
+  return true;
+}
+function tickCast(g, t = Date.now()) {
+  if (!g || t - (g.castAt || 0) < 3600000) return false;
+  g.castAt = t;
+  let ch = false;
+  const asleep = mains(g, true, true).filter((c) => c.asleep);
+  if (asleep.length && t - (g.wakeAt || 0) >= DAY_MS && Math.random() < 0.25) { // now and then, someone comes back by themselves
+    g.wakeAt = t;
+    const c = pick(asleep);
+    wake(g, c, pick(['une nouvelle, un projet, ou juste l’envie de reprendre contact', 'il ou elle a des choses à raconter', 'un retour inattendu']), t);
+    ch = true;
+  }
+  const awake = mains(g);
+  if (awake.length > AWAKE_MIN) {
+    const cand = awake.filter((c) => sleepy(g, c, t)).sort((a, b) => Math.max(a.lastTouch || 0, a.unlockedAt || 0) - Math.max(b.lastTouch || 0, b.unlockedAt || 0));
+    for (const c of cand.slice(0, Math.min(2, awake.length - AWAKE_MIN))) { c.asleep = t; ch = true; }
+  }
+  return ch;
 }
 function medias(g) { return g.order.map((id) => g.chars[id]).filter((c) => c && c.kind === 'media' && c.unlocked); }
 function uniqueHandle(g, h) {
@@ -736,6 +788,7 @@ function resolveAuthor(g, by, name, bio) {
   if (!h) return null;
   if (h === g.player.handle) return 'p';
   const c = charByHandle(g, h);
+  if (c && c.asleep && c.unlocked && !c.jailed) wake(g, c, ''); // 0.30: the AI brings them back
   if (c) return c.unlocked && !c.jailed ? 'c:' + c.id : null; // (0.29: arrested, they post no more)
   let n = g.npcs[h];
   if (!n) {
@@ -1413,8 +1466,9 @@ const VIDEO_RANGES = { // the community's grades a release gets, by how the shoo
 const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 function dayOffset(t, now) {
   let m;
-  if (/\bapr[èe]s[- ]demain\b/.test(t)) return 2;
-  if (/\bdemain\b/.test(t)) return 1;
+  const night = now.getHours() < 6; // 0.30: in the middle of the night, « demain » is the day that starts after the night
+  if (/\bapr[èe]s[- ]demain\b/.test(t)) return night ? 1 : 2;
+  if (/\bdemain\b/.test(t)) return night ? 0 : 1;
   if ((m = /\bdans\s+(\d)\s+jours?\b/.exec(t))) return +m[1];
   if ((m = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b(?!\s+(?:dernier|pass[ée]))/.exec(t))) {
     const d = (WEEKDAYS.indexOf(m[1]) - now.getDay() + 7) % 7;
@@ -1443,9 +1497,10 @@ function parseWhen(t, now) {
     else if (at <= now) at.setDate(at.getDate() + 1);
     return Math.round((at - now) / 60000);
   }
-  if (!days && /\bce soir\b|\bcette nuit\b/.test(t)) { at.setHours(/\bcette nuit\b/.test(t) ? 23 : 21, 0, 0, 0); const d = Math.round((at - now) / 60000); return d >= 30 ? d : 60; }
-  if (days === 1 && !/\bsoir|nuit|midi|matin|apr[èe]s[- ]midi|aprem/.test(t)) { at.setDate(at.getDate() + 1); at.setHours(18, 0, 0, 0); return Math.round((at - now) / 60000); }
-  if (days) { at.setDate(at.getDate() + days); at.setHours(partHour(t), 0, 0, 0); return Math.round((at - now) / 60000); }
+  const dem = /\bdemain\b/.test(t) && !/\bapr[èe]s[- ]demain\b/.test(t); // (0.30: at night, « demain » is day 0)
+  if (!days && !dem && /\bce soir\b|\bcette nuit\b/.test(t)) { at.setHours(/\bcette nuit\b/.test(t) ? 23 : 21, 0, 0, 0); const d = Math.round((at - now) / 60000); return d >= 30 ? d : 60; }
+  if ((days === 1 || dem) && !/\bsoir|nuit|midi|matin|apr[èe]s[- ]midi|aprem/.test(t)) { at.setDate(at.getDate() + days); at.setHours(18, 0, 0, 0); return Math.round((at - now) / 60000); }
+  if (days || dem) { at.setDate(at.getDate() + days); at.setHours(partHour(t), 0, 0, 0); return Math.round((at - now) / 60000); }
   if (/\btout [àa] l'heure\b/.test(t)) return 120;
   return null;
 }
@@ -1503,7 +1558,11 @@ function advanceRelease(g, r, due) {
   r.dueSaid = false;
   const when = r.due - t < 60000 ? 'maintenant' : fmtWhen(r.due, t);
   addNotif(g, { k: 'release', text: `⏩ ${cap1(ta(r))} « ${str(r.topic, 60)} » sort plus tôt : ${when}.` });
-  addTrigger(g, `Le joueur avance la sortie de ${sa(r)} « ${str(r.topic, 60)} » : ${when === 'maintenant' ? 'elle arrive tout de suite' : `elle sort ${when}`}. Bonne surprise pour ceux qui l’attendaient.`, r.c || null);
+  // 0.30: a surprise only for those who were really waiting for it (programmed a while ago, or announced); programmed and
+  // brought forward within minutes, nobody waited: nothing to say (« prévu à 18 h, livré maintenant » under every short)
+  const awaited = t - (r.at || 0) > 30 * 60000 || !!r.said || !!r.post;
+  if (awaited) addTrigger(g, `Le joueur avance la sortie de ${sa(r)} « ${str(r.topic, 60)} » : ${when === 'maintenant' ? 'elle arrive tout de suite' : `elle sort ${when}`}. Bonne surprise pour ceux qui l’attendaient.`, r.c || null);
+  else r.now = 1;
   return true;
 }
 // The earlier times offered (the hours of the day planner, and soon), up to the planned one.
@@ -1522,8 +1581,9 @@ function advanceChoices(g, r, now = Date.now()) {
 }
 // A day as the planners say it: « Ce soir 20 h », « Demain 12 h », « Jeudi 18 h », a week on « Lundi 26 18 h ».
 function slotLabel(x, dd, h) {
-  if (dd === 0) return `${h >= 18 ? 'Ce soir' : 'Aujourd’hui'} ${h} h`;
-  if (dd === 1) return `Demain ${h} h`;
+  const night = gameDate(Date.now()).getHours() < 6; // 0.30: in the middle of the night, the day said (« Jeudi 15 h »)
+  if (dd === 0 && !night) return `${h >= 18 ? 'Ce soir' : 'Aujourd’hui'} ${h} h`;
+  if (dd === 1 && !night) return `Demain ${h} h`;
   const wd = cap1(x.toLocaleDateString('fr-FR', { weekday: 'long' }));
   return `${wd}${dd >= 7 ? ' ' + x.getDate() : ''} ${h} h`;
 }
@@ -1585,17 +1645,20 @@ const DELAY_LINES = [
 // pro, then unprofessional, then « il se défile ».
 const RELEASE_NOTICE = 2 * 3600000;
 const earlyMove = (r, now = Date.now()) => !!r && r.due - now > RELEASE_NOTICE && (r.moved || 0) < 2;
-const canPostpone = (r, now = Date.now()) => !!r && r.state === 'scheduled' && !r.series && (earlyMove(r, now) || r.delays < MAX_DELAYS);
+// 0.30: its time came while the player was away: one postponement for free, for as long as its grace from the return lasts
+const awayMove = (r, now = Date.now()) => !!r && !!r.away && now <= relLimit(r);
+const canPostpone = (r, now = Date.now()) => !!r && r.state === 'scheduled' && !r.series && (earlyMove(r, now) || awayMove(r, now) || r.delays < MAX_DELAYS);
 function postponeRelease(g, r, due) {
   if (!r || r.state !== 'scheduled' || r.series) return false; // no postponing in a daily upload
   const s = g.stats, t = Date.now(), base = Math.max(r.due, t);
   const at = Math.round(Number.isFinite(due) && due > base + 60000 ? due : base + 30 * 60000);
-  if (earlyMove(r, t)) {
-    r.moved = (r.moved || 0) + 1;
+  const free = awayMove(r, t);
+  if (free || earlyMove(r, t)) {
+    if (free) { delete r.away; delete r.waited; } else r.moved = (r.moved || 0) + 1;
     r.due = at;
     r.dueSaid = false;
     addNotif(g, { k: 'release', at: t, text: `🗓️ ${cap1(ta(r))} « ${str(r.topic, 60)} » est ${whatF(r) ? 'décalée' : 'décalé'} : ${fmtWhen(r.due, t)}.` });
-    addTrigger(g, `Le joueur décale ${sa(r)} « ${str(r.topic, 60)} », bien à l’avance : ${whatF(r) ? 'elle' : 'il'} sortira ${fmtWhen(r.due, t)}. Ceux qui l’attendaient patienteront.`, r.c || null);
+    addTrigger(g, `Le joueur décale ${sa(r)} « ${str(r.topic, 60)} »${free ? '' : ', bien à l’avance'} : ${whatF(r) ? 'elle' : 'il'} sortira ${fmtWhen(r.due, t)}. Ceux qui l’attendaient patienteront.`, r.c || null);
     return true;
   }
   if (r.delays >= MAX_DELAYS) return false;
@@ -1634,6 +1697,7 @@ function dropRelease(g, r, forgot) {
   const s = g.stats, t = later();
   r.state = 'dropped';
   keptToInv(g, r, 'neuf');
+  if (r.now) { addNotif(g, { k: 'release', at: t, text: `${cap1(ta(r))} « ${str(r.topic, 60)} » ne sortira pas. Personne ne l’attendait : rien de perdu.` }); return; } // 0.30: never announced, never missed
   const loss = Math.round(s.followers * 0.04);
   const dr = repMove(g, DROP_PLAN, `${sa(r)} promis${whatF(r) ? 'e' : ''}, jamais sorti${whatF(r) ? 'e' : ''}`, { noCheck: true });
   s.followers = Math.max(0, s.followers - loss);
@@ -1649,7 +1713,7 @@ const relLimit = (r) => Math.max(r.due, r.waited || 0) + RELEASE_GRACE * (r.play
 // is never pulled from under the player.
 function checkReleases(g, t = Date.now(), onScreen = () => false) {
   const r = activeRelease(g);
-  if (!r) return false;
+  if (!r || suspended(g, t)) return false; // (0.30: a suspended channel: they wait, and get their grace back when it ends)
   if (g.relFirst !== r.id) { // a new one on the clock: did it wait behind the one that just left?
     const was = g.relFirst && (g.releases || []).find((x) => x.id === g.relFirst);
     if (g.relFirst && (!was || was.state !== 'scheduled') && r.at <= (g.relFirstAt || 0) && r.due < t) r.waited = t; // (already late: its grace starts now)
@@ -1710,6 +1774,8 @@ function fmtWhen(ts, now = Date.now()) {
   const d = gameDate(ts), n = gameDate(now);
   const hh = d.getHours() + ' h' + (d.getMinutes() ? ' ' + String(d.getMinutes()).padStart(2, '0') : '');
   const days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);
+  // 0.30: in the middle of the night, « aujourd’hui » and « demain » mean different days to different people: the day, said
+  if (n.getHours() < 6 && (days === 0 || days === 1)) return d.toLocaleDateString('fr-FR', { weekday: 'long' }) + ' ' + hh;
   if (days === 0) return (d.getHours() >= 18 ? 'ce soir ' : 'aujourd’hui ') + hh;
   if (days === 1) return 'demain ' + hh;
   if (days >= 7) return `le ${d.getDate() === 1 ? '1er' : d.getDate()} ${MONTHS[d.getMonth()]}`; // 0.21: a far date is a date, not a weekday
@@ -1947,7 +2013,16 @@ function acceptCollab(g, iv, c, quiet) {
   addMem(g, c, 'on va tourner une vidéo ensemble');
   return r;
 }
-const ACCEPTED_REPLIES = [(w) => `parfait, à ${w} alors`, (w) => `top, à ${w} !`, (w) => `ça marche, à ${w}`];
+// 0.30: « à » + the moment, said right (« à 16 h », « à ce soir 19 h », « à demain 15 h », « au 3 novembre »), never « à aujourd’hui 16 h »
+function aWhen(ts, now = Date.now()) {
+  const w = fmtWhen(ts, now);
+  if (w === 'maintenant') return 'à tout de suite';
+  if (w.startsWith('dans ')) return `à tout à l’heure (${hourOf(ts)})`;
+  if (w.startsWith('aujourd’hui ')) return 'à ' + w.slice('aujourd’hui '.length);
+  if (w.startsWith('le ')) return 'au ' + w.slice(3);
+  return 'à ' + w;
+}
+const ACCEPTED_REPLIES = [(w) => `parfait, ${w} alors`, (w) => `top, ${w} !`, (w) => `ça marche, ${w}`];
 // The player taps « Accepter » (or says yes in their own words): the date goes on the agenda.
 function acceptInvite(g, iv, quiet) {
   if (!iv || iv.state !== 'open') return null;
@@ -1961,7 +2036,7 @@ function acceptInvite(g, iv, quiet) {
   iv.ev = ev.id;
   touch(c);
   if (!quiet) {
-    const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 }), t = Date.now(), w = fmtWhen(iv.due);
+    const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 }), t = Date.now(), w = aWhen(iv.due);
     convo.msgs.push({ id: uid('m'), me: true, text: pick(ACCEPT_LINES)(), ts: t, at: t });
     convo.msgs.push({ id: uid('m'), me: false, r: 1, text: pick(ACCEPTED_REPLIES)(w), ts: t + 2200, at: t + 2200 });
     convo.readAt = t;
@@ -1971,15 +2046,20 @@ function acceptInvite(g, iv, quiet) {
 }
 const DECLINE_LINES = [() => 'Je ne vais pas pouvoir cette fois, désolé·e 🙏', () => 'Pas dispo à ce moment-là, une autre fois ?', () => 'Ça ne va pas le faire pour moi, désolé·e.'];
 const DECLINED_REPLIES = [() => 'ok, une autre fois alors', () => 'dommage… tant pis', () => 'pas de souci, je retiens 😉'];
-function declineInvite(g, iv) {
+const declineLine = (g) => pick(DECLINE_LINES)().replace('désolé·e', px(g, 'désolé', 'désolée', 'désolé·e'));
+// o.silent: no words at all (their own answer comes from the AI: declineByButton); o.canned false: the player's words only
+// (an answer of theirs is already on its way)
+function declineInvite(g, iv, o = {}) {
   if (!iv || iv.state !== 'open') return;
   iv.state = 'declined';
   const c = g.chars[iv.c];
   if (!c) return;
-  const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 }), t = Date.now();
-  convo.msgs.push({ id: uid('m'), me: true, text: pick(DECLINE_LINES)().replace('désolé·e', px(g, 'désolé', 'désolée', 'désolé·e')), ts: t, at: t });
-  convo.msgs.push({ id: uid('m'), me: false, r: 1, text: pick(DECLINED_REPLIES)(), ts: t + 2400, at: t + 2400 });
-  convo.readAt = t;
+  if (!o.silent) {
+    const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 }), t = Date.now();
+    convo.msgs.push({ id: uid('m'), me: true, text: declineLine(g), ts: t, at: t });
+    if (o.canned !== false) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: pick(DECLINED_REPLIES)(), ts: t + 2400, at: t + 2400 });
+    convo.readAt = t;
+  }
   addMem(g, c, `le joueur a décliné mon invitation (« ${str(iv.what, 50)} »)`);
   touch(c);
 }
@@ -2032,8 +2112,86 @@ function checkNeglect(g, t = Date.now()) {
 // A date the player never showed up to: they waited for nothing.
 function standUp(g, ev, t = Date.now(), why) {
   ev.state = 'missed';
+  delete ev.awayUntil;
   const c = g.chars[ev.c];
   if (!c) return;
+  lapinHits(g, c, ev, t, why);
+  lapinNote(c, ev, t);
+}
+// 0.30: their word on it may still come: an excuse they believe (or not), by their trust, their heart, the times before.
+function lapinNote(c, ev, t = Date.now()) {
+  const before = c.lapin && c.lapin.said ? c.lapin.said : '';
+  c.lapins = (c.lapins || 0) + 1;
+  c.lapin = { at: t, ev: ev.id, what: str(ev.what, 60), n: c.lapins, said: before };
+}
+// A date missed while the player was away (the game closed): nothing counts yet; they wait for the player's word.
+const AWAY_WORD_MS = 6 * 3600000;
+const awayDateOf = (g, c, t = Date.now()) => (g.events || []).find((e) => e.player && e.c === c.id && e.state === 'scheduled' && e.awayUntil && t < e.awayUntil) || null;
+// What their answer to an excuse does. ok: they believe it.
+function excuseJudged(g, c, ok, text, t = Date.now()) {
+  const ev = awayDateOf(g, c, t), first = firstName(c);
+  if (ev) {
+    if (ok) {
+      ev.state = 'missed'; ev.excused = 1; delete ev.awayUntil;
+      lapinNote(c, ev, t);
+      Object.assign(c.lapin, { judged: 'ok', said: str(text, 80) });
+      applyRel(g, c, -3, 'tu n’es pas venu·e, mais tu t’es expliqué·e', t, 5);
+      addMem(g, c, 'le joueur a raté notre rendez-vous, il s’est expliqué et je l’ai cru');
+    } else {
+      standUp(g, ev, t, '(et ton excuse ne passe pas)');
+      Object.assign(c.lapin, { judged: 'no', said: str(text, 80) });
+      addMem(g, c, 'le joueur m’a posé un lapin, et son excuse ne tient pas debout');
+    }
+    return true;
+  }
+  const L = c.lapin;
+  if (!L || L.judged || t - L.at > 3 * DAY_MS) return false;
+  Object.assign(L, { judged: ok ? 'ok' : 'no', said: str(text, 80) });
+  if (ok) {
+    applyRel(g, c, 12, 'tu t’es expliqué·e pour le lapin', t, 15);
+    applyTrust(g, c, 6, 'tu t’es expliqué·e pour le lapin', t + 300);
+    c.mem = (c.mem || []).filter((m) => m.t !== 'le joueur m’a posé un lapin');
+    addMem(g, c, 'le joueur m’a posé un lapin, mais il s’est expliqué : je l’ai cru');
+    for (const w of g.whispers || []) if (w.state === 'live' && w.seed === 'lapin' && w.src === c.id && !w.hops) w.state = 'off'; // (not told around after all)
+    addNotif(g, { k: 'relup', c: c.id, at: t, text: `${first} t’a ${px(g, 'cru', 'crue', 'cru·e')} pour le rendez-vous raté.` });
+  } else {
+    applyTrust(g, c, -3, 'ton excuse ne passe pas', t + 300);
+    addMem(g, c, 'le joueur m’a servi une excuse pour son lapin, je n’y crois pas');
+  }
+  return true;
+}
+// For their private answer: the date missed, and how to take the player's word on it.
+function lapinLine(g, c, t = Date.now()) {
+  const ev = awayDateOf(g, c, t), L = c.lapin, first = firstName(c), n = c.lapins || 0;
+  if (!ev && !(L && !L.judged && t - L.at < 3 * DAY_MS)) return null;
+  const how = `Si le joueur s’excuse ou s’explique dans ce message, ${first} décide s’${gx(c.g, 'il', 'elle', 'iel')} le croit, comme une vraie personne : selon leur confiance (${trustOf(c)}/100 : plus elle est haute, plus on croit), son cœur (${heartOf(c).ai}) et son passif (${n ? `déjà ${n} lapin${n > 1 ? 's' : ''} avant celui-ci` : 'c’est la première fois'}${L && L.said ? ` ; la dernière fois, il avait dit : « ${L.said} »` : ''}). Puis une ligne {"t":"excuse","ok":true} si ${first} le croit, {"t":"excuse","ok":false} sinon. S’il n’en parle pas, pas de ligne.`;
+  return ev ? `${first} attendait le joueur à leur rendez-vous (« ${str(ev.what, 60)} », ${longDay(ev.due)} à ${hourOf(ev.due)}) : il n’est pas venu et n’a pas prévenu. ${how}`
+    : `Le joueur a posé un lapin à ${first} (« ${L.what} »). ${how}`;
+}
+// 0.30: back after the game was closed (or out of sight): a release whose time came meanwhile gets its grace from the return
+// (and a free postponement); a date missed meanwhile waits for the player's word before it counts. Returns what was found.
+const AWAY_MIN = 10 * 60000;
+function absenceGrace(g, from, t = Date.now()) {
+  const out = { rel: [], ev: [] };
+  if (!g || !from || t - from < AWAY_MIN) return out;
+  for (const r of g.releases || []) {
+    if (r.state !== 'scheduled' || r.due > t || relLimit(r) <= from) continue; // (already given up before: as it was)
+    r.waited = t; r.away = t;
+    out.rel.push(r);
+  }
+  for (const ev of g.events || []) {
+    if (!ev.player || ev.state !== 'scheduled' || ev.awayUntil) continue;
+    const lim = ev.due + EVENT_GRACE * (ev.played ? 2 : 1);
+    if (lim > t || lim <= from) continue; // (still time to go, or missed before the player left)
+    ev.awayUntil = t + AWAY_WORD_MS;
+    ev.dueSaid = true; ev.soonSaid = true; // (no « c’est l’heure » now: it was hours ago)
+    out.ev.push(ev);
+  }
+  for (const r of out.rel) addNotif(g, { k: 'release', at: t, text: `⏰ Pendant ton absence, l’heure de ${ta(r)} « ${str(r.topic, 60)} » est passée : tu as jusqu’à ${hourOf(relLimit(r))} pour ${whatF(r) ? 'la' : 'le'} sortir, ou décale-${whatF(r) ? 'la' : 'le'} sans pénalité.` });
+  for (const ev of out.ev) { const c = g.chars[ev.c]; if (c) addNotif(g, { k: 'event', c: c.id, at: t, text: `⏰ Ton rendez-vous avec ${c.name} (« ${str(ev.what, 50)} ») était ${longDay(ev.due)} à ${hourOf(ev.due)}, pendant ton absence. Écris-lui pour t’expliquer avant ${hourOf(ev.awayUntil)}, sinon ça comptera comme un lapin.` }); }
+  return out;
+}
+function lapinHits(g, c, ev, t, why) {
   unlockAch(g, 'stood-up', t); // 0.28: « Lapin »
   applyRel(g, c, -15, 'tu lui as posé un lapin', t, 20);
   applyTrust(g, c, -8, 'tu lui as posé un lapin', t + 400);
@@ -2055,8 +2213,9 @@ function checkEvents(g, t = Date.now(), onScreen = () => false) {
   for (const iv of g.invites || []) if (iv.state === 'open' && t > iv.due - 5 * 60000) { iv.state = 'expired'; changed = true; } // never answered: no blame
   for (const ev of g.events || []) {
     if (ev.state !== 'scheduled' || t < ev.due + EVENT_GRACE * (ev.played ? 2 : 1) || onScreen(ev.id)) continue; // (0.27.6: a date being played is no stood-up date)
+    if (ev.awayUntil && t < ev.awayUntil) continue; // 0.30: missed while the player was away: they wait for a word
     changed = true;
-    if (ev.player) { if (!endUnfinished(g, ev)) standUp(g, ev, t); continue; } // 0.11: an evening that happened is not a stood-up date
+    if (ev.player) { if (!endUnfinished(g, ev)) standUp(g, ev, t, ev.awayUntil ? 'sans même donner de nouvelles' : undefined); continue; } // 0.11: an evening that happened is not a stood-up date
     ev.state = 'missed';
     const c = g.chars[ev.c];
     if (!c) continue;
@@ -2248,6 +2407,8 @@ function cleanEval(ev) {
     fit: ev.fit == null || ev.fit === '' ? null : int(ev.fit, -1, 1, 0), // 0.21: a sponsor that fits the video (1), that passes (0), that has nothing to do with it (-1)
     merch: ev.merch == null || ev.merch === '' ? null : int(ev.merch, 1, 5, 3), // 0.22: how much people want the merch it launches
     skills: Array.from(new Set(sk)).slice(0, 3), verdict: str(ev.verdict, 40).replace(/^…$/, ''), memo: str(ev.memo, 220),
+    // 0.30: what is toxic in it (0-3), whether it answers an attack (a feud counts), whom it targets
+    tox: ev.tox == null || ev.tox === '' ? 0 : int(ev.tox, 0, 3, 0), riposte: ev.riposte === true || ev.riposte === 'true', cible: normHandle(str(ev.cible, 40)),
   };
 }
 const reachOf = (F) => Math.pow(Math.max(0, F), 0.85);
@@ -2283,6 +2444,8 @@ function computeOutcome(g, e, kind, boosts, mods = {}) {
   const isPost = kind === 'post';
   let reach = isPost ? 60 + reachOf(F) + s.level * 15 : 18 + 0.2 * reachOf(F) + s.level * 5;
   if (isPost && boosts && boosts.reach) reach *= 2.5;
+  if (mods.cut) reach *= mods.cut; // 0.30: the moderation shows the player less after repeated harassment
+  if (mods.drama) reach *= mods.drama; // 0.30: a toxic public watches every clash
   if (isPost && mods.ally) reach *= 1 + mods.ally; // allies share it
   if (isPost && mods.photo) reach *= 1.15;
   // the situation's audience: it only comes when the post or reply is worth talking about
@@ -2370,6 +2533,7 @@ function levelUp(g) {
     addNotif(g, { k: 'new', c: next.id, text: `${next.name} débarque dans ton monde` });
     addChronicle(g, `${next.name} (@${next.handle}) vient d’arriver dans le monde.`);
     addTrigger(g, `@${next.handle} vient d’arriver sur le réseau : qu’il ou elle se présente avec un premier post qui ouvre une nouvelle intrigue.`, next.id);
+    newcomerRoll(g, next); // 0.30: maybe not who they seem
   }
   addNotif(g, { k: 'level', text: `Niveau ${s.level} atteint : +${LEVEL_GEMS} gemmes` });
   queueModalFor(g, { t: 'level', level: s.level, charId: next ? next.id : null });

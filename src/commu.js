@@ -36,10 +36,25 @@ const fanRegulars = (g) => fanList(g).filter((c) => c.regular);
 const fanLineOK = (g, t = Date.now()) => g.stats.followers >= 300 && fansWaiting(g).length < FAN_OPEN_MAX && t >= (g.career.fanAt || 0);
 // The line a refresh may write: a fan (an adult of this world, never a main character) writes to the player.
 const FAN_LINE = '- Facultatif (souvent) : un abonné du joueur lui écrit en privé, un adulte de ce monde, jamais un personnage principal : une question sur ses vidéos ou sur sa vie, une idée de sujet, un mot gentil ou un souci. {"t":"fan","name":"Prénom Nom","handle":"pseudo","g":"f, m ou x","bio":"qui c’est, ≤ 50 caractères","text":"son message, ≤ 180 caractères","q":true} (q = true si c’est une question à laquelle le joueur pourrait répondre en vidéo).';
+// 0.30: the same fan writing again (their handle, or their very name) is the same contact, never a « Tévan » number 5
+const foldName = (n) => foldAcc(String(n || '').toLowerCase().trim().replace(/\s+/g, ' '));
+function sameFan(g, o) {
+  const h = normHandle(o.handle || ''), n = foldName(o.name);
+  return Object.values(g.chars).find((c) => c.kind === 'fan' && !c.cut && ((h && (c.handle === h || c.handle.replace(/\d+$/, '') === h)) || (n && foldName(c.name) === n))) || null;
+}
+const fansLine = (g) => { const L = fanList(g).sort((a, b) => b.fan.at - a.fan.at).slice(0, 8); return L.length ? `- Les abonnés qui ont déjà écrit au joueur : ${L.map((c) => `@${c.handle} (${c.name})`).join(', ')}. Si c’est l’un d’eux qui réécrit, garde exactement son handle et son nom ; un nouvel abonné a un autre prénom.` : null; };
 function fanMessage(g, o, t = Date.now()) {
   if (!fanLineOK(g, t)) return null;
   const text = str(o.text, 200);
   if (!text) return null;
+  const old = sameFan(g, o);
+  if (old) { // they write again: a new message in the same conversation
+    old.fan = Object.assign({}, old.fan || {}, { q: o.q === true || o.q === 'true', text, at: t, open: true });
+    if (old.fan.q) delete old.fan.video; // (a new question: a new video may answer it)
+    g.career.fanAt = t + randi(8, 20) * 3600000;
+    addIncomingDM(g, old, text, later() + 800, { max: 300 });
+    return old;
+  }
   const F = { kind: 'fan', handle: o.handle, g: o.g, tag: 'fan', role: 'Abonné·e', bio: str(o.bio, 60) || 'abonné·e de ta chaîne', emoji: '💌', followers: randi(40, 900), rel: 15, minAge: 18,
     personality: 'un·e abonné·e qui suit le joueur depuis un moment : sincère, un peu impressionné·e, touché·e qu’on lui réponde', voice: 'spontané, familier, quelques emojis' };
   const c = addContact(g, Object.assign({ name: o.name }, F)) || addContact(g, F); // (a name already taken: another one)

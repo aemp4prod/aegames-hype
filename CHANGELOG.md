@@ -5,6 +5,33 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.30.0 — 21 octobre 2026 (build 30000)
+
+**La romance devient sensuelle, jouer les méchants a enfin des conséquences (et des avantages), et ton absence ne te coûte plus rien.**
+
+### ✨ Nouveautés
+
+- **🔥 La romance sensuelle** : entre adultes qui le veulent, les rapprochements peuvent aller loin (caresses, massages, tenue légère, se retrouver au lit), au rythme du cœur de chacun, et les persos peuvent aussi en prendre l’initiative. Jamais explicite : si ça devient du sexe et que le perso le veut aussi, la scène coupe, puis ça revient en allusions entre vous deux (cochée par défaut, décochée dans les réglages pour une romance pudique).
+- **☣️ La réputation toxique** : une deuxième jauge sur ton profil, qui monte quand tu t’en prends aux gens et redescend quand tu te calmes, plus vite avec des excuses sincères. Haute, elle t’amène un public qui adore le drama et des marques louches qui paient jusqu’à trois fois plus, pendant que les autres s’en vont.
+- **⚔️ Les clashs** : une riposte bien envoyée, même violente, ne coûte plus de réputation, et attaquer ton ennemi juré compte comme une riposte. Une attaque gratuite, elle, se paie.
+- **🚫 La modération** : le harcèlement n’est jamais récompensé, le contenu est retiré et la personne visée peut porter plainte. À force, ta visibilité baisse, puis ta chaîne est suspendue quelques jours (jamais pour toujours).
+- **🎭 Tout le monde n’est pas ce qu’il prétend** : certains persos jouent la comédie, en amour comme en amitié, et peuvent te planter un couteau dans le dos. Plus ta réputation est toxique, plus tu attires ce genre de personnes.
+- **👥 Plus de limite de persos** : l’histoire fait arriver de nouvelles personnes au fil de la partie. Ceux à qui tu ne parles plus passent « en retrait » (ils ne coûtent plus rien à l’IA) et reviennent dès que tu leur écris ou que tu les cites.
+- **⚡ « Maintenant »** : dans le Studio, une sortie se tourne et se publie tout de suite, sans annonce.
+- **⏰ Les rendez-vous** : un rappel une heure avant, et l’heure reste dans la cloche. Après un lapin, ton excuse est crue ou non selon votre confiance, son cœur et tes lapins passés.
+- **⏱️ Ton temps de jeu** s’affiche sur ton profil (estimé pour tes parties d’avant).
+
+### 🛠️ Corrigé
+
+- **🌙 Ton absence** : une sortie dont l’heure passe pendant que le jeu est fermé garde son délai à partir de ton retour, et se décale une fois sans pénalité. Un rendez-vous raté pendant ton absence attend ton message avant de compter comme un lapin.
+- **💸 Les marques** paient sur ce que tu fais aujourd’hui : tes vidéos virales comptent (plafonnées), et en mythique le tarif ne repart plus de tes vieux shorts.
+- **❤️ Les likes et les nouveaux abonnés** ne dépassent plus ce que les vues permettent, pour tous les formats.
+- **✉️ « Décliner » une invitation** : c’est son IA qui répond, au lieu d’une phrase toute faite contredite juste après.
+- **💌 Les fans** qui t’écrivent plusieurs fois restent la même personne, et les contacts des marques ne portent plus tous les mêmes noms.
+- **💬 Les commentaires** : plus d’inconnus à mesure que ton audience grandit.
+- **✍️ Les textes** : plus de « à aujourd’hui 16 h » ni de paiement « à undefined jours », et la nuit le jour est écrit (« jeudi 15 h ») au lieu d’un « demain » ambigu. Les gestes des persos sont racontés à la troisième personne, et toi à la deuxième.
+- **⏩ Une sortie avancée** juste après l’avoir programmée ne fait plus dire « prévu à 18 h, livré maintenant » sous chaque short.
+
 ## 0.29.1 — 20 octobre 2026 (build 29001)
 
 **Tes vidéos longues ont maintenant leur propre public, tu peux tourner des feats avec les persos, et officialiser un couple ne te laisse plus dans le flou.**

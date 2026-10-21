@@ -240,13 +240,17 @@ const idle = async (page, ms = 25000) => { const end = Date.now() + ms; while (D
     await idle(page);
     return G(page, (a) => { const e = window.__hype.S.game.events.find((x) => x.id === a.ev); if (!e) return { gone: true }; const T = e.talk || { lines: [] }; return { calls: window.__prompts.slice(a.n0).filter((p) => !p.includes('## TÂCHE : LA FIN DU RENDEZ-VOUS')).length, last: T.lines.slice(-1)[0], faded: !!T.faded, played: e.played, gestes: window.__hype.gestesFor ? window.__hype.gestesFor(window.__hype.S.game, e).map((x) => x.id) : [] }; }, { ev, n0 });
   };
+  await G(page, () => { window.__hype.S.game.opts.romance = 'pudique'; });
   const f1 = await play('et si on faisait l’amour ce soir ?', null);
   console.log('f1', JSON.stringify(f1));
   await shot(page, 'evening-fade');
+  await G(page, () => { window.__hype.S.game.opts.romance = 'sensuel'; });
+  const f1s = await play('et si on faisait l’amour ce soir ?', null);
   const f2 = await play('', 'rester', ['charme']);
-  check('a couple\'s evening: too intimate words cut the scene at once (no AI call), « Ce moment ne regarde pas les voyeurs. », and the evening goes on a little later (0.29); proposing to stay the night, welcomed, ends it tenderly (a success)',
+  check('a couple\'s evening: in the modest romance, too intimate words cut the scene at once (no AI call), « Ce moment ne regarde pas les voyeurs. », and the evening goes on a little later (0.29); in the sensual one (0.30), the words go to the AI (they decide); proposing to stay the night, welcomed, ends it tenderly (a success)',
     f1.calls === 0 && !f1.faded && f1.last.who === 'n' && f1.last.text === 'Un peu plus tard…' && !f1.played
-      && f2.faded && f2.played && f2.played.tier === 'top' && f2.calls === 1, { f1, f2 });
+      && f1s.calls === 1 && !f1s.faded && f1s.last.who === 'c' && !f1s.played
+      && f2.faded && f2.played && f2.played.tier === 'top' && f2.calls === 1, { f1, f1s, f2 });
 
   await browser.close();
   console.log('ERRORS', errors.length ? '\n' + errors.join('\n') : 'none');

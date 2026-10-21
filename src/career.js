@@ -421,11 +421,14 @@ function estimateViews(g, r, form) {
 // new subscribers follow them (no video seen by 10 000 people bringing 15 000 subscribers). Called with its outcome.
 function releaseEarly(ctx, out) {
   const g = ctx.g, v = ctx.video, r = v && v.r;
-  if (!r || !audLong(g, r.what)) return;
+  if (!r) return; // (0.30: every format: likes and new subscribers never above what the views allow)
   const form = Object.assign({}, v.form || {}, { crew: r.crew || [], push: !!(ctx.boosts && ctx.boosts.push) });
   const o = {};
-  const views = releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!out.viral, Date.now(), form, o);
-  ctx.early = { views, b: o.b, tease: o.tease };
+  let views = releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!out.viral, Date.now(), form, o);
+  const k = modCut(g, true) * (ctx.eval && ctx.eval.tox >= 2 ? 1 + toxShare(g) : 1); // 0.30: the platform's reach cut, a toxic public that watches every clash
+  if (k !== 1) { views = Math.round(views * k); if (o.b) o.b = Math.round(o.b * k); if (o.tease) o.tease = Math.round(o.tease * k); }
+  if (audLong(g, r.what)) ctx.early = { views, b: o.b, tease: o.tease };
+  ctx.vearly = views; // (the release's views, counted once: releaseCareer takes them as they are)
   const seen = views * (form.membLive && r.what === 'live' && membOn(g) ? 0.35 : 1); // (a live for the members only: far fewer)
   const lk = Math.max(1, Math.round(seen * rand(0.22, 0.38)));
   if (out.likes > lk) { out.reposts = Math.round(out.reposts * lk / Math.max(1, out.likes)); out.likes = lk; }
@@ -670,11 +673,21 @@ function dealBounds(d) {
 const openDeals = (g) => g.deals.filter((d) => DEAL_OPEN.includes(d.state));
 const signedDeals = (g) => g.deals.filter((d) => d.state === 'signed');
 // The views brands expect from you, from your last releases of that format (or your audience).
+// 0.20: the median of the usual ones, the way brands count (a view is worth as much to a big creator as to a small one).
+// 0.30: the hits count too, at twice the usual at most. The usual: the plain releases of lately (within 10 days of the
+// last one); none lately (in mythique, everything goes viral), half of what today's audience alone would give: the price no
+// longer comes from the old shorts at 8 000 views of a channel ten times smaller.
+const medianOf = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
 function expectedViews(g, what) {
-  const recent = g.career.log.filter((x) => !x.past && x.what === what && !x.viral).slice(-5).map((x) => x.views).sort((a, b) => a - b);
-  if (recent.length) return recent[Math.floor((recent.length - 1) / 2)]; // 0.20: the median of the usual ones, the way brands count (a viral video does not make the price)
   const Fm = FORMATS[what] || FORMATS.vidéo;
-  return g.stats.followers * Fm.share + Fm.disc * 0.8;
+  const F = (what === 'vidéo' || what === 'live') && audSplit(g) ? vidFans(g) : g.stats.followers; // (0.29.1: those who watch that format)
+  const base = F * Fm.share + Fm.disc * 0.8;
+  const log = g.career.log.filter((x) => !x.past && x.what === what).slice(-7);
+  if (!log.length) return base;
+  const newest = Math.max(...log.map((x) => x.at || 0));
+  const plain = log.filter((x) => !x.viral && newest - (x.at || 0) <= 10 * DAY_MS).map((x) => x.views);
+  const usual = plain.length ? medianOf(plain) : base * 0.5;
+  return medianOf(log.map((x) => (x.viral ? Math.min(x.views, usual * 2) : x.views)));
 }
 // 0.20: what a brand asks for: what the player publishes (their last releases), among what they can make.
 function offerWhat(g) {
@@ -699,11 +712,21 @@ function dealFee(g, what) {
   if (m && m.E.sp && m.days >= -1) fee *= m.E.sp;
   return fee;
 }
-const CONTACT_FIRST = { f: ['Inès', 'Clara', 'Maëlle', 'Sarah', 'Léa', 'Yasmine', 'Chloé', 'Nora', 'Jade', 'Lina'], m: ['Hugo', 'Karim', 'Maxime', 'Théo', 'Samir', 'Lucas', 'Adam', 'Nathan', 'Malik', 'Enzo'] };
-const CONTACT_LAST = ['Moreau', 'Benali', 'Laurent', 'Petit', 'Garnier', 'Haddad', 'Roussel', 'Faure', 'Lemaire', 'Da Silva', 'Ndiaye', 'Morel'];
+// (0.30: many more, so that the same names do not come back at every offer)
+const CONTACT_FIRST = {
+  f: ['Inès', 'Clara', 'Sarah', 'Léa', 'Yasmine', 'Chloé', 'Nora', 'Jade', 'Lina', 'Camille', 'Manon', 'Elsa', 'Anaïs', 'Salomé', 'Margaux', 'Amira', 'Océane', 'Justine', 'Pauline', 'Leïla', 'Mathilde', 'Aya', 'Romane', 'Victoire', 'Soraya', 'Agathe', 'Eva', 'Lou', 'Mélissa', 'Héloïse', 'Naïma', 'Charlotte'],
+  m: ['Hugo', 'Karim', 'Maxime', 'Samir', 'Lucas', 'Adam', 'Nathan', 'Malik', 'Enzo', 'Julien', 'Bastien', 'Yanis', 'Antoine', 'Rayan', 'Clément', 'Mehdi', 'Florian', 'Ilyes', 'Romain', 'Kevin', 'Sofiane', 'Thibault', 'Axel', 'Baptiste', 'Nolan', 'Bilal', 'Quentin', 'Jordan', 'Wassim', 'Arthur', 'Loïc', 'Gabin'],
+};
+const CONTACT_LAST = ['Moreau', 'Benali', 'Laurent', 'Petit', 'Garnier', 'Haddad', 'Roussel', 'Faure', 'Lemaire', 'Da Silva', 'Ndiaye', 'Morel', 'Girard', 'Bonnet', 'Mercier', 'Chevalier', 'Lefèvre', 'Fontaine', 'Rousseau', 'Blanchard', 'Gauthier', 'Perrin', 'Brun', 'Masson', 'Mansouri', 'Traoré', 'Nguyen', 'Ferreira', 'Kaci', 'Lambert', 'Dumas', 'Colin', 'Vidal', 'Renaud', 'Carpentier', 'Barbier', 'Diallo', 'Hamidi', 'Marchand', 'Leroux', 'Aubert', 'Picard', 'Rey', 'Benoît', 'Ollivier', 'Costa', 'Meunier', 'Boyer'];
 // 0.28.1: the first names already worn (the main characters, the player): never given to someone new.
 const takenFirsts = (g) => [...new Set(mains(g, false).map((c) => firstName(c)).concat(String((g.player && g.player.name) || '').split(' ')[0]))].filter(Boolean);
 const firstsLine = (g, who) => { const L = takenFirsts(g); return L.length ? `Prénoms déjà pris, à ne pas reprendre${who ? ` pour ${who}` : ''} : ${L.slice(0, 24).join(', ')}.` : null; };
+// 0.30: someone new in the player's life, brought by the story (once a game day at most), created right after the refresh
+const arrivalOK = (g, t = Date.now()) => !!g && !g.pendingCast && !g.arrival && g.stats.level >= 2 && t - (g.lastArrival || g.createdAt || 0) >= DAY_MS;
+const ARRIVAL_LINE = (g) => `- Facultatif, rarement : si l’histoire amène quelqu’un de nouveau dans la vie du joueur (une rencontre, quelqu’un qui veut une collab, un fan qui devient proche, ${toxLv(g) >= 2 ? 'quelqu’un attiré par sa réputation toxique, ' : ''}une star venue d’ailleurs…), ajoute {"t":"arrivee","why":"≤ 80 caractères : qui et pourquoi"} : le jeu fera arriver ce personnage.`;
+// 0.30: the family names the brands' contacts and the fans already wear: someone new takes another one
+const takenLasts = (g) => [...new Set(Object.values(g.chars).filter((c) => c.kind === 'brand' || c.kind === 'fan' || c.kind === 'pro').map((c) => String(c.name || '').trim().split(/\s+/).slice(1).join(' ')).filter(Boolean))];
+const lastsLine = (g) => { const L = takenLasts(g); return L.length ? `Noms de famille déjà portés par des contacts, à ne pas reprendre pour une personne nouvelle : ${L.slice(-30).join(', ')}.` : null; };
 // Someone the player can write to (a brand's partnerships manager, a job candidate…).
 function addContact(g, o) {
   const gd = o.g === 'm' || o.g === 'f' || o.g === 'x' ? o.g : pick(['f', 'm']);
@@ -714,7 +737,8 @@ function addContact(g, o) {
   const firsts = new Set(takenFirsts(g).map(first));
   const same = (n) => Object.values(g.chars).some((c) => c.name.toLowerCase() === n.toLowerCase());
   const taken = (n) => same(n) || firsts.has(first(n));
-  const draw = () => `${pick(CONTACT_FIRST[gd === 'x' ? pick(['f', 'm']) : gd])} ${pick(CONTACT_LAST)}`;
+  const usedLast = new Set(takenLasts(g)), freeLast = CONTACT_LAST.filter((x) => !usedLast.has(x)); // 0.30: a family name nobody wears yet
+  const draw = () => `${pick(CONTACT_FIRST[gd === 'x' ? pick(['f', 'm']) : gd])} ${pick(freeLast.length ? freeLast : CONTACT_LAST)}`;
   let name = str(o.name, 40) || draw();
   for (let k = 0; k < 12 && !o.name && taken(name); k++) name = draw(); // 0.20: more offers, more names
   if (o.name ? same(name) : taken(name)) return null;
@@ -744,7 +768,7 @@ function makeOffer(g, o = {}) {
   let what = o.what && fmts.includes(normWhat(o.what)) ? normWhat(o.what) : offerWhat(g);
   if (!canMake(g, what).ok) what = makeableWhat(g, what); // 0.20: a brand asks for what the player can make
   const textAll = `${o.sector || ''} ${o.product || ''} ${o.brand || ''}`;
-  const banned = o.scam ? false : o.brand ? BANNED_RE.test(textAll) : Math.random() < 0.08; // (0.20: a scam asked for is not a forbidden product)
+  const banned = o.scam ? false : o.brand ? BANNED_RE.test(textAll) : Math.random() < toxBannedP(g); // (0.20: a scam asked for is not a forbidden product; 0.30: more of them for a toxic name)
   const shady = !banned && (o.shady === true || (o.shady == null && Math.random() < 0.12));
   const S0 = banned ? (BANNED.find((x) => new RegExp(x.id.slice(0, 5), 'i').test(textAll)) || pick(BANNED)) : SECTORS.find((x) => x.id === o.sector) || SECTORS.find((x) => x.id === pickSector(g)) || pick(SECTORS); // 0.21: what the creator makes
   const fresh = S0.brands.filter((b) => !brandBurnt(g, b)); // 0.28.1: a brand that scammed the player, or was exposed, never writes again
@@ -752,7 +776,8 @@ function makeOffer(g, o = {}) {
   if (!brand || brandBurnt(g, brand)) return null;
   if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return null;
   const via = o.via || (o.pitched ? 'pitch' : 'direct'), ag = hasStaff(g, 'agent'); // 0.20: who brought it
-  let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady ? 1.5 : 1) * (banned ? 2 : 1) * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1);
+  const tk = (banned || shady) && toxLv(g) ? toxFeeK(g) / standMult(g, 'fee') : (banned ? 2 : 1); // 0.30: what a shady brand pays a toxic name (×1,5 → ×3, whatever the scandals)
+  let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady && !toxLv(g) ? 1.5 : 1) * tk * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1);
   // 0.21: some brands offer their gear instead (half of the small ones that sell gear, a quarter of the others)
   const gift = o.gift && GEAR[o.gift.kind] ? { kind: o.gift.kind, t: clamp(int(o.gift.t, 0, 3, 0), 0, 3), value: GEAR[o.gift.kind].prices[clamp(int(o.gift.t, 0, 3, 0), 0, 3)] }
     : !banned && !shady && o.gift !== false && o.scam === undefined && !easyGear() && GIFT_GEAR[S0.id] && Math.random() < (fee < 60 ? 0.5 : 0.25) ? pickGift(g, S0.id, fee) : null; // (not in the suites before 0.21, nor when a test asks for a scam)
@@ -969,16 +994,17 @@ function deliverDeal(g, d, post, mention, perf) {
   const rest = paid ? Math.max(0, d.fee - d.upfront) : 0;
   if (rest) { earn(g, rest, `Partenariat ${d.brand}`, 'deal'); agentCut(g, rest, d.brand); }
   repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
+  if (d.banned) toxMove(g, 3, `ta pub pour ${d.brand} (${d.banned})`); // 0.30: an illegal sponsor sinks a name further
   if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
   const c = g.chars[d.contact];
   const bare = !d.shady && !mention; // 0.28.1: an honest contract asked for the mention: delivered without it, the brand is not happy (no bonus)
   if (c) applyRel(g, c, d.shady && mention ? -5 : bare ? -10 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : bare ? 'tu as caché que c’était une pub, le contrat disait le contraire' : 'contente du partenariat', later() + 3000, 10);
   // the law: no mention, or a forbidden product, can be spotted later (a report, a check)
-  const p = d.banned ? 0.8 : !mention ? 0.45 : 0;
+  const p = d.banned ? (toxLv(g) >= 2 ? 0.35 : 0.8) : !mention ? 0.45 : 0; // (0.30: a toxic name is watched less closely: the shady deals are a real gain, and a real risk)
   if (p && Math.random() < p) d.check = Date.now() + randi(8, 60) * 3600000;
   const fw = perf && perf.fit ? ` Placement ${FIT_WORDS[perf.fit]} : ${perf.fit > 0 ? '+' : '−'}${fitPct(perf.fit)} % de vues.` : ''; // 0.21
   const inKind = !d.fee && paid ? (d.gift ? ` : payé en matos (${giftName(g, d.gift)}), pas en argent` : d.value ? ` : payé en produits (≈ ${fmtMoney(g, d.value)}), pas en argent` : '') : ''; // 0.22.3: said, not guessed
-  addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? ` : paiement prévu dans ${d.payLate} jours` : inKind}.${fw}` });
+  addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? (d.payLate ? ` : paiement prévu dans ${d.payLate} jours` : d.gift ? ' : tu attends encore le matos' : '') : inKind}.${fw}` }); // (0.30: never « undefined jours »)
   if (!mention) secretFromDeal(g, d); // 0.18: a hidden ad is a secret now (the brand's contact knows)
   dealDelivered(g, d); // 0.18: the one who got the spot on it
   if (!bare) brandLove(g, d, perf); // 0.20: a release that did very well: a bonus, and the brand comes back
@@ -1227,20 +1253,23 @@ function startSeries(g, o) {
 // A release programmed in advance (no announcement post): the countdown starts now.
 function scheduleRelease(g, o) {
   if (!planRoom(g)) return null; // 0.27.4: several at once
+  if (suspended(g)) { toast(`Ta chaîne est suspendue jusqu’à ${hourOf(g.mod.susp.until)} (${longDay(g.mod.susp.until)}) : rien ne peut sortir d’ici là.`, 'bad'); return null; } // 0.30
   const topic = str(o.topic, 100);
-  if (!topic || !(o.due > Date.now())) return null;
+  if (!topic || !(o.due > Date.now() || o.now)) return null; // (0.30: o.now: made right away, never announced)
   let what = normWhat(o.what);
   if (!PF(g).fmts.includes(what)) what = PF(g).main;
   const can = canMake(g, what); // 0.20
   if (!can.ok) { toast(can.why, 'bad'); return null; }
   const t = Date.now();
-  const r = { id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: null, at: t, due: o.due, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: 'moyen', planned: true };
+  const r = { id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: null, at: t, due: o.now ? t : o.due, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: 'moyen', planned: true };
+  if (o.now) r.now = 1; // 0.30: « Maintenant »: nobody was waiting for it
   if (o.devis) r.devis = o.devis; // 0.20: its quote, paid
   if (o.deal) r.deal = o.deal; // the sponsor it carries, chosen with the quote
   if (o.fanQ) r.fanQ = o.fanQ; // 0.21: the question of a fan it answers
   if (what === 'short' && o.promo && promoTargets(g).some((x) => x.id === o.promo)) r.promo = o.promo; // 0.29.1: the long video it announces
   g.releases.push(r);
   trimReleases(g);
+  if (r.now) return r; // (made right away: no announcement, no one waiting)
   addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(topic, 60)} » est programmé${whatF(r) ? 'e' : ''} ${fmtWhen(o.due)}.` });
   addTrigger(g, `Le joueur a programmé ${unW(r)} pour ${fmtWhen(o.due)} : « ${str(topic, 80)} ». Certains l’attendent déjà.`);
   return r;
@@ -1545,11 +1574,13 @@ function refreshCareerLines(g, t = Date.now()) {
     for (const x of intel.slice(-5)) ctx.push(`- ${x.id} : « ${x.quote} » (${x.text}) · détenu par ${x.known.map((id) => g.chars[id] && '@' + g.chars[id].handle).filter(Boolean).join(', ')}`);
     out.push('- Facultatif (au plus 1) : un détenteur fait circuler une capture : en privé à un autre personnage {"t":"leak","id":"…","by":"handle","to":"handle"}, ou, s’il est hostile au joueur, en public : écris d’abord son post, puis {"t":"leak","id":"…","by":"handle","public":true}.');
   }
-  if (g.stats.followers >= 800 && standLv(g) > -2 && t >= (g.career.offerAt || 0) - 3600000 && openDeals(g).filter((d) => d.state === 'offer').length < 2) {
-    out.push(`- Une marque fictive de ce monde contacte le joueur pour un partenariat, logique avec ce qu’il publie (secteurs les plus probables : ${sectorHint(g)}) : {"t":"sponsor","brand":"nom inventé","emoji":"🥤","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","product":"le produit à mettre en avant, ≤ 70 caractères","what":"${PF(g).fmts.join('" ou "')}","contact":"Prénom Nom de la personne chargée des partenariats","g":"f","text":"son premier message privé au joueur, ≤ 220 caractères"} ("what" = le format qu’elle veut, sur ${pfName(g, platformOf(g))}).`);
+  const toxB = toxLv(g) >= 2 && Math.random() < (toxLv(g) >= 3 ? 1 : 0.6); // 0.30: a toxic name: the shady brands come (even in a scandal)
+  if (g.stats.followers >= 800 && (standLv(g) > -2 || toxB) && t >= (g.career.offerAt || 0) - 3600000 && openDeals(g).filter((d) => d.state === 'offer').length < 2) {
+    out.push(`- ${toxB ? TOX_SPONSOR + ' ' : ''}Une marque fictive de ce monde contacte le joueur pour un partenariat, logique avec ce qu’il publie (secteurs les plus probables : ${toxB ? 'crypto, paris, casino, vape' : sectorHint(g)}) : {"t":"sponsor","brand":"nom inventé","emoji":"🥤","sector":"boisson, tech, mode, beaute, jeu, food, appli ou voyage","product":"le produit à mettre en avant, ≤ 70 caractères","what":"${PF(g).fmts.join('" ou "')}","contact":"Prénom Nom de la personne chargée des partenariats","g":"f","text":"son premier message privé au joueur, ≤ 220 caractères"} ("what" = le format qu’elle veut, sur ${pfName(g, platformOf(g))}).`);
   }
-  if (fanLineOK(g, t)) out.push(FAN_LINE); // 0.21: a fan writes to the player
-  if (out.some((x) => x === FAN_LINE || (typeof x === 'string' && x.includes('{"t":"sponsor"')))) { const L = firstsLine(g, 'une personne nouvelle (le contact d’une marque, un abonné)'); if (L) out.push('- ' + L); } // 0.28.1
+  if (arrivalOK(g, t)) out.push(ARRIVAL_LINE(g)); // 0.30: the story may bring someone new (no limit to the cast)
+  if (fanLineOK(g, t)) { out.push(FAN_LINE); const F = fansLine(g); if (F) out.push(F); } // 0.21: a fan writes to the player (0.30: the ones who already wrote)
+  if (out.some((x) => x === FAN_LINE || (typeof x === 'string' && x.includes('{"t":"sponsor"')))) { const L = firstsLine(g, 'une personne nouvelle (le contact d’une marque, un abonné)'); if (L) out.push('- ' + L); const L2 = lastsLine(g); if (L2) out.push('- ' + L2); } // 0.28.1 (0.30: the family names too)
   if (activeTrends(g, t).length < 4) out.push(`- Facultatif : une nouvelle tendance sur ${pfName(g, platformOf(g))} qui colle à ce monde : {"t":"trend","kind":"${trendKindsFor(platformOf(g)).join('" ou "')}","name":"≤ 40 caractères (un son inventé, un #défi ou un sujet)","emoji":"🎵"}.`);
   return { ctx, lines: out };
 }
@@ -1567,6 +1598,7 @@ function applyCareerLine(g, o, effects, lastOf = {}) {
     case 'leak': { const pid = o.public ? postOf(o.by) : null; effects.push(() => leakIntel(g, o, pid)); return true; }
     case 'sponsor': effects.push(() => { if (makeOffer(g, o)) g.career.offerAt = Date.now() + randi(5, 12) * 3600000; }); return true;
     case 'fan': effects.push(() => fanMessage(g, o)); return true; // 0.21
+    case 'arrivee': effects.push(() => { if (arrivalOK(g)) { g.arrival = { why: str(o.why, 100), at: Date.now() }; g.lastArrival = Date.now(); } }); return true; // 0.30: created right after
     case 'trend': effects.push(() => { const k = TREND_KINDS[o.kind] ? o.kind : trendKindsFor(platformOf(g))[0]; makeTrend(g, k, o); }); return true;
     default: return false;
   }
@@ -1730,17 +1762,23 @@ function releaseCareer(ctx) {
   const fit = dl0 && dl0.state === 'signed' ? fitOf(r, dl0, ctx.eval) : null; // 0.21: a sponsor that fits the video, or not
   const mLive = !!(form.membLive && r.what === 'live' && membOn(g)); // 0.22: a live for the members only
   const early = ctx.early || null; // 0.29.1: a long video's, counted with its reactions
-  const views0 = Math.round((early ? early.views : releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!(post.res && post.res.viral), Date.now(), Object.assign({}, form, { crew, push: !!(ctx.boosts && ctx.boosts.push) }))) * (mLive ? 0.35 : 1));
+  const views0 = Math.round((early ? early.views : ctx.vearly != null ? ctx.vearly : releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!(post.res && post.res.viral), Date.now(), Object.assign({}, form, { crew, push: !!(ctx.boosts && ctx.boosts.push) }))) * (mLive ? 0.35 : 1));
   const views = fit ? Math.round(views0 * FIT_VIEWS[fit]) : views0;
   const gx = gearOnRelease(g, r, views); // 0.20: a live that drops, the neighbours, the rights holders
   const vs = gx.views;
   const ads = adsOf(g, r, ctx.eval, form); // 0.21: what the advertisers make of it
   const book = bookRelease(g, r, vs, post, ads);
+  if (ctx.removed && book.money > 0) { // 0.30: taken down for harassment: no money
+    g.career.est = Math.max(0, g.career.est - book.money);
+    ledger(g, `${cap1(ta(r))} « ${wordCut(r.topic, 30)} » retirée pour harcèlement`, -book.money, 'est');
+    book.money = 0;
+  }
   if (gx.claim && book.money > 0) { // the music was not free: the money of this one goes to the rights holders
     g.career.est = Math.max(0, g.career.est - book.money);
     ledger(g, `Réclamation de droits d’auteur sur ${ta(r)} « ${wordCut(r.topic, 30)} »`, -book.money, 'est');
     book.money = 0;
   }
+  if (ctx.removed) post.video.removed = Date.now();
   Object.assign(post.video, { views: vs, money: book.money, plat: platformOf(g), title: str(form.title, 100), thumb: form.thumb || '', thumbLook: form.thumbLook || null, thumbImg: form.thumbImg || '', sound: '', hook: str(form.hook, 80) });
   const adsBase = rpmOf(g, r.what, Object.assign({}, ads, { s: 'vert' }));
   post.video.ads = Object.assign(ads, { base: adsBase, season: adSeason(gameDate(Date.now())), paid: adsBase > 0 });

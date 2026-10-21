@@ -3197,3 +3197,16 @@ body.os-win { overflow: hidden; }
 .aud-hint { font-size: 13px; line-height: 1.45; color: var(--ink-2); background: color-mix(in srgb, var(--hot) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--hot) 22%, var(--line)); border-radius: 12px; padding: 9px 12px; margin: 4px 0 10px; }
 .linkbtn.aud-link { font-size: 12.5px; }
 .up-aud { display: block; margin: 6px 2px 4px; font-size: 12.5px; line-height: 1.4; }
+
+/* 0.30: the toxic reputation, the moderation, a date missed while away, « Maintenant » */
+.tox-sec { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line-strong); display: flex; flex-direction: column; gap: 8px; }
+.tox-sec .section-h span b { color: var(--bad); font-size: 16px; }
+.tox-fx { margin: 2px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+.tox-mod { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--bad-soft); color: var(--bad); font-weight: 600; font-size: 13.5px; }
+.tox-kv b { color: var(--bad); }
+.evt-chip.away { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); background: var(--bad-soft); }
+.now-note { font-size: 13.5px; line-height: 1.45; margin: 2px 0 0; }
+.play-time { margin-top: 2px; }
+.dm-fade { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 10px 0; color: var(--ink-2); font-size: 13.5px; text-align: center; }
+.dm-fade i { font-style: italic; }
+.dm-fade small { color: var(--ink-3); font-size: 12px; }

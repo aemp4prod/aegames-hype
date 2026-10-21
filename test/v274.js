@@ -188,6 +188,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     /Ensuite : 📱 « un sort en 30 secondes »/.test(more) && /« la grande dictée de Lumen »/.test(more) && rows.length === 3 && rows.every((t) => /Sortir plus tôt/.test(t) && /Repousser/.test(t))
     && /mes potions ratées/.test(rows[0]) && /la grande dictée/.test(rows[2]) && btn === true, { more, rows });
   const st0 = await G(page, () => { const s = window.__hype.S.game.stats; return { rep: s.reputation, fol: s.followers, log: (s.repLog || []).length }; });
+  await G(page, () => { const g = window.__hype.S.game, r = g.releases.find((x) => x.topic === 'la grande dictée de Lumen'); r.at = Date.now() - 2 * 3600000; }); // (0.30: programmed a while ago: people were waiting for it)
   await page.locator('.plan-row').nth(2).locator('button', { hasText: 'Plus tôt' }).click();
   await page.waitForSelector('.layer .move-opts');
   const opts = await page.$$eval('.layer .move-opts .chip-btn', (els) => els.map((e) => e.textContent));
