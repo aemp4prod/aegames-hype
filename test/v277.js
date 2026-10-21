@@ -266,15 +266,16 @@ async function newGame(page, identity) {
     A.state = 'released';
     out.kept = H.checkReleases(g, T1) === false && B.state === 'scheduled';
     out.waited = B.waited === T1;
-    out.screen = H.checkReleases(g, T1 + 70 * 60000, (id) => id === B.id) === false && B.state === 'scheduled';
-    out.later = H.checkReleases(g, T1 + 70 * 60000) === true && B.state === 'dropped';
+    const lim = H.relLimit(B) + 60000; // (0.30.1: its grace runs from the time announced, or from its turn if later)
+    out.screen = lim > T1 && H.checkReleases(g, lim, (id) => id === B.id) === false && B.state === 'scheduled';
+    out.later = H.checkReleases(g, lim) === true && B.state === 'dropped';
     clear();
     // a challenge episode keeps its hour; another topic later the same day is a second release, a reminder is not
     const hr = (new Date(Date.now() + H.clockOff()).getHours() + 2) % 24; // (two hours from now on the game's clock: at 18:00 in the evening, tomorrow's episode was too far for a second release)
     H.startSeries(g, { what: 'vidéo', days: 7, hour: hr, min: 0, theme: 'une recette par jour', diff: 'moyen', hard: false, devis: { total: 0, items: [], topic: 'x', at: Date.now() } });
     const ep = H.plannedReleases(g).find((x) => x.series);
     out.adv = H.advanceRelease(g, ep, Date.now()) === false;
-    const m0 = Math.round((ep.due - Date.now()) / 60000);
+    const m0 = Math.round((H.relAnn(ep) - Date.now()) / 60000); // (0.30.1: its time out, not its shoot)
     const r2 = H.addRelease(g, { what: 'vidéo', topic: 'ma routine skincare', in: m0 + 240 }, null, 'nouvelle vidéo ce soir à 22h sur ma routine skincare');
     const r3 = H.addRelease(g, { what: 'vidéo', topic: 'plus que 30 min avant ma vidéo !', in: m0 + 210, loose: true }, null, 'plus que 30 min avant ma vidéo !');
     out.dedupe = { second: !!r2 && r2.topic === 'ma routine skincare', reminder: r3 === null, n: H.plannedReleases(g).length };

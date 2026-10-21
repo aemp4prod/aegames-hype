@@ -312,18 +312,72 @@ function carouselOf(ph, d) {
   return mates.slice(0, 4).map((x) => x.id);
 }
 const CAROUSEL_P = 0.55; // a series comes out as a carousel about one time in two; otherwise one of its photos alone
-// A post the AI wrote « with a photo »: one of the character's real photos when it shows what the text says.
-// A photo of something else (a cauldron, a poster…) keeps its illustrated card.
-// text: the post itself, which helps choose among the photos that fit (never decides alone that one fits).
-function matchAiPhoto(g, c, desc, at, text = '') {
+/* 0.30.1: their album. The game no longer guesses a real photo from what the AI said a photo shows (by families of
+   tags, it put a DJ in full set before her crowd under « the booth, still empty »). The AI gets, for the characters it
+   is likely to make post, a few of their real photos that fit the moment (the season, the occasion, never one still on
+   screen), each in a few words (the creator's description: its first sentence and its last, often the place); a photo
+   post of theirs gives its code, and the text is written for what it shows. Anything else is an illustrated card. */
+const ALBUM_N = 3, ALBUM_CHARS = 3, ALBUM_BRIEF = 150;
+const ALBUM_RE = /^[\s«"'(]*([fmx]\d{2}-\d{1,4})\b/i;
+function phBrief(ph, max = ALBUM_BRIEF) {
+  const cut = (s, n) => (s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, '') + '…');
+  const d = String(ph.desc || '').replace(/\s+/g, ' ').trim();
+  if (!d) return cut(ph.tags.slice(0, 8).join(', '), max) || 'une photo';
+  if (d.length <= max) return d;
+  const parts = d.split(/(?<=[.!?…])\s+/), first = cut(parts[0], max), last = parts.length > 1 ? parts[parts.length - 1] : '';
+  return last && first.length + last.length <= max + 50 ? `${first} … ${last}` : first;
+}
+// A few of their photos that fit now, one per shoot: the moment of the day first, the ones not seen for a while.
+function albumOf(g, c, t = Date.now(), vis = null) {
   const p = faceOf(g, c);
-  if (!p || !p.photos.length) return null;
-  const want = hintTags(desc);
-  const generic = /selfie|\bmoi\b|portrait|tenue|\blook\b|outfit|ootd|photo de (moi|nous)/i.test(desc);
-  if (!want.keys.length && !want.occ.length && !generic) return null;
-  const among = !want.keys.length && !want.occ.length ? p.photos
-    : p.photos.filter((ph) => ph.keys.some((k) => want.keys.includes(k)) || ph.occ.some((k) => want.occ.includes(k)));
-  return among.length ? pickPhoto(g, p, gameDate(at), { hint: desc + ' ' + text, among }) : null;
+  if (!p || !p.photos.length) return [];
+  const d = gameDate(t), occ = occasionsAt(d), mo = momentOf(d), use = g.phUse || {};
+  vis = vis || visibleShots(g, t);
+  const score = (ph) => {
+    let s = rand(0, 1.5) + (ph.occ.length ? 6 : 0) + (ph.moment === mo ? 1.5 : ph.moment !== 'all' ? -2 : 0);
+    const last = Math.max(use[ph.id] || 0, ph.sk ? use['set:' + ph.sk] || 0 : 0);
+    return s + (last ? -Math.max(0, 14 - (t - last) / DAY_MS) : 2);
+  };
+  const ranked = p.photos.filter((ph) => photoFits(ph, d, occ) && !vis.has(ph.sk || ph.id)).map((ph) => [score(ph), ph]).sort((a, b) => b[0] - a[0]);
+  const out = [], shoots = new Set();
+  for (const [, ph] of ranked) {
+    if (shoots.has(ph.sk || ph.id)) continue;
+    shoots.add(ph.sk || ph.id);
+    out.push(ph);
+    if (out.length >= ALBUM_N) break;
+  }
+  return out;
+}
+// For a prompt: the albums of the characters in focus who have a face (three at most, then the others awake).
+function albumLines(g, focus, t = Date.now()) {
+  if (!g || g.portraits === false || !PACK.people.length) return [];
+  const vis = visibleShots(g, t), seen = new Set(), L = [];
+  let ex = '';
+  const ids = [...(focus || [])].concat(mains(g).map((c) => c.id));
+  for (const id of ids) {
+    if (L.length >= ALBUM_CHARS || seen.has(id)) continue;
+    seen.add(id);
+    const c = g.chars[id];
+    if (!c || !isMain(c) || !c.unlocked || c.asleep || c.cut || c.jailed) continue;
+    const phs = albumOf(g, c, t, vis);
+    if (!phs.length) continue;
+    ex = ex || phs[0].id;
+    L.push(`- @${c.handle} : ` + phs.map((ph) => `${ph.id} = ${phBrief(ph)}${ph.moment === 'soir' ? ' (le soir)' : ph.moment === 'jour' ? ' (de jour)' : ''}`).join(' ; '));
+  }
+  if (!L.length) return [];
+  return ['', '## LEURS VRAIES PHOTOS',
+    'Un post photo (ou une story) de ces personnages montre une de leurs vraies photos : mets son code dans "photo" (ex. "photo":"' + ex + '") et écris le texte pour ce qu’on y voit (le lieu, le moment, qui est là ; « hier soir » pour une photo du soir postée le jour) : jamais le contraire de ce qu’elle montre, jamais la photo d’un autre. Aucune ne colle à ce que tu veux dire ? Pas de photo, ou décris en mots une image où ils n’apparaissent pas (un objet, un lieu, un écran) : une carte illustrée.',
+    ...L];
+}
+// The photo the AI picked by its code, if it is really theirs and can come out now (not one still on screen).
+function albumPhoto(g, c, raw, at) {
+  const m = ALBUM_RE.exec(String(raw || ''));
+  if (!m) return undefined; // (not a code: a description)
+  const x = PACK.photos[m[1].toLowerCase()], p = c ? faceOf(g, c) : null;
+  if (!x || !p || x.p.id !== p.id) return null;
+  const d = gameDate(at || Date.now());
+  if (!photoFits(x.ph, d, occasionsAt(d)) || visibleShots(g, at || Date.now()).has(x.ph.sk || x.ph.id)) return null;
+  return x.ph;
 }
 // A photo in the feed, for the prompts: a photo of the pack is its tags, and, for the two latest ones, the creator's
 // description (what the characters react to). Other photos: what the AI said it shows.
@@ -515,7 +569,7 @@ function capLines(g, batch) {
   }
   if (!L.length) return [];
   return ['', '## PHOTOS QUI SORTENT',
-    'Ces personnages publient une photo d’eux (déjà choisie : c’est bien eux dessus). Écris la légende que chacun met : dans sa voix, liée à sa vie, à ce qui se passe dans le monde et au moment ; sans décrire la photo comme un inventaire.',
+    'Ces personnages publient une photo d’eux (déjà choisie : c’est bien eux dessus). Écris la légende que chacun met : dans sa voix, liée à sa vie, à ce qui se passe dans le monde et au moment ; sans décrire la photo comme un inventaire, et jamais le contraire de ce qu’elle montre (le lieu, le moment, qui est là ; une photo du soir postée le jour, c’est « hier soir »).',
     ...L, 'Une ligne par photo, en plus du reste : {"t":"cap","id":"q…","text":"≤ 150 caractères"}'];
 }
 // At most four new ones at once: after a long jump in time, the latest ones (the others wait their turn).

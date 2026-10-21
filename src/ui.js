@@ -1878,20 +1878,22 @@ const relDue = (r) => () => { const x = S.game && activeRelease(S.game); return 
 function ReleaseCard({ g, now }) {
   const plan = plannedReleases(g), r = plan[0] || null, more = plan.slice(1); // 0.27.4: the others wait their turn
   if (!r || S.publishing === r.id) return null;
+  if (r.big) return html`<${BigCard} g=${g} r=${r} now=${now} more=${more} />`; // 0.30.1: a big production
   const W = WHATS[r.what] || WHATS.vidéo;
   const left = r.due - now;
+  const pw = prodMs(r) && r.what !== 'live'; // 0.30.1: the time to start it, and when it comes out
   return html`<div class=${'release-card' + (left <= 0 ? ' due' : '')}>
     <span class="rl-emo" aria-hidden="true">${W.emoji}</span>
     <div class="rl-mid">
-      <b>${left > 0 ? `${cap1(ta(r))} sort dans ${fmtLeft(left)}` : `C’est l’heure : ${ta(r)} doit sortir !`}</b>
+      <b>${pw ? (left > 0 ? `Tournage de ${ta(r)} dans ${fmtLeft(left)}` : r.played ? `${cap1(ta(r))} est ${whatF(r) ? 'prête' : 'prêt'} : publie-${whatF(r) ? 'la' : 'le'} !` : `C’est l’heure de tourner ${ta(r)} !`) : left > 0 ? `${cap1(ta(r))} ${r.what === 'live' ? 'commence' : 'sort'} dans ${fmtLeft(left)}` : `C’est l’heure : ${ta(r)} doit sortir !`}</b>${pw && !r.played ? html`<span class="rl-out">Sortie ${relAnn(r) > now ? fmtWhen(relAnn(r), now) : 'en retard'} · ${prodWord(r.what, r.care, r.team)} de travail${r.care ? ' · ✨ soignée' : ''}</span>` : null}
       <span>« ${r.topic} »${r.series && g.series ? ` · défi : épisode ${r.ep}/${g.series.days} · bonus ×${fmtDec(seriesMult(g))}` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}${left <= 0 && relLimit(r) > now ? ` · encore ${fmtLeft(relLimit(r) - now)} pour ${whatF(r) ? 'la' : 'le'} ${r.played ? 'publier' : 'tourner'}, sinon ${r.series ? 'c’est un épisode manqué' : whatF(r) ? 'elle est abandonnée' : 'il est abandonné'}` : ''}</span>
       <div class="row">
-        ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> Avancer jusqu’à la sortie`}</button>`
+        ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> ${pw ? 'Avancer jusqu’au tournage' : 'Avancer jusqu’à la sortie'}`}</button>`
           : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
         ${left > 0 && !r.series ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>` : null}
         ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
       </div>
-      ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${wordCut(x.topic, 28)} » ${fmtWhen(x.due, now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
+      ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${wordCut(x.topic, 28)} » ${fmtWhen(relAnn(x), now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
     </div>
   </div>`;
 }
@@ -1899,7 +1901,7 @@ function ReleaseCard({ g, now }) {
 const evBusy = () => !!(S.busy.act || S.busy.dm || S.busy.refresh || S.busy.ev || S.busy.mg);
 // 0.27.8: why time cannot move on, said on screen (a tooltip never shows on a phone): a release to shoot first
 const heldRel = (g, now) => { const rl = activeRelease(g); return rl && rl.due <= now ? rl : null; };
-const heldWhy = (rl) => `${cap1(ta(rl))} doit sortir d’abord : ${whatF(rl) ? 'tourne-la' : 'tourne-le'}${rl.series ? '' : ` ou ${whatF(rl) ? 'repousse-la' : 'repousse-le'}`}.`;
+const heldWhy = (rl) => (rl.big ? bigHeld(rl) : `${cap1(ta(rl))} ${prodMs(rl) && rl.what !== 'live' ? 'est à tourner d’abord' : 'doit sortir d’abord'} : ${whatF(rl) ? 'tourne-la' : 'tourne-le'}${rl.series ? '' : ` ou ${whatF(rl) ? 'repousse-la' : 'repousse-le'}`}.`);
 function askCancelDate(g, ev) {
   const c = g.chars[ev.c];
   const hurt = cancelHurt(ev.due - Date.now());
@@ -2383,12 +2385,27 @@ function ShootSetup({ r }) {
   const [topic, setTopic0] = useState(d0.topic != null && !r.devis && !fixed ? d0.topic : r.topic);
   const [plot, setPlot0] = useState(d0.plot != null ? d0.plot : r.plot || '');
   const [diff, setDiff0] = useState(fixed ? r.diff || 'moyen' : d0.diff || r.diff || 'moyen');
+  const [care, setCare0] = useState(d0.care != null ? !!d0.care : !!r.care); // 0.30.1: « soignée », still to decide
   const keep = (k, v) => { if (!S.setupDrafts) S.setupDrafts = {}; S.setupDrafts[r.id] = Object.assign({}, S.setupDrafts[r.id], { [k]: v }); };
-  const setTopic = (v) => { keep('topic', v); setTopic0(v); }, setPlot = (v) => { keep('plot', v); setPlot0(v); }, setDiff = (v) => { keep('diff', v); setDiff0(v); };
+  const setTopic = (v) => { keep('topic', v); setTopic0(v); }, setPlot = (v) => { keep('plot', v); setPlot0(v); }, setDiff = (v) => { keep('diff', v); setDiff0(v); }, setCare = (v) => { keep('care', v); setCare0(v); };
   const W = WHATS[r.what] || WHATS.vidéo;
   const ok = topic.trim().length >= 3;
   const g = S.game, can = g ? canMakeR(g, r) : { ok: true }; // 0.20: a computer down, no connection for the live
-  const launch = () => { if (!ok || !can.ok) return; r.topic = str(topic, 120); r.plot = str(plot, PLOT_MAX); r.diff = diffOf(diff).id; genShoot(r); };
+  // 0.30.1: the time it takes, when it will come out, and what it runs over (a date: said before, made anyway: missed)
+  const careable = careOK(r.what) && !fixed && r.prod !== 0, t0 = Date.now();
+  const PD = r.prod === 0 ? 0 : prodH(r.what, careable ? care : r.care, r.team) * 3600000;
+  const ann = r.now ? 0 : r.ann && r.ann < relAnn(r) ? r.ann : relAnn(r), lateBy = PD && ann && r.what !== 'live' ? t0 + PD - ann : 0;
+  const dl = g && r.deal ? dealOf(g, r.deal) : null;
+  const launch = () => {
+    if (!ok || !can.ok) return;
+    const go = () => { r.topic = str(topic, 120); r.plot = str(plot, PLOT_MAX); r.diff = diffOf(diff).id; if (careable) { if (care) r.care = 1; else delete r.care; } genShoot(r); };
+    const cl = g && PD ? prodClash(g, r, Date.now(), PD) : null;
+    if (!cl) { go(); return; }
+    const d1 = cl.dates[0];
+    askConfirm({ title: d1 ? `⚠️ Tu as rendez-vous avec ${firstName(d1.c)} à ${hourOf(d1.ev.due)}` : '⚠️ Ça chevauche ton programme',
+      text: `${cap1(ta(r))} te prend ${hWord(PD / 3600000)} (jusqu’à ${hourOf(cl.end)}) : tu peux ${whatF(r) ? 'la' : 'le'} ${r.what === 'live' ? 'lancer' : 'tourner'} quand même, mais ${cl.out.map((x) => x.text).join(' ; ')}.`,
+      ok: r.what === 'live' ? 'Lancer quand même' : 'Tourner quand même', cancel: 'Pas maintenant', danger: true, run: go });
+  };
   return html`<div class="mg-setup">
     <div class="mg-setup-head"><span class="mg-emo" aria-hidden="true">${W.emoji}</span><h3>Prépare ${laW(r)}</h3></div>
     ${g ? html`<${GearBlocker} g=${g} r=${r} now=${Date.now()} />` : null}
@@ -2413,6 +2430,9 @@ function ShootSetup({ r }) {
       ${r.aiFail ? html`<p class="date-late nm-hint"><${Icon} n="flame" s=${15} /> ${AI_NAME} n’a pas pu écrire ton quiz Cauchemar (le budget IA du jour est peut-être épuisé). Réessaie, ou choisis une autre difficulté.</p>` : null}
       ${diffOf(diff).real ? html`<p class="date-late nm-hint"><${Icon} n="flame" s=${15} /> Les questions porteront sur le vrai sujet : écris-le précisément (le nom exact du jeu, du film, du sport, de l’artiste…). Si c’est une histoire du jeu, ce sera sur ce qui s’est vraiment passé ici.</p>` : null}
     </div>
+    ${careable ? html`<label class=${'check-card care-card' + (care ? ' on' : '')}><input type="checkbox" checked=${care} onChange=${(e) => setCare(e.target.checked)} /><span><b>✨ ${whatF(r) ? 'Vidéo soignée' : `${cap1(nounOf(r))} soigné`}</b><small>${prodWord(r.what, true, r.team)} de travail au lieu de ${prodWord(r.what, false, r.team)} : +${Math.round((CARE_K - 1) * 100)} % de vues, un peu plus de chances de buzz et de la crédibilité.</small></span></label>` : null}
+    ${dl && dl.care && careable && !care ? html`<p class="date-late care-warn">✨ Le contrat de ${dl.brand} exige ${whatF(r) ? 'une vidéo soignée' : `un ${nounOf(r)} soigné`} : sans, la marque retiendra ${Math.round(CARE_CUT * 100)} % du paiement.</p>` : null}
+    ${PD ? html`<p class="prod-note">⏱️ ${r.what === 'live' ? `Ton live dure ${prodWord('live')} : jusqu’à ${hourOf(t0 + PD)}.` : `${hWord(PD / 3600000)} de tournage et de montage${r.team ? ` (${teamWord(r.team)})` : ''} : ${whatF(r) ? 'elle' : 'il'} sortira vers ${hourOf(t0 + PD)}${lateBy > 30 * 60000 ? `, ${fmtDur(lateBy)} après l’heure annoncée (${hourOf(ann)})` : ''}.`}</p>` : null}
     ${g && can.ok && devisNeeded(g, r) ? html`<${DevisStep} g=${g} r=${r} topic=${topic} plot=${plot} />` // 0.20: the quote, before the shoot (once nothing blocks it)
       : html`<button class="btn btn-hot" onClick=${launch} disabled=${!ok || !can.ok}><${Icon} n="clapper" s=${16} /> Lancer le tournage</button>${!ok ? html`<small class="muted why-off">Écris d’abord le sujet.</small>` : null}`}
   </div>`;
@@ -2436,7 +2456,8 @@ function ShootResult({ r, g, now }) {
 // 0.27.8: a failed shoot is not the end while the edit can still lift it (up to 15 points, never for a live)
 function flopWord(r) {
   if (!needsEdit(r) || r.edit) return 'Si tu publies maintenant, c’est le flop assuré.';
-  return r.played.score + EDIT_SWING / 2 >= 0.4 ? 'Raté pour l’instant : un bon montage peut encore le rattraper (jusqu’à +15 points).' : 'Raté : même un montage parfait (+15 points) ne suffira pas à le rattraper.';
+  const sw = Math.round(swingOf(r) * 50); // (0.30.1: a production's post-production, ±20)
+  return r.played.score + swingOf(r) / 2 >= 0.4 ? `Raté pour l’instant : un bon montage peut encore le rattraper (jusqu’à +${sw} points).` : `Raté : même un montage parfait (+${sw} points) ne suffira pas à le rattraper.`;
 }
 // A date: the difficulty comes from how famous the person is; the result decides how the evening ends.
 const partnerOf = (g, c) => mains(g).find((o) => o !== c && o.unlocked && PARTNER.includes(o.vibe)) || null;
@@ -2460,6 +2481,7 @@ function DateSetup({ ev, g, now }) {
     ${isTalk(g, ev) ? html`<p class="date-late talk-note"><${Icon} n="msg" s=${15} /> Cette fois, pas de mini-jeu : vous vous parlez pour de vrai, et tu réponds avec tes mots (${TALK_TURNS} échanges, ≈ ${talkCafes} ${plural(talkCafes, 'café', 'cafés')}).</p>` : null}
     ${late > 15 * 60000 ? html`<p class="date-late"><${Icon} n="clock" s=${15} /> Tu arrives en retard : la soirée démarre mal (un cran plus dur).</p>` : null}
     ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${firstName(partnerOf(g, c))}, n’est pas au courant… pour l’instant.</p>` : null}
+    ${(() => { const cl = eveningClash(g, ev).filter((x) => !x.ev || !oc || x.ev !== other.id); return cl.length ? html`<p class="date-late date-clash"><${Icon} n="clock" s=${15} /> <span>Pendant ta soirée (≈ ${DATE_H} h) : ${cl.map((x) => x.text).join(' ; ')}. ${isTalk(g, ev) ? 'Tu pourras l’écourter pour y être.' : 'Pour y être, décale l’un ou l’autre avant.'}</span></p>` : null; })()}
     ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${firstName(oc)} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
     ${early > 0 ? html`<button class="btn btn-hot" onClick=${() => skipTime(early + 1000, () => ev.due)} disabled=${!!heldRel(g, now)}><${Icon} n="ffwd" s=${16} /> Avancer jusqu’au rendez-vous</button>${heldRel(g, now) ? html`<small class="muted why-off">${heldWhy(heldRel(g, now))}</small>` : null}`
       : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${wed ? '💒' : MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
@@ -2500,11 +2522,12 @@ function MiniGameLayer({ l, g, now, i }) {
   const W = r ? WHATS[r.what] || WHATS.vidéo : WHATS.vidéo;
   let body;
   if (!r || r.state !== 'scheduled') body = html`<div class="empty"><b>Plus rien à tourner</b><span>${r && r.state === 'released' ? 'C’est déjà en ligne.' : 'Ce projet est abandonné.'}</span></div>`;
+  else if (r.big) body = html`<${BigStage} g=${g} r=${r} now=${now} />`; // 0.30.1: a big production
   else if (r.played) body = html`<${ShootResult} r=${r} g=${g} now=${now} />`;
   else if (r.game) body = html`<${ShootPlay} key=${r.id + ':' + (r.tries || 0) + ':' + r.delays} r=${r} now=${now} />`;
   else if (S.busy.mg === r.id) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${W.emoji}</span><b>Préparation du tournage…</b><span>« ${r.topic} »</span><${Typing} /></div>`;
   else body = html`<${ShootSetup} key=${r.id + ':' + r.delays} r=${r} />`;
-  return html`<${LayerShell} i=${i} title=${'Tournage · ' + (r ? nounOf(r) : 'vidéo')}>${body}<//>`;
+  return html`<${LayerShell} i=${i} title=${r && r.big ? 'Production · ' + (r.big.stage >= 3 ? 'Sortie' : BIG_STAGES[r.big.stage].label) : 'Tournage · ' + (r ? nounOf(r) : 'vidéo')}>${body}<//>`;
 }
 
 /* ---------- layers ---------- */
@@ -2644,6 +2667,8 @@ function Layer(props) {
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
   if (t === 'feat') return html`<${FeatLayer} ...${props} />`; // 0.29.1: a feat for a release
+  if (t === 'big') return html`<${BigPlanLayer} ...${props} />`; // 0.30.1: a big production, planned
+  if (t === 'bigcast') return html`<${BigCastLayer} ...${props} />`; // 0.30.1: and its cast
   if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
   if (t === 'palette') return html`<${PaletteLayer} ...${props} />`; // 0.27.4: the palette
   if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
@@ -3587,10 +3612,17 @@ function tick() {
     if (t - lastNeglect > 60000) { lastNeglect = t; if (checkNeglect(g, t)) update(); }
     const rl = activeRelease(g);
     if ((rl && rl.due - t < 120000) || S.stack.some((l) => l.t === 'minigame')) fast = true; // live countdown, mini-game timers
+    if (!skipBusy()) for (const x of plannedReleases(g)) if (x.prodWait) { prodJump(g, x); update(); } // 0.30.1: a shoot done while the characters were writing: its time passes now
+    if (!skipBusy()) for (const x of plannedReleases(g)) if (x.big && x.big.wait) { bigJump(g, x); update(); } // 0.30.1: a production's stage, the same
+    if (g.timeDebt && !skipBusy() && !inMiniGame()) { const ms = g.timeDebt, why = g.timeWhy; g.timeDebt = 0; delete g.timeWhy; spendTime(g, ms, why); update(); } // 0.30.1: time spent elsewhere
+    if (rl && !rl.dueSaid && t >= rl.due && rl.big) { rl.dueSaid = true; bigDueNotif(g, rl, t); update(); } // 0.30.1: a production's stage
     if (rl && !rl.dueSaid && t >= rl.due) { // wherever the player is, the release time is called out
       rl.dueSaid = true;
-      addNotif(g, { k: 'releasedue', p: rl.post, text: `C’est l’heure : ${ta(rl)} « ${str(rl.topic, 60)} » doit sortir !` });
-      if (!inMiniGame()) toast(`C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
+      const pw = prodMs(rl) && rl.what !== 'live'; // 0.30.1: one that takes time: the time to start it
+      addNotif(g, { k: 'releasedue', p: rl.post, text: pw ? `C’est l’heure de tourner ${ta(rl)} « ${str(rl.topic, 60)} » : ${prodWord(rl.what, rl.care, rl.team)} de travail, ${whatF(rl) ? 'elle' : 'il'} sort ${relAnn(rl) > t ? 'à ' + hourOf(relAnn(rl)) : 'dès que c’est fini'}.` : `C’est l’heure : ${ta(rl)} « ${str(rl.topic, 60)} » doit sortir !` });
+      const away = awayGear(g, rl); // 0.30.1: at someone's place without the gear: said too
+      if (away) addNotif(g, { k: 'releasedue', text: `🏠 ${away.why}` });
+      if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
     if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
@@ -3679,7 +3711,9 @@ if (window.__HYPE_TEST__) {
     addRumor, liveRumor, rumorSource, turnAgainst, addIntel, leakIntel, allies, enemies, allyBoost, makeTrend, activeTrends, trendHeat, tickCareer, platformOf, PLATFORMS, nextAt, STAFF_ROLES,
     refreshFeed, skipTime,
     // 0.8: the photo pack
-    PACK, PACK_IMG, rebuildPack, portraitSrc, faceOf, assignFace, assignFaces, pickPhoto, matchAiPhoto, tickPhotos, occasionsAt, seasonOf, momentOf, facesAsk, capBatch, publishQueued, emojiCaption,
+    BIG_MIN, BIG_K, BIG_PLAN, BIG_STAGES, bigOn, bigWhy, bigWhats, bigPlan, scheduleBig, bigWork, bigTotal, genBigStage, bigFinish, bigNext, bigJump, bigPostStart, bigPostDone, bigShift, bigShiftFree, bigDropped, bigCtxLine, bigDueWord, bigHeld, bigLimit, bigTodo,
+    castAsked, castOn, castIn, castAdd, castText, castDMCtx, applyCastLine, applyHitch, hitchOpts, pickHitch, hitchCost, normHitch, bigClash, tickBig, bigOut, bigRecent, applyNomination, bigRefreshLines, swingOf,
+    PACK, PACK_IMG, rebuildPack, portraitSrc, faceOf, assignFace, assignFaces, pickPhoto, albumOf, albumLines, albumPhoto, phBrief, prodMs, prodH, careOK, relAnn, setOut, prodClash, prodJump, eveningJump, eveningClash, eveningNotice, cutDate, awayGear, awayHome, gearSaid, spendTime, clashIn, teamOf, teamWord, prodWord, hWord, payCrew, dueWord, CARE_K, CARE_CUT, timeLine, arriveDate, askConfirm, tickPhotos, occasionsAt, seasonOf, momentOf, facesAsk, capBatch, capLines, publishQueued, emojiCaption,
     igList, ttList, makeSlides, pickSlides, genNewChar, loadAtelier, syncShipped, phSrc, atImg, atPortrait, removePerson, PH_PER_PERSON, packExportText, packImportText, creatorOn, openAtelier, guessTags, hintTags, addAmbientPost, charPortrait, cleanPhoto,
     // 0.9: trust and advice
     trustOf, gardeOf, trustMult, trustLabel, applyTrust, initTrust, migrateTrust, migrate, addAdvice, tickAdvice, resolveAdvice, plannedAdvice, confideSecret, secretBetrayed, isShady,

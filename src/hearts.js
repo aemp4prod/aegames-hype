@@ -624,6 +624,7 @@ async function openTalk(ev) {
   if (!canAfford(g, 'talk')) { budgetBlocked(); return; }
   autoSave(g, `Avant ton rendez-vous avec ${firstName(c)}`);
   arriveDate(g, ev);
+  eveningNotice(g, ev); // 0.30.1: what falls in the evening, said at once
   const T = { scene: '', lines: [], turn: 0, max: TALK_TURNS, reacts: [], used: [], at: Date.now() };
   T.ex = dateExigence(g, ev); // 0.16: set for the evening (lateness included), and the gains follow it
   ev.diff = DIFFS[T.ex.ix].id;
@@ -1007,6 +1008,10 @@ function DateTalk({ ev, g, now }) {
         <button class="send" onClick=${sendLast} disabled=${!val.trim()} aria-label="Dire ce dernier mot"><${Icon} n="send" s=${16} /> Dire</button>
       </div>
       <button class="btn btn-ghost btn-sm talk-bye" onClick=${() => lastWord(ev, '')}>Se dire au revoir</button>
+    </div>` : null}
+    ${!over && !lastStage && ev.clash && ev.clash.length && T.lines.length ? html`<div class="talk-clash" role="status">
+      <p>⏰ ${cap1(ev.clash.map((x) => x.text).join(' ; '))}.</p>
+      <button type="button" class="btn btn-ghost btn-sm" disabled=${busy} onClick=${() => cutDate(ev)}>Écourter la soirée</button>
     </div>` : null}
     ${!over && left > 0 && T.lines.length ? html`<div class="talk-foot">
       ${gestes.length ? html`<div class="talk-gestes" role="group" aria-label="Oser un geste">${gestes.map((x) => html`<button key=${x.id} type="button" class=${'chip-btn' + (arm === x.id ? ' armed' : '')} disabled=${busy} onClick=${() => tapGeste(x)}>${x.emoji} ${arm === x.id ? 'Vraiment ? Touche encore' : x.label}</button>`)}</div>` : null}

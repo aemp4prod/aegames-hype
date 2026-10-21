@@ -34,10 +34,10 @@ function addStory(g, o, at) {
   const s = tag({ id: uid('st'), a, at: t, ts: t, until: t + STORY_MS, text, hue: STORY_HUES[hashStr(text) % STORY_HUES.length] });
   const ph = str(o.photo, 120);
   if (ph.length >= 3) {
-    s.photo = { desc: ph, emoji: photoEmoji(ph) };
     const c = a.startsWith('c:') ? g.chars[a.slice(2)] : null;
-    const x = c && isMain(c) ? matchAiPhoto(g, c, ph, t, text) : null; // their real photo, when it shows what they say
-    if (x) { s.photo.img = x.id; usePhoto(g, x.id, t); }
+    const x = c && isMain(c) ? albumPhoto(g, c, ph, t) : ALBUM_RE.test(ph) ? null : undefined; // 0.30.1: a code of their album, or words (a card)
+    if (x) { s.photo = { desc: x.desc || x.tags.join(', ') || 'une photo', emoji: photoEmoji(x.desc || ''), img: x.id }; usePhoto(g, x.id, t); }
+    else if (x === undefined) s.photo = { desc: ph, emoji: photoEmoji(ph) };
   }
   s.poll = storyPoll(o.poll);
   const ask = str(o.ask, 90);
@@ -391,7 +391,7 @@ function socialCtx(g, kind, now = Date.now()) {
 // The game offers some of these now and then (the AI decides whether anything happens): never all of them at once.
 const offer = (p) => (window.__HYPE_TEST__ && !window.__offerOdds) || Math.random() < p;
 function socialLines(g, t = Date.now()) {
-  const L = ['- Facultatif (0 à 2) : des stories (24 h) de personnages ou d’habitués, plus spontanées que les posts : {"t":"story","by":"handle","text":"≤ 120 caractères","photo":"ce qu’on voit (facultatif)","poll":{"q":"≤ 60","a":["…","…"]} (facultatif),"ask":"une question à leurs abonnés (facultatif)"}.'];
+  const L = ['- Facultatif (0 à 2) : des stories (24 h) de personnages ou d’habitués, plus spontanées que les posts : {"t":"story","by":"handle","text":"≤ 120 caractères","photo":"facultatif : le code d’une de leurs vraies photos s’ils en ont (LEURS VRAIES PHOTOS), ou ce qu’on voit","poll":{"q":"≤ 60","a":["…","…"]} (facultatif),"ask":"une question à leurs abonnés (facultatif)"}.'];
   const gs = liveGroups(g);
   if (gs.length) L.push('- Facultatif (au plus 3) : la vie des groupes du joueur, sans lui : {"t":"gmsg","group":"nom exact du groupe","by":"handle d’un membre","text":"≤ 160 caractères"}.');
   const close = mains(g).filter((c) => c.rel >= 20 && !c.cut && !c.jailed);

@@ -242,7 +242,7 @@ async function newGame(page, identity) {
     const H = window.__hype, g = H.S.game;
     H.S.stack = [];
     g.releases = [];
-    H.scheduleRelease(g, { what: 'vidéo', topic: 'la potion du lundi', due: Date.now() + 3 * 3600000 });
+    H.scheduleRelease(g, { what: 'vidéo', topic: 'la potion du lundi', due: Date.now() + 7 * 3600000 }); // (0.30.1: its shoot in 3 h, 4 h of work)
     H.scheduleRelease(g, { what: 'short', topic: 'un sort express', due: Date.now() + 6 * 3600000 });
     H.goTab('feed'); H.update();
   });
@@ -455,8 +455,8 @@ async function newGame(page, identity) {
   await G(page, () => { const H = window.__hype; H.openLayer({ t: 'minigame', id: 'evLater' }); });
   await page.waitForSelector('.layer .mg-setup');
   const dateWhy = await G(page, () => { const b = [...document.querySelectorAll('.layer .mg-setup .btn-hot')].find((x) => /Avancer/.test(x.textContent)); return { off: !!(b && b.disabled), why: (document.querySelector('.layer .mg-setup .why-off') || {}).textContent || '', note: (document.querySelector('.layer .mg-setup .diff-note') || {}).textContent || '' }; });
-  check('a release to shoot first: « Avancer » says why on screen (« Ta vidéo doit sortir d’abord : tourne-la ou repousse-la. »), on the event and at the date; the date says what its number multiplies',
-    held === 'Ta vidéo doit sortir d’abord : tourne-la ou repousse-la.' && dateWhy.off && dateWhy.why === held && /multiplie ce que le rendez-vous rapporte \(relation, XP\)/.test(dateWhy.note), { held, dateWhy });
+  check('a release to shoot first: « Avancer » says why on screen (« Ta vidéo est à tourner d’abord : tourne-la ou repousse-la. »), on the event and at the date; the date says what its number multiplies',
+    held === 'Ta vidéo est à tourner d’abord : tourne-la ou repousse-la.' && dateWhy.off && dateWhy.why === held && /multiplie ce que le rendez-vous rapporte \(relation, XP\)/.test(dateWhy.note), { held, dateWhy });
   await G(page, () => { const H = window.__hype, g = H.S.game; H.S.stack = []; g.events = g.events.filter((e) => e.id !== 'evLater'); g.releases = []; H.update(); });
 
   // ---------- 16. labels, names and little things ----------

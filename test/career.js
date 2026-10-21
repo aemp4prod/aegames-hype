@@ -272,7 +272,7 @@ async function studioSteps(page, thumb) {
 
   // ---------- a sponsored release, without the legal mention: the editor works, the law catches it ----------
   await clickText(page, '.tab', 'Fil');
-  const dealWhat = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = Math.max(g.career.cash, 2000); /* the editor is paid at the shoot: money there, whatever the timers on a busy machine */ const d = g.deals.find((x) => x.state === 'signed'); d.what = 'vidéo'; H.scheduleRelease(g, { what: d.what, topic: 'je teste la potion au citron', due: Date.now() + 60000 }); H.update(); return d.what; }); // a video: the editor works on it
+  const dealWhat = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = Math.max(g.career.cash, 2000); /* the editor is paid at the shoot: money there, whatever the timers on a busy machine */ const d = g.deals.find((x) => x.state === 'signed'); d.what = 'vidéo'; H.scheduleRelease(g, { what: d.what, topic: 'je teste la potion au citron', due: Date.now() + 5 * 3600000 }); H.update(); return d.what; }); // a video: the editor works on it (0.30.1: less than 4 h with them, its shoot in an hour or two)
   await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 10000 });
   const cash0 = await G(page, () => window.__hype.S.game.career.cash);
@@ -319,7 +319,7 @@ async function studioSteps(page, thumb) {
   await overflowCheck(page, 'series sheet');
   await clickText(page, '.mg-setup > .btn', 'Lancer le défi');
   await sleep(500);
-  const s0 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { on: g.series && g.series.state, ep: r && r.ep, series: !!(r && r.series), hour: r && H.gameDate(r.due).getHours() }; });
+  const s0 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { on: g.series && g.series.state, ep: r && r.ep, series: !!(r && r.series), hour: r && H.gameDate(H.relAnn(r)).getHours() }; }); // (0.30.1: its hour is when it comes out)
   check('the daily upload starts: episode 1 programmed at the chosen hour (18 h), no postponing', s0.on === 'on' && s0.ep === 1 && s0.series && s0.hour === 18, s0);
   await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 10000 });
@@ -343,11 +343,11 @@ async function studioSteps(page, thumb) {
   await sleep(1500);
   const s1 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { streak: g.series.streak, mult: H.seriesMult(g), next: r && r.ep, inDays: r && Math.round((r.due - Date.now()) / 3600000) }; });
   check('episode 1 aced: the streak grows (×1,2 on the next one), episode 2 tomorrow at the same time', noPostpone && s1.streak === 1 && Math.abs(s1.mult - 1.2) < 1e-9 && s1.next === 2 && s1.inDays >= 18 && s1.inDays <= 30, { noPostpone, s1 });
-  await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); r.due = Date.now() - 2 * 3600000; g.releases.forEach((x) => { if (x === r) x.due = Date.now() - 2 * 3600000; }); H.update(); });
+  await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const back = H.relAnn(r) - (Date.now() - 2 * 3600000); r.due -= back; if (r.outAt != null) r.outAt -= back; H.update(); }); // (0.30.1: its shoot and its hour, both long past)
   await sleep(2500); // the clock gives the missed episode up
   const s2 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { missed: g.series.missed, streak: g.series.streak, next: r && r.ep, state: g.series.state }; });
   check('a missed episode: the series breaks (back to ×1), the next one is programmed', s2.missed === 1 && s2.streak === 0 && s2.next === 3 && s2.state === 'on', s2);
-  await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); r.due = Date.now() - 2 * 3600000; H.update(); });
+  await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const back = H.relAnn(r) - (Date.now() - 2 * 3600000); r.due -= back; if (r.outAt != null) r.outAt -= back; H.update(); });
   await page.waitForSelector('.modal .se-dots', { timeout: 8000 });
   await shot(page, 'series-verdict');
   const s3 = await G(page, () => ({ state: window.__hype.S.game.series.state, pbb: window.__hype.S.game.pbb && window.__hype.S.game.pbb.kind }));

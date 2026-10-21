@@ -150,14 +150,14 @@ async function newGame(page, identity) {
   const rel = await G(page, () => {
     const H = window.__hype, g = H.S.game, s = g.stats, t = Date.now(), out = {};
     const r = H.addRelease(g, { what: 'short', topic: 'je teste un jeu de société magique', in: 60 }, null, null);
-    r.due = t + 2 * 24 * 3600000;
+    H.setOut(r, t + 2 * 24 * 3600000, t); // (0.30.1: its time out in two days, its shoot two hours before)
     const rep0 = s.reputation, fol0 = s.followers;
     out.can = H.canPostpone(r) && H.earlyMove(r);
     const opts = H.laterChoices(g, r, t);
-    out.later = opts.length > 3 && opts.every((o) => o.at > r.due);
+    out.later = opts.length > 3 && opts.every((o) => o.at > H.relAnn(r));
     const to = opts[3].at;
-    out.moved = H.postponeRelease(g, r, to) && r.due === Math.round(to) && r.delays === 0 && r.moved === 1 && s.reputation === rep0 && s.followers === fol0;
-    r.due = t + 30 * 60000; // the last minute: a real postponement, it costs
+    out.moved = H.postponeRelease(g, r, to) && H.relAnn(r) === Math.round(to) && r.delays === 0 && r.moved === 1 && s.reputation === rep0 && s.followers === fol0;
+    H.setOut(r, t + 30 * 60000, t); // the last minute: a real postponement, it costs
     out.late = !H.earlyMove(r) && H.postponeRelease(g, r, t + 3 * 3600000) && r.delays === 1 && s.reputation < rep0;
     // given up: the kept things go to the inventory (as new), the rentals are spent
     r.devis = { total: 160, items: [{ kind: 'achat', item: 'le jeu (édition standard)', price: 40, keep: true }, { kind: 'location', item: 'une salle', price: 120 }], have: [] };

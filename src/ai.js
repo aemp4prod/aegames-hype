@@ -192,8 +192,9 @@ function ctxText(g, o = {}) {
   if (g.chronicle.slice(-(nChron || 8)).some((e) => /rendez-vous|rencard|\brdv\b|d[îi]ner|un verre/i.test(e.text))) L.push('Seuls les rendez-vous de l’agenda (ci-dessus) engagent le joueur : s’il a été question d’un autre sans qu’il soit inscrit, personne ne lui reproche de lapin.');
   plannedReleases(g).slice(0, MAX_PLANNED).forEach((rl, k) => { // 0.27.4: several can be planned (0.27.6: all of them)
     const rc = rl.c && g.chars[rl.c];
+    if (rl.big) { L.push(bigCtxLine(g, rl, now)); return; } // 0.30.1: a big production
     if (rl.now) { L.push(`Le joueur ${k ? 'sort aussi' : 'sort'} ${unW(rl)} tout de suite, sans l’avoir annoncé : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}. Personne ne l’attendait à une heure précise.`); return; } // 0.30
-    L.push(`Le joueur a ${k ? 'aussi ' : ''}${rl.series ? 'programmé' : 'annoncé'} ${unW(rl)}${rl.series ? ` (épisode ${rl.ep} de son défi quotidien)` : ''} : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}, sortie ${rl.due > now ? 'prévue dans ' + fmtDur(rl.due - now) : 'attendue maintenant'}${rl.delays ? `, déjà ${whatF(rl) ? 'repoussée' : 'repoussé'} ${rl.delays} fois` : ''}. Le public l’attend.`);
+    L.push(`Le joueur a ${k ? 'aussi ' : ''}${rl.series ? 'programmé' : 'annoncé'} ${unW(rl)}${rl.series ? ` (épisode ${rl.ep} de son défi quotidien)` : ''} : « ${rl.topic} »${rc ? ` (au sujet de @${rc.handle})` : ''}, ${rl.what === 'live' ? 'début' : 'sortie'} ${relAnn(rl) > now ? 'prévue dans ' + fmtDur(relAnn(rl) - now) : 'attendue maintenant'}${rl.ann && rl.ann < relAnn(rl) ? ` (il l’avait annoncé${whatF(rl) ? 'e' : ''} pour ${hourOf(rl.ann)}, mais ça prend ${prodWord(rl.what, rl.care, rl.team)} à faire : ${whatF(rl) ? 'elle' : 'il'} sera en retard)` : ''}${rl.delays ? `, déjà ${whatF(rl) ? 'repoussée' : 'repoussé'} ${rl.delays} fois` : ''}. Le public l’attend.`);
   });
   if (lowActive(g)) L.push('Le joueur fait profil bas : il ne publie plus pour l’instant.');
   if (K.skills) L.push(skillsCtx(g)); // 0.24: levels out of 50
@@ -431,7 +432,7 @@ const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un perso
 // A video (or live, clip…) the player announces for later: the game starts a countdown.
 const ANNOUNCE_LINE = '- Si le joueur annonce dans son message qu’il sortira bientôt un contenu (vidéo, live, clip, podcast…), même en passant : {"t":"announce","what":"vidéo","topic":"≤ 80 caractères : ce qu’il veut montrer ou prouver, fidèle à SES mots ; s’il ne le dit pas, reprends ce qu’il défendait lui-même juste avant, sans y mélanger les autres intrigues du moment","in":60,"about":"handle du personnage visé s’il veut prouver ou dénoncer quelque chose sur lui, sinon vide"} ("in" = minutes avant la sortie d’après ce qu’il dit et l’heure qu’il est, 60 si ce n’est pas précisé, entre 1 et 1440). Les réactions peuvent déjà en parler.';
 // 0.27.4: with releases already planned, the model knows which: a post about one of them is no new one
-const announceLine = (g, now = Date.now()) => { const P = plannedReleases(g); return ANNOUNCE_LINE + (P.length ? ` Déjà prévu : ${P.map((r) => `${unW(r)} « ${str(r.topic, 50)} » ${fmtWhen(r.due, now)}`).join(' ; ')}. S’il parle d’une de ces sorties, pas de ligne "announce" : seulement pour un nouveau contenu.` : ''); };
+const announceLine = (g, now = Date.now()) => { const P = plannedReleases(g); return ANNOUNCE_LINE + (P.length ? ` Déjà prévu : ${P.map((r) => `${unW(r)} « ${str(r.topic, 50)} » ${fmtWhen(relAnn(r), now)}`).join(' ; ')}. S’il parle d’une de ces sorties, pas de ligne "announce" : seulement pour un nouveau contenu.` : ''); };
 // The shoot (mini-game) decides how the release is received.
 const VIDEO_TIER_TEXT = {
   top: (r) => `RÉUSSI : ${laW(r)} est ${whatF(r) ? 'réussie' : 'réussi'}, convainc, fait rire ou impressionne ; quality 7-9, reception 6-9, virality 7-9`,
@@ -491,12 +492,18 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     if (fq) L.push(fq);
     const pl = prodLine(g, r); // 0.28.1: what it cost to make, as the public sees it
     if (pl) L.push(pl);
+    const tl = timeLine(g, r); // 0.30.1: the time it took (« soignée »), and late on what was announced
+    if (tl) L.push(tl);
     L.push(`Résultat du tournage (un mini-jeu joué par le joueur, en difficulté ${diffOf(vid.diff).label.toLowerCase()}) : ${VIDEO_TIER_TEXT[vid.tier](r)} (${pctOf(vid.score)} %). Ce résultat décide l’accueil. Les réactions parlent du contenu (ce qu’on y voit, ce que ça montre ou prouve).`);
     const VD = diffOf(vid.diff);
     if (vid.tier === 'top' && VD.real) L.push(`Réussi au niveau ${VD.label}, le plus dur du jeu : de vraies questions d’expert sur le sujet. On sent que le joueur maîtrise vraiment : des connaisseurs le saluent, même les plus pointus.`);
     else if (vid.tier === 'top' && VD.viral) L.push(`Réussi au niveau ${VD.label} : une exécution bluffante, ça part en viral.`);
     const F = vid.form || {};
     L.push(`Sur ${pfName(g, platformOf(g))}, format ${nounOf(r)}${r.series ? ` : épisode ${r.ep} de son défi quotidien (« Daily Upload »)` : ''}.${F.title ? ` Titre : « ${F.title} ».` : ''}${F.thumb && THUMBS[F.thumb] ? ` Miniature : ${THUMBS[F.thumb].label.toLowerCase()}.` : ''}${F.hook ? ` Accroche des premières secondes : « ${F.hook} ».` : ''}`);
+    if (r.big) { // 0.30.1: a big production: the expectations, the cast, the premiere
+      const bc = castIn(g, r);
+      L.push(`Les attentes étaient énormes (une grosse production, annoncée depuis des jours) : un carton fait beaucoup parler (médias, autres créateurs, mèmes), un flop se paie cher (« tout ça pour ça », moqueries).${bc.length ? ` Au casting : ${bc.map((x) => '@' + x.handle).join(', ')} : ils réagissent forcément, et leurs fans viennent voir.` : ''}${F.premiere ? ' Elle sort en AVANT-PREMIÈRE EN LIVE : le joueur la découvre en direct avec sa commu, qui commente en direct.' : ''}`);
+    }
     const al = audLine(g, r); // 0.29.1: who watches it
     if (al) L.push(al);
     const tr = F.trend ? g.trends.find((x) => x.id === F.trend) : null;
@@ -504,7 +511,9 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     if (F.collab && g.chars[F.collab]) L.push(`Publié en collab avec @${g.chars[F.collab].handle}, qui réagit forcément.`);
     if (F.membLive && r.what === 'live' && membOn(g)) L.push('C’est un live RÉSERVÉ À SES MEMBRES payants : seuls eux le voient, peu de monde mais une ambiance entre fidèles ; ceux qui réagissent sont surtout ses membres et ses habitués.'); // 0.22
     else if (F.membAvant && r.what !== 'live' && membOn(g)) L.push(`Ses membres payants l’ont vu${whatF(r) ? 'e' : ''} 48 h avant tout le monde (une avant-première promise) : certains le disent.`);
-    const dl = F.deal ? dealOf(g, F.deal) : null;
+    const dls = r.big ? (F.deals || []).map((id) => dealOf(g, id)).filter(Boolean) : []; // 0.30.1: several brands in a production
+    if (dls.length) L.push(`C’est un contenu SPONSORISÉ par ${dls.length > 1 ? `${dls.length} marques : ` : ''}${dls.map((d) => `${d.brand} (${d.product})`).join(', ')}${F.mention === false ? ', SANS la mention « Collaboration commerciale » : un ou deux commentaires flairent la pub cachée' : ', avec la mention « Collaboration commerciale »'}. Quelques réactions parlent des placements${dls.length > 1 ? ' (« ça fait beaucoup de pubs », codes promo…)' : ''}, sans que ça prenne toute la place. Juge si ${dls[0].brand} est logique avec le sujet de ${laW(r)} : fit = 1 si elle colle au sujet ou à son public, 0 si ça passe sans plus, -1 si elle n’a rien à voir ; les réactions en tiennent compte.`);
+    const dl = !r.big && F.deal ? dealOf(g, F.deal) : null;
     if (dl) L.push(`C’est un contenu SPONSORISÉ par ${dl.brand} (${dl.product})${F.mention === false ? ', SANS la mention « Collaboration commerciale » : un ou deux commentaires flairent la pub cachée' : ', avec la mention « Collaboration commerciale »'}. Quelques réactions parlent du placement (moqueries, « vendu », code promo…), sans que ça prenne toute la place. Juge aussi si ce partenariat est logique avec le sujet de ${laW(r)} : fit = 1 s’il colle au sujet ou à son public (une manette dans une vidéo gaming, un rouge à lèvres dans un tuto maquillage), 0 si ça passe sans plus, -1 s’il n’a rien à voir (une crème anti-rides au milieu d’un jeu d’horreur) ; les réactions en tiennent compte (logique, ça passe tout seul ; hors sujet, ça fait tiquer).`);
     if (vc) {
       const il = whatF(r) ? 'elle' : 'il';
@@ -584,7 +593,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
       + (vid ? ADS_RULE : ''),
     '2) Génère la suite sur le réseau.' + (trig.length ? ' Si une section « À JOUER CETTE FOIS » existe, intègre-la.' : ''),
     '', FORMAT, 'Lignes à produire, dans cet ordre :',
-    `- D’abord exactement une ligne : {"t":"eval","quality":4,"humor":2,"bold":2,"controversy":0,"reception":2,"virality":2,"kindness":0,"flirt":0,"flirtWith":"","tox":0,"riposte":false,"cible":"",${extra.apology || conf ? '"sincerity":5,' : ''}${acc ? '"credibility":5,"exposed":false,' : ''}${deb || secAns ? '"credibility":5,' : ''}${acc && acc.fake ? '"fake":5,"busted":false,' : ''}${vc ? '"exposed":false,' : ''}${extra.photo ? '"pe":"1 à 3 emoji qui illustrent la photo",' : ''}${vid ? '"ads":"vert","adv":3,"adsWhy":"",' : ''}${vid && vid.form && vid.form.deal ? '"fit":0,' : ''}${extra.merch ? '"merch":3,' : ''}"skills":[],"verdict":"…","memo":""}`,
+    `- D’abord exactement une ligne : {"t":"eval","quality":4,"humor":2,"bold":2,"controversy":0,"reception":2,"virality":2,"kindness":0,"flirt":0,"flirtWith":"","tox":0,"riposte":false,"cible":"",${extra.apology || conf ? '"sincerity":5,' : ''}${acc ? '"credibility":5,"exposed":false,' : ''}${deb || secAns ? '"credibility":5,' : ''}${acc && acc.fake ? '"fake":5,"busted":false,' : ''}${vc ? '"exposed":false,' : ''}${extra.photo ? '"pe":"1 à 3 emoji qui illustrent la photo",' : ''}${vid ? '"ads":"vert","adv":3,"adsWhy":"",' : ''}${vid && vid.form && (vid.form.deal || (vid.form.deals || []).length) ? '"fit":0,' : ''}${extra.merch ? '"merch":3,' : ''}"skills":[],"verdict":"…","memo":""}`,
     '  skills = celles que l’action démontre parmi "charisme", "humour", "audace", "creativite". verdict = 2 à 5 mots sur l’accueil. memo = une phrase si l’action compte pour l’histoire (alliance, clash, révélation…), sinon "".',
     acc && acc.fake ? `- Si busted vaut false, juste après : une ligne cachée {"t":"debunk","by":"handle d’un habitué, d’un média ou de @${acc.c.handle}","text":"≤ 220 caractères"} : le post qui démasquerait la pièce plus tard, avec le détail précis qui trahit le faux (le joueur ne la verra que si quelqu’un finit par creuser).` : null,
     isPost
@@ -596,7 +605,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     isPost ? '- Puis une ligne : {"t":"likes","by":["handles des personnages principaux qui aiment ce post"]} (liste vide possible).' : null,
     vid && vid.r.what === 'live' && donOK(g) ? DON_LINE : null, // 0.21
     isPost
-      ? `- Puis ${intensityOf(g).actPosts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"} : ` + 'd’autres posts du fil (réactions indirectes, vies des personnages ou du public ; un média seulement si ça fait vraiment du bruit). Facultatif : "quote":true pour citer le post du joueur (le soutenir ou s’en moquer), "later":3 (minutes, 1 à 8) pour qu’il arrive plus tard, "photo":"ce qu’on voit" pour un post photo.'
+      ? `- Puis ${intensityOf(g).actPosts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"} : ` + 'd’autres posts du fil (réactions indirectes, vies des personnages ou du public ; un média seulement si ça fait vraiment du bruit). Facultatif : "quote":true pour citer le post du joueur (le soutenir ou s’en moquer), "later":3 (minutes, 1 à 8) pour qu’il arrive plus tard, "photo" pour un post photo ("son code" pour une vraie photo d’un personnage, voir LEURS VRAIES PHOTOS ; sinon "ce qu’on voit" : une image où il n’est pas).'
       : '- Seulement si cet échange fait vraiment du bruit (rare) : une ligne {"t":"post","by":"handle","text":"≤ 220 caractères"}. Pas de récap d’un simple échange, surtout pas par un média.',
     `- Facultatif (au plus ${intensityOf(g).actDms}) : ` + '{"t":"dm","by":"handle","text":"≤ 200 caractères"} si un personnage a une vraie raison d’écrire en privé au joueur ("later" possible aussi).',
     '- Facultatif (au plus 2) : {"t":"mem","by":"handle","text":"≤ 90 caractères"} : ce qu’un personnage retient du joueur après cette action (une promesse, une insulte, un secret…), seulement si c’est nouveau par rapport à ce qu’il ou elle retient déjà.',
@@ -613,6 +622,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     isPost ? '- Seulement si l’action déclenche un vrai moment fort : {"t":"event","kind":"drama","title":"≤ 60 caractères"} (kind parmi drama, collab, cancel).' : null,
     isPost && extra.poll ? `- Ce post est un SONDAGE (son texte est la question ; choix : ${extra.poll.opts.map((x) => `« ${noJson(x)} »`).join(', ')}) : une ligne {"t":"pollres","res":[${extra.poll.opts.map(() => Math.round(100 / extra.poll.opts.length)).join(',')}]} (les pourcentages de votes, dans l’ordre des choix, somme 100), d’après ce que le public pense ; des réponses peuvent dire ce qu’elles ont voté.` : null, // 0.29
     isPost ? '- Rare : si une réponse fait plus de likes que le post lui-même (un « ratio » : le public préfère la réponse, souvent une vanne qui tue), ajoute "ratio":true à cette réponse.' : null); // 0.29
+  if (isPost) L.push(...albumLines(g, focus)); // 0.30.1: their real photos, chosen by the AI
   return L.filter((x) => x !== null).join('\n');
 }
 
@@ -692,6 +702,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   if (main) L.push(...jobDMCtx(g, c)); // 0.23: an order the player is working on for them
   if (main) L.push(...merchDMCtx(g, c)); // 0.29: a merch in duo, proposed
   if (main) L.push(...featDMCtx(g, c)); // 0.29.1: a feat, proposed
+  if (main) L.push(...castDMCtx(g, c)); // 0.30.1: the cast of a big production
   if (trig.length) L.push('À jouer dans cette conversation : ' + trig.map((x) => x.text).join(' '));
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
   if (rumor) L.push(rumor);
@@ -727,7 +738,10 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     main && (meetHere || inv || date) ? PLAN_DM(c) : null,
     main && (meetHere || ini || inv) ? INVITE_DM(c) : null,
     main && featAsked(g, c) ? FEAT_LINE(c) : null, // 0.29.1
+    main && castAsked(g, c) ? CAST_LINE(c) : null, // 0.30.1: in the production, or not
+    main && castOn(g, c) && hitchOK(g, bigOn(g)) ? CAST_HITCH_LINE(c) : null, // 0.30.1: unable to come after all (their AI decides)
     main && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id ? FADE_SENSUAL(firstName(c), false) : null, // 0.30: together in person, the scene may cut
+    main && awayHome(g) && g.stay.c === c.id && !g.stay.gear && !g.stay.lent ? LEND_LINE(c) : null, // 0.30.1: their gear, lent or not
     date ? `- Seulement si ${c.name} annule clairement ce rendez-vous dans cet échange (dispute, bad buzz, plus envie de voir le joueur) : {"t":"cancel","why":"≤ 70 caractères"}. Jamais pour un retard, une hésitation, une taquinerie ou une confusion sur l’heure ou le jour.` : null,
     main && (intelHere || traitOf(g, c)) ? INTEL_LINE(c) : null, // (0.30: a traitor keeps everything)
     ...(main ? traitOutLines(g, c) : []),
@@ -799,7 +813,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
     arc ? '- D’abord une ligne : {"t":"arc","title":"≤ 60 caractères : le nouveau sujet en quelques mots","tag":"#LeHashtag"}' : null,
     ...roleAskLines(g), // 0.29: an old game: the critic and Rebecca Silver arrive
     arc && activeQuests(g).filter((q) => q.kind === 'story').length < 3 ? '- Facultatif, si ça s’y prête : une quête pour que le joueur puisse se mêler de ce nouveau sujet : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}' : null,
-    `- ${absentMs ? intensityOf(g).refresh.absent : intensityOf(g).refresh.posts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"}, dont deux ou trois de gens du PUBLIC (habitués, ou nouveaux figurants avec "name" et "bio") : trolls, vanneurs, shitposts, gens qui parlent de leur vie ou du sujet du moment. Pas deux posts du même compte. Facultatif : "photo":"ce qu’on voit" pour environ un post sur cinq${absentMs ? '' : ' ; "later":3 (minutes, 1 à 8) pour un ou deux posts qui arriveront plus tard'}.`,
+    `- ${absentMs ? intensityOf(g).refresh.absent : intensityOf(g).refresh.posts} lignes : {"t":"post","by":"handle","text":"≤ 220 caractères"}, dont deux ou trois de gens du PUBLIC (habitués, ou nouveaux figurants avec "name" et "bio") : trolls, vanneurs, shitposts, gens qui parlent de leur vie ou du sujet du moment. Pas deux posts du même compte. Facultatif : une photo pour environ un post sur cinq ("photo":"son code" pour une vraie photo d’un personnage, voir LEURS VRAIES PHOTOS ; sinon "photo":"ce qu’on voit" : une image où il n’est pas)${absentMs ? '' : ' ; "later":3 (minutes, 1 à 8) pour un ou deux posts qui arriveront plus tard'}.`,
     `- ${intensityOf(g).refresh.replies} réponses sous ces nouveaux posts : {"t":"reply","to":0,"by":"handle","text":"≤ 160 caractères"} ("to" = numéro du post visé dans ta réponse, en comptant à partir de 0 ; facultatif : "re":"handle" quand elle répond à un autre commentaire de ce post)`,
     `- Facultatif (au plus ${absentMs ? intensityOf(g).refresh.absentDms : intensityOf(g).refresh.dms}) : {"t":"dm","by":"handle","text":"≤ 200 caractères"} si un personnage a une raison d’écrire au joueur en privé`,
     mix && g.chars[mix.c] ? MIX_LINE(g, mix) : null,
@@ -823,6 +837,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
   const vl = visitLine(g); // 0.18: someone may come over
   if (vl) L.push(vl);
   L.push(...roleLines(g), ...psyPublicLines(g), ...socialLines(g)); // 0.29: the critic's videos, Rebecca's fanfictions, the secret; stories, groups, mother, fans, ships, fakes
+  L.push(...albumLines(g, focus)); // 0.30.1: their real photos, chosen by the AI
   L.push(...capLines(g, batch)); // the characters write the captions of the photos the game chose for them
   return L.join('\n');
 }
@@ -1252,12 +1267,12 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
         ? [...men.map((c) => 'c:' + c.id), accuse ? 'c:' + accuse.id : null, quote ? quote.a : null]
         : [target.a, targetReply ? targetReply.a : null, ...men.map((c) => 'c:' + c.id)]),
       // the shoot's difficulty pays, and so does a daily upload's streak
-      mult: vid && vid.tier !== 'flop' ? diffOf(vid.diff).mult * (vid.r.series ? seriesMult(g) : 1) * prodMult(g, vid.r) : 1,
+      mult: vid && vid.tier !== 'flop' ? diffOf(vid.diff).mult * (vid.r.series ? seriesMult(g) : 1) * prodMult(g, vid.r) * (vid.r.big ? 1 + (vid.r.big.k - 1) * 0.5 : 1) : 1, // (0.30.1: a big production, far more)
       forceViral: !!(vid && vid.tier === 'top' && diffOf(vid.diff).viral),
       ally: kind === 'post' ? allyBoost(g) : 0, // allies share the player's posts
       lossMult: staffMult(g, 'loss'), // a community manager limits the damage
       train: trainMult(g), // 0.17: the train of the hyyype: posts carry further on the way
-      gear: vid ? gearPostMult(g) : 1, viralPlus: vid ? gearViralPlus(g) : 0, // 0.20: what came out every six months
+      gear: vid ? gearPostMult(g) : 1, viralPlus: vid ? gearViralPlus(g) + (vid.r.care && careOK(vid.r.what) ? 0.04 : 0) : 0, // 0.20: what came out every six months (0.30.1: « soignée », a little more buzz)
       algo: kind === 'post' ? algoMult(g, fmtOfAct(vid, photo)) : 1, // 0.29: the algorithm of the moment
     },
     replyNames: [], replyNotif: null, toMe: 0,
@@ -1695,13 +1710,28 @@ const prodLine = (g, r) => {
   const k = prodMult(g, r);
   return `Budget de production : ${fmtMoney(g, total)}${k >= 2 ? ', énorme pour un compte de cette taille : ça se voit à l’écran et ça fait parler' : k >= 1.4 ? ', bien plus que d’habitude pour ce compte : ça se voit' : ''}.`;
 };
+// 0.30.1: what the reactions know of the time it took: « soignée » shows; late on the time announced, people noticed.
+function timeLine(g, r, t = Date.now()) {
+  if (r.big) { // 0.30.1: a big production
+    const late = t - relAnn(r), H = Math.round(bigTotal(r));
+    return `C’est une GROSSE PRODUCTION : ${H} h de travail sur ${r.big.size} jours (préparation, tournage, post-production)${r.team ? `, ${teamWord(r.team).replace('ton', 'son').replace('ta ', 'sa ')}` : ''}, et ça se voit à l’écran (les moyens, la mise en scène, le montage).${late > 30 * 60000 ? ` Elle sort avec ${fmtDur(late)} de retard sur l’heure annoncée : certains le relèvent.` : ''}`;
+  }
+  const D = prodMs(r);
+  if (!D) return '';
+  const out = [];
+  if (r.what === 'live') out.push(`Le live a duré environ ${prodWord('live')}.`);
+  else out.push(`Le joueur y a passé ${prodWord(r.what, r.care, r.team)}, tournage et montage compris${r.team ? ` (${teamWord(r.team).replace('ton', 'son').replace('ta ', 'sa ')})` : ''}${r.care && careOK(r.what) ? ' : un contenu SOIGNÉ, et ça se voit (le rythme, la qualité de l’image et du son, les détails) : des gens le remarquent' : ''}.`);
+  const late = r.now ? 0 : t - (r.ann && r.ann < relAnn(r) ? r.ann : relAnn(r));
+  if (late > 30 * 60000 && r.what !== 'live') out.push(`Il sort avec ${fmtDur(late)} de retard sur l’heure annoncée : certains l’ont remarqué (un ou deux le chambrent), la plupart sont juste contents qu’il soit là.`);
+  return out.join(' ');
+}
 function releaseDone(ctx) {
   const g = ctx.g, v = ctx.video, r = v.r, T = RELEASE_TIERS[v.tier];
   Object.assign(r, { state: 'released', tier: v.tier, score: v.score, out: ctx.post.id, releasedAt: Date.now(), game: null });
   keptToInv(g, r, 'bon'); // 0.28.1
   const Ta = ta(r)[0].toUpperCase() + ta(r).slice(1);
-  addNotif(g, { k: 'release', p: ctx.post.id, text: `${Ta} « ${str(r.topic, 60)} » est en ligne : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.` });
-  addChronicle(g, `${g.player.name} a sorti ${sa(r)} « ${str(r.topic, 80)} » : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.`);
+  addNotif(g, { k: 'release', p: ctx.post.id, text: r.big ? `🎥 Ta production « ${str(r.topic, 60)} » est en ligne : elle ${T.verdict}.${v.tier === 'flop' ? '' : ' Ses vues vont grimper pendant des jours.'}` : `${Ta} « ${str(r.topic, 60)} » est en ligne : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.` });
+  addChronicle(g, r.big ? `${g.player.name} a sorti sa grosse production « ${str(r.topic, 80)} » : elle ${T.verdict}.` : `${g.player.name} a sorti ${sa(r)} « ${str(r.topic, 80)} » : ${whatF(r) ? 'elle' : 'il'} ${T.verdict}.`);
   if (v.tier === 'top') addEcho(g, 'release', { text: r.topic, what: ta(r) });
   if (v.tier === 'top' && v.diff === 'mythique') unlockAch(g, 'living-legend'); // 0.28
   { // 0.28.1: « Ça devient la télé », « MrBeast »: a content really published, at that price (an episode: its share)
@@ -1711,7 +1741,10 @@ function releaseDone(ctx) {
     if (per > 1000000) unlockAch(g, 'mrbeast');
   }
   { const st = ensureAch(g); st.nightmare = v.diff === 'cauchemar' && v.tier === 'top' ? (st.nightmare || 0) + 1 : 0; achProgress(g, 'subject-expert', st.nightmare); } // (ten shoots in a row, all of them in Cauchemar)
-  if (!r.series && !r.delays && v.tier !== 'flop') repMove(g, { cred: v.tier === 'top' ? 6 : 3 }, `promesse tenue : ${ta(r)} « ${str(r.topic, 40)} » est sorti${whatF(r) ? 'e' : ''} à l’heure`); // 0.10
+  const late = r.big ? Math.max(0, Date.now() - relAnn(r)) : !r.now && r.what !== 'live' && prodMs(r) ? Date.now() - (r.ann && r.ann < relAnn(r) ? r.ann : relAnn(r)) : 0; // 0.30.1
+  if (!r.series && !r.delays && v.tier !== 'flop' && late <= 30 * 60000) repMove(g, { cred: v.tier === 'top' ? 6 : 3 }, `promesse tenue : ${ta(r)} « ${str(r.topic, 40)} » est sorti${whatF(r) ? 'e' : ''} à l’heure`); // 0.10
+  if ((r.care || r.big) && careOK(r.what) && v.tier !== 'flop') repMove(g, { cred: r.big ? (v.tier === 'top' ? 10 : 4) : v.tier === 'top' ? 4 : 2, ...(r.big && v.tier === 'top' ? { pro: 6, image: 6 } : {}) }, r.big ? `ta production « ${str(r.topic, 40)} » : du travail de pro` : `${ta(r)} « ${str(r.topic, 40)} » : du travail soigné`); // 0.30.1
+  if (late > 30 * 60000) r.late = late;
 }
 function markViral(ctx) {
   const g = ctx.g, p = ctx.post;
@@ -1908,6 +1941,7 @@ async function sendDM(charId, text, opts = {}) {
   for (const m of convo.msgs) if (m.at > t && m.at - t < 10 * 60000) { m.at = t - 1; m.ts = m.at; }
   if (isMain(c)) { // 0.11: a daring move starts a dare, pushing during a cool makes it worse; silence costs nothing
     heartBeforeDM(g, c, text);
+    if (awayHome(g, t) && g.stay.c === c.id && !g.stay.gear && GEAR_RE.test(text)) g.stay.gear = t; // 0.30.1: they brought their gear
     const quiet = quietDM(g, c, convo, t);
     if (quiet) {
       const back = gift && quiet === 'bloque'; // 0.28.1: blocked: the present comes back (nothing reaches them)
@@ -1986,6 +2020,8 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'psy' && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag
       else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => ((o.collab === true || o.collab === 'true' || COLLAB_RE.test(o.what || '')) && isMain(c) && planCollab(g, c, o)) || addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); } // (0.29.1: a feat agreed goes in the Studio)
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
+      else if (o.t === 'casting' && !fx.cast && isMain(c)) fx.cast = () => applyCastLine(g, c, o); // 0.30.1: in the production, or not
+      else if (o.t === 'imprevu' && !fx.hitch && isMain(c) && castOn(g, c)) { const o2 = Object.assign({}, o, { by: c.handle }); fx.hitch = () => applyHitch(g, o2); } // 0.30.1: unable to come after all
       else if (o.t === 'trust' && !fx.trust && isMain(c)) { const when = at + 400; fx.trust = () => applyTrust(g, c, int(o.d, -15, 8, 0), o.why, when); }
       else if (o.t === 'advice' && !fx.advice && advice) fx.advice = () => addAdvice(g, c, o, mine.id);
       else if (o.t === 'confide' && !fx.confide && isMain(c)) { const m = lastMsg; fx.confide = () => confideSecret(g, c, m); }
@@ -1995,6 +2031,7 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'fade' && !fx.fade && isMain(c) && sensual(g) && stayOn(g) && g.stay && g.stay.c === c.id) { const when = at + 600; fx.fade = () => { convo.msgs.push({ id: uid('m'), sys: 'fade', me: false, text: ELLIPSE_LINE, ts: when, at: when }); intimateMem(g, c, null, when); }; } // 0.30
       else if (o.t === 'traitre' && !fx.trait && isMain(c)) { const when = at + 1200, tx = o.text; fx.trait = () => traitSign(g, c, tx, when); } // 0.30: a detail that does not fit
       else if (o.t === 'demasque' && !fx.unmask && isMain(c)) { const when = at + 800; fx.unmask = () => traitUnmask(g, c, when); } // 0.30: seen through
+      else if (o.t === 'preter' && !fx.lend && isMain(c) && awayHome(g) && g.stay.c === c.id) { const when = at + 700; fx.lend = () => { if (!stayOn(g) || g.stay.lent) return; g.stay.lent = when; addNotif(g, { k: 'relup', c: c.id, at: when, text: `💻 ${firstName(c)} te prête son matos : tu peux tourner chez ${gx(c.g, 'lui', 'elle', 'iel')}.` }); }; } // 0.30.1
       else if (o.t === 'excuse' && !fx.excuse && isMain(c)) { const ok = o.ok === true || o.ok === 'true', when = at + 500; fx.excuse = () => excuseJudged(g, c, ok, text, when); } // 0.30: believed, or not
       else if (o.t === 'perso' && !fx.perso && canJoin(c)) { const why = o.why; fx.perso = () => joinCast(g, c, why); } // 0.16: it got personal
       else if (o.t === 'choice' && !fx.choice && isMain(c)) { const to = o.to; fx.choice = () => dilemmaChoice(g, c, to, text); } // 0.18: who gets the spot
@@ -2020,7 +2057,7 @@ async function sendDM(charId, text, opts = {}) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
       if (isMain(c) && msgs && !fx.plan && !fx.noinv) dmDateFallback(g, c, text, saidNow.join(' '), invBefore, !!fx.invite, at);
@@ -2194,7 +2231,7 @@ async function skipTime(ms, until) {
   if (typeof until === 'function') ms = num(until(), 0) - Date.now() + 1000; // the clock went on meanwhile
   if (!(ms >= 1000)) { update(false); return; } // already there: « jusqu’à la sortie » with 40 s left must work, even after a wait
   const rl = activeRelease(g);
-  if (rl && rl.due <= Date.now()) { toast(`${cap1(ta(rl))} doit sortir maintenant : ${whatF(rl) ? 'tourne-la ou repousse-la' : 'tourne-le ou repousse-le'} avant d’avancer le temps.`); return; }
+  if (rl && rl.due <= Date.now()) { toast(rl.big ? bigHeld(rl) : `${cap1(ta(rl))} : ${dueWord(rl)}. ${whatF(rl) ? 'Tourne-la ou repousse-la' : 'Tourne-le ou repousse-le'} avant d’avancer le temps.`); return; }
   const stops = [rl, ...activeEvents(g).filter((e) => e.player)].filter((x) => x && x.due > Date.now()).map((x) => x.due);
   if (stops.length) ms = Math.min(ms, Math.min(...stops) - Date.now() + 1000); // never past an announced release or a date
   ms = Math.max(1000, Math.round(ms));
@@ -2231,6 +2268,72 @@ function jumpClock(g, ms) {
    morning is told in their messages, and the player is still there (or they are still at the player's) until the player
    goes home, or late in the morning. Everyone's prompts know it; the others only if they know about the two of them. */
 const STAY_MS = 5 * 3600000;
+/* 0.30.1: a date takes its evening: about three hours from when it started. What falls in it (a release to shoot, another
+   date) is said as the evening starts, never decided for the player: they can cut it short (« Écourter la soirée »:
+   the evening ends there, their AI takes it its way); otherwise it goes on, and what was in it comes late, or is missed. */
+const DATE_H = 3;
+/* 0.30.1: what else takes the player's time: a job done for someone (an edit 2 h, a thumbnail 1 h), a visit (about 2 h
+   from when it started), the opening of a signing or a pop-up store (half a day, when it starts with the game open). The
+   clock moves on once nobody is writing (never during a stream), and says so. */
+const JOB_H = { montage: 2, miniature: 1 }, VISIT_H = 2, EVENT_H = 4;
+function spendTime(g, ms, label) {
+  if (!g || !(ms >= 60000)) return 0;
+  if (skipBusy()) { g.timeDebt = (g.timeDebt || 0) + ms; g.timeWhy = label || g.timeWhy || ''; return 0; }
+  jumpClock(g, ms);
+  g.lastPlayedAt = Date.now();
+  toast(`⏱️ ${label ? label + ' : ' : ''}${hWord(ms / 3600000)} plus tard… Il est ${hourOf(Date.now())}.`, 'flash');
+  return ms;
+}
+// What falls in the next ms from t (a date, a release to shoot), said before the player commits (never decided for them).
+function clashIn(g, ms, t = Date.now()) {
+  const end = t + ms, out = [];
+  for (const r of plannedReleases(g)) if (bigTodo(r) && r.due < end) out.push(r.big ? `${BIG_STAGES[Math.min(r.big.stage, 2)].of} de ta production « ${str(r.topic, 40)} » (${r.due <= t ? 'maintenant' : `à ${hourOf(r.due)}`})` : `${ta(r)} « ${str(r.topic, 40)} » (${r.due <= t ? 'à tourner maintenant' : `à ${r.what === 'live' ? 'lancer' : 'tourner'} à ${hourOf(r.due)}`})`);
+  for (const e of activeEvents(g)) { const c = e.player && e.due < end && e.due + EVENT_GRACE > t ? g.chars[e.c] : null; if (c) out.push(`ton rendez-vous avec ${firstName(c)} à ${hourOf(e.due)}`); }
+  return out;
+}
+function eveningClash(g, ev, t = Date.now()) {
+  if (!g || !ev) return [];
+  const end = Math.min(t, ev.startAt || t) + DATE_H * 3600000, out = [];
+  for (const r of plannedReleases(g)) if (bigTodo(r) && r.due < end) out.push({ at: Math.max(r.due, t), rel: r.id, text: r.big ? `${BIG_STAGES[Math.min(r.big.stage, 2)].of} de ta production « ${str(r.topic, 40)} » est ${r.due <= t ? 'à faire maintenant' : `à ${hourOf(r.due)}`}` : `${ta(r)} « ${str(r.topic, 40)} » ${r.due <= t ? `est à ${r.what === 'live' ? 'lancer' : 'tourner'} maintenant` : `est à ${r.what === 'live' ? 'lancer' : 'tourner'} à ${hourOf(r.due)}`}` });
+  for (const e of activeEvents(g)) {
+    const c = e !== ev && e.player && e.due < end && e.due + EVENT_GRACE > t ? g.chars[e.c] : null;
+    if (c) out.push({ at: e.due, ev: e.id, text: `tu as aussi rendez-vous avec ${firstName(c)} à ${hourOf(e.due)}` });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+function eveningNotice(g, ev) {
+  const c = g && ev && g.chars[ev.c], cl = eveningClash(g, ev);
+  if (!c || !cl.length) { if (ev) delete ev.clash; return; }
+  ev.clash = cl.map((x) => ({ at: x.at, text: x.text }));
+  const talk = !!ev.talk || isTalk(g, ev); // (a first date is a mini-game: nothing to cut short, only to know)
+  const text = `⏰ Pendant ta soirée avec ${firstName(c)} : ${cl.map((x) => x.text).join(' ; ')}. ${talk ? 'Écourte la soirée pour y être' : 'La soirée dure environ 3 h'}, sinon ${cl[0].rel ? 'ça sortira en retard' : 'tu le rates'}.`;
+  addNotif(g, { k: cl[0].rel ? 'release' : 'event', c: c.id, text });
+  toast(text, 'flash');
+}
+// The player cuts the evening short: it ends here (the score so far), and the end of the evening knows why.
+function cutDate(ev) {
+  const g = S.game, T = ev && ev.talk;
+  if (!g || !T || ev.played || ev.state !== 'scheduled' || S.busy.talk || !T.lines.length) return false;
+  const x = (ev.clash || [])[0];
+  ev.cut = { at: Date.now(), why: x ? x.text : '' };
+  T.lines.push({ who: 'n', text: `Tu écourtes la soirée${x ? ` : ${x.text}` : ''}.` });
+  finishTalk(g, ev);
+  T.closed = true;
+  prepEnd(g, ev);
+  update();
+  return true;
+}
+function eveningJump(g, ev) {
+  if (!g || !ev || skipBusy()) return 0;
+  const t = Date.now(), start = Math.min(t, ev.startAt || ev.due || t);
+  let ms = Math.round(start + DATE_H * 3600000 - t);
+  if (ev.cut) { const x = (ev.clash || [])[0]; ms = x ? Math.min(ms, x.at - t - 5 * 60000) : 0; } // (cut short: only until what they left for)
+  if (ms < 10 * 60000) return 0;
+  jumpClock(g, ms);
+  g.lastPlayedAt = Date.now();
+  toast(`🌙 La soirée passe… il est ${hourOf(Date.now())}.`, 'flash');
+  return ms;
+}
 const MORNING_FALLBACK = (c) => `Le lendemain matin, chez ${firstName(c)} : la lumière qui passe entre les rideaux, un café partagé, et le sourire de la veille.`;
 const stayOn = (g, t = Date.now()) => !!(g && g.stay && !g.stay.end && t >= g.stay.at && t < g.stay.until && g.chars[g.stay.c]);
 // How long until the next morning (8 h – 9 h 30 of the game's clock), from a night that starts now.
@@ -2249,9 +2352,26 @@ function nightTogether(g, c, ev) {
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push({ id: uid('m'), sys: 'morning', ev: ev.id, where: M.where, text: M.text, ts: t, at: t });
   g.stay = { c: c.id, ev: ev.id, where: M.where, at: t, until: t + STAY_MS };
+  if (M.where === 'c' && gearSaid(g, c, ev, t)) g.stay.gear = t; // 0.30.1: they said they brought their gear
   addMem(g, c, M.where === 'c' ? 'le joueur a dormi chez moi' : 'j’ai dormi chez le joueur');
   addNotif(g, { k: 'vibe', c: c.id, at: t, text: `🌅 ${M.where === 'c' ? `Réveil chez ${first}` : `${first} s’est réveillé${c.g === 'f' ? 'e' : c.g === 'x' ? '·e' : ''} chez toi`}.` });
 }
+/* 0.30.1: at someone's place, the player's gear is at home: a short is shot on the phone, anywhere; the rest needs the gear
+   brought (said before, to them: « j'ai ramené mon ordi ») or lent by them (their AI decides). At home, nothing changes. */
+const GEAR_RE = /(?:ramen|amen|apport|emport|pris|venue?)[a-zà-ÿ]*\s+(?:avec\s+)?(?:moi\s+)?(?:tout\s+)?(?:mon|ma|mes)\s+(?:matos|mat[ée]riel|[ée]quipement|setup|ordi\w*|pc|portable|cam[ée]ra|micro)|j['’]ai\s+(?:tout\s+)?(?:mon|ma|mes)\s+(?:matos|mat[ée]riel|[ée]quipement|setup|ordi\w*|pc|portable|cam[ée]ra)\s+(?:avec|sur|dans|ici)/i;
+const awayHome = (g, t = Date.now()) => stayOn(g, t) && g.stay.where === 'c';
+function awayGear(g, r) {
+  if (!g || !r || r.what === 'short' || !awayHome(g) || g.stay.gear || g.stay.lent) return null;
+  const c = g.chars[g.stay.c], first = c ? firstName(c) : 'cette personne';
+  return { ok: false, fix: 'away', why: `Tu es chez ${first} et ton matos est resté chez toi : rentre pour ${whatF(r) ? 'la' : 'le'} ${r.what === 'live' ? 'lancer' : 'tourner'}, ou demande à ${first} de te prêter le sien.` };
+}
+// The player's own words: they brought their gear (the evening before, or this morning, to them).
+function gearSaid(g, c, ev, t = Date.now()) {
+  const mine = [...((ev && ev.talk && ev.talk.lines) || []).filter((x) => x.who === 'p').map((x) => x.text || ''),
+    ...(((g.dms[c.id] || {}).msgs) || []).filter((m) => m.me && t - (m.at || 0) < DAY_MS).map((m) => m.text || '')];
+  return mine.some((x) => GEAR_RE.test(x));
+}
+const LEND_LINE = (c) => `- Le joueur est chez ${firstName(c)} et son matos est resté chez lui. S’il demande à ${firstName(c)} de lui prêter son matos (ordi, caméra, micro…) pour tourner, ${firstName(c)} décide selon ce qu’${gx(c.g, 'il', 'elle', 'iel')} a, leur relation et son humeur ; si c’est oui, ajoute une ligne {"t":"preter"}.`;
 function endStay(g) {
   if (!stayOn(g)) return;
   const c = g.chars[g.stay.c], first = firstName(c);
@@ -2305,15 +2425,19 @@ function promptMiniGame(g, r, force) {
     ...MG_KINDS_AI.map((k) => FORMAT_LINE[k]),
     'Tout colle au sujet, au monde et à ce qui s’est passé. Pas de question pointue sur des faits réels. L’intro ne donne aucune réponse.',
   ];
-  return [RULES, '', ctxText(g, { kind: 'light', feed: D.real ? 10 : 4, chron: D.real ? 12 : 6, focus: new Set(c ? [c.id] : []) }), '',
-    '## TÂCHE : LE MINI-JEU DU TOURNAGE',
+  const big = r.big || null, prep = !!(big && big.stage === 0), cast = big ? castIn(g, r) : []; // 0.30.1: a big production
+  return [RULES, '', ctxText(g, { kind: 'light', feed: D.real ? 10 : 4, chron: D.real ? 12 : 6, focus: new Set(c ? [c.id] : cast.map((x) => x.id)) }), '',
+    prep ? '## TÂCHE : LE MINI-JEU DE LA PRÉPARATION (GROSSE PRODUCTION)' : '## TÂCHE : LE MINI-JEU DU TOURNAGE',
     `Le joueur va sortir ${sa(r)}. SON SUJET, choisi par lui : « ${r.topic} »${c ? ` (au sujet de @${c.handle})` : ''}. Respecte-le exactement : ne le remplace pas et ne le mélange pas avec d’autres intrigues du monde.`,
+    big ? `C’est une GROSSE PRODUCTION, faite comme une vraie vidéo pro : ${big.size} jours de travail (préparation, tournage, post-production)${r.devis && r.devis.total ? `, un budget de ${fmtMoney(g, r.devis.total)}` : ''}${cast.length ? `, avec au casting ${cast.map((x) => `@${x.handle} (${x.name})`).join(', ')}` : ''}.` : null,
+    prep ? 'Ce mini-jeu, c’est la PRÉPARATION de cette production : le concept, le script, les repérages, le casting, le budget, le planning, les autorisations, la sécurité… toujours EN RAPPORT DIRECT avec ce sujet. Sa réussite rendra le tournage plus facile (ou plus dur).' : null,
+    big && !prep ? `Ce mini-jeu, c’est le TOURNAGE de cette production : le plateau, les prises, ${cast.length ? 'le jeu du casting, ' : ''}les imprévus du plateau, toujours sur ce sujet.${(big.hitches || []).length ? ` Ce qui s’est passé avant : ${big.hitches.map((x) => `« ${x.text} » (le joueur a choisi : ${x.said})`).join(' ; ')}.` : ''}` : null,
     r.said ? `Son annonce : « ${r.said.slice(0, 200)} »` : null,
     r.plot ? `Ce qui se passe dedans, raconté par le joueur : « ${r.plot} ». Le mini-jeu porte sur CE contenu-là.` : null,
     r.collab && g.chars[r.collab] ? `Tourné en feat avec @${g.chars[r.collab].handle} (${g.chars[r.collab].name}, ${g.chars[r.collab].role || 'du réseau'}) : ${firstName(g.chars[r.collab])} est dans ${laW(r)} avec le joueur, le mini-jeu peut s’en servir.` : null, // 0.29.1
     words.length ? 'Ce qu’il disait juste avant (ses mots, pour comprendre ce qu’il veut montrer) :\n' + words.join('\n') : null,
     clues.length ? `Indices qu’il a vraiment remarqués sur ${c.name} (de bons éléments possibles, s’ils collent au sujet) : ${clues.join(' ; ')}` : null,
-    `Avant la sortie, il passe un mini-jeu EN RAPPORT DIRECT avec ce sujet : sa réussite décidera si ${laW(r)} marche.`,
+    prep ? null : `Avant la sortie, il passe un mini-jeu EN RAPPORT DIRECT avec ce sujet : sa réussite décidera si ${laW(r)} marche.`,
     `Difficulté choisie : ${D.label}, donc ${D.traps}.`,
     ...formats,
     '', FORMAT, 'Lignes à produire :',
@@ -2382,6 +2506,7 @@ const genShoot = (r) => {
   const g = S.game;
   if (!g || !r || r.game || S.busy.mg) return null;
   autoSave(g, `Avant le tournage de ${ta(r)}`);
+  if (!r.prodAt || r.prodDone) { r.prodAt = Date.now(); delete r.prodDone; } // 0.30.1: the time it takes counts from here
   payCrew(g, r); // the team paid per release gets to work (once per release)
   const kind = pickShootKind(g, r);
   if (kind !== 'ai') g.mgRecent = [kind].concat(Array.isArray(g.mgRecent) ? g.mgRecent : []).slice(0, 3);
@@ -2402,6 +2527,7 @@ const genDate = (ev) => {
   const c = g.chars[ev.c];
   autoSave(g, `Avant ton rendez-vous avec ${c ? firstName(c) : 'quelqu’un'}`);
   if (arriveDate(g, ev)) delete ev.prep; // late since it was written: the evening starts otherwise
+  eveningNotice(g, ev); // 0.30.1: what falls in the evening, said at once
   if (prepFresh(g, ev)) { // written (and read again) while the player was at the date screen
     ev.game = Object.assign(ev.prep.game, { diff: ev.diff || 'moyen' });
     g.mgLast = ev.game.kind;
@@ -2515,11 +2641,13 @@ async function prepDate(ev) {
 // The mini-game is over: its score decides how the release (or the date) goes.
 function finishShoot(r, score) {
   if (!r || r.state !== 'scheduled') return;
+  if (r.big) { bigFinish(S.game, r, score); update(); return; } // 0.30.1: a stage of a production (its time, the next one)
   score = clamp(num(score, 0), 0, 1);
   r.tries = (r.tries || 0) + 1;
   r.played = { score, tier: tierOf(score), at: Date.now(), kind: r.game ? r.game.kind : '', diff: r.game && r.game.diff ? r.game.diff : r.diff };
   afterShoot(S.game, r); // 0.14: the team does its part (the edit, the thumbnail)
   if (r.player && S.game && (S.game.events || []).includes(r)) prepEnd(S.game, r); // 0.28.1: a date: its end is written while the score shows
+  else if (S.game) prodJump(S.game, r); // 0.30.1: a release: the time it takes passes, it comes out at the end
   update();
 }
 // form: what the player set on the platform's upload screen (title, thumbnail, hook, trend, collab, sponsor, mention).
@@ -2527,6 +2655,8 @@ async function publishRelease(r, caption, form = {}) {
   const g = S.game;
   if (!g || !r || !r.played || r.state !== 'scheduled' || S.busy.act) return;
   if (suspended(g)) { toast(`Ta chaîne est suspendue jusqu’à ${hourOf(g.mod.susp.until)} : ${whatF(r) ? 'elle' : 'il'} sortira après.`, 'bad'); return; } // 0.30
+  if (r.prodWait) { prodJump(g, r); if (r.prodWait) { toast('Ça réagit encore : le montage se termine dès que c’est fini.', 'flash'); return; } } // 0.30.1
+  if (r.big && (r.big.stage < 3 || r.big.wait)) { if (r.big.wait) bigJump(g, r); if (r.big.stage < 3 || r.big.wait) { toast('Ta production n’est pas finie : la post-production d’abord.', 'flash'); return; } } // 0.30.1
   const W = WHATS[r.what] || WHATS.vidéo;
   const text = str(caption, 280) || `${W.emoji} ${laW(r)} est en ligne : ${r.topic}`;
   dropLayers((l) => l.t === 'minigame' && l.id === r.id);
@@ -2537,6 +2667,7 @@ async function publishRelease(r, caption, form = {}) {
   try { ok = await runAct('post', text, null, null, { video: { r, tier: r.played.tier, score: r.played.score, diff: r.played.diff || r.diff, form } }); }
   finally { S.publishing = null; update(false); }
   if (ok === false && S.game === g) openLayer({ t: 'minigame', id: r.id });
+  else if (S.game === g && r.big && form.premiere && r.state === 'released') { warmMove(g, 3, 'ta production en avant-première en live avec ta commu'); spendTime(g, 90 * 60000, 'L’avant-première en live'); } // 0.30.1
 }
 
 /* ---------- events: a character's live or announcement, a date with the player ---------- */
@@ -2741,6 +2872,7 @@ function promptDateEnd(g, ev) {
     ...talkEndLines(g, ev),
     ...psyEndLines(g, ev), // 0.29: they fled
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,
+    ev.cut ? `Le joueur a ÉCOURTÉ la soirée, il devait partir (${ev.cut.why || 'un engagement'}) : ${c.name} le prend à sa façon (compréhensi${gx(c.g, 'f', 've', 'f·ve')}, déçu${gx(c.g, '', 'e', '·e')}, vexé${gx(c.g, '', 'e', '·e')}…), selon votre relation, son cœur et la soirée jusque-là.` : null, // 0.30.1
     dateKind(c, ev) === 'wedding' ? `C’est le MARIAGE du joueur et de ${c.name} : ${tier === 'flop' ? 'tout tourne mal, la cérémonie est reportée' : 'ils se disent oui (raconte la cérémonie, les vœux, la fête)'}.` : null,
     dateKind(c, ev) === 'proposal' ? `Le joueur fait sa demande en fiançailles : ${tier === 'top' ? `${c.name} dit oui` : tier === 'mid' ? `${c.name} demande à réfléchir` : `${c.name} dit non, malaise`}.` : null,
     famous ? `${c.name} est ${gx(c.g, 'connu', 'connue', 'connu·e')} (${fmtPlain(c.followers)} abonnés) : des gens les ont reconnus, ça peut fuiter sur le réseau.` : `${c.name} n’est pas très ${gx(c.g, 'connu', 'connue', 'connu·e')} : personne ne les a remarqués.`,
@@ -2816,6 +2948,7 @@ async function endDate(ev) {
   endFlow(f);
   dropLayers((l) => l.t === 'minigame' && l.id === ev.id);
   if (faded && ev.morning && S.game === g) nightTogether(g, c, ev); // 0.25.3: the night passes, the morning is there
+  else if (S.game === g) eveningJump(g, ev); // 0.30.1: a date takes its evening
   update();
   if (S.game === g) openDM(c.id);
 }

@@ -380,7 +380,8 @@ function viewsParts(g, r, played, at, form) {
     b = (F - L) * AUD.trickle[r.what] * T * warmK(g) + tz;
   } else a = F * Fm.share * T + disc;
   let m = 0.35 + 0.65 * audienceAt(d);
-  m *= staffMult(g, 'views', r.what, form && form.crew);
+  const sm = staffMult(g, 'views', r.what, form && form.crew);
+  m *= r.big ? 1 + (sm - 1) * 1.5 : sm; // (0.30.1: in a big production, the team counts more)
   m *= 1 + trendBoost(g, r, form, at);
   if (calFits(r.topic, d)) m *= 1.3;
   if (form && typeof form.thumbCtr === 'number') m *= 1 + clamp(form.thumbCtr, 0, 0.4); // 0.14: the thumbnail made in the studio
@@ -389,12 +390,15 @@ function viewsParts(g, r, played, at, form) {
   a *= m;
   b *= m;
   if (form && form.collab) { const cc = g.chars[form.collab]; if (cc) a += Math.pow(cc.followers, 0.92) * 0.12; }
+  if (r.big) for (const cc of castIn(g, r)) if (!form || cc.id !== form.collab) a += Math.pow(cc.followers, 0.92) * 0.12; // 0.30.1: the cast brings its public
   let k = 1;
   if (r.series) k *= seriesMult(g);
   k *= coupleBoost(g); // 0.14: a couple just made public draws eyes to both
   k *= gearViewsMult(g, r.what); // 0.20: what the player films, records and edits with
   if (form && 'push' in form ? form.push : g.boosts.push) k *= 2; // (0.29.1: a release reads the push it had when it went out: the game resets it as it starts)
   if (s.reputation < 30) k *= 0.75;
+  if (r.care && careOK(r.what)) k *= CARE_K; // 0.30.1: « soignée »: +15 %
+  if (r.big) k *= (played.tier === 'flop' ? 1 + (r.big.k - 1) * 0.3 : r.big.k) * (1 + (r.big.hype || 0)) * (form && form.premiere ? 1.1 : 1); // 0.30.1: a big production (a flop, far less), a leak played up, a premiere
   return { a: a * k, b: b * k, tease: tz * m * k };
 }
 // The views a release gets over its first week, without luck (the upload screen shows an estimate from it).
@@ -465,7 +469,7 @@ function audLine(g, r) {
     if (r.what === 'vidéo' && promoShorts(g, r).length) out.push(`Un ${sn} du joueur l’avait annoncée : certains viennent de là et le disent.`);
   }
   const vr = r.what === 'short' && r.promo ? (g.releases || []).find((x) => x.id === r.promo) : null;
-  if (vr && vr.state === 'scheduled') out.push(`Ce ${sn} annonce sa vidéo « ${str(vr.topic, 80)} », qui sort ${fmtWhen(vr.due)} : des gens disent qu’ils iront la voir.`);
+  if (vr && vr.state === 'scheduled') out.push(`Ce ${sn} annonce sa vidéo « ${str(vr.topic, 80)} », qui sort ${fmtWhen(relAnn(vr))} : des gens disent qu’ils iront la voir.`);
   else if (vr && vr.state === 'released') out.push(`Ce ${sn} renvoie vers sa vidéo « ${str(vr.topic, 80)} », déjà en ligne (le lien « vidéo associée ») : certains disent qu’ils vont la regarder.`);
   return out.join(' ');
 }
@@ -496,6 +500,7 @@ function bookRelease(g, r, views, post, ads) {
   if (post && post.res && post.res.viral) entry.viral = true; // 0.20: the brands price on the usual views
   if (r.what === 'live') entry.cc = Math.max(1, Math.round(views * 0.25)); // concurrent viewers, roughly
   if (post) entry.p = post.id; // (0.29.1: a short that sends viewers later adds them here)
+  if (r.big) entry.big = true; // 0.30.1
   c.log.push(entry);
   if (c.log.length > 150) c.log.splice(0, c.log.length - 150);
   const rpm = rpmOf(g, r.what, ads);
@@ -682,7 +687,7 @@ function expectedViews(g, what) {
   const Fm = FORMATS[what] || FORMATS.vidéo;
   const F = (what === 'vidéo' || what === 'live') && audSplit(g) ? vidFans(g) : g.stats.followers; // (0.29.1: those who watch that format)
   const base = F * Fm.share + Fm.disc * 0.8;
-  const log = g.career.log.filter((x) => !x.past && x.what === what).slice(-7);
+  const log = g.career.log.filter((x) => !x.past && !x.big && x.what === what).slice(-7); // (0.30.1: never a big production's)
   if (!log.length) return base;
   const newest = Math.max(...log.map((x) => x.at || 0));
   const plain = log.filter((x) => !x.viral && newest - (x.at || 0) <= 10 * DAY_MS).map((x) => x.views);
@@ -765,7 +770,9 @@ function dmCard(g, c, card, at = later()) {
 function makeOffer(g, o = {}) {
   if (g.stats.followers < 800 || openDeals(g).filter((d) => d.state === 'offer').length >= 2) return null;
   const fmts = PF(g).fmts;
-  let what = o.what && fmts.includes(normWhat(o.what)) ? normWhat(o.what) : offerWhat(g);
+  const bg = o.big ? (g.releases || []).find((x) => x.id === o.big && x.big && x.state === 'scheduled') || null : null; // 0.30.1: to be in a big production
+  if (o.big && !bg) return null;
+  let what = bg ? bg.what : o.what && fmts.includes(normWhat(o.what)) ? normWhat(o.what) : offerWhat(g);
   if (!canMake(g, what).ok) what = makeableWhat(g, what); // 0.20: a brand asks for what the player can make
   const textAll = `${o.sector || ''} ${o.product || ''} ${o.brand || ''}`;
   const banned = o.scam ? false : o.brand ? BANNED_RE.test(textAll) : Math.random() < toxBannedP(g); // (0.20: a scam asked for is not a forbidden product; 0.30: more of them for a toxic name)
@@ -777,11 +784,14 @@ function makeOffer(g, o = {}) {
   if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return null;
   const via = o.via || (o.pitched ? 'pitch' : 'direct'), ag = hasStaff(g, 'agent'); // 0.20: who brought it
   const tk = (banned || shady) && toxLv(g) ? toxFeeK(g) / standMult(g, 'fee') : (banned ? 2 : 1); // 0.30: what a shady brand pays a toxic name (×1,5 → ×3, whatever the scandals)
-  let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady && !toxLv(g) ? 1.5 : 1) * tk * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1);
+  let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady && !toxLv(g) ? 1.5 : 1) * tk * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1) * (bg ? 0.8 * bg.big.k : 1); // (0.30.1: its views)
   // 0.21: some brands offer their gear instead (half of the small ones that sell gear, a quarter of the others)
   const gift = o.gift && GEAR[o.gift.kind] ? { kind: o.gift.kind, t: clamp(int(o.gift.t, 0, 3, 0), 0, 3), value: GEAR[o.gift.kind].prices[clamp(int(o.gift.t, 0, 3, 0), 0, 3)] }
     : !banned && !shady && o.gift !== false && o.scam === undefined && !easyGear() && GIFT_GEAR[S0.id] && Math.random() < (fee < 60 ? 0.5 : 0.25) ? pickGift(g, S0.id, fee) : null; // (not in the suites before 0.21, nor when a test asks for a scam)
   const goods = !gift && fee < 60;
+  // 0.30.1: some brands want it « soignée » (twice the time to make): they pay half as much again; delivered otherwise, a penalty
+  const care = !bg && !goods && !gift && careOK(what) && (o.care != null ? !!o.care : !o.scam && Math.random() < (window.__HYPE_TEST__ && typeof window.__careAsk === 'number' ? window.__careAsk : CARE_ASK)); // (the tests: none unless asked)
+  if (care) fee *= CARE_FEE;
   fee = goods || gift ? 0 : niceRound(fee);
   const contact = o.contactId && g.chars[o.contactId] ? g.chars[o.contactId] : addContact(g, { name: o.contact, handle: o.handle, g: o.g, brand, role: `Partenariats · ${brand}`, emoji: cleanEmoji(o.emoji) || S0.emoji }); // 0.20: a brand that comes back writes from the same person
   if (!contact) return null;
@@ -792,6 +802,12 @@ function makeOffer(g, o = {}) {
     at: t, until: t + 2 * DAY_MS, days: randi(3, 7), due: 0, state: 'offer', exclusive: !goods && Math.random() < 0.3, shady, banned: banned ? S0.law : '',
     contact: contact.id, max: 0,
   };
+  if (care) deal.care = 1;
+  if (bg) { // 0.30.1: in the production, until a little after it comes out; some want to be the only brand in it
+    deal.big = bg.id;
+    deal.days = clamp(Math.ceil((relAnn(bg) - t) / DAY_MS) + 2, 2, 14);
+    if (!goods && !gift && Math.random() < (o.solo != null ? (o.solo ? 1 : 0) : 0.25)) deal.solo = 1;
+  }
   // how far the brand can go: a quarter more (an agent squeezes more); for products, some cash instead
   deal.max = gift ? Math.round(gift.value * 0.2) : goods ? Math.max(40, Math.round(deal.value * 0.8)) : Math.round(fee * (1.25 + 0.03 * staffPower(g, 'agent')));
   if (!goods && !gift) { deal.base = niceRound(fee / (shady ? SHADY_K0 : 1)); deal.maxBase = Math.round(deal.max / (shady ? SHADY_K0 : 1)); } // 0.19.1: the price with the mention
@@ -802,7 +818,7 @@ function makeOffer(g, o = {}) {
   g.deals.push(deal);
   trimDeals(g);
   const obvious = deal.scam === 'frais' || deal.scam === 'brief';
-  const pitch = (obvious && sc.pitch) || str(o.text, 300) || (sc && sc.pitch) || `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On adore ce que tu fais : on aimerait te confier ${deal.product}. Je t’envoie notre proposition ⬇️`;
+  const pitch = (obvious && sc.pitch) || str(o.text, 300) || (sc && sc.pitch) || (bg ? `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On a entendu parler de ta production « ${str(bg.topic, 60)} » : on aimerait beaucoup y être, avec ${deal.product}. Je t’envoie notre proposition ⬇️` : `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On adore ce que tu fais : on aimerait te confier ${deal.product}. Je t’envoie notre proposition ⬇️`);
   const at = later() + 1200;
   addIncomingDM(g, contact, pitch, at, { max: 400 });
   dmCard(g, contact, { sys: 'deal', deal: deal.id }, at + 400);
@@ -842,8 +858,10 @@ const upLine = (g, d) => (!(d.fee > 0) || d.payLate ? '' : d.upfront > 0 ? `, ac
 // What a contract gives besides money: products (0.27.6: on top of a fee too; a contract with a fee signed before never
 // sent them).
 const dealGoods = (d) => !d.gift && d.value > 0 && (!d.fee || !d.signedAt || !!d.goodsSent);
+const CARE_ASK = 0.3, CARE_FEE = 1.5, CARE_CUT = 0.4; // 0.30.1: how often a brand asks for it « soignée », what it pays more, what it keeps back if not
 function dealSummary(g, d) {
-  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
+  const bg = d.big ? (g.releases || []).find((x) => x.id === d.big) : null; // 0.30.1
+  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${bg ? `être dans ta grosse production « ${str(bg.topic, 50)} »` : d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${d.solo ? ', seule marque de la production' : ''}${d.care ? (whatF(d) ? ', vidéo soignée exigée' : `, ${dealWhat(g, d)} soigné exigé`) : ''}${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
 }
 // The agent's cut on what the brands pay.
 function agentCut(g, amount, brand) {
@@ -895,6 +913,8 @@ function signDeal(g, d, o = {}) {
   if (d.gift) sendGift(g, d); // 0.21
   else if (d.value > 0 && d.state === 'signed') { invAdd(g, { kind: 'goods', name: d.product.replace(/^(?:ses|son|sa|leurs?)\s+/i, ''), emoji: d.emoji, value: d.value, cond: 'neuf', from: { how: 'marque', brand: d.brand, deal: d.id, c: d.contact } }); d.goodsSent = true; } // 0.26: the products, sent at the signature (0.27.6: with money on top too)
   if (clash) exclusiveBreach(g, clash, d);
+  const bg = d.big ? bigOn(g) : null; // 0.30.1: a brand for the production goes in it (while there is room)
+  if (bg && bg.id === d.big && d.state === 'signed' && !bg.big.deals.includes(d.id) && bg.big.deals.length < BIG_DEALS) bg.big.deals.push(d.id);
   if (c && d.scam !== 'brief') { addIncomingDM(g, c, d.scam === 'frais' ? 'Bienvenue dans la team des ambassadeurs ! 🎉 Ton kit part cette semaine 📦' : d.gift ? (!d.giftSent ? `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} part cette semaine, tu nous diras 📦` : `Top, contrat signé ! ${cap1(GIFT_ART[d.gift.kind])} est en route, tu l’as dès aujourd’hui 📦`) : pick(['Top, contrat signé ! On a hâte de voir ça 🙌', 'Parfait, c’est signé. Hâte de voir ce que tu vas en faire !', d.shady ? 'Génial, bienvenue dans la team ! Et comme convenu : on reste discrets 😉' : 'Génial, bienvenue dans la team ! N’oublie pas la mention « Collaboration commerciale » 😉']), later() + 1500, { max: 300 }); touch(c); }
   addChronicle(g, `${g.player.name} a signé un partenariat avec ${d.brand}.`);
   dealSignedAch(g, t); // 0.28: a first one; how many this month
@@ -991,23 +1011,30 @@ function deliverDeal(g, d, post, mention, perf) {
   d.post = post ? post.id : null;
   d.mention = !!mention;
   const paid = scamOnDeliver(g, d); // 0.20: a brand that never pays, a product that will be recalled…
-  const rest = paid ? Math.max(0, d.fee - d.upfront) : 0;
+  const sloppy = !!(d.care && !(perf && perf.care)); // 0.30.1: it asked for a « soignée » one: it keeps 40 % back
+  const clash = !!(perf && perf.clash); // 0.30.1: its clause broken by another brand in the same production: half of it
+  const keep = paid && (sloppy || clash) ? Math.round(d.fee * (clash ? 0.5 : CARE_CUT)) : 0;
+  const rest = paid ? Math.max(0, d.fee - d.upfront - keep) : 0;
+  if (sloppy) d.sloppy = keep || 1;
+  if (clash) d.clashed = keep || 1;
   if (rest) { earn(g, rest, `Partenariat ${d.brand}`, 'deal'); agentCut(g, rest, d.brand); }
-  repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
+  if (clash) repMove(g, { pro: -8 }, `contrat ${d.brand} : la marque ${perf.clash}`);
+  else if (sloppy) repMove(g, { pro: -6 }, `contrat ${d.brand} : ${whatF(d) ? 'la vidéo devait être soignée' : `le ${dealWhat(g, d)} devait être soigné`}`);
+  else repMove(g, { pro: mention ? 6 : 2 }, `contrat ${d.brand} livré${mention ? ' dans les règles' : ''}`); // 0.10
   if (d.banned) toxMove(g, 3, `ta pub pour ${d.brand} (${d.banned})`); // 0.30: an illegal sponsor sinks a name further
   if (d.value > 0 && !d.gift && (d.goodsSent || !d.fee)) ledger(g, `Produits offerts par ${d.brand} (≈ ${fmtMoney(g, d.value)})`, 0, 'goods');
   const c = g.chars[d.contact];
   const bare = !d.shady && !mention; // 0.28.1: an honest contract asked for the mention: delivered without it, the brand is not happy (no bonus)
-  if (c) applyRel(g, c, d.shady && mention ? -5 : bare ? -10 : 6, d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : bare ? 'tu as caché que c’était une pub, le contrat disait le contraire' : 'contente du partenariat', later() + 3000, 10);
+  if (c) applyRel(g, c, clash ? -15 : sloppy ? -12 : d.shady && mention ? -5 : bare ? -10 : 6, clash ? 'une autre marque était dans la même production, le contrat disait le contraire' : sloppy ? 'le contrat demandait un contenu soigné, ce n’était pas le cas' : d.shady && mention ? 'tu as mis la mention, ce n’était pas le deal' : bare ? 'tu as caché que c’était une pub, le contrat disait le contraire' : 'contente du partenariat', later() + 3000, 10);
   // the law: no mention, or a forbidden product, can be spotted later (a report, a check)
   const p = d.banned ? (toxLv(g) >= 2 ? 0.35 : 0.8) : !mention ? 0.45 : 0; // (0.30: a toxic name is watched less closely: the shady deals are a real gain, and a real risk)
   if (p && Math.random() < p) d.check = Date.now() + randi(8, 60) * 3600000;
   const fw = perf && perf.fit ? ` Placement ${FIT_WORDS[perf.fit]} : ${perf.fit > 0 ? '+' : '−'}${fitPct(perf.fit)} % de vues.` : ''; // 0.21
   const inKind = !d.fee && paid ? (d.gift ? ` : payé en matos (${giftName(g, d.gift)}), pas en argent` : d.value ? ` : payé en produits (≈ ${fmtMoney(g, d.value)}), pas en argent` : '') : ''; // 0.22.3: said, not guessed
-  addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? (d.payLate ? ` : paiement prévu dans ${d.payLate} jours` : d.gift ? ' : tu attends encore le matos' : '') : inKind}.${fw}` }); // (0.30: never « undefined jours »)
+  addNotif(g, { k: 'money', text: `${d.emoji} Partenariat ${d.brand} livré${rest ? ` : +${fmtMoney(g, rest)}` : !paid ? (d.payLate ? ` : paiement prévu dans ${d.payLate} jours` : d.gift ? ' : tu attends encore le matos' : '') : inKind}.${clash ? ` ⚖️ ${d.brand} ${perf.clash} : la marque retient ${fmtMoney(g, keep)}.` : keep ? ` Le contrat demandait ${whatF(d) ? 'une vidéo soignée' : `un ${dealWhat(g, d)} soigné`} : ${d.brand} retient ${fmtMoney(g, keep)}.` : sloppy ? ` Le contrat demandait ${whatF(d) ? 'une vidéo soignée' : `un ${dealWhat(g, d)} soigné`} : ${d.brand} n’est pas contente.` : ''}${fw}` }); // (0.30: never « undefined jours »)
   if (!mention) secretFromDeal(g, d); // 0.18: a hidden ad is a secret now (the brand's contact knows)
   dealDelivered(g, d); // 0.18: the one who got the spot on it
-  if (!bare) brandLove(g, d, perf); // 0.20: a release that did very well: a bonus, and the brand comes back
+  if (!bare && !sloppy && !clash) brandLove(g, d, perf); // 0.20: a release that did very well: a bonus, and the brand comes back
 }
 // Deadlines, offers that expire, a moral clause after a scandal, and checks on hidden ads.
 function checkDeals(g, t) {
@@ -1070,9 +1097,9 @@ function sanction(g, d) {
 /* ---------- the team: people the player hires (and pays) ---------- */
 const STAFF_ROLES = {
   monteur: { emoji: '🎬', m: 'Monteur vidéo', f: 'Monteuse vidéo', x: 'Monteur·se vidéo', pay: 'video', rates: [50, 150, 350, 900], fmts: ['vidéo', 'short', 'clip'],
-    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, et un format court tiré de chaque vidéo longue.', fx: (p) => `+${8 * p} % de temps au tournage · +${8 * p} % de vues · un format court en bonus` },
+    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, un format court tiré de chaque vidéo longue, et tes contenus prêts plus vite.', fx: (p) => `+${8 * p} % de temps au tournage · +${8 * p} % de vues · un format court en bonus · prêts ${Math.round(ED_SAVE[clamp(p - 1, 0, 3)] * 100)} % plus vite` },
   miniature: { emoji: '🖼️', m: 'Graphiste', f: 'Graphiste', x: 'Graphiste', pay: 'video', rates: [20, 60, 150, 400], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
-    desc: 'Tes miniatures et tes visuels donnent envie de cliquer.', fx: (p) => `+${7 * p} % de vues sur chaque sortie` },
+    desc: 'Tes miniatures et tes visuels donnent envie de cliquer, et te font gagner du temps.', fx: (p) => `+${7 * p} % de vues sur chaque sortie · ${TH_SAVE[clamp(p - 1, 0, 3)]} min de gagnées sur chaque sortie` },
   scenariste: { emoji: '✍️', m: 'Scénariste', f: 'Scénariste', x: 'Scénariste', pay: 'video', rates: [60, 180, 450, 1100], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
     desc: 'Prépare le fond de tes contenus : des indices pendant tes tournages.', fx: (p) => `${p} ${plural(p, 'indice', 'indices')} par tournage · +${4 * p} % de temps` },
   cm: { emoji: '💬', m: 'Community manager', f: 'Community manager', x: 'Community manager', pay: 'week', rates: [120, 300, 650, 1400],
@@ -1118,10 +1145,12 @@ function payCrew(g, r) {
     const R = STAFF_ROLES[m.role];
     if (!R || R.pay !== 'video' || !R.fmts.includes(r.what)) continue;
     const c = g.chars[m.c];
-    if (pay(g, m.rate, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}`, 'staff')) crew.push(m.role);
+    const days = r.big ? r.big.size : 1; // 0.30.1: a big production pays its team for every day of it
+    if (pay(g, m.rate * days, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}${days > 1 ? ` (${days} jours)` : ''}`, 'staff')) crew.push(m.role);
     else missed.push(c ? firstName(c) : roleName(m.role));
   }
   r.crew = crew;
+  const tm = teamOf(g, r.what, crew); if (tm) r.team = tm; else delete r.team; // 0.30.1: unpaid, they do not work on it: their time is not saved
   if (missed.length) toast(`Pas assez d’argent pour payer ${missed.join(' et ')} : ${missed.length > 1 ? 'ils ne travailleront' : 'cette personne ne travaillera'} pas sur ${ta(r)}.`, 'bad');
   return crew;
 }
@@ -1263,6 +1292,9 @@ function scheduleRelease(g, o) {
   const t = Date.now();
   const r = { id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: null, at: t, due: o.now ? t : o.due, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: 'moyen', planned: true };
   if (o.now) r.now = 1; // 0.30: « Maintenant »: nobody was waiting for it
+  if (o.care && careOK(what)) r.care = 1; // 0.30.1: « soignée »: twice the time, a little more of everything
+  const tm = teamOf(g, what); if (tm) r.team = tm; // 0.30.1: the team saves time, counted from the planning
+  setOut(r, r.due, t, !!o.start); // 0.30.1: the time announced is when it comes out: the shoot starts the time it takes before
   if (o.devis) r.devis = o.devis; // 0.20: its quote, paid
   if (o.deal) r.deal = o.deal; // the sponsor it carries, chosen with the quote
   if (o.fanQ) r.fanQ = o.fanQ; // 0.21: the question of a fan it answers
@@ -1270,14 +1302,16 @@ function scheduleRelease(g, o) {
   g.releases.push(r);
   trimReleases(g);
   if (r.now) return r; // (made right away: no announcement, no one waiting)
-  addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(topic, 60)} » est programmé${whatF(r) ? 'e' : ''} ${fmtWhen(o.due)}.` });
-  addTrigger(g, `Le joueur a programmé ${unW(r)} pour ${fmtWhen(o.due)} : « ${str(topic, 80)} ». Certains l’attendent déjà.`);
+  addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(topic, 60)} » est programmé${whatF(r) ? 'e' : ''} ${fmtWhen(relAnn(r))}.${prodMs(r) && r.what !== 'live' ? ` Tournage ${fmtWhen(r.due)} (${prodWord(r.what, r.care, r.team)} de travail${r.care ? ', soignée' : ''}${r.team ? ', ' + teamWord(r.team) : ''}).` : prodMs(r) ? ` Il dure ${prodWord(r.what)}.` : ''}` });
+  addTrigger(g, `Le joueur a programmé ${unW(r)} pour ${fmtWhen(relAnn(r))} : « ${str(topic, 80)} ». Certains l’attendent déjà.`);
   return r;
 }
 function scheduleEpisode(g, s, due) {
   const n = s.ep + 1, t = Date.now();
   const r = { id: uid('rl'), what: s.what, noun: s.what === 'short' ? PF(g).shortName : '', topic: `${s.theme} · épisode ${n}`, post: null, at: t, due, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: s.diff, series: s.id, ep: n };
   if (s.legacy) r.legacy = true; // 0.20: a daily upload started before the gear goes on as it was
+  const tm = teamOf(g, r.what); if (tm) r.team = tm;
+  setOut(r, due, t); // 0.30.1: the episode's hour is when it comes out (its shoot, the time it takes before)
   g.releases.push(r);
   trimReleases(g);
   return r;
@@ -1291,7 +1325,7 @@ function seriesEpisode(g, r, tier) {
   if (tier === 'flop') { s.fails++; s.streak = 0; if (s.hard) { endSeries(g, s); return; } }
   else { s.streak++; s.best = Math.max(s.best, s.streak); }
   if (s.ep >= s.days) { endSeries(g, s); return; }
-  const nx = scheduleEpisode(g, s, Math.max(nextAt(s.hour, s.min), r.due + DAY_MS - 5 * 60000));
+  const nx = scheduleEpisode(g, s, Math.max(nextAt(s.hour, s.min), relAnn(r) + DAY_MS - 5 * 60000));
   addNotif(g, { k: 'release', text: `Épisode ${s.ep}/${s.days} ${tier === 'flop' ? 'raté : ton bonus de défi retombe à ×1' : `publié : ${s.streak} d’affilée (bonus ×${String(Math.round(seriesMult(g) * 100) / 100).replace('.', ',')} sur le prochain)`}. Prochain ${fmtWhen(nx.due)}.` });
 }
 function seriesMissed(g, r) {
@@ -1523,7 +1557,7 @@ function maybeOffer(g, t) {
 function tickCareer(g, t = Date.now()) {
   if (!g || !g.career) return false;
   let ch = false;
-  for (const fn of [checkPayout, billGear, tickGear, checkProgram, payroll, checkDeals, tickScams, checkAppeals, tickCommu, tickMemb, tickMerch, tickJobs, tickResale, tickRumors, refreshTrends, maybeOffer]) { // 0.20: the bills after the payout, the scams; 0.21: the reviews; 0.22: the members, the merch
+  for (const fn of [checkPayout, billGear, tickGear, checkProgram, payroll, checkDeals, tickScams, checkAppeals, tickCommu, tickMemb, tickMerch, tickJobs, tickResale, tickRumors, refreshTrends, maybeOffer, tickBig]) { // (0.30.1: a big production's views, climbing) // 0.20: the bills after the payout, the scams; 0.21: the reviews; 0.22: the members, the merch
     try { if (fn(g, t)) ch = true; } catch (e) { console.error(e); }
   }
   if (g.series && g.series.bonusOffer && g.series.state !== 'on') g.series.bonusOffer = false;
@@ -1581,6 +1615,7 @@ function refreshCareerLines(g, t = Date.now()) {
   if (arrivalOK(g, t)) out.push(ARRIVAL_LINE(g)); // 0.30: the story may bring someone new (no limit to the cast)
   if (fanLineOK(g, t)) { out.push(FAN_LINE); const F = fansLine(g); if (F) out.push(F); } // 0.21: a fan writes to the player (0.30: the ones who already wrote)
   if (out.some((x) => x === FAN_LINE || (typeof x === 'string' && x.includes('{"t":"sponsor"')))) { const L = firstsLine(g, 'une personne nouvelle (le contact d’une marque, un abonné)'); if (L) out.push('- ' + L); const L2 = lastsLine(g); if (L2) out.push('- ' + L2); } // 0.28.1 (0.30: the family names too)
+  out.push(...bigRefreshLines(g, t)); // 0.30.1: a big production
   if (activeTrends(g, t).length < 4) out.push(`- Facultatif : une nouvelle tendance sur ${pfName(g, platformOf(g))} qui colle à ce monde : {"t":"trend","kind":"${trendKindsFor(platformOf(g)).join('" ou "')}","name":"≤ 40 caractères (un son inventé, un #défi ou un sujet)","emoji":"🎵"}.`);
   return { ctx, lines: out };
 }
@@ -1596,7 +1631,9 @@ function applyCareerLine(g, o, effects, lastOf = {}) {
       if (r && c && (allies(g).includes(c) || (c.regular && warmOf(g) >= 50)) && !r.defended.includes(c.id)) { r.defended.push(c.id); r.sev = Math.max(1, r.sev - 1); repMove(g, { cred: 2 }, `${c.name} prend ta défense`); addNotif(g, { k: 'relup', c: c.id, text: `${c.name} prend ta défense contre la rumeur.` }); }
     }); return true;
     case 'leak': { const pid = o.public ? postOf(o.by) : null; effects.push(() => leakIntel(g, o, pid)); return true; }
-    case 'sponsor': effects.push(() => { if (makeOffer(g, o)) g.career.offerAt = Date.now() + randi(5, 12) * 3600000; }); return true;
+    case 'sponsor': effects.push(() => { const bg = (o.prod === true || o.prod === 'true') && bigOn(g); if (bg) bg.big.offerAt = Date.now(); if (makeOffer(g, bg ? Object.assign({}, o, { big: bg.id, what: bg.what }) : o)) g.career.offerAt = Date.now() + randi(5, 12) * 3600000; }); return true; // (0.30.1: to be in the production)
+    case 'imprevu': effects.push(() => applyHitch(g, o)); return true; // 0.30.1: a hitch on the production (their AI's doing)
+    case 'nomination': effects.push(() => applyNomination(g, o)); return true; // 0.30.1
     case 'fan': effects.push(() => fanMessage(g, o)); return true; // 0.21
     case 'arrivee': effects.push(() => { if (arrivalOK(g)) { g.arrival = { why: str(o.why, 100), at: Date.now() }; g.lastArrival = Date.now(); } }); return true; // 0.30: created right after
     case 'trend': effects.push(() => { const k = TREND_KINDS[o.kind] ? o.kind : trendKindsFor(platformOf(g))[0]; makeTrend(g, k, o); }); return true;
@@ -1760,14 +1797,17 @@ function releaseCareer(ctx) {
   const crew = r.crew || [];
   const dl0 = form.deal ? dealOf(g, form.deal) : null;
   const fit = dl0 && dl0.state === 'signed' ? fitOf(r, dl0, ctx.eval) : null; // 0.21: a sponsor that fits the video, or not
+  const bdl = r.big ? (form.deals || []).map((id) => dealOf(g, id)).filter((d) => d && d.state === 'signed').slice(0, BIG_DEALS) : []; // 0.30.1: several brands in a production
+  const bfit = bdl.map((d, k) => fitOf(r, d, k === 0 ? ctx.eval : null)); // (the AI judged the first one)
   const mLive = !!(form.membLive && r.what === 'live' && membOn(g)); // 0.22: a live for the members only
   const early = ctx.early || null; // 0.29.1: a long video's, counted with its reactions
   const views0 = Math.round((early ? early.views : ctx.vearly != null ? ctx.vearly : releaseViews(g, r, { tier: v.tier, score: v.score, diff: v.diff }, !!(post.res && post.res.viral), Date.now(), Object.assign({}, form, { crew, push: !!(ctx.boosts && ctx.boosts.push) }))) * (mLive ? 0.35 : 1));
-  const views = fit ? Math.round(views0 * FIT_VIEWS[fit]) : views0;
+  const views = fit ? Math.round(views0 * FIT_VIEWS[fit]) : bdl.length ? Math.round(views0 * bfit.reduce((m, f) => m * (FIT_VIEWS[f] || 1), 1)) : views0;
   const gx = gearOnRelease(g, r, views); // 0.20: a live that drops, the neighbours, the rights holders
   const vs = gx.views;
   const ads = adsOf(g, r, ctx.eval, form); // 0.21: what the advertisers make of it
-  const book = bookRelease(g, r, vs, post, ads);
+  const shown = r.big ? Math.max(1, Math.round(vs * 0.4)) : vs; // 0.30.1: a big production's views come over days (tickBig)
+  const book = bookRelease(g, r, shown, post, ads);
   if (ctx.removed && book.money > 0) { // 0.30: taken down for harassment: no money
     g.career.est = Math.max(0, g.career.est - book.money);
     ledger(g, `${cap1(ta(r))} « ${wordCut(r.topic, 30)} » retirée pour harcèlement`, -book.money, 'est');
@@ -1779,7 +1819,7 @@ function releaseCareer(ctx) {
     book.money = 0;
   }
   if (ctx.removed) post.video.removed = Date.now();
-  Object.assign(post.video, { views: vs, money: book.money, plat: platformOf(g), title: str(form.title, 100), thumb: form.thumb || '', thumbLook: form.thumbLook || null, thumbImg: form.thumbImg || '', sound: '', hook: str(form.hook, 80) });
+  Object.assign(post.video, { views: shown, money: book.money, plat: platformOf(g), title: str(form.title, 100), thumb: form.thumb || '', thumbLook: form.thumbLook || null, thumbImg: form.thumbImg || '', sound: '', hook: str(form.hook, 80) });
   const adsBase = rpmOf(g, r.what, Object.assign({}, ads, { s: 'vert' }));
   post.video.ads = Object.assign(ads, { base: adsBase, season: adSeason(gameDate(Date.now())), paid: adsBase > 0 });
   if (adsBase > 0 && ads.caught) {
@@ -1799,9 +1839,17 @@ function releaseCareer(ctx) {
   }
   if (form.deal) {
     const d = dealOf(g, form.deal);
-    if (d) { post.video.sponsor = { brand: d.brand, emoji: d.emoji, mention: form.mention !== false, fit }; deliverDeal(g, d, post, form.mention !== false, { tier: v.tier, viral: !!(post.res && post.res.viral), fit }); }
+    if (d) { post.video.sponsor = { brand: d.brand, emoji: d.emoji, mention: form.mention !== false, fit }; deliverDeal(g, d, post, form.mention !== false, { tier: v.tier, viral: !!(post.res && post.res.viral), fit, care: !!(r.care && careOK(r.what)) }); }
     if (d && (v.tier === 'flop' || fit === -1)) unlockAch(g, 'cashed-the-check'); // 0.28: a sponsored piece that went down badly
   }
+  if (bdl.length) { // 0.30.1: each brand of the production; a clause broken by another brand in it costs half
+    const cl = bigClash(g, bdl.map((d) => d.id)), viral = !!(post.res && post.res.viral);
+    post.video.sponsors = bdl.map((d, k) => ({ brand: d.brand, emoji: d.emoji, mention: form.mention !== false, fit: bfit[k] }));
+    post.video.sponsor = post.video.sponsors[0];
+    bdl.forEach((d, k) => { const x = cl.find((y) => y.d === d); deliverDeal(g, d, post, form.mention !== false, { tier: v.tier, viral, fit: bfit[k], care: true, clash: x ? x.said : '' }); });
+    if (v.tier === 'flop' || bfit.includes(-1)) unlockAch(g, 'cashed-the-check');
+  }
+  if (r.big) bigOut(ctx, post, vs, ads); // 0.30.1: the rest of its views to come, its cast, a flop's price
   if ((form.thumb === 'choc' || form.thumbChoc) && v.tier === 'flop') { const dr = repMove(g, { cred: -10 }, 'miniature putaclic sur une vidéo ratée'); addNotif(g, { k: 'reldown', p: post.id, text: `Miniature putaclic sur une vidéo ratée : « encore un piège à clics »${repBit(dr, ', ')}.` }); }
   if (r.series) seriesEpisode(g, r, v.tier);
   if (r.fanQ) fanVideoDone(g, r, post); // 0.21: a fan becomes a regular
@@ -1823,7 +1871,7 @@ function audNotes(g, r, tier, post, fol, early, k = 1) {
   } else if (conv >= 10) addNotif(g, { k: 'relup', p: post.id, at: later() + 6000, text: `📺 ${nAbonnes(conv)} venus de tes ${sn} suivent maintenant aussi tes vidéos longues et tes lives : ton public vidéo passe à ≈ ${fmtN(A.fans)}.` });
   if (conv > 0) post.video.conv = conv;
   const pr = r.what === 'short' ? promoAfter(g, r, post) : null;
-  if (pr && pr.before) addNotif(g, { k: 'release', p: post.id, at: later() + 5000, text: `📣 Ton ${PF(g).shortName} annonce ${ta(pr.before)} « ${str(pr.before.topic, 50)} » (${fmtWhen(pr.before.due)}) : une partie de ses spectateurs ${whatF(pr.before) ? 'la' : 'le'} regardera à sa sortie.` });
+  if (pr && pr.before) addNotif(g, { k: 'release', p: post.id, at: later() + 5000, text: `📣 Ton ${PF(g).shortName} annonce ${ta(pr.before)} « ${str(pr.before.topic, 50)} » (${fmtWhen(relAnn(pr.before))}) : une partie de ses spectateurs ${whatF(pr.before) ? 'la' : 'le'} regardera à sa sortie.` });
   else if (pr && pr.after) addNotif(g, { k: 'release', p: pr.after.out, at: later() + 5000, text: `📣 Ton ${PF(g).shortName} a envoyé ${fmtN(pr.extra)} ${plural(pr.extra, 'personne', 'personnes')} voir ${ta(pr.after)} « ${str(pr.after.topic, 50)} »${pr.conv >= 1 ? `, et ${fmtN(pr.conv)} ${plural(pr.conv, 'reste', 'restent')} dans ton public vidéo` : ''}.` });
 }
 
@@ -1850,13 +1898,13 @@ function askFeat(g, r, c) {
 // What the player sends them (left in their conversation, to edit and send).
 function featText(g, r) {
   const l = whatF(r) ? 'la' : 'le';
-  return `Ça te dirait un feat ? Je sors ${unW(r)} ${fmtWhen(r.due)} : « ${str(r.topic, 80)} ». On ${l} fait ensemble, et nos deux publics ${l} verront.`;
+  return `Ça te dirait un feat ? Je sors ${unW(r)} ${fmtWhen(relAnn(r))} : « ${str(r.topic, 80)} ». On ${l} fait ensemble, et nos deux publics ${l} verront.`;
 }
 function featDMCtx(g, c) {
   const r = featAsked(g, c);
   if (!r) return [];
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
-  return [`Le joueur te propose un FEAT : faire avec lui ${unW(r)} « ${str(r.topic, 90)} » (sur ${pfName(g, platformOf(g))}, ${fmtWhen(r.due)}) et ${whatF(r) ? 'la' : 'le'} publier à deux : vos deux publics ${whatF(r) ? 'la' : 'le'} voient (le joueur a ${fmtPlain(g.stats.followers)} abonnés, ${first} ${fmtPlain(c.followers)}). ${first} décide selon votre relation, son caractère, ce que ça lui apporte (son public, son image), le sujet (colle-t-il à son univers ?) et son emploi du temps.`];
+  return [`Le joueur te propose un FEAT : faire avec lui ${unW(r)} « ${str(r.topic, 90)} » (sur ${pfName(g, platformOf(g))}, ${fmtWhen(relAnn(r))}) et ${whatF(r) ? 'la' : 'le'} publier à deux : vos deux publics ${whatF(r) ? 'la' : 'le'} voient (le joueur a ${fmtPlain(g.stats.followers)} abonnés, ${first} ${fmtPlain(c.followers)}). ${first} décide selon votre relation, son caractère, ce que ça lui apporte (son public, son image), le sujet (colle-t-il à son univers ?) et son emploi du temps.`];
 }
 const FEAT_LINE = (c) => `- Quand ${firstName(c)} a décidé pour le feat : {"t":"feat","ok":true,"why":"≤ 60 caractères"} (ok:false s’il ou elle refuse). Pas de ligne feat s’il ou elle hésite encore ou pose une condition.`;
 function applyFeatLine(g, c, o) {
@@ -1866,7 +1914,7 @@ function applyFeatLine(g, c, o) {
   if (ok) {
     r.feat.ok = true;
     r.collab = c.id;
-    addNotif(g, { k: 'relup', c: c.id, at: later() + 1500, text: `🤝 ${first} est partant${gx(c.g, '', 'e', '·e')} pour le feat : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(r.due)}.` });
+    addNotif(g, { k: 'relup', c: c.id, at: later() + 1500, text: `🤝 ${first} est partant${gx(c.g, '', 'e', '·e')} pour le feat : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(relAnn(r))}.` });
     addMem(g, c, `on va tourner « ${str(r.topic, 50)} » ensemble`);
     touch(c);
   } else {
@@ -1884,7 +1932,7 @@ function planCollab(g, c, o) {
   if (!(due >= Date.now() + 15 * 60000)) return null;
   const iv = { c: c.id, what: str(o.what, 100) || 'vidéo ensemble', due, collab: true, state: 'open' };
   const r = acceptCollab(g, iv, c, true);
-  if (r) addNotif(g, { k: 'release', c: c.id, at: later() + 1200, text: `🎬 Feat avec ${firstName(c)} : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(r.due)}. Elle t’attend dans le Studio.` });
+  if (r) addNotif(g, { k: 'release', c: c.id, at: later() + 1200, text: `🎬 Feat avec ${firstName(c)} : ${unW(r)} « ${str(r.topic, 50)} », ${fmtWhen(relAnn(r))}. Elle t’attend dans le Studio.` });
   return r;
 }
 function collabDone(g, c, tier, views) {

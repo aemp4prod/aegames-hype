@@ -265,13 +265,15 @@ async function newGame(page) {
     const H = window.__hype, g = H.S.game, t = Date.now();
     const z = H.charByHandle(g, 'zara.vey'); // nothing of hers on screen: every photo can come out
     z.ig = []; z.tt = z.tt ? [] : z.tt; g.posts = g.posts.filter((p) => !(p.a === 'c:' + z.id && p.photo && p.photo.img));
-    const a = H.addAmbientPost(g, { by: 'zara.vey', text: 'meilleure soirée depuis longtemps', photo: 'la soirée d’hier avec la bande' }, t, t);
+    // 0.30.1: the AI picks one of their real photos by its code (their album); words alone are an illustrated card
+    const party = H.albumOf(g, z).find((x) => x.keys.includes('soiree')) || H.albumOf(g, z)[0];
+    const a = H.addAmbientPost(g, { by: 'zara.vey', text: 'meilleure soirée depuis longtemps', photo: party.id }, t, t);
+    const w = H.addAmbientPost(g, { by: 'zara.vey', text: 'hier soir avec la bande', photo: 'la soirée d’hier avec la bande' }, t + 3, t + 3);
     const b = H.addAmbientPost(g, { by: 'zara.vey', text: 'regardez ce truc', photo: 'le chaudron qui fume en salle 3' }, t + 1, t + 1);
     const m = H.addAmbientPost(g, { by: 'gazette_lumen', text: 'exclu', photo: 'la soirée d’hier au réfectoire' }, t + 2, t + 2);
-    const ph = a && a.photo.img && H.PACK.photos[a.photo.img].ph;
-    return { a: a && a.photo.img, keys: ph ? ph.keys : [], b: b && (b.photo.img || null), media: m ? (m.photo.img || null) : 'none' };
+    return { a: a && a.photo.img, want: party.id, words: w && (w.photo.img || null), b: b && (b.photo.img || null), media: m ? (m.photo.img || null) : 'none' };
   });
-  check('a post the AI writes « with a photo »: the character’s real photo when its tags show what is said, the illustrated card otherwise', opened && !!ai.a && ai.keys.includes('soiree') && ai.b === null && (ai.media === null || ai.media === 'none'), ai);
+  check('a post the AI writes « with a photo »: the character’s real photo when it gives its code (0.30.1), the illustrated card for words (never a guess)', opened && ai.a === ai.want && ai.words === null && ai.b === null && (ai.media === null || ai.media === 'none'), ai);
   const tags = await G(page, () => {
     const H = window.__hype, ph = H.cleanPhoto({ id: 't1', file: 't1.png', tags: ['Jeu Vidéo', '#Marrant', 'halloween'] }, false);
     const old = H.cleanPhoto({ id: 't2', file: 't2.png', places: ['soiree', 'plage'], occ: ['noel'] }, false);

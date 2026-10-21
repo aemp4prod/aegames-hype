@@ -73,7 +73,8 @@ function sameThing(a, b) {
   const B = bigWords(b);
   return bigWords(a).some((w) => B.some((x) => x === w || (x.length >= 5 && w.length >= 5 && x.slice(0, 5) === w.slice(0, 5))));
 }
-const devisKey = (o) => [o.what, str(o.topic, 120).toLowerCase(), o.days || 0].join('|');
+const devisKey = (o) => [o.what, str(o.topic, 120).toLowerCase(), o.days || 0].join('|') + (o.big ? '|big' + o.big : ''); // (0.30.1: a big production's is another quote)
+const devisMax = (o) => (o && o.big ? 8 : DEVIS_MAX);
 function promptDevis(g, o, stock = devisStock(g), deals = devisDeals(g, o)) {
   const money = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros';
   // 0.28.1: what earlier videos bought and kept, unless it went to the inventory since (listed below, with its id): the AI
@@ -83,17 +84,19 @@ function promptDevis(g, o, stock = devisStock(g), deals = devisDeals(g, o)) {
   const one = o.what === 'live' ? 'un live' : o.what === 'vidéo' ? 'une vidéo longue' : o.what === 'short' ? `un format court vertical (${PF(g).shortName})` : `un ${o.what}`;
   return [`Tu es le régisseur d’un créateur de contenu ${g.world.inName || 'dans le monde de ' + g.world.name}${g.world.tagline ? ` (${g.world.tagline})` : ''}.`,
     `Il prépare ${one} sur ${pfName(g, platformOf(g))} : « ${str(o.topic, 120)} »${o.plot ? ` (ce qu’on y verra : ${str(o.plot, 200)})` : ''}.`,
+    o.big ? `C’est une GROSSE PRODUCTION, comme une vraie vidéo pro : ${o.big} jours de travail (préparation, tournage, post-production). Compte ce que coûte vraiment un tournage pro de cette ampleur : lieu et décors, accessoires, costumes, figurants, régie, transport, assurances, prestataires extérieurs (technicien son, maquillage, cascadeur…), à l’échelle (des milliers d’euros, pas des dizaines).` : null,
     o.days ? `C’est un défi de ${o.days} jours : un épisode par jour sur ce thème. Sépare ce qui s’achète une seule fois ("per":"once") de ce qui se rachète à chaque épisode ("per":"episode", le prix d’UN épisode).` : null,
     `Son matériel de tournage, déjà à lui (ne le compte jamais) : ${gearBrief(g)}.`,
     owned.length ? `Ce qu’il a déjà acheté pour d’anciennes vidéos, et qu’il a encore : ${owned.join(' ; ')} (ne le rachète que si ce contenu demande vraiment autre chose).` : null,
     stock.length ? `Ce qu’il a sous la main, dans son inventaire : ${stock.map((s) => `[${s.key}] ${s.x.name} (${stockFrom(g, s.x)})`).join(' ; ')}.` : null,
     deals.length ? `Ses partenariats signés pour ce type de contenu : ${deals.map((d) => `${d.brand} (${str(d.product, 60)})`).join(' ; ')}.` : null,
     '', '## TÂCHE : LE DEVIS',
-    `Ce qu’il faut acheter, louer ou payer pour faire CE contenu, avec des prix réalistes (en ${money}, comme en vrai). Rien d’inutile : un contenu tourné chez soi, sans accessoire, peut ne rien coûter du tout. Jamais de matériel de tournage (le sien suffit), jamais de salaire (son équipe est déjà payée). Des noms génériques, sans marque.`,
+    o.big ? `Ce qu’il faut acheter, louer ou payer pour faire CETTE production, avec des prix réalistes (en ${money}, comme en vrai). Jamais de matériel de tournage (le sien suffit), jamais le salaire de son équipe (déjà payée) ; les prestataires extérieurs se paient. Des noms génériques, sans marque.`
+      : `Ce qu’il faut acheter, louer ou payer pour faire CE contenu, avec des prix réalistes (en ${money}, comme en vrai). Rien d’inutile : un contenu tourné chez soi, sans accessoire, peut ne rien coûter du tout. Jamais de matériel de tournage (le sien suffit), jamais de salaire (son équipe est déjà payée). Des noms génériques, sans marque.`,
     stock.length || deals.length ? `Ne lui fais jamais payer ce qu’il a déjà, mais seulement pour un vrai besoin de CE contenu : un objet de son inventaire (les produits qu’une marque lui a envoyés, un cadeau, un achat) ne compte que s’il sert vraiment à ce qu’on y verra (un jeu vidéo ne remplace pas des livres de droit, une box repas ne sert pas un tuto maquillage). Alors, aucune ligne à payer pour ce besoin-là, et signale-le ; tout le reste se paie normalement.` : null,
     deals.length ? `Un partenariat ne fournit que son propre produit, rien d’autre, et seulement si ce contenu s’en sert vraiment : un partenariat sans rapport avec le sujet ne change rien au devis.` : null,
     '', FORMAT,
-    `Au plus ${DEVIS_MAX} lignes : {"t":"cost","item":"≤ 60 caractères","price":40,"kind":"achat","keep":true,"per":"once"} (kind : achat, location, transport, service ou conso ; keep : true seulement pour un objet qu’il gardera et pourra réutiliser).`,
+    `Au plus ${devisMax(o)} lignes : {"t":"cost","item":"≤ 60 caractères","price":40,"kind":"achat","keep":true,"per":"once"} (kind : achat, location, transport, service ou conso ; keep : true seulement pour un objet qu’il gardera et pourra réutiliser).`,
     stock.length ? `- Chaque objet de son inventaire qui sert ce contenu (au plus ${DEVIS_HAVE}) : {"t":"have","id":"i1","use":"conso"} (use : "conso" si le tournage le consomme — on le mange, on le boit, on l’use —, "garde" s’il le récupère après).` : null,
     deals.length ? `- Seulement si le produit d’une marque partenaire sert vraiment ce contenu : {"t":"have","brand":"${deals[0].brand}","item":"ce produit, ≤ 60 caractères"}.` : null,
     `Si rien n’est à payer, une seule ligne : {"t":"free"}${stock.length || deals.length ? ' (plus les lignes "have", s’il y en a)' : ''}.`,
@@ -104,7 +107,7 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
   const items = [], have = [];
   let sponsor = null;
   for (const x of objs) {
-    if (x.t === 'cost' && items.length < DEVIS_MAX) {
+    if (x.t === 'cost' && items.length < devisMax(o)) {
       const p0 = devisPrice(x.price), item = str(x.item, 60), price = Number.isFinite(p0) && p0 > 0 ? Math.round(p0) : 0; // (0.28.1: no ceiling: what it really costs)
       if (!item || !(price > 0) || items.some((y) => normItem(y.item) === normItem(item))) continue; // (0.28.1: what was bought for an earlier video is no longer free by its name, « jeu de société » is not that game: the AI judges it, in the prompt)
       const s = stockLike(stock, item), keep = x.keep === true || x.keep === 'true';
@@ -122,7 +125,7 @@ function readDevis(g, o, objs, stock = devisStock(g), deals = devisDeals(g, o)) 
 function makeDevis(o, items, sponsor, ai = true, have = []) {
   const once = items.filter((x) => x.per !== 'episode').reduce((n, x) => n + x.price, 0);
   const each = items.filter((x) => x.per === 'episode').reduce((n, x) => n + x.price, 0);
-  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), plot: str(o.plot || '', 300), days: o.days || 0, items, once, each, sponsor, ai, have, at: Date.now() };
+  return { key: devisKey(o), what: o.what, topic: str(o.topic, 120), plot: str(o.plot || '', 300), days: o.days || 0, big: o.big || 0, items, once, each, sponsor, ai, have, at: Date.now() };
 }
 const devisTotal = (dv) => (dv ? dv.once + dv.each * (dv.days || 1) : 0);
 // 0.28.1: a quote is free only when the AI says so ({"t":"free"}): an empty answer, one in prose, or a price that cannot be

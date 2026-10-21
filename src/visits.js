@@ -127,6 +127,7 @@ async function visitTurn(v, text) {
   const n0 = v.lines.length, st0 = v.state;
   v.lines.push(mine);
   v.state = 'talk';
+  if (!v.startAt) v.startAt = Date.now(); // 0.30.1: a visit takes its time, from here
   S.busy.visit = v.id;
   update(false);
   const f = startFlow(g);
@@ -209,6 +210,7 @@ function endVisit(g, v) {
   visitCard(g, c, v, `${first} est ${passe} te voir à l’improviste et est ${parti} ${M.word(c)}.`, mood);
   addNotif(g, { k: M.good ? 'relup' : M.bad ? 'reldown' : 'drama', c: c.id, at, text: `🚪 ${first} est ${parti} ${M.word(c)}.` });
   addChronicle(g, `${c.name} est ${passe} voir ${g.player.name} à l’improviste (« ${str(v.why, 60)} ») et est ${parti} ${M.word(c)}.`, [c.id]);
+  if (v.startAt) spendTime(g, Math.round(v.startAt + VISIT_H * 3600000 - Date.now()), `🚪 La visite de ${first}`); // 0.30.1: about two hours together
   if (M.bad && v.urge !== 'tranquille') { const il = gx(c.g, 'il', 'elle', 'iel'); addTrigger(g, `@${c.handle} est ${parti} de chez le joueur ${M.word(c)} après avoir parlé de « ${str(v.why, 60)} » : ${il} reste là-dessus (un message, une pique, ou ${il} en parle à un proche).`, c.id); }
   return v;
 }

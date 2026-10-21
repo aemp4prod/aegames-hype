@@ -188,7 +188,7 @@ const clockOf = (page) => G(page, () => { const H = window.__hype, d = H.gameDat
   check('a night at the player’s: « Théo a dormi chez toi · Lui dire au revoir »; a public couple: no secret to keep; late in the morning it ends on its own',
     /Théo a dormi chez toi/.test(p2.line) && /Lui dire au revoir/.test(p2.line) && p2.pub && p2.dm && p2.before && !p2.after, p2);
 
-  // ---------- an evening that does not end that way: nothing changes ----------
+  // ---------- an evening that does not end that way: no morning (0.30.1: the evening takes its time) ----------
   await mkEvening(page, { id: 'evN3', faded: false });
   const c3 = await clockOf(page);
   const n3 = await G(page, () => window.__prompts.length);
@@ -196,8 +196,8 @@ const clockOf = (page) => G(page, () => { const H = window.__hype, d = H.gameDat
   await idle(page);
   const c4 = await clockOf(page);
   const r3 = await G(page, ([id, n]) => { const H = window.__hype, g = H.S.game, p = window.__prompts.slice(n).find((x) => x.includes('TÂCHE : LA FIN DU RENDEZ-VOUS')) || ''; return { home: /en rentrant/.test(p), morning: p.includes('{"t":"morning"'), cards: g.dms[id].msgs.filter((m) => m.sys === 'morning').length, stay: H.stayOn(g) }; }, [tid, n3]);
-  check('an evening that does not end in each other’s arms: the message on the way home, no morning, the clock where it was',
-    r3.home && !r3.morning && r3.cards === 2 && !r3.stay && c4.off === c3.off, Object.assign({ c3, c4 }, r3));
+  check('an evening that does not end in each other’s arms: the message on the way home, no morning; the clock moves on by the evening (0.30.1: about 3 h from its start), not to the morning',
+    r3.home && !r3.morning && r3.cards === 2 && !r3.stay && c4.off - c3.off >= 3600000 && c4.off - c3.off <= 3 * 3600000 + 60000, Object.assign({ c3, c4 }, r3));
 
   console.log('\nERRORS', errors.length ? errors.slice(0, 10) : 'none');
   const ok = checks.filter((c) => c[0] === 'PASS').length;

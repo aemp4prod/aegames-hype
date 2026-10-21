@@ -99,6 +99,7 @@ function jobWorked(g, j, m, extra = {}) {
   if (!j || (j.state !== 'open' && j.state !== 'ready')) return;
   const sc = clamp(num(m, 0.5), 0, 1), diff = JOB_K[extra.diff] ? extra.diff : null;
   Object.assign(j, extra, { m: sc, diff, q: diff ? jobQ(sc, diff) : sc, state: 'ready', game: null });
+  if (!j.timed) { j.timed = 1; spendTime(g, (JOB_H[j.kind] || 1) * 3600000, j.kind === 'miniature' ? '🖼️ La miniature' : '🎬 Le montage'); } // 0.30.1: the work takes its time
   scheduleSave();
   update();
 }

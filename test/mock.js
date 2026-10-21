@@ -1,5 +1,6 @@
 // Mock of the claude.ai artifact runtime: sample (streamed canned JSONL), db (localStorage-backed), user, permissions.
 window.__HYPE_TEST__ = true;
+window.__careAsk = 0; // 0.30.1: no brand asks for a « soignée » release unless a test does
 // 0.20: the suites written before the gear run without its friction (a full kit, nothing breaks); test/v20.js and the
 // balance lab set it back to false before the game loads.
 if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
@@ -109,7 +110,7 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     { t: 'reply', by: 'tess.astrale', text: 'une vidéo sur Léandre ?? je mets une alarme' },
     { t: 'reply', by: 'leandre.aube', text: 'Une vidéo. Sur moi. J’ai hâte de rire.' },
     { t: 'reply', by: 'gargouille_ronchon', text: 'encore une qui va faire pschitt' },
-    { t: 'announce', what: 'vidéo', topic: 'Les magouilles de Léandre au conseil des maisons', in: 60, about: 'leandre.aube' }
+    { t: 'announce', what: 'vidéo', topic: 'Les magouilles de Léandre au conseil des maisons', in: 300, about: 'leandre.aube' }
   );
   const MG_ORDER = L(
     { t: 'game', kind: 'ordre', title: 'Le tournage, étape par étape', intro: 'Remets dans l’ordre ce que tu vas montrer : une étape de travers, et ta vidéo perd le fil.' },
@@ -467,7 +468,7 @@ if (window.__hypeEasyGear === undefined) window.__hypeEasyGear = true;
     if (p.includes('CONVERSATION PRIVÉE') && p.includes('chargé·e des partenariats')) return perso(brandDM(p));
     if (p.includes('CONVERSATION PRIVÉE') && p.includes('postule pour devenir')) return perso(candDM(p));
     if (p.includes('CONVERSATION PRIVÉE') && /je la déteste|c’est une tricheuse|je vais l’enterrer/i.test(p.split('Nouveau message du joueur')[1] || '')) return L({ t: 'msg', text: 'woah. ok. je note.' }, { t: 'rel', d: -2, why: 'choqué·e par ta méchanceté' }, { t: 'intel', text: 'le joueur insulte Zara en privé', weight: 2 });
-    if (p.includes('LE MINI-JEU DU TOURNAGE')) {
+    if (p.includes('LE MINI-JEU DU TOURNAGE') || p.includes('LE MINI-JEU DE LA PRÉPARATION')) { // (0.30.1: a big production's preparation, the same games)
       if (p.includes('NIVEAU CAUCHEMAR')) return MG_REAL;
       const imposed = /\{"t":"game","kind":"(tri|ordre|quiz|vf|intrus)"/.exec(p); // 0.27.3: the format the game picked
       if (imposed) return { tri: MG_TRI, ordre: MG_ORDER, quiz: MG_QUIZ, vf: MG_VF, intrus: MG_ODD }[imposed[1]];

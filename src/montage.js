@@ -8,6 +8,7 @@
    Nothing here calls the AI, but the last one (and only when the player asks).
    ========================================================= */
 const EDIT_SWING = 0.3; // a perfect edit: +15 points on the shoot's score; a botched one: −15
+const swingOf = (r) => (r && r.big ? BIG_EDIT : EDIT_SWING); // 0.30.1: a big production's post-production: ±20
 const needsEdit = (r) => !!r && r.what !== 'live';
 const needsThumb = (r) => !!r && r.what === 'vidéo';
 const EDIT_INTRO = {
@@ -69,13 +70,14 @@ function makeEdit(r, g) {
 function applyEdit(g, r, m, by) {
   if (!r || !r.played || r.edit) return;
   m = clamp(num(m, 0.5), 0, 1);
-  const s0 = r.played.score, s1 = clamp(s0 + (m - 0.5) * EDIT_SWING, 0, 1);
+  const s0 = r.played.score, s1 = clamp(s0 + (m - 0.5) * swingOf(r), 0, 1);
   const ed = by === 'staff' ? hasStaff(g, 'monteur') : null;
   r.edit = { m, by: by || 'me', s0, who: ed && g.chars[ed.c] ? firstName(g.chars[ed.c]) : '' };
   r.render = null; // 0.20: a new edit, a new render
   r.played.score = s1;
   r.played.tier = tierOf(s1);
   r.editGame = null;
+  if (r.big) bigPostDone(g, r); // 0.30.1: a production's post-production done: its time goes by
 }
 // 0.28.1: the team's edit is the default; the player may still make their own (from the shoot's own score), or take
 // the team's back.
@@ -290,10 +292,10 @@ function EditStep({ g, r, now }) {
       <h3>${game.title}</h3>
       <p>${game.intro}</p>
       ${r.crashes ? html`<p class="date-late"><${Icon} n="wrench" s=${15} /> Ton dernier montage a été perdu dans un plantage : à refaire.</p>` : null}
-      <p class="muted">${game.kind === 'tri' ? 'Garde ou coupe chaque plan, avant la fin du chrono.' : game.rule || cutRule(game.verb, game.items.length, false)} Ton score de montage s’ajoute à celui du tournage : 50 % ne change rien, 100 % donne +15 points, 0 % en retire 15.</p>
+      <p class="muted">${game.kind === 'tri' ? 'Garde ou coupe chaque plan, avant la fin du chrono.' : game.rule || cutRule(game.verb, game.items.length, false)} Ton score de montage s’ajoute à celui du tournage : 50 % ne change rien, 100 % donne +${Math.round(swingOf(r) * 50)} points, 0 % en retire ${Math.round(swingOf(r) * 50)}.</p>
       <div class="row ss-actions">
         <button class="btn btn-hot" onClick=${() => { mgKeep(game, { on: Date.now() }); setPhase('play'); }}><${Icon} n="scissors" s=${16} /> Monter</button>
-        <button class="btn btn-ghost" onClick=${() => { applyEdit(g, r, 0.3, 'vite'); scheduleSave(); update(); }}>Passer le montage (−${Math.round((0.5 - 0.3) * EDIT_SWING * 100)} points)</button>
+        <button class="btn btn-ghost" onClick=${() => { applyEdit(g, r, 0.3, 'vite'); scheduleSave(); update(); }}>Passer le montage (−${Math.round((0.5 - 0.3) * swingOf(r) * 100)} points)</button>
         ${r.staffEdit ? html`<button class="btn btn-ghost" onClick=${() => { if (staffEditBack(g, r)) { scheduleSave(); update(); } }}>Garder le montage de ${r.staffEdit.who || 'ton équipe'} (${Math.round(r.staffEdit.m * 100)} %)</button>` : null}
       </div>
     </div>`;

@@ -47,7 +47,9 @@ function WatchCard({ g, close }) {
   const r = activeRelease(g);
   const held = !!(r && r.due <= t0);
   const dates = activeEvents(g).filter((e) => e.player && e.due > t0);
-  const stops = [...(r && r.due > t0 ? [{ at: r.due, label: `la sortie de ${ta(r)}`, short: 'Jusqu’à la sortie', due: () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; } }] : []),
+  const pw = r && prodMs(r) && r.what !== 'live'; // 0.30.1: one that takes time: its shoot is where the clock stops
+  const bs = r && r.big ? (r.big.stage >= 3 ? { label: 'la sortie de ta production', short: 'Jusqu’à la sortie' } : { label: `${BIG_STAGES[r.big.stage].of} de ta production`, short: `Jusqu’à ${BIG_STAGES[r.big.stage].of}` }) : null; // 0.30.1
+  const stops = [...(r && r.due > t0 ? [{ at: r.due, label: bs ? bs.label : pw ? `le tournage de ${ta(r)}` : `la sortie de ${ta(r)}`, short: bs ? bs.short : pw ? 'Jusqu’au tournage' : 'Jusqu’à la sortie', due: () => { const x = S.game && activeRelease(S.game); return x && x.id === r.id ? x.due : 0; } }] : []),
     ...dates.map((e) => ({ at: e.due, label: `ton rendez-vous avec ${firstName(g.chars[e.c] || { name: '…' })}`, short: `Jusqu’au rdv · ${firstName(g.chars[e.c] || { name: '…' })}`, due: () => e.due }))].sort((a, b) => a.at - b.at);
   const maxMins = stops.length ? Math.max(1, Math.ceil((stops[0].at - t0) / 60000)) : 30 * 1440;
   const [mins, setMins] = useState(() => Math.min(60, maxMins));
@@ -80,8 +82,8 @@ function WatchCard({ g, close }) {
   const narrate = mins * 60000 >= SKIP_QUIET;
   if (held) {
     return html`<div class="modal-card watch-card"><span class="eyebrow">Accélérateur de temps</span><div class="modal-big" style="font-size:40px" aria-hidden="true">⏸️</div>
-      <p>${cap1(ta(r))} doit sortir maintenant : ${whatF(r) ? 'tourne-la' : 'tourne-le'}${r.series ? '' : ` ou ${whatF(r) ? 'repousse-la' : 'repousse-le'}`} avant d’avancer le temps.</p>
-      <button class="btn btn-hot" onClick=${() => { close(); startShoot(r); }}><${Icon} n="clapper" s=${16} /> Tourner ${laW(r)}</button>
+      <p>${r.big ? bigHeld(r) : `${cap1(ta(r))} : ${dueWord(r)}. ${whatF(r) ? 'Tourne-la' : 'Tourne-le'}${r.series ? '' : ` ou ${whatF(r) ? 'repousse-la' : 'repousse-le'}`} avant d’avancer le temps.`}</p>
+      <button class="btn btn-hot" onClick=${() => { close(); startShoot(r); }}><${Icon} n="clapper" s=${16} /> ${r.big ? (r.big.hitch ? 'Décider' : r.big.stage >= 3 ? 'Publier ta production' : BIG_STAGES[r.big.stage].go) : 'Tourner ' + laW(r)}</button>
       <button class="btn btn-ghost" onClick=${close}>Annuler</button></div>`;
   }
   return html`<div class="modal-card watch-card">
@@ -676,7 +678,8 @@ function StudioTab({ g, now }) {
       <div class="row">
         ${!seriesOn(g) ? html`<button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'series' })} disabled=${!planRoom(g)}><${Icon} n="calendar" s=${15} /> Défi Daily Upload</button>` : null}
         <button class=${'btn btn-sm ' + (seriesOn(g) ? 'btn-hot' : 'btn-ghost')} onClick=${() => openLayer({ t: 'series', id: 'single' })} disabled=${!planRoom(g)}><${Icon} n="clock" s=${15} /> ${plan.length ? 'Programmer une autre sortie' : 'Programmer une sortie'}</button>
-      </div>${!planRoom(g) ? html`<small class="muted">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : null}
+        ${bigOn(g) ? null : html`<button class=${'btn btn-sm big-btn ' + (bigWhy(g) ? 'btn-ghost' : 'btn-hot')} onClick=${() => openLayer({ t: 'big' })} disabled=${!!bigWhy(g)}>🎥 Grosse production</button>`}
+      </div>${!planRoom(g) ? html`<small class="muted">${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.</small>` : !bigOn(g) && bigWhy(g) ? html`<small class="muted big-why">🎥 ${bigWhy(g)}</small>` : null}
     </section>
     ${mine.length ? html`<section class="section">
       <div class="section-h"><h3>Ta chaîne</h3><span>${fmtN(mine.reduce((n, p) => n + p.video.views, 0))} vues au total</span></div>
@@ -735,6 +738,7 @@ function DealCard({ g, d, now, inDM }) {
       <li>Paiement : ${payTerms(g, d)}.</li>
       <li>${d.shady ? 'Sans la mention « Collaboration commerciale », à la demande de la marque.' : 'Avec la mention « Collaboration commerciale ».'}</li>
       ${d.exclusive ? html`<li>Exclusivité : aucune autre marque du même secteur pendant 30 jours.</li>` : null}
+      ${d.care ? html`<li class="dl-care">✨ ${whatF(d) ? 'Vidéo soignée exigée' : `${cap1(dealWhat(g, d))} soigné exigé`} (${prodWord(d.what, true)} de travail au lieu de ${prodWord(d.what, false)}) : livré${whatF(d) ? 'e' : ''} sans, la marque retient ${Math.round(CARE_CUT * 100)} % du paiement.</li>` : null}
       ${d.clause ? html`<li>${d.clause.text}</li>` : null}
       <li>Clause de moralité : en cas de scandale, la marque peut rompre le contrat.</li>
       ${d.brief ? html`<li>Le contrat et le brief se téléchargent ici : <span class="dl-file">${d.brief}</span></li>` : null}
@@ -753,6 +757,7 @@ function DealCard({ g, d, now, inDM }) {
 }
 // 0.27.4: one planned release in the programme: when, and what can be done with it (sooner, later, give up, shoot it).
 function PlanRow({ g, r, first, now }) {
+  if (r.big) return html`<${BigRow} g=${g} r=${r} now=${now} />`; // 0.30.1: a big production
   const W = WHATS[r.what] || WHATS.vidéo, left = r.due - now, cc = r.collab && g.chars[r.collab];
   const fc = !cc && r.feat && r.feat.ok == null ? g.chars[r.feat.c] : null; // 0.29.1: a feat waiting for their answer
   const tz = r.what === 'vidéo' && audSplit(g) ? (g.releases || []).filter((x) => x.promo === r.id && x.state !== 'dropped') : null; // 0.29.1: its shorts
@@ -761,7 +766,7 @@ function PlanRow({ g, r, first, now }) {
   return html`<div class=${'plan-row' + (left <= 0 ? ' due' : '')}>
     <span class="pl-emo" aria-hidden="true">${W.emoji}</span>
     <div class="mid"><b>${cap1(nounOf(r))} « ${r.topic} »</b>
-      <span>${left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · en feat avec ${firstName(cc)}` : fc ? ` · feat proposé à ${firstName(fc)}` : ''}${tzOut ? ` · annoncée par un ${PF(g).shortName}` : tzPlan ? ` · ${PF(g).shortName} d’annonce prévu` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
+      <span>${prodMs(r) && r.what !== 'live' ? (r.played ? 'Tournage fait : à publier' : `Sortie ${relAnn(r) > now ? fmtWhen(relAnn(r), now) : 'en retard'} · ${left > 0 ? 'tournage ' + fmtWhen(r.due, now) : 'à tourner maintenant'} (${prodWord(r.what, r.care, r.team)}${r.care ? ', ✨ soignée' : ''})`) : left > 0 ? cap1(fmtWhen(r.due, now)) : 'C’est l’heure'}${r.series ? ` · défi, épisode ${r.ep}` : ''}${cc ? ` · en feat avec ${firstName(cc)}` : fc ? ` · feat proposé à ${firstName(fc)}` : ''}${tzOut ? ` · annoncée par un ${PF(g).shortName}` : tzPlan ? ` · ${PF(g).shortName} d’annonce prévu` : ''}${r.delays ? ` · ${whatF(r) ? 'repoussée' : 'repoussé'} ${r.delays} fois` : ''}</span></div>
     <div class="acts">
       ${left > 0 ? (r.series ? null : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>`)
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
@@ -784,7 +789,7 @@ function FeatLayer({ l, g, i }) {
   };
   return html`<${LayerShell} i=${i} title="Feat">
     <div class="mg-setup">
-      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} », ${fmtWhen(r.due)}. Avec qui ${whatF(r) ? 'la' : 'le'} faire ? Tu lui proposes en message (le texte est prêt), et son IA accepte ou refuse.</p>
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} », ${fmtWhen(relAnn(r))}. Avec qui ${whatF(r) ? 'la' : 'le'} faire ? Tu lui proposes en message (le texte est prêt), et son IA accepte ou refuse.</p>
       ${list.length ? html`<div class="feat-list">${list.map((c) => html`<button type="button" key=${c.id} class="feat-pick" onClick=${() => pick(c)}>
         <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} /><span class="mid"><b>${c.name}</b><small>${relShown(c)} · ${fmtN(c.followers)} abonnés</small></span></button>`)}</div>`
         : html`<p class="muted">Personne à qui le proposer pour l’instant.</p>`}
@@ -794,12 +799,12 @@ function FeatLayer({ l, g, i }) {
 // 0.27.4: a release brought forward: the times before the planned one, no cost.
 function MoveLayer({ l, g, i, now }) {
   const r = (g.releases || []).find((x) => x.id === l.id);
-  if (!r || r.state !== 'scheduled' || r.due <= now) return html`<${LayerShell} i=${i} title="Sortir plus tôt"><div class="empty"><b>${r && r.state === 'scheduled' ? 'C’est déjà l’heure' : 'Cette sortie n’est plus prévue'}</b></div><//>`;
+  if (!r || r.state !== 'scheduled' || r.due <= now || r.played) return html`<${LayerShell} i=${i} title="Sortir plus tôt"><div class="empty"><b>${r && r.state === 'scheduled' ? 'C’est déjà l’heure' : 'Cette sortie n’est plus prévue'}</b></div><//>`;
   const opts = advanceChoices(g, r, now);
-  const go = (o) => { if (advanceRelease(g, r, o.at)) { toast(o.at <= Date.now() + 60000 ? `${cap1(ta(r))} sort maintenant : à toi de tourner !` : `${cap1(ta(r))} sort ${fmtWhen(r.due)}.`, 'good'); closeLayer(); update(); } };
+  const go = (o) => { if (advanceRelease(g, r, o.at)) { toast(r.due <= Date.now() + 60000 ? (prodMs(r) && r.what !== 'live' ? `À toi de tourner : ${ta(r)} sort vers ${hourOf(relAnn(r))}.` : `${cap1(ta(r))} sort maintenant : à toi de tourner !`) : `${cap1(ta(r))} sort ${fmtWhen(relAnn(r))}.`, 'good'); closeLayer(); update(); } };
   return html`<${LayerShell} i=${i} title="Sortir plus tôt">
     <div class="mg-setup">
-      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. Choisis une heure plus tôt : aucun malus, ton public l’aura juste plus vite.</p>
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(relAnn(r), now)}. Choisis une heure plus tôt : aucun malus, ton public l’aura juste plus vite.${prodMs(r) && r.what !== 'live' ? ` Il te faut ${prodWord(r.what, r.care, r.team)} pour ${whatF(r) ? 'la' : 'le'} faire : pas plus tôt que ça.` : ''}</p>
       <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
       <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
     </div>
@@ -814,12 +819,12 @@ function LaterLayer({ l, g, i, now }) {
     const late = !earlyMove(r) && !awayMove(r);
     if (!postponeRelease(g, r, o.at)) return;
     dropLayers((x) => x.t === 'minigame' && x.id === r.id);
-    toast(`${cap1(ta(r))} sort ${fmtWhen(r.due)}.${late ? ' Ton public s’impatiente.' : ''}`, late ? 'bad' : 'good');
+    toast(`${cap1(ta(r))} sort ${fmtWhen(relAnn(r))}.${late ? ' Ton public s’impatiente.' : ''}`, late ? 'bad' : 'good');
     closeLayer(l); update();
   };
   return html`<${LayerShell} i=${i} title="Repousser">
     <div class="mg-setup">
-      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(r.due, now)}. ${awayMove(r, now) ? 'Son heure est passée pendant ton absence : tu peux la décaler une fois sans malus.' : early ? 'Bien à l’avance : aucun malus, ton public patientera.' : postponeCost(g, r) + ' Choisis la nouvelle heure.'}</p>
+      <p class="lede-sm">${cap1(ta(r))} « ${r.topic} » est ${whatF(r) ? 'prévue' : 'prévu'} ${fmtWhen(relAnn(r), now)}. ${awayMove(r, now) ? 'Son heure est passée pendant ton absence : tu peux la décaler une fois sans malus.' : early ? 'Bien à l’avance : aucun malus, ton public patientera.' : postponeCost(g, r) + ' Choisis la nouvelle heure.'}</p>
       <div class="move-opts">${opts.map((o) => html`<button key=${o.label} type="button" class="chip-btn" onClick=${() => go(o)}>${o.label}${o.peak ? ' 🔥' : ''}</button>`)}</div>
       <small class="muted">🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
     </div>
@@ -890,7 +895,7 @@ function RecruitLayer({ g, now, i }) {
 const DAY_PICKS = [0, 1, 2, 3, 7];
 const PLAN_HOURS = [8, 12, 17, 18, 19, 20, 21, 22];
 function dayDue(d, h, t = Date.now()) { const x = gameDate(t); x.setDate(x.getDate() + d); x.setHours(h, 0, 0, 0); return x.getTime() - clockOff(); }
-const dayFree = (d, h) => dayDue(d, h) > Date.now() + 60000;
+const dayFree = (d, h, ms = 0) => dayDue(d, h) > Date.now() + ms + 60000; // (0.30.1: ms, the time it takes to make)
 function dayWord(d, t = Date.now()) {
   if (d < 0) return '⚡ Maintenant'; // 0.30: made right away
   if (d < 3 && !(d < 2 && gameDate(t).getHours() < 6)) return ['Aujourd’hui', 'Demain', 'Après-demain'][d]; // (0.30: in the night, the day said)
@@ -908,6 +913,14 @@ function SeriesLayer({ l, g, i }) {
   const [days, setDays] = useState(7);
   const [hour, setHour] = useState(18);
   const [day, setDay] = useState(() => (dayFree(0, 18) ? 0 : 1)); // single release: 0 today, 1 tomorrow… (0.28.1: from today)
+  const [care, setCare] = useState(false); // 0.30.1: « soignée »: twice the time
+  const ed = single ? teamOf(g, what) : null; // (the team saves time, by level)
+  const PD = single && what !== 'live' ? prodH(what, care, ed) * 3600000 : 0; // the time it takes before it comes out
+  useEffect(() => { // (« soignée », or another format: an hour now too soon moves to the first one that works)
+    if (!single || day < 0 || dayFree(day, hour, PD)) return;
+    const h = PLAN_HOURS.find((x) => dayFree(day, x, PD));
+    if (h != null) setHour(h); else { const d = DAY_PICKS.find((x) => x > day); if (d != null) setDay(d); }
+  }, [PD, day]);
   const lock = useRef(false); // 0.28.1: two quick taps program (and pay) once
   const fq0 = single && l.fanQ && g.chars[l.fanQ] && g.chars[l.fanQ].fan ? g.chars[l.fanQ] : null; // 0.21: a fan's question as the topic
   const [fanQ, setFanQ] = useState(fq0 ? fq0.id : '');
@@ -931,7 +944,7 @@ function SeriesLayer({ l, g, i }) {
   const total = dv ? devisTotal(dv) : 0;
   const askQ = needDevis && (!dv || dv.cut), broke = !canAfford(g, 'devis'); // 0.28.1: a quote cut on the way is asked again
   const now = single && day < 0; // 0.30: « Maintenant »: shot and published right away, never announced
-  const dueAt = single ? (now ? Date.now() : dayDue(day, hour)) : 0, late = single && !now && !dayFree(day, hour);
+  const dueAt = single ? (now ? Date.now() : dayDue(day, hour)) : 0, late = single && !now && !dayFree(day, hour, PD);
   const go = () => { // (what is checked here holds until it is paid: nothing runs in between)
     if (lock.current || !ok || !canMake(g, what).ok || !planRoom(g) || (!single && seriesOn(g))) return;
     if (dv && (dv.paid || dv.cut || devisFor(o) !== dv)) return; // 0.28.1: a second tap, that quote is paid and gone
@@ -941,9 +954,9 @@ function SeriesLayer({ l, g, i }) {
     const paid = dv ? { total, items: dv.items, have: dv.have || [], topic: dv.topic, at: Date.now() } : null;
     if (single) {
       const due = now ? Date.now() : dayDue(day, hour);
-      if (!now && !dayFree(day, hour)) { toast('Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
+      if (!now && !dayFree(day, hour, PD)) { toast(PD ? `Il te faut ${prodWord(what, care, ed)} pour ${what === 'vidéo' ? 'la' : 'le'} faire : choisis une heure plus tard.` : 'Cette heure est déjà passée : choisis-en une autre.', 'bad'); return; }
       lock.current = true;
-      const r = scheduleRelease(g, { what, topic: theme.trim(), due, now, devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '', promo: pt ? pt.id : '' });
+      const r = scheduleRelease(g, { what, topic: theme.trim(), due, now, care: care && careOK(what), devis: paid, deal: (dv && dv.attach) || '', fanQ: fanQ && g.chars[fanQ] ? fanQ : '', promo: pt ? pt.id : '' });
       if (!r) { lock.current = false; return; }
       if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); }
       if (now) { closeLayer(); update(); startShoot(r); return; } // 0.30: straight to the shoot
@@ -965,17 +978,22 @@ function SeriesLayer({ l, g, i }) {
     if (dv && !devisStale(g, dv)) askPayDevis(g, dv, single ? 'Payer et programmer' : 'Payer et lancer le défi', go); // 0.28.1: the question first, over 1 000 € or half the bank
     else go();
   };
-  const pickDay = (d) => { setDay(d); if (d === 0 && !dayFree(0, hour)) { const h = PLAN_HOURS.find((x) => dayFree(0, x)); if (h != null) setHour(h); } };
+  const pickDay = (d) => { setDay(d); if (d >= 0 && !dayFree(d, hour, PD)) { const h = PLAN_HOURS.find((x) => dayFree(d, x, PD)); if (h != null) setHour(h); } };
   return html`<${LayerShell} i=${i} title=${single ? 'Programmer une sortie' : 'Défi Daily Upload'}>
     <div class="mg-setup">
       ${single ? null : html`<p class="lede-sm">${days} jours de suite, ${what === 'live' ? 'un live' : `${what === 'vidéo' ? 'une' : 'un'} ${noun(what)}`} par jour à heure fixe. Chaque épisode qui n’est pas raté (même moyen) fait grimper ton bonus de défi (×${fmtDec(1 + step)}, ×${fmtDec(1 + 2 * step)}… jusqu’à ×${cap}) : vues, abonnés et argent. Pas de report possible.</p>`}
       <div class="field"><span class="lbl">Format</span><${Seg} items=${P.fmts.map((f) => [f, cap1(noun(f)), !canMake(g, f).ok])} value=${what} onPick=${setWhat} label="Format" />
         ${P.fmts.filter((f) => !canMake(g, f).ok).map((f) => html`<small class="muted gear-why" key=${f}>${canMake(g, f).why}</small>`)}</div>
-      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><div class="tr-chips" role="group" aria-label="Jour">${[-1].concat(DAY_PICKS).map((d) => html`<button key=${d} type="button" class=${'chip-btn' + (day === d ? ' on' : '')} aria-pressed=${day === d ? 'true' : 'false'} disabled=${d === 0 && !PLAN_HOURS.some((h) => dayFree(0, h))} onClick=${() => pickDay(d)}>${dayWord(d)}</button>`)}</div></div>`
+      ${single ? html`<div class="field"><span class="lbl">Quel jour ?</span><div class="tr-chips" role="group" aria-label="Jour">${[-1].concat(DAY_PICKS).map((d) => html`<button key=${d} type="button" class=${'chip-btn' + (day === d ? ' on' : '')} aria-pressed=${day === d ? 'true' : 'false'} disabled=${d >= 0 && !PLAN_HOURS.some((h) => dayFree(d, h, PD))} onClick=${() => pickDay(d)}>${dayWord(d)}</button>`)}</div></div>`
         : html`<div class="field"><span class="lbl">Durée du défi</span><${Seg} items=${SERIES_DAYS.map((n) => [n, n + ' jours'])} value=${days} onPick=${setDays} label="Durée" /></div>`}
-      ${now ? html`<p class="muted now-note">Tu ${what === 'live' ? 'lances le live' : 'tournes'} tout de suite et ça sort dans la foulée, sans annonce : personne ne l’attend, personne ne sera déçu.</p>` : html`<div class="field"><span class="lbl">Heure de sortie</span>
-        <div class="hour-pick">${PLAN_HOURS.map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} disabled=${single && day === 0 && !dayFree(0, h)} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
-        <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small></div>`}
+      ${now ? html`<p class="muted now-note">${what === 'live' ? `Tu lances le live tout de suite (il dure ${prodWord('live')}), sans annonce` : `Tu tournes tout de suite : ${prodWord(what, care, ed)} de travail${ed ? ' ' + teamWord(ed) : ''}, ça sort vers ${hourOf(Date.now() + PD)}, sans annonce`} : personne ne l’attend, personne ne sera déçu.</p>` : html`<div class="field"><span class="lbl">${what === 'live' ? 'Heure du live' : 'Heure de sortie'}</span>
+        <div class="hour-pick">${PLAN_HOURS.map((h) => { const hd = gameDate(Date.now()); hd.setHours(h, 0, 0, 0); const a = audienceAt(hd); return html`<button key=${h} type="button" class=${'chip-btn' + (hour === h ? ' on' : '')} disabled=${single && day >= 0 && !dayFree(day, h, PD)} onClick=${() => setHour(h)}>${h} h${a >= 1.2 ? ' 🔥' : ''}</button>`; })}</div>
+        <small>🔥 = heure de pointe : plus de monde en ligne, plus de vues.</small>
+        ${single ? html`<small class="prod-note">⏱️ ${what === 'live' ? `Le live dure ${prodWord('live')}.` : `${prodWord(what, care, ed)} de travail (tournage et montage${ed ? ', ' + teamWord(ed) : ''}) : tu commences ${fmtWhen(Math.max(Date.now(), dueAt - PD))}${late ? '' : ` pour une sortie ${fmtWhen(dueAt)}`}.`}</small>` : null}</div>`}
+      ${single && careOK(what) ? html`<label class=${'check-card care-card' + (care ? ' on' : '')}>
+        <input type="checkbox" checked=${care} onChange=${(e) => setCare(e.target.checked)} />
+        <span><b>✨ ${what === 'vidéo' ? 'Vidéo soignée' : `${cap1(noun(what))} soigné`}</b><small>${prodWord(what, true, ed)} de travail au lieu de ${prodWord(what, false, ed)} : +${Math.round((CARE_K - 1) * 100)} % de vues, un peu plus de chances de buzz et de la crédibilité. Certaines marques l’exigent dans leur contrat.</small></span>
+      </label>` : null}
       ${partners.length && !now ? html`<div class="field"><span class="lbl">Feat (facultatif)</span>
         <div class="tr-chips" role="group" aria-label="Feat">${[['', px(g, 'Seul', 'Seule', 'Seul·e')]].concat(partners.map((c) => [c.id, firstName(c)])).map(([id, label]) => html`<button type="button" key=${id || 'solo'} class=${'chip-btn' + (feat === id ? ' on' : '')} aria-pressed=${feat === id ? 'true' : 'false'} onClick=${() => setFeat(id)}>${label}</button>`)}</div>
         ${feat && g.chars[feat] ? html`<small class="muted">Une fois programmée, tu ${g.chars[feat].g === 'f' ? 'la' : g.chars[feat].g === 'm' ? 'le' : 'le ou la'} lui proposes en message (le texte est prêt, à toi de le changer) : ${firstName(g.chars[feat])} accepte ou refuse.</small>` : null}</div>` : null}
@@ -983,7 +1001,7 @@ function SeriesLayer({ l, g, i }) {
         <div class="tr-chips" role="group" aria-label="Annoncer une vidéo"><button type="button" class=${'chip-btn' + (!pt ? ' on' : '')} aria-pressed=${!pt ? 'true' : 'false'} onClick=${() => setPromo('')}>Aucune</button>${targets.map((x) => html`<button type="button" key=${x.id} class=${'chip-btn' + (pt === x ? ' on' : '')} aria-pressed=${pt === x ? 'true' : 'false'} onClick=${() => pickPromo(x)}>🎬 ${wordCut(x.topic, 26)}${x.state === 'scheduled' ? '' : ' · en ligne'}</button>`)}</div>
         <small class="muted">${!pt ? `Un ${P.shortName} qui annonce ta vidéo, ou qui renvoie vers elle, lui amène une partie de ses spectateurs : plus il marche, plus ils sont nombreux (et plus encore si ta commu est chaleureuse).`
           : pt.state === 'released' || dueAt > pt.due ? `Il renverra vers « ${wordCut(pt.topic, 40)} », comme le lien « vidéo associée » : une partie de ses spectateurs ira la voir.`
-            : `Il sortira avant ta vidéo (${fmtWhen(pt.due)}) : une partie de ses spectateurs viendra la voir à sa sortie, et certains resteront pour tes vidéos longues.`}</small></div>` : null}
+            : `Il sortira avant ta vidéo (${fmtWhen(relAnn(pt))}) : une partie de ses spectateurs viendra la voir à sa sortie, et certains resteront pour tes vidéos longues.`}</small></div>` : null}
       ${vidLow ? html`<p class="aud-hint">📺 La plupart de tes abonnés te suivent pour tes ${P.shortName}s : ≈ ${fmtN(vidFans(g))} regardent tes vidéos longues. Un ${P.shortName} qui annonce celle-ci peut en ramener (une fois programmée : « 📣 ${cap1(P.shortName)} d’annonce », dans ton Programme).</p>` : null}
       ${single && fanQuestions(g).filter((c) => !fanPlanned(g, c)).length ? html`<div class="field"><span class="lbl">Une question d’abonné ?</span><div class="tr-chips">${fanQuestions(g).filter((c) => !fanPlanned(g, c)).slice(0, 4).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (fanQ === c.id ? ' on' : '')} onClick=${() => { if (fanQ === c.id) { setFanQ(''); setTheme(''); } else { setFanQ(c.id); setTheme(qaTopic(c)); } }}>💌 ${firstName(c)}</button>`)}</div>${fanQ && g.chars[fanQ] ? html`<small>« ${str(g.chars[fanQ].fan.text, 110)} »</small>` : html`<small>Une vidéo sur sa question : ta commu se réchauffe, et cet abonné devient un habitué.</small>`}</div>` : null}
       <div class="field"><label class="lbl" for="se-theme">${single ? 'Le sujet' : 'Le thème du défi'}</label>
@@ -993,8 +1011,9 @@ function SeriesLayer({ l, g, i }) {
         <div class="diff-list compact" role="radiogroup" aria-labelledby="se-diff">${DIFFS.map((d) => html`<button type="button" key=${d.id} role="radio" aria-checked=${diff === d.id ? 'true' : 'false'} class=${'diff-opt' + (diff === d.id ? ' on' : '') + (d.real ? ' nightmare' : '')} onClick=${() => setDiff(d.id)}><span class="d-emo" aria-hidden="true">${d.emoji}</span><span class="d-mid"><b>${d.label}</b></span><span class="d-mult">${fmtMult(d.mult)}</span></button>`)}</div></div>
       <label class=${'hard-toggle' + (hard ? ' on' : '')}><input type="checkbox" checked=${hard} onChange=${(ev) => setHard(ev.target.checked)} /><span><b>Mode hardcore 💀</b><small>Le bonus de défi grimpe presque deux fois plus vite (jusqu’à ×4) ; à la fin, deux fois plus de gemmes et +50 % d’abonnés et d’XP. Mais un seul épisode raté ou manqué, et c’est le bad buzz.</small></span></label>
       <${SeriesStakes} days=${days} hard=${hard} />`}
-      ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; update(false); } : null} />` : null}
-      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? 'Sortie' : 'Premier épisode'} : ${now ? 'maintenant' : fmtGameAt(single ? dueAt : nextAt(hour, 0))}</p>
+      ${dv ? html`<${DevisCard} g=${g} dv=${dv} attach=${single ? dv.attach || '' : null} onAttach=${single ? (id) => { dv.attach = id; const dd = id ? dealOf(g, id) : null; if (dd && dd.care && careOK(what)) setCare(true); update(false); } : null} />` : null}
+      ${single && dv && dv.attach && dealOf(g, dv.attach) && dealOf(g, dv.attach).care && !care ? html`<p class="date-late care-warn">✨ Le contrat de ${dealOf(g, dv.attach).brand} exige ${what === 'vidéo' ? 'une vidéo soignée' : `un ${noun(what)} soigné`} : sans, la marque retiendra ${Math.round(CARE_CUT * 100)} % du paiement.</p>` : null}
+      <p class="se-when"><${Icon} n="calendar" s=${14} /> ${single ? (what === 'live' ? 'Live' : 'Sortie') : 'Premier épisode'} : ${now ? (PD ? `vers ${hourOf(Date.now() + PD)}` : 'maintenant') : fmtGameAt(single ? dueAt : nextAt(hour, 0))}</p>
       <button class="btn btn-hot" onClick=${launch} disabled=${!ok || !planRoom(g) || (!single && seriesOn(g)) || !canMake(g, what).ok || dvBusy || (askQ ? broke : (total > 0 && total > g.career.cash) || late)}>${askQ
         ? (dvBusy ? html`<${Typing} /> Le devis arrive…` : html`<${Icon} n="receipt" s=${16} /> ${(dv && dv.cut) || S.devisErr === devisKey(o) ? 'Redemander le devis' : 'Demander le devis'} · ≈ ${costLabel(g, 'devis')} ☕`)
         : html`<${Icon} n=${now ? 'clapper' : 'calendar'} s=${16} /> ${total ? `Payer ${fmtMoney(g, total)} et ${now ? (what === 'live' ? 'lancer le live' : 'tourner') : single ? 'programmer' : 'lancer le défi'}` : now ? (what === 'live' ? 'Lancer le live maintenant' : 'Tourner maintenant') : single ? 'Programmer' : `Lancer le défi · ${days} jours`}`}</button>
@@ -1029,12 +1048,13 @@ function RumorBanner({ g, now }) {
 
 /* ---------- the upload screen of each platform (inspired by them, with Hype's own look) ---------- */
 // 0.27.7: an upload form half filled stays as it was, its window closed or put aside (the thumbnail is the release's own).
-const PUB_KEEP = ['title', 'caption', 'hook', 'trend', 'trend2', 'collab', 'deal', 'mention', 'decl', 'membAvant', 'membLive'];
+const PUB_KEEP = ['title', 'caption', 'hook', 'trend', 'trend2', 'collab', 'deal', 'deals', 'premiere', 'mention', 'decl', 'membAvant', 'membLive'];
 function pubDraft(r, deals) {
   const d = S.pubDrafts && S.pubDrafts[r.id];
   if (!d) return {};
   const o = Object.fromEntries(PUB_KEEP.filter((k) => k in d).map((k) => [k, d[k]]));
   if (o.deal && !deals.some((x) => x.id === o.deal)) { delete o.deal; delete o.mention; } // (that contract is over since)
+  if (Array.isArray(o.deals)) o.deals = o.deals.filter((id) => deals.some((x) => x.id === id)); // 0.30.1
   return o;
 }
 function keepPubDraft(r, f) { if (!S.pubDrafts) S.pubDrafts = {}; S.pubDrafts[r.id] = Object.fromEntries(PUB_KEEP.map((k) => [k, f[k]])); }
@@ -1049,8 +1069,9 @@ function PublishForm({ g, r, now }) {
   const collabs = partner && !collabs0.includes(partner) ? [partner].concat(collabs0) : collabs0;
   const T0 = r.thumb || null; // 0.14: the thumbnail made in the studio
   const taken = (d) => plannedReleases(g).some((x) => x.id !== r.id && x.deal === d.id); // 0.27.6: carried by another planned release
-  const d0 = r.deal ? deals.find((d) => d.id === r.deal) || null : deals.find((d) => !taken(d)) || null; // 0.20: the sponsor chosen with the quote (0.27.6: delivered since by another release, none rather than another brand)
-  const [f, setF] = useState(() => Object.assign({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', mention: !(d0 && d0.shady), decl: [], membAvant: false, membLive: false }, pubDraft(r, deals))); // (0.27.7: what was typed before the window was closed comes back)
+  const d0 = r.big ? null : r.deal ? deals.find((d) => d.id === r.deal) || null : deals.find((d) => !taken(d)) || null; // 0.20 (0.30.1: a production's brands, below)
+  const bigD0 = r.big ? r.big.deals.filter((id) => deals.some((d) => d.id === id)) : []; // 0.30.1: the sponsor chosen with the quote (0.27.6: delivered since by another release, none rather than another brand)
+  const [f, setF] = useState(() => Object.assign({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', deals: bigD0, premiere: false, mention: !(d0 && d0.shady) && !bigD0.some((id) => (dealOf(g, id) || {}).shady), decl: [], membAvant: false, membLive: false }, pubDraft(r, deals))); // (0.27.7: what was typed before the window was closed comes back)
   const set = (k, v, more) => { const n = Object.assign({}, f, { [k]: v }, more || {}); keepPubDraft(r, n); setF(n); };
   const [lo, hi] = estimateViews(g, r, f);
   const aud = audienceAt(gameDate(now));
@@ -1077,9 +1098,17 @@ function PublishForm({ g, r, now }) {
       ${tags.length ? html`<div class="field"><span class="lbl">Défi / hashtag</span>${trendChips(tags, 'trend2', 'Aucun')}</div>` : null}` : null}
     ${kind !== 'vert' && topics.length ? html`<div class="field"><span class="lbl">Surfer sur une tendance</span>${trendChips(topics, 'trend', 'Aucune')}</div>` : null}
     ${collabs.length ? html`<div class="field"><span class="lbl">Collab (publier à deux)</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.collab ? ' on' : '')} onClick=${() => set('collab', '')}>${px(g, 'Seul', 'Seule', 'Seul·e')}</button>${collabs.slice(0, 6).map((c) => html`<button type="button" key=${c.id} class=${'chip-btn' + (f.collab === c.id ? ' on' : '')} onClick=${() => set('collab', c.id)}>${c.emoji || '👤'} ${firstName(c)}</button>`)}</div><small>Son audience voit aussi ta publication.</small></div>` : null}
-    ${deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsor</span>
+    ${r.big && deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsors (${BIG_DEALS} au plus)</span>
+      <div class="tr-chips">${deals.map((d) => { const on = (f.deals || []).includes(d.id); return html`<button type="button" key=${d.id} class=${'chip-btn' + (on ? ' on' : '')} aria-pressed=${on ? 'true' : 'false'} onClick=${() => set('deals', on ? f.deals.filter((x) => x !== d.id) : (f.deals || []).length >= BIG_DEALS ? f.deals : (f.deals || []).concat(d.id))}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`; })}</div>
+      ${bigClash(g, f.deals).map((x) => html`<small class="care-warn" key=${x.d.id}>⚖️ ${x.why} : elle ne paiera que la moitié.</small>`)}
+      <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
+      ${(f.deals || []).length ? html`<label class=${'mention-toggle' + (f.mention ? '' : ' off')}><input type="checkbox" checked=${f.mention} onChange=${(ev) => set('mention', ev.target.checked)} /><span><b>Mention « Collaboration commerciale »</b><small>${f.mention ? 'Visible tout le long du contenu.' : 'Le contenu ne dira pas qu’il est sponsorisé.'}</small></span></label>` : null}
+    </div>` : null}
+    ${r.big && PF(g).fmts.includes('live') && canMake(g, 'live').ok ? html`<label class=${'mention-toggle big-prem' + (f.premiere ? '' : ' off')}><input type="checkbox" checked=${f.premiere} onChange=${(ev) => set('premiere', ev.target.checked)} /><span><b>🍿 Avant-première en live</b><small>${f.premiere ? 'Tu la découvres en direct avec ta commu (1 h 30) : +10 % de vues, et ta commu se réchauffe.' : 'La découvrir en direct avec ta commu : 1 h 30 de live, plus de vues.'}</small></span></label>` : null}
+    ${!r.big && deals.length ? html`<div class="field up-sponsor"><span class="lbl">Sponsor</span>
       <div class="tr-chips"><button type="button" class=${'chip-btn' + (!f.deal ? ' on' : '')} onClick=${() => set('deal', '')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (f.deal === d.id ? ' on' : '')} onClick=${() => set('deal', d.id, { mention: !d.shady })}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div>
       <small>Une marque logique avec ton sujet : +${fitPct(1)} % de vues. Hors sujet : −${fitPct(-1)} %.</small>
+      ${dl && dl.care ? html`<small class=${r.care && careOK(r.what) ? 'care-ok' : 'care-warn'}>${r.care && careOK(r.what) ? `✨ Soigné${whatF(r) ? 'e' : ''}, comme le demande le contrat.` : `✨ Le contrat demande ${whatF(r) ? 'une vidéo soignée' : `un ${nounOf(r)} soigné`} : ${dl.brand} retiendra ${Math.round(CARE_CUT * 100)} % du paiement.`}</small>` : null}
       ${dl ? html`<label class=${'mention-toggle' + (f.mention ? '' : ' off')}><input type="checkbox" checked=${f.mention} onChange=${(ev) => set('mention', ev.target.checked)} /><span><b>Mention « Collaboration commerciale »</b><small>${f.mention ? (dl.shady ? 'Ton contrat dit sans. Tu la mets quand même ?' : 'Visible tout le long du contenu.') : dl.shady ? 'Comme le demande ton contrat.' : 'Le contenu ne dira pas qu’il est sponsorisé.'}</small></span></label>` : null}
     </div>` : null}
     ${declOn(g, r.what) ? html`<div class="field up-decl"><span class="lbl">Pour les annonceurs : ce que contient ${laW(r)}</span>

@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.30.0';
+const APP_VERSION = '0.30.1';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -592,6 +592,7 @@ function migrate(g) {
   for (const r of g.releases) { // 0.27.4: the grading is gone: one drawn and not played yet is drawn again
     if (r && r.state === 'scheduled' && r.game && r.game.kind === 'etalonnage' && !r.played) r.game = null;
     if (r && r.state === 'scheduled' && r.editGame && r.editGame.kind === 'etalonnage' && !r.edit) r.editGame = null;
+    if (r && r.state === 'scheduled' && r.outAt == null && r.prod == null) r.prod = 0; // 0.30.1: planned before the time it takes: as it was
   }
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
@@ -1390,6 +1391,77 @@ const MAX_DELAYS = 3;
 const postponePlan = (n) => { const pen = [5, 10, 15][clamp(n, 1, 3) - 1]; return { cred: -pen * 2.8, image: -pen * 0.8 }; };
 const DROP_PLAN = { cred: -35, image: -10 };
 const RELEASE_GRACE = 60 * 60 * 1000; // a release left undone this long after its time is given up, with a penalty
+/* 0.30.1: the time it takes. A short is 2 h of work, a video or a clip 4 h, a podcast 3 h (twice as much « soignée »), a
+   live its 2 h on air: the clock moves on after the shoot, and it comes out at the end. The time announced is when it
+   comes out (a live: when it starts): the shoot starts that long before (r.due, the slot the game calls out), and a
+   shoot started late comes out late. r.outAt: when it comes out; r.prod === 0: planned before 0.30.1 (no time taken). */
+const PROD_H = { short: 2, vidéo: 4, clip: 4, podcast: 3, live: 2 };
+const CARE_K = 1.15; // a « soignée » release: +15 % of views (and a little more buzz, some credibility; brands pay more)
+const careOK = (what) => what !== 'live'; // (a live lasts what it lasts)
+/* The team saves time, by level: an editor 15 to 30 % of it (what they edit), a graphic designer 10 to 30 min (the
+   thumbnail, the visuals). Counted from the planning with the team hired then (r.team); at the shoot, only those paid. */
+const ED_SAVE = [0.15, 0.2, 0.25, 0.3], TH_SAVE = [10, 15, 20, 30];
+function teamOf(g, what, paid) {
+  if (!g || what === 'live' || typeof hasStaff !== 'function') return null;
+  const on = (role) => { const m = hasStaff(g, role); return m && STAFF_ROLES[role].fmts.includes(what) && (!paid || paid.includes(role)) ? m : null; };
+  const ed = on('monteur'), th = on('miniature');
+  if (!ed && !th) return null;
+  return { k: ed ? 1 - ED_SAVE[clamp(ed.tier || 0, 0, 3)] : 1, min: th ? TH_SAVE[clamp(th.tier || 0, 0, 3)] : 0 };
+}
+const prodH = (what, care, team) => Math.max(0.5, (PROD_H[what] || 4) * (care && careOK(what) ? 2 : 1) * (team && team.k ? team.k : 1) - (team && team.min ? team.min / 60 : 0));
+const prodMs = (r) => (!r || r.prod === 0 || r.big ? 0 : prodH(r.what, r.care, r.team) * 3600000); // (a big production: the time of its stages, bigWork)
+const hWord = (h) => { const m = Math.round(h * 60); return m % 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m / 60} h`; };
+const prodWord = (what, care, team) => hWord(prodH(what, care, team));
+const teamWord = (team) => (team ? (team.k < 1 && team.min ? 'avec ton équipe' : team.k < 1 ? 'avec ton monteur' : 'avec ton graphiste') : '');
+// The time the public was given: when it comes out (a live: when it starts).
+const relAnn = (r) => (r.what === 'live' || r.outAt == null ? r.due : r.outAt);
+// at: the time announced (or chosen); start: that time is when the work starts (a collab met at that hour).
+function setOut(r, at, t = Date.now(), start = false) {
+  const D = prodMs(r);
+  at = Math.round(at);
+  if (!D) { r.due = Math.max(t, at); delete r.outAt; return r; }
+  if (r.what === 'live' || start) { r.due = Math.max(t, at); r.outAt = r.due + D; return r; }
+  r.outAt = Math.max(at, t + D);
+  r.due = Math.max(t, r.outAt - D);
+  if (r.outAt > at + 5 * 60000) r.ann = at; else delete r.ann; // (announced sooner than it can be made: it will come out late)
+  return r;
+}
+// 0.30.1: « doit sortir maintenant », or, for one that takes time, « c'est l'heure de la tourner (elle sort à 18 h) ».
+const dueWord = (r) => (r.big ? bigDueWord(r) : prodMs(r) && r.what !== 'live' ? `c’est l’heure de ${whatF(r) ? 'la' : 'le'} tourner (${whatF(r) ? 'elle' : 'il'} sort${relAnn(r) > Date.now() ? ' à ' + hourOf(relAnn(r)) : ''} après ${prodWord(r.what, r.care, r.team)} de travail)` : 'doit sortir maintenant');
+// What a shoot started now would run over: a date (missed, or reached late), the shoots of other releases (late).
+function prodClash(g, r, t = Date.now(), D = prodMs(r)) {
+  if (!g || !r || !D) return null;
+  const end = t + D, out = [];
+  for (const ev of activeEvents(g)) {
+    if (!ev.player || ev.due >= end || ev.due + EVENT_GRACE <= t || (ev.awayUntil && ev.awayUntil > t)) continue;
+    const c = g.chars[ev.c];
+    if (!c) continue;
+    const miss = ev.due + EVENT_GRACE <= end;
+    out.push({ ev, c, miss, text: miss ? `tu rates ton rendez-vous avec ${firstName(c)} (${hourOf(ev.due)}, « ${str(ev.what, 50)} »)` : `tu arrives avec ${fmtDur(Math.max(60000, end - ev.due))} de retard à ton rendez-vous avec ${firstName(c)} (${hourOf(ev.due)})` });
+  }
+  for (const x of plannedReleases(g)) {
+    if (x === r || !bigTodo(x) || x.due >= end) continue;
+    const lost = relLimit(x) <= end; // (its time and its grace gone by then: given up, as any release left undone)
+    if (x.big) { out.push({ rel: x, lost, text: `${BIG_STAGES[Math.min(x.big.stage, 2)].of} de ta production « ${str(x.topic, 40)} » (à ${hourOf(Math.max(x.due, t))}) ${lost ? 'ne pourra plus se faire : elle sera abandonnée' : 'commencera en retard'}` }); continue; } // 0.30.1
+    out.push({ rel: x, lost, text: `${ta(x)} « ${str(x.topic, 40)} » (${x.what === 'live' ? 'à lancer' : 'à tourner'} ${hourOf(Math.max(x.due, t))}) ${lost ? `ne pourra plus sortir : ${whatF(x) ? 'abandonnée' : 'abandonné'}, comme une sortie jamais faite` : x.what === 'live' ? 'commencera en retard' : 'sortira en retard'}` });
+  }
+  return out.length ? { end, out, dates: out.filter((x) => x.ev) } : null;
+}
+// The shoot is done: the clock moves on by the time it takes (counted from when it started), and it comes out at the end.
+function prodJump(g, r) {
+  if (!g || !r || r.prodDone || g.events && g.events.includes(r)) return 0;
+  const D = prodMs(r);
+  if (!D) return 0;
+  if (typeof skipBusy === 'function' && skipBusy()) { r.prodWait = 1; return 0; } // (the characters are still writing: the clock moves once they are done)
+  r.prodDone = 1;
+  delete r.prodWait;
+  const t = Date.now(), ms = Math.round((r.prodAt || t) + D - t);
+  if (ms < 60000) return 0;
+  jumpClock(g, ms);
+  g.lastPlayedAt = Date.now();
+  toast(`⏱️ ${fmtDur(ms)} ${r.what === 'live' ? 'de live' : 'de tournage et de montage'} plus tard… Il est ${hourOf(Date.now())}.`, 'flash');
+  return ms;
+}
 const RELEASE_TIERS = {
   top: { label: 'Tournage réussi', verdict: 'cartonne', cred: 8 },
   mid: { label: 'Tournage moyen', verdict: 'marche moyen', cred: 5 },
@@ -1553,10 +1625,11 @@ function trimReleases(g, max = 10 + MAX_PLANNED) {
 // 0.27.4: brought forward, at no cost (the public simply gets it sooner); a shoot not played yet stays as it is.
 function advanceRelease(g, r, due) {
   const t = Date.now();
-  if (!r || r.state !== 'scheduled' || r.series || !(due < r.due - 30000)) return false; // (0.27.6: a daily upload keeps its hour, like when postponing)
-  r.due = Math.max(t, Math.round(due));
+  if (!r || r.state !== 'scheduled' || r.series || r.big || r.played || !(due < relAnn(r) - 30000)) return false; // (0.27.6: a daily upload keeps its hour, like when postponing; 0.30.1: never once shot)
+  setOut(r, due, t); // (0.30.1: never sooner than the time it takes)
+  delete r.ann;
   r.dueSaid = false;
-  const when = r.due - t < 60000 ? 'maintenant' : fmtWhen(r.due, t);
+  const when = relAnn(r) - t < 60000 ? 'maintenant' : r.outAt != null && r.due - t < 60000 && r.what !== 'live' ? `vers ${hourOf(r.outAt)}, le temps de ${whatF(r) ? 'la' : 'le'} faire` : fmtWhen(relAnn(r), t);
   addNotif(g, { k: 'release', text: `⏩ ${cap1(ta(r))} « ${str(r.topic, 60)} » sort plus tôt : ${when}.` });
   // 0.30: a surprise only for those who were really waiting for it (programmed a while ago, or announced); programmed and
   // brought forward within minutes, nobody waited: nothing to say (« prévu à 18 h, livré maintenant » under every short)
@@ -1567,9 +1640,10 @@ function advanceRelease(g, r, due) {
 }
 // The earlier times offered (the hours of the day planner, and soon), up to the planned one.
 function advanceChoices(g, r, now = Date.now()) {
-  const out = [{ at: now, label: 'Maintenant' }];
-  const ok = (at) => at > now + 10 * 60000 && at < r.due - 5 * 60000 && !out.some((o) => Math.abs(o.at - at) < 20 * 60000);
-  for (const m of [30, 60, 120, 180]) { const at = now + m * 60000; if (ok(at)) out.push({ at, label: m < 60 ? `Dans ${m} min` : `Dans ${m / 60} h` }); }
+  const D = r.what === 'live' ? 0 : prodMs(r); // 0.30.1: never sooner than the time it takes to make
+  const out = [{ at: now, label: D ? `Tout de suite (sortie vers ${hourOf(now + D)})` : 'Maintenant' }];
+  const ok = (at) => at > now + D + 10 * 60000 && at < relAnn(r) - 5 * 60000 && !out.some((o) => Math.abs(o.at - at) < 20 * 60000);
+  for (const m of [30, 60, 120, 180]) { const at = now + D + m * 60000; if (ok(at)) out.push({ at, label: D ? `Dans ${hWord((D + m * 60000) / 3600000)}` : m < 60 ? `Dans ${m} min` : `Dans ${m / 60} h` }); }
   for (let dd = 0; dd <= 7; dd++) {
     for (const h of [8, 12, 17, 18, 19, 20, 21, 22]) {
       const x = gameDate(now); x.setDate(x.getDate() + dd); x.setHours(h, 0, 0, 0);
@@ -1589,7 +1663,7 @@ function slotLabel(x, dd, h) {
 }
 // 0.28.1: the later times offered when postponing: soon after the planned one, then the day planner's hours for a week.
 function laterChoices(g, r, now = Date.now()) {
-  const base = Math.max(r.due, now), out = [];
+  const base = Math.max(relAnn(r), r.what === 'live' ? now : now + prodMs(r)), out = []; // (0.30.1: never sooner than it can be made)
   const ok = (at) => at > base + 20 * 60000 && at < base + 8 * 86400000 && !out.some((o) => Math.abs(o.at - at) < 20 * 60000);
   for (const m of [30, 60, 120, 180]) { const at = base + m * 60000; if (ok(at)) out.push({ at, label: m < 60 ? `${m} min plus tard` : `${m / 60} h plus tard` }); }
   for (let dd = 0; dd <= 8; dd++) {
@@ -1621,7 +1695,8 @@ function addRelease(g, o, post, said) {
   // 0.27.6: the same format, around the same time; later that day, only about the same thing (or in words that name
   // nothing new): two shorts on two topics the same day are two releases, a video announced next to a live is a video.
   const due = t + mins * 60000, day = (x) => gameDate(x).toDateString(), words = relWords(topic);
-  const same = plannedReleases(g).find((x) => x.what === what && (Math.abs(x.due - due) < 90 * 60000 || (day(x.due) === day(due) && (o.loose || !words.length || sameThing(x.topic, topic)))));
+  const told = (x) => (x.ann && x.ann < relAnn(x) ? x.ann : relAnn(x)); // (0.30.1: the time the public was told)
+  const same = plannedReleases(g).find((x) => x.what === what && (Math.abs(told(x) - due) < 90 * 60000 || (day(told(x)) === day(due) && (o.loose || !words.length || sameThing(x.topic, topic)))));
   if (same) { if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); } if (!same.c && target && isMain(target) && target.unlocked) same.c = target.id; return null; }
   const r = {
     id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: post ? post.id : null, at: t, due: t + mins * 60000, state: 'scheduled', delays: 0, tries: 0,
@@ -1629,9 +1704,12 @@ function addRelease(g, o, post, said) {
     said: str(said, 280), diff: 'moyen',
   };
   if (!g.releases) g.releases = [];
+  const tm = teamOf(g, r.what); if (tm) r.team = tm; // 0.30.1: the team saves time, counted from now
+  setOut(r, r.due, t); // 0.30.1: the time it takes (announced too soon: it will come out late)
   g.releases.push(r);
   trimReleases(g);
-  addNotif(g, { k: 'release', p: r.post, text: `Compte à rebours lancé : ${ta(r)} « ${topic} » sort dans ${fmtLeft(mins * 60000)}.${asked !== what ? ` (${asked === 'vidéo' ? 'Pas de quoi monter une vidéo longue' : asked === 'live' ? 'Pas de connexion pour un live' : 'Pas le matos'} : ce sera ${unW(r)}.)` : ''}` });
+  const prodNote = r.what === 'live' ? '' : r.ann ? ` Il te faut ${prodWord(r.what, r.care, r.team)} de travail : à toi de tourner maintenant, ${whatF(r) ? 'elle' : 'il'} sortira vers ${hourOf(r.outAt)}, en retard sur ton annonce.` : ` Le tournage commence ${fmtWhen(r.due, t)} (${prodWord(r.what, r.care, r.team)} de travail${r.team ? ', ' + teamWord(r.team) : ''}).`;
+  addNotif(g, { k: 'release', p: r.post, text: `Compte à rebours lancé : ${ta(r)} « ${topic} » ${r.what === 'live' ? 'commence' : 'sort'} dans ${fmtLeft(mins * 60000)}.${asked !== what ? ` (${asked === 'vidéo' ? 'Pas de quoi monter une vidéo longue' : asked === 'live' ? 'Pas de connexion pour un live' : 'Pas le matos'} : ce sera ${unW(r)}.)` : ''}${prodNote}` });
   addTrigger(g, `Le joueur a annoncé ${unW(r)} dans ${fmtDur(mins * 60000)} : « ${str(topic, 80)} ». Le public l’attend : certains font monter la hype, d’autres doutent.`);
   return r;
 }
@@ -1644,21 +1722,22 @@ const DELAY_LINES = [
 // after that, it does). At the last minute, or late, it is a real postponement, and it costs more each time: not very
 // pro, then unprofessional, then « il se défile ».
 const RELEASE_NOTICE = 2 * 3600000;
-const earlyMove = (r, now = Date.now()) => !!r && r.due - now > RELEASE_NOTICE && (r.moved || 0) < 2;
+const earlyMove = (r, now = Date.now()) => !!r && r.due - now > RELEASE_NOTICE && relAnn(r) - now > RELEASE_NOTICE && (r.moved || 0) < 2; // (0.30.1: well before its shoot, too)
 // 0.30: its time came while the player was away: one postponement for free, for as long as its grace from the return lasts
 const awayMove = (r, now = Date.now()) => !!r && !!r.away && now <= relLimit(r);
-const canPostpone = (r, now = Date.now()) => !!r && r.state === 'scheduled' && !r.series && (earlyMove(r, now) || awayMove(r, now) || r.delays < MAX_DELAYS);
+const canPostpone = (r, now = Date.now()) => !!r && r.state === 'scheduled' && !r.series && !r.big && (earlyMove(r, now) || awayMove(r, now) || r.delays < MAX_DELAYS); // (0.30.1: a production moves a day at a time, bigShift)
 function postponeRelease(g, r, due) {
-  if (!r || r.state !== 'scheduled' || r.series) return false; // no postponing in a daily upload
-  const s = g.stats, t = Date.now(), base = Math.max(r.due, t);
+  if (!r || r.state !== 'scheduled' || r.series || r.big) return false; // no postponing in a daily upload (0.30.1: a production: bigShift)
+  const s = g.stats, t = Date.now(), base = Math.max(relAnn(r), r.what === 'live' ? t : t + prodMs(r)); // (0.30.1: the time announced, never sooner than it can be made)
   const at = Math.round(Number.isFinite(due) && due > base + 60000 ? due : base + 30 * 60000);
   const free = awayMove(r, t);
-  if (free || earlyMove(r, t)) {
+  if ((free || earlyMove(r, t)) && !r.played) {
     if (free) { delete r.away; delete r.waited; } else r.moved = (r.moved || 0) + 1;
-    r.due = at;
+    setOut(r, at, t);
+    delete r.ann;
     r.dueSaid = false;
-    addNotif(g, { k: 'release', at: t, text: `🗓️ ${cap1(ta(r))} « ${str(r.topic, 60)} » est ${whatF(r) ? 'décalée' : 'décalé'} : ${fmtWhen(r.due, t)}.` });
-    addTrigger(g, `Le joueur décale ${sa(r)} « ${str(r.topic, 60)} »${free ? '' : ', bien à l’avance'} : ${whatF(r) ? 'elle' : 'il'} sortira ${fmtWhen(r.due, t)}. Ceux qui l’attendaient patienteront.`, r.c || null);
+    addNotif(g, { k: 'release', at: t, text: `🗓️ ${cap1(ta(r))} « ${str(r.topic, 60)} » est ${whatF(r) ? 'décalée' : 'décalé'} : ${fmtWhen(relAnn(r), t)}.` });
+    addTrigger(g, `Le joueur décale ${sa(r)} « ${str(r.topic, 60)} »${free ? '' : ', bien à l’avance'} : ${whatF(r) ? 'elle' : 'il'} sortira ${fmtWhen(relAnn(r), t)}. Ceux qui l’attendaient patienteront.`, r.c || null);
     return true;
   }
   if (r.delays >= MAX_DELAYS) return false;
@@ -1666,9 +1745,11 @@ function postponeRelease(g, r, due) {
   const loss = r.delays >= 2 ? Math.round(s.followers * (r.delays === 2 ? 0.03 : 0.05)) : 0;
   const dr = repMove(g, postponePlan(r.delays), `tu as repoussé ${ta(r)}`, { noCheck: true });
   if (loss) s.followers = Math.max(0, s.followers - loss);
-  r.due = at;
   r.game = null; // a new shoot next time
   r.played = null;
+  delete r.prodAt; delete r.prodDone; // 0.30.1: and its time to make, again
+  setOut(r, at, t);
+  delete r.ann;
   r.edit = null; r.editGame = null; r.thumb = null; r.render = null; // 0.14: and a new edit, a new thumbnail (0.20: a new render)
   r.dueSaid = false;
   const word = ['On trouve ça moyen pro.', 'Manque de professionnalisme : ça commence à se voir.', 'Pour beaucoup, tu te défiles.'][r.delays - 1];
@@ -1697,17 +1778,20 @@ function dropRelease(g, r, forgot) {
   const s = g.stats, t = later();
   r.state = 'dropped';
   keptToInv(g, r, 'neuf');
+  if (r.big) bigDropped(g, r); // 0.30.1: a big promise, a cast told
   if (r.now) { addNotif(g, { k: 'release', at: t, text: `${cap1(ta(r))} « ${str(r.topic, 60)} » ne sortira pas. Personne ne l’attendait : rien de perdu.` }); return; } // 0.30: never announced, never missed
   const loss = Math.round(s.followers * 0.04);
-  const dr = repMove(g, DROP_PLAN, `${sa(r)} promis${whatF(r) ? 'e' : ''}, jamais sorti${whatF(r) ? 'e' : ''}`, { noCheck: true });
+  const T = r.big ? 'ta grosse production' : ta(r), Sa = r.big ? 'sa grosse production' : sa(r), F = r.big || whatF(r); // (0.30.1: a production)
+  const dr = repMove(g, DROP_PLAN, `${Sa} promis${F ? 'e' : ''}, jamais sorti${F ? 'e' : ''}`, { noCheck: true });
   s.followers = Math.max(0, s.followers - loss);
-  addNotif(g, { k: 'delay', at: t, text: `${ta(r)[0].toUpperCase() + ta(r).slice(1)} « ${str(r.topic, 60)} » ne sortira jamais${forgot ? ` (tu ${whatF(r) ? 'l’as laissée' : 'l’as laissé'} en plan)` : ''} : ${repWord(dr)}, −${nAbonnes(loss)}. On retiendra que tu t’es ${px(g, 'défilé', 'défilée', 'défilé·e')}.` });
-  addChronicle(g, `${g.player.name} n’a jamais sorti ${sa(r)} « ${str(r.topic, 80)} » : on dit qu’${px(g, 'il s’est défilé', 'elle s’est défilée', 'iel s’est défilé·e')}.`);
-  addTrigger(g, `Le joueur a abandonné ${sa(r)} « ${str(r.topic, 60)} » promise à tout le monde : moqueries, déception, certains parlent de lâcheté.`, r.c || null);
+  addNotif(g, { k: 'delay', at: t, text: `${cap1(T)} « ${str(r.topic, 60)} » ne sortira jamais${forgot ? ` (tu ${F ? 'l’as laissée' : 'l’as laissé'} en plan)` : ''} : ${repWord(dr)}, −${nAbonnes(loss)}. On retiendra que tu t’es ${px(g, 'défilé', 'défilée', 'défilé·e')}.` });
+  addChronicle(g, `${g.player.name} n’a jamais sorti ${Sa} « ${str(r.topic, 80)} » : on dit qu’${px(g, 'il s’est défilé', 'elle s’est défilée', 'iel s’est défilé·e')}.`);
+  addTrigger(g, `Le joueur a abandonné ${Sa} « ${str(r.topic, 60)} » promise à tout le monde : moqueries, déception, certains parlent de lâcheté.`, r.c || null);
   checkCancel(g);
 }
 // The moment a release past its time is given up (0.27.6: shown on its card).
-const relLimit = (r) => Math.max(r.due, r.waited || 0) + RELEASE_GRACE * (r.played ? 2 : 1);
+const prodEnd = (r) => (r.played && r.prodAt ? r.prodAt + prodMs(r) : 0); // 0.30.1: shot, the end of its making
+const relLimit = (r) => (r.big ? bigLimit(r) : Math.max(relAnn(r), r.waited || 0, prodEnd(r)) + RELEASE_GRACE * (r.played ? 2 : 1)); // (0.30.1: from the time announced: a shoot can start late, it comes out late)
 // Called by the clock: a release forgotten long after its time is given up. 0.27.6: one that waited behind another has
 // its grace from when that one was done (it could not be shot before); one being shot or published right now (onScreen)
 // is never pulled from under the player.
@@ -1996,7 +2080,7 @@ function acceptCollab(g, iv, c, quiet) {
   let what = PF(g).fmts.includes(asked) ? asked : PF(g).main;
   if (!canMake(g, what).ok) what = makeableWhat(g, what);
   if (!canMake(g, what).ok) return null; // (nothing to film with: they simply meet)
-  const r = scheduleRelease(g, { what, topic: iv.what, due: iv.due });
+  const r = scheduleRelease(g, { what, topic: iv.what, due: iv.due, start: true }); // (0.30.1: they meet to shoot at that hour: it comes out the time it takes later)
   if (!r) return null;
   if (what !== asked && asked === 'vidéo') addNotif(g, { k: 'release', c: c.id, text: `🎬 Sans ordinateur pour monter une vidéo longue, vous tournerez ça au téléphone : ${unW(r)}.` });
   r.collab = c.id;
@@ -2083,6 +2167,7 @@ const saysYes = (text) => { const t = ' ' + String(text || '').toLowerCase().rep
 const datesClash = (g, ev) => activeEvents(g).find((e) => e !== ev && e.player && Math.abs(e.due - ev.due) < 90 * 60000) || null;
 // Showing up late: the evening starts badly (one level harder) and they notice.
 function arriveDate(g, ev) {
+  if (!ev.startAt) ev.startAt = Date.now(); // 0.30.1: when the evening started (it takes its evening)
   const late = Date.now() - ev.due;
   if (late < 15 * 60000 || ev.late) return 0;
   ev.late = Math.round(late / 60000);
@@ -2187,7 +2272,7 @@ function absenceGrace(g, from, t = Date.now()) {
     ev.dueSaid = true; ev.soonSaid = true; // (no « c’est l’heure » now: it was hours ago)
     out.ev.push(ev);
   }
-  for (const r of out.rel) addNotif(g, { k: 'release', at: t, text: `⏰ Pendant ton absence, l’heure de ${ta(r)} « ${str(r.topic, 60)} » est passée : tu as jusqu’à ${hourOf(relLimit(r))} pour ${whatF(r) ? 'la' : 'le'} sortir, ou décale-${whatF(r) ? 'la' : 'le'} sans pénalité.` });
+  for (const r of out.rel) addNotif(g, { k: 'release', at: t, text: r.big ? `⏰ Pendant ton absence, l’heure de ${BIG_STAGES[Math.min(r.big.stage, 2)].of} de ta production « ${str(r.topic, 60)} » est passée : ${r.big.stage >= 3 ? 'publie-la' : 'lance-la'} dès que tu peux, ou décale la production d’un jour (sortie prévue ${fmtWhen(relAnn(r), t)}).` : `⏰ Pendant ton absence, l’heure de ${ta(r)} « ${str(r.topic, 60)} » est passée : tu as jusqu’à ${hourOf(relLimit(r))} pour ${whatF(r) ? 'la' : 'le'} ${prodMs(r) && r.what !== 'live' ? 'commencer' : 'sortir'}, ou décale-${whatF(r) ? 'la' : 'le'} sans pénalité.` });
   for (const ev of out.ev) { const c = g.chars[ev.c]; if (c) addNotif(g, { k: 'event', c: c.id, at: t, text: `⏰ Ton rendez-vous avec ${c.name} (« ${str(ev.what, 50)} ») était ${longDay(ev.due)} à ${hourOf(ev.due)}, pendant ton absence. Écris-lui pour t’expliquer avant ${hourOf(ev.awayUntil)}, sinon ça comptera comme un lapin.` }); }
   return out;
 }
@@ -2844,8 +2929,13 @@ function addAmbientPost(g, o, at, ts, opts = {}) {
     ls: ts || at, animMs: 60000, replies: [], liked: false, reposted: false,
   };
   const photo = str(o.photo, 140);
-  if (photo && photo.length >= 3) p.photo = { desc: photo, emoji: cleanEmojis(o.pe, 3) || photoEmoji(photo) };
-  if (p.photo && ch && ch.kind === 'main' && !o.noPack) { const ph = matchAiPhoto(g, ch, photo, at, text); if (ph) attachPhoto(g, ch, p, ph, at); } // the character's real photo, when it shows what the post says
+  if (photo && photo.length >= 3) {
+    // 0.30.1: a code from their album = their real photo (the text was written for it); words = an illustrated card,
+    // never a real photo guessed from them; a code that is not theirs, or still on screen = no photo
+    const real = ch && ch.kind === 'main' && !o.noPack ? albumPhoto(g, ch, photo, at) : ALBUM_RE.test(photo) ? null : undefined;
+    if (real) { p.photo = { desc: real.desc || real.tags.join(', ') || 'une photo', emoji: cleanEmojis(o.pe, 3) || photoEmoji(real.desc || '') }; attachPhoto(g, ch, p, real, at); }
+    else if (real === undefined) p.photo = { desc: photo, emoji: cleanEmojis(o.pe, 3) || photoEmoji(photo) };
+  }
   if (opts.quoteOf) { const q = opts.quoteOf; p.q = { id: q.id, a: q.a, text: q.text.slice(0, 220), photo: q.photo || null }; }
   if (opts.cool) p.cd = 1; // a reaction during play: counts for its author's cooldown
   g.posts.push(tag(p));

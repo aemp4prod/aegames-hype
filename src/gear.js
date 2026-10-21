@@ -227,7 +227,7 @@ function canMake(g, what, t = Date.now()) {
   }
   return { ok: true };
 }
-const canMakeR = (g, r, t) => (r && r.legacy ? { ok: true } : canMake(g, r.what, t));
+const canMakeR = (g, r, t) => awayGear(g, r) || (r && r.legacy ? { ok: true } : canMake(g, r.what, t)); // (0.30.1: at someone's place, without the gear)
 // What an announcement turns into when its format cannot be made: the vertical format, or whatever can be.
 function makeableWhat(g, what) {
   if (canMake(g, what).ok) return what;
@@ -769,7 +769,8 @@ function GearBlocker({ g, r, now }) {
     <div class="row">
       ${acts.map((a, j) => html`<button key=${j} class="btn btn-hot btn-sm" onClick=${() => { if (a.run() !== false) update(); }}>${a.label}</button>`)}
       ${c.fix === 'shop' || c.fix === 'repair' || c.fix === 'net' ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'gear' })}><${Icon} n="cart" s=${14} /> Boutique</button>` : null}
-      ${outage && !r.series ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (outagePostpone(g, r)) update(); }}>Prévenir et décaler après la coupure</button>` : null}
+      ${c.fix === 'away' && g.stay && g.chars[g.stay.c] ? html`<button class="btn btn-hot btn-sm" onClick=${() => endStay(g)}>Rentrer chez toi</button><button class="btn btn-ghost btn-sm" onClick=${() => { const sc = g.chars[g.stay.c]; S.drafts.dm[sc.id] = `Dis, tu pourrais me prêter ton matos pour tourner ${ta(r).replace(/^t/, 'm')} ?`; openDM(sc.id); }}>Demander son matos à ${firstName(g.chars[g.stay.c])}</button>` : null}
+      ${outage && !r.series && !r.big ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (outagePostpone(g, r)) update(); }}>Prévenir et décaler après la coupure</button>` : null}
     </div>
   </div>`;
 }
@@ -779,9 +780,11 @@ function outagePostpone(g, r) {
   if (!r || r.state !== 'scheduled' || r.outageMoved || !(G.net.out > t)) return false;
   r.outageMoved = true;
   r.due = G.net.out + 15 * 60000;
+  if (r.outAt != null) r.outAt = r.due + prodMs(r); // 0.30.1: its shoot after the outage, then the time it takes
+  delete r.prodAt; delete r.prodDone;
   r.game = null; r.played = null; r.edit = null; r.editGame = null; r.thumb = null; r.render = null; r.dueSaid = false;
   dropLayers((l) => l.t === 'minigame' && l.id === r.id);
-  addNotif(g, { k: 'release', text: `📵 Coupure : ${ta(r)} « ${str(r.topic, 50)} » est décalé${whatF(r) ? 'e' : ''} ${fmtWhen(r.due, t)}. Ton public comprend… pour cette fois.` });
+  addNotif(g, { k: 'release', text: `📵 Coupure : ${ta(r)} « ${str(r.topic, 50)} » est décalé${whatF(r) ? 'e' : ''} ${fmtWhen(relAnn(r), t)}. Ton public comprend… pour cette fois.` });
   addTrigger(g, `Le joueur a dû décaler ${sa(r)} « ${str(r.topic, 60)} » à cause d’une coupure internet : la plupart comprennent, quelques-uns en rigolent.`);
   return true;
 }

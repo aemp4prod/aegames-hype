@@ -5,9 +5,9 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
-## 0.30.0 — 21 octobre 2026 (build 30000)
+## 0.30.1 — 21 octobre 2026 (build 30001)
 
-**La romance devient sensuelle, jouer les méchants a enfin des conséquences (et des avantages), et ton absence ne te coûte plus rien.**
+**La romance devient sensuelle, jouer les méchants a enfin des conséquences (et des avantages), faire une vidéo prend du temps, les grosses productions arrivent dès 100 000 abonnés, et ton absence ne te coûte plus rien.**
 
 ### ✨ Nouveautés
 
@@ -17,12 +17,21 @@ CORRECTIF) ne fait que monter.
 - **🚫 La modération** : le harcèlement n’est jamais récompensé, le contenu est retiré et la personne visée peut porter plainte. À force, ta visibilité baisse, puis ta chaîne est suspendue quelques jours (jamais pour toujours).
 - **🎭 Tout le monde n’est pas ce qu’il prétend** : certains persos jouent la comédie, en amour comme en amitié, et peuvent te planter un couteau dans le dos. Plus ta réputation est toxique, plus tu attires ce genre de personnes.
 - **👥 Plus de limite de persos** : l’histoire fait arriver de nouvelles personnes au fil de la partie. Ceux à qui tu ne parles plus passent « en retrait » (ils ne coûtent plus rien à l’IA) et reviennent dès que tu leur écris ou que tu les cites.
-- **⚡ « Maintenant »** : dans le Studio, une sortie se tourne et se publie tout de suite, sans annonce.
+- **🎥 Les grosses productions** : dès 100 000 abonnés, une vidéo faite comme une pro, sur 2 ou 3 jours. La préparation, le tournage et la post-production ont chacun leur mini-jeu, et la vie continue entre eux. Le devis est à une autre échelle et ton équipe compte plus (payée pour chaque jour), mais les vues sont multipliées par 3 ou 4,5, l’argent avec, et elles grimpent pendant des jours. Une seule à la fois, et un flop coûte cher.
+- **🎭 Le casting et les marques** : propose à des persos d’y jouer (leur IA accepte ou refuse, et ceux qui viennent amènent leur public). Jusqu’à trois marques peuvent y être, et d’autres te contactent pour y entrer ; certaines veulent être seules, ou ont l’exclusivité de leur secteur. Des teasers et une avant-première en live pour la lancer ; après, les médias peuvent en parler, et une production qui cartonne peut être nommée à une remise de prix.
+- **⚠️ Les imprévus** : quelqu’un du casting tombe malade, le lieu tombe à l’eau, le sujet fuite, le budget explose… Ce sont les persos qui les lancent, et c’est toi qui choisis comment t’en sortir.
+- **🎬 Le temps de production** : faire une sortie prend du temps (2 h pour un short, 4 h pour une vidéo, 3 h pour un podcast, 2 h pour un live), et l’horloge avance une fois le tournage fait. Une sortie programmée se tourne donc quelques heures avant, et un rendez-vous dans ce créneau est signalé avant de tourner : tu peux tourner quand même, mais tu le rates.
+- **✨ Les contenus soignés** : deux fois plus de travail (8 h pour une vidéo) pour +15 % de vues, un peu plus de chances de buzz et de la crédibilité. Certaines marques l’exigent dans leur contrat et paient plus ; livré sans, elles retiennent 40 %.
+- **🥂 Un rendez-vous prend sa soirée** (environ 3 h) : si une sortie est à tourner pendant ce temps, tu es prévenu dès le début et tu peux écourter la soirée. Chez quelqu’un le lendemain matin, un short se tourne au téléphone, le reste demande ton matos (que tu as apporté, ou qu’on te prête).
+- **🎞️ Ton équipe te fait gagner du temps** : un monteur de 15 à 30 % selon son niveau, un graphiste de 10 à 30 min par sortie, comptés dès la programmation.
+- **⏳ Le reste prend aussi du temps** : une commande pour un perso (2 h pour un montage, 1 h pour une miniature), une visite (environ 2 h), une séance de dédicaces ou l’ouverture d’un pop-up (une demi-journée).
+- **⚡ « Maintenant »** : dans le Studio, une sortie se tourne tout de suite et sort dès qu’elle est prête, sans annonce.
 - **⏰ Les rendez-vous** : un rappel une heure avant, et l’heure reste dans la cloche. Après un lapin, ton excuse est crue ou non selon votre confiance, son cœur et tes lapins passés.
 - **⏱️ Ton temps de jeu** s’affiche sur ton profil (estimé pour tes parties d’avant).
 
 ### 🛠️ Corrigé
 
+- **📸 Les photos des persos** : c’est leur IA qui choisit la vraie photo qu’ils postent, et le texte va avec ce qu’on y voit (plus de DJ en plein set sous « la salle est encore vide »).
 - **🌙 Ton absence** : une sortie dont l’heure passe pendant que le jeu est fermé garde son délai à partir de ton retour, et se décale une fois sans pénalité. Un rendez-vous raté pendant ton absence attend ton message avant de compter comme un lapin.
 - **💸 Les marques** paient sur ce que tu fais aujourd’hui : tes vidéos virales comptent (plafonnées), et en mythique le tarif ne repart plus de tes vieux shorts.
 - **❤️ Les likes et les nouveaux abonnés** ne dépassent plus ce que les vues permettent, pour tous les formats.

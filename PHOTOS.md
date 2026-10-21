@@ -12,9 +12,13 @@ dans le fil.
   - les fêtes (le costume pour Halloween, le sapin avant Noël) ;
   - le moment (les photos de soirée plutôt le soir) ;
   - l’humeur (un perso en bad buzz poste une photo sérieuse, pas un fou rire) ;
-  - ce que l’IA raconte, quand elle fait poster une photo à un perso (« la soirée d’hier ») ;
   - **ce qui est encore à l’écran** : une photo (ou une photo de la même série) ne ressort jamais tant que son
     post précédent est visible quelque part, dans le fil ou sur leurs pages.
+- **Quand c’est l’IA qui fait poster une photo à un perso** (0.30.1), elle reçoit trois de ses photos qui collent au
+  moment, chacune résumée d’après ta description (sa première et sa dernière phrase : souvent le cadrage, puis le
+  lieu), et choisit elle-même ; elle écrit le post pour ce qu’on y voit. Sinon, c’est une image illustrée : le jeu ne
+  devine plus une photo d’après quelques mots (une DJ en plein set sous « la cabine est encore vide »). D’où
+  l’intérêt d’une description qui dit le lieu, le moment et qui est là.
 - **Leurs pages Insta et TikTok ne gardent qu’une semaine de jeu**, comme un fil qui défile : impossible de remonter
   loin pour vérifier qu’une photo est déjà passée. Pas de stories à la une non plus (elles montreraient d’avance des
   photos jamais postées).

@@ -531,7 +531,7 @@ async function studioSteps(page, thumb) {
   await clickText(page, '.tab', 'Fil');
   await sleep(300);
   await clickFab(page);
-  await page.fill('#compose', 'ma vidéo sur les magouilles de @leandre.aube sort dans 1h. je vais tout prouver.');
+  await page.fill('#compose', 'ma vidéo sur les magouilles de @leandre.aube sort dans 5h. je vais tout prouver.');
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
   await idle();
@@ -539,7 +539,7 @@ async function studioSteps(page, thumb) {
   const rel0 = await G(page, () => { const g = window.__hype.S.game; const r = g.releases.slice(-1)[0]; return r && { state: r.state, left: Math.round((r.due - Date.now()) / 60000), c: r.c, topic: r.topic }; });
   check('announced video: a countdown starts', !!rel0 && rel0.state === 'scheduled' && rel0.left >= 58 && rel0.left <= 60 && !!rel0.c, rel0);
   await shot(page, 'release-countdown');
-  const t0 = await G(page, () => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 1h/.test(x.text)); return { ts: p.ts, energyAt: g.stats.energyAt, n: g.posts.length }; });
+  const t0 = await G(page, () => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 5h/.test(x.text)); return { ts: p.ts, energyAt: g.stats.energyAt, n: g.posts.length }; });
   await noToasts(page);
   await page.click('.status-strip .clock-btn'); // 0.15: on a phone, the clock is the watch's only button
   await page.waitForSelector('.modal svg.watch');
@@ -549,7 +549,7 @@ async function studioSteps(page, thumb) {
   await clickText(page, '.modal .btn-hot', 'Avancer de 15 min');
   await sleep(800);
   await idle();
-  const t1 = await G(page, (a) => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 1h/.test(x.text)); const r = g.releases.slice(-1)[0]; return { moved: Math.round((a.ts - p.ts) / 60000), energyAt: g.stats.energyAt === a.energyAt, n: g.posts.length - a.n, left: Math.round((r.due - Date.now()) / 60000), narrated: window.__prompts.slice(-1)[0].includes('Le temps passe en accéléré') }; }, t0);
+  const t1 = await G(page, (a) => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 5h/.test(x.text)); const r = g.releases.slice(-1)[0]; return { moved: Math.round((a.ts - p.ts) / 60000), energyAt: g.stats.energyAt === a.energyAt, n: g.posts.length - a.n, left: Math.round((r.due - Date.now()) / 60000), narrated: window.__prompts.slice(-1)[0].includes('Le temps passe en accéléré') }; }, t0);
   check('time accelerator: 15 min later, the network moved on, coffees untouched', t1.moved === 15 && t1.energyAt && t1.n >= 3 && t1.left >= 43 && t1.left <= 45 && t1.narrated, t1);
   await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 15000 });
@@ -674,7 +674,7 @@ async function studioSteps(page, thumb) {
   // ---------- a second video while he is down: aced (≥ 80 %), Léandre is buried ----------
   await G(page, () => { const g = window.__hype.S.game; g.stats.energy = g.stats.maxEnergy; window.__hype.update(); });
   await clickFab(page);
-  await page.fill('#compose', 'ma deuxième vidéo sur @leandre.aube sort dans 1h. cette fois j’ai les comptes du trésorier.');
+  await page.fill('#compose', 'ma deuxième vidéo sur @leandre.aube sort dans 5h. cette fois j’ai les comptes du trésorier.');
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
   await idle();

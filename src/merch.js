@@ -665,6 +665,7 @@ function signingStep(g, s, t) {
     S.signedAt = s.at;
     warmMove(g, again ? 1 : 4, 'ta séance de dédicaces', t);
     addNotif(g, { k: 'money', text: `📖 Ta séance de dédicaces commence (${s.place}) : la file d’attente s’allonge.` });
+    if (t - s.at < 10 * 60000) { g.timeDebt = (g.timeDebt || 0) + EVENT_H * 3600000; g.timeWhy = '📖 Ta séance de dédicaces'; } // 0.30.1: you are there, half a day
     addChronicle(g, `${g.player.name} a dédicacé son livre « ${p ? p.name : ''} » (${s.place}).`);
     addTrigger(g, `C’est la séance de dédicaces du livre du joueur (${s.place}) : des fans postent leurs photos avec lui, la file d’attente, le livre dédicacé.`);
     return true;
@@ -691,6 +692,7 @@ function popupStep(g, P, t) {
     P.state = 'on'; P.sold0 = S.sold;
     warmMove(g, 6, 'ton pop-up store', t);
     addNotif(g, { k: 'money', text: `🛍️ Ton pop-up store est ouvert à ${P.city} : la queue fait le tour du pâté de maisons.` });
+    if (t - P.at < 10 * 60000) { g.timeDebt = (g.timeDebt || 0) + EVENT_H * 3600000; g.timeWhy = '🛍️ L’ouverture de ton pop-up'; } // 0.30.1: you are there for the opening, half a day
     addChronicle(g, `${g.player.name} a ouvert un pop-up store à ${P.city}.`);
     addTrigger(g, `Le pop-up store du joueur est ouvert à ${P.city} : photos de la queue, des fans qui le rencontrent, des stories depuis la boutique.`);
     return true;
@@ -872,7 +874,8 @@ function ShopExtras({ g, now, pick }) {
     </section>
     <section class="sx"><h4>📖 Séance de dédicaces</h4>
       ${S.signing && S.signing.state !== 'over' ? html`<p>${S.signing.state === 'on' ? 'En ce moment' : fmtWhen(S.signing.at, now)}, ${S.signing.place}.</p>${sb && sb.state !== 'live' ? html`<small class="muted">${sb.state === 'paused' ? 'Ton livre est en pause : remets-le en vente pour que la séance en vende.' : 'Ton livre n’est plus en vente : la séance n’en vendra pas.'}</small>` : null}`
-        : book ? html`<p class="muted">Ton livre « ${book.name} » se vend beaucoup plus le jour de la séance, et tes fans viennent te voir.</p>
+        : book ? html`<p class="muted">Ton livre « ${book.name} » se vend beaucoup plus le jour de la séance, et tes fans viennent te voir. Tu y passes ≈ ${EVENT_H} h à partir de l’heure choisie.</p>
+          ${sd && clashIn(g, EVENT_H * 3600000, sd).length ? html`<p class="date-late care-warn">⏰ Pendant la séance : ${clashIn(g, EVENT_H * 3600000, sd).join(' ; ')}.</p>` : null}
           <div class="tr-chips">${sdays.map(([t, lb]) => html`<button type="button" key=${t} class=${'chip-btn' + (sd === t ? ' on' : '')} onClick=${() => setSd(t)}>${lb}</button>`)}</div>
           <input class="input" maxlength="40" value=${place} placeholder="Où ? ex : la grande librairie du centre" onInput=${(e) => setPlace(e.target.value)} aria-label="Où" />
           <button class="btn btn-ghost btn-sm" disabled=${!sd} onClick=${() => { if (planSigning(g, book, sd, place)) { setSd(null); update(); } else toast(`Il faut ${fmtMoney(g, SIGNING_COST)} pour la salle et le déplacement.`, 'bad'); }}>Organiser · ${fmtMoney(g, SIGNING_COST)}</button>`
@@ -883,7 +886,8 @@ function ShopExtras({ g, now, pick }) {
         : !big ? html`<p class="muted">À ${nfFull.format(MERCH_TIERS[5][0])} abonnés : ta boutique éphémère, ${POPUP.days} jours dans une ville, tes fans en vrai.</p>`
         : cool ? html`<p class="muted">Ton dernier pop-up est encore frais : tu pourras en ouvrir un autre ${fromWhen(S.popupAt + POPUP.cool * DAY_MS, now)}.</p>`
         : !shopLive(g).length ? html`<p class="muted">Il faut des produits en vente.</p>`
-        : html`<p class="muted">${POPUP.days} jours : tout ce qui est en vente part bien plus, tes fans te rencontrent.</p>
+        : html`<p class="muted">${POPUP.days} jours : tout ce qui est en vente part bien plus, tes fans te rencontrent. Tu y passes ≈ ${EVENT_H} h le jour de l’ouverture.</p>
+          ${pd && clashIn(g, EVENT_H * 3600000, pd).length ? html`<p class="date-late care-warn">⏰ Pendant l’ouverture : ${clashIn(g, EVENT_H * 3600000, pd).join(' ; ')}.</p>` : null}
           <input class="input" maxlength="40" value=${city} placeholder="Quelle ville ?" onInput=${(e) => setCity(e.target.value)} aria-label="Ville" />
           <div class="tr-chips">${pdays.map(([t, lb]) => html`<button type="button" key=${t} class=${'chip-btn' + (pd === t ? ' on' : '')} onClick=${() => setPd(t)}>${lb}</button>`)}</div>
           <button class="btn btn-ghost btn-sm" disabled=${!pd || str(city, 40).length < 2} onClick=${() => { if (planPopup(g, city, pd)) { setPd(null); update(); } else toast(`Il faut ${fmtMoney(g, POPUP.cost)} pour le pop-up.`, 'bad'); }}>Ouvrir · ${fmtMoney(g, POPUP.cost)}</button>`}

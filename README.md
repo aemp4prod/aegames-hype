@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.30.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.30.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -61,7 +61,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Depuis la 0.30, **un rappel** arrive une heure avant chaque rendez-vous et l’heure reste dans la cloche ; un rendez-vous
   raté pendant que le jeu était fermé attend ton message (quelques heures) avant de compter comme un lapin, et après un
   lapin, ton excuse est crue ou non par son IA (votre confiance, son cœur, tes lapins passés). « Décliner » une
-  invitation laisse son IA te répondre.
+  invitation laisse son IA te répondre. Depuis la 0.30.1, un rendez-vous prend sa soirée : environ trois heures
+  passent quand il se termine. Si une sortie est à tourner (ou un autre rendez-vous) pendant ce temps, une notif et un
+  bandeau le disent dès le début, et **« Écourter la soirée »** te laisse partir à temps (son IA le prend à sa façon) ;
+  sinon la soirée va au bout. Le lendemain matin chez quelqu’un, un short se tourne au téléphone, mais le reste demande
+  ton matos : dis-lui que tu l’as apporté, ou demande-lui de te prêter le sien (son IA décide), sinon rentre chez toi.
   Depuis la 0.22.4, chaque soirée se garde : **« Tes rendez-vous »** (dans ton profil, sur la fiche de la personne, ou
   « Relire la soirée » sous son récit dans vos messages) la redonne en entier, le lieu, vos mots, tes gestes, le dernier
   mot, la fin et le récit, avec un bouton pour la copier et la montrer. Ce que la personne a pensé reste secret.
@@ -149,6 +153,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   drague vue en public, une rumeur, une trahison) ou pour une bonne raison. C’est son IA qui le décide. Ça s’ouvre
   par-dessus le jeu, et il faut lui parler, avec tes mots. Tu peux dire **« Pas maintenant »**, mais ça a un prix selon son
   caractère et surtout le sujet : une visite tranquille passe le plus souvent, un sujet urgent est presque toujours mal pris.
+  Depuis la 0.30.1, une visite prend environ deux heures.
 - **Les bad buzz des autres** : de temps en temps, l’IA fait tomber un perso dans un bad buzz tout seul (un vieux post
   qui ressort, une fuite, une promesse pas tenue…), sans toi. À toi de voir : le défendre en public (il s’en souvient,
   ça se sait, et ses ennemis le notent), en rajouter (ses ennemis apprécient), ou te taire (un proche laissé seul s’en
@@ -215,9 +220,32 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   un détail) ou tu la dessines au doigt. Dans l’appli ChatGPT, en budget « Sans limite », l’IA peut finaliser ton
   croquis (si ta connexion ChatGPT permet de créer des images). Un monteur ou un graphiste dans ton équipe s’en charge.
   Une partie commence avec tes économies (de 0 à 1 000 €) : l’argent se gagne.
-  Depuis la 0.30, **« ⚡ Maintenant »** (à la place du jour) tourne et publie tout de suite, sans annonce : personne ne
-  l’attend, personne n’est déçu si tu y renonces. Une sortie dont l’heure est passée pendant que le jeu était fermé
-  garde son délai à partir de ton retour, et se décale une fois sans pénalité.
+  Depuis la 0.30, **« ⚡ Maintenant »** (à la place du jour) tourne tout de suite et sort dès que c’est prêt, sans
+  annonce : personne ne l’attend, personne n’est déçu si tu y renonces. Une sortie dont l’heure est passée pendant que
+  le jeu était fermé garde son délai à partir de ton retour, et se décale une fois sans pénalité.
+  Depuis la 0.30.1, **faire une sortie prend du temps** : 2 h pour un short, 4 h pour une vidéo ou un clip, 3 h pour un
+  podcast, tournage et montage compris, et un live dure ses 2 h. Une fois le tournage fait, l’horloge avance d’autant
+  et ça sort à la fin. L’heure programmée est celle de la sortie (d’un live : son début) : le tournage commence donc
+  avant, et le planificateur grise les heures trop proches ; commencé en retard, ça sort en retard (le public le
+  remarque). Avant de tourner, un rendez-vous ou une autre sortie dans ce créneau est signalé : tu peux tourner quand
+  même, mais tu rates le rendez-vous. **Une sortie soignée** ✨ (au planning ou avant le tournage) prend deux fois plus
+  de temps, pour +15 % de vues, un peu plus de chances de buzz et de la crédibilité. Ton équipe fait gagner du temps,
+  selon son niveau : un monteur de 15 à 30 %, un graphiste de 10 à 30 min, comptés dès la programmation (pas s’ils ne
+  sont pas payés au tournage).
+- **Les grosses productions** (0.30.1) : dès 100 000 abonnés, « 🎥 Grosse production », dans le Programme du Studio,
+  lance une vidéo faite comme une pro, sur 2 ou 3 jours. Trois étapes, chacune avec son mini-jeu et son temps de
+  travail : la préparation (réussie, elle facilite le tournage, jusqu’à ±10 points), le tournage, puis la
+  post-production (le montage y pèse jusqu’à ±20 points). Chaque étape se lance à son heure, et la vie continue entre
+  elles. Le devis est à une autre échelle (lieu, décors, figurants, prestataires…), ton équipe compte plus et elle est
+  payée pour chaque jour. En échange, les vues sont multipliées (×3 sur deux jours, ×4,5 sur trois), l’argent avec,
+  et une fois sortie elles grimpent pendant cinq jours. Jusqu’à trois persos au casting (proposé en message : leur IA
+  accepte ou refuse, et ceux qui viennent amènent leur public) et jusqu’à trois marques dedans ; d’autres marques
+  peuvent te contacter pour y entrer, et certaines veulent être seules ou ont l’exclusivité de leur secteur (leur
+  clause pas respectée, elles ne paient que la moitié). Les persos peuvent lancer des imprévus (quelqu’un de malade,
+  le lieu qui tombe à l’eau, une fuite, un budget qui explose) : à toi de choisir comment t’en sortir. Des shorts
+  teasers et une avant-première en live aident à la lancer ; après, un média peut en parler, et une production qui
+  cartonne peut être nommée à une remise de prix. Une seule à la fois, décalable d’un jour (gratuit bien à l’avance) ;
+  un flop coûte cher.
 - **Le matos et ton point de départ** (0.20) : chaque partie démarre autrement (un vieux téléphone ou un récent,
   l’ADSL, une box 4G ou la fibre, des économies, parfois un atout ou un handicap), résumé sur la carte « Ton point de
   départ ». Au début, ton téléphone suffit pour les formats verticaux ; il faut un ordinateur pour les vidéos longues et
@@ -242,7 +270,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   coup de poker (5 % de chances pour un débutant), et sans agent une grosse marque ne lâche presque rien. Une vidéo
   sponsorisée qui cartonne peut valoir une prime surprise, et la marque revient plus vite. Depuis la 0.30, le tarif
   compte aussi tes vidéos virales (plafonnées) : quand tout ce que tu sors cartonne, il ne repart plus de tes vieux
-  shorts.
+  shorts. Depuis la 0.30.1, une marque peut exiger un contenu soigné dans son contrat (et le payer moitié plus) :
+  livré sans, elle retient 40 % du paiement et n’est pas contente.
 - **Ton audience** grandit de plus en plus lentement à mesure qu’elle grandit (0.20) : rien ne change jusqu’à 1 000
   abonnés, puis chaque nouvel abonné se mérite davantage. Depuis la 0.30, aucun format ne te donne plus de likes ni de
   nouveaux abonnés que ses vues ne le permettent, et ton profil affiche ton temps de jeu.
@@ -296,7 +325,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   qualité, délais, mauvais lots), la matière et l’impression, à la demande, en stock ou en précommande. Et : édition
   limitée numérotée, une part pour une asso, un duo avec un perso (qui accepte ou non en message), un concours de
   design avec ta commu, les grandes saisons, les contrefaçons, une séance de dédicaces. Ce qu’affirme ton post de
-  lancement (« fabriqué en France »…), les acheteurs le vérifient tôt ou tard.
+  lancement (« fabriqué en France »…), les acheteurs le vérifient tôt ou tard. Depuis la 0.30.1, la séance de
+  dédicaces et l’ouverture du pop-up te prennent une demi-journée (ce qui tombe pendant est dit quand tu les organises).
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro
@@ -330,7 +360,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Le montage se fait au mini-jeu du montage (plus dur pour un client connu ou payant), la miniature à l’outil des
   miniatures. La vidéo sort sur SA chaîne, il te mentionne, et tu gagnes des abonnés selon sa notoriété et la façon
   dont la vidéo marche. Bâclé, ça fait un flop : il est déçu, t’en veut un peu et ne paie que la moitié. En retard, il
-  te relance, puis laisse tomber. Un client paie au plus selon sa propre audience.
+  te relance, puis laisse tomber. Un client paie au plus selon sa propre audience. Depuis la 0.30.1, le travail prend
+  son temps : 2 h pour un montage, 1 h pour une miniature.
   **Depuis la 0.25.2, tu choisis la difficulté du montage** (de Facile à Mythique), comme pour tes vidéos : elle fixe
   jusqu’où il peut monter. Même sans faute, un montage en Facile reste « bon » ; Moyen va jusqu’à « très bon »,
   Difficile jusqu’à « excellent », et « légendaire » demande Expert ou plus (dès 90 % de réussite en Expert, 84 % en
@@ -413,6 +444,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Les photos des persos** : les personnages principaux ont un vrai visage, une page façon Insta, des diaporamas façon
   TikTok, et postent leurs photos dans le fil. Le jeu les choisit sans IA (saison, fêtes, heure, humeur), les persos en
   écrivent la légende, et l’IA construit les persos de chaque partie autour des profils des visages (voir `PHOTOS.md`).
+  Depuis la 0.30.1, quand c’est leur IA qui décide de poster une photo, elle choisit elle-même parmi quelques-unes de
+  leurs vraies photos qui collent au moment (chacune résumée d’après sa description) et écrit le post pour ce qu’on y
+  voit ; sinon c’est une image illustrée, jamais une photo devinée au hasard.
   Les photos d’un même shooting forment une série : un carrousel, ou une seule photo plus tard, jamais deux fois à
   quelques jours d’écart. Une photo ne revient pas tant que son post est encore visible, et leurs pages ne gardent
   qu’une semaine de jeu. Le pack livré avec le jeu a quatre visages pour l’instant (quatre femmes, dans les mondes
@@ -446,7 +480,7 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 
 ## Installer Hype (Windows)
 
-1. Télécharge `Hype-Setup-0.30.0.exe` et lance-le.
+1. Télécharge `Hype-Setup-0.30.1.exe` et lance-le.
 2. Windows peut afficher **« Windows a protégé votre ordinateur »** : l’appli n’est pas signée (un certificat coûte cher, le projet est gratuit).
    Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
 3. Choisis le dossier d’installation, termine. Un raccourci **Hype** apparaît sur le bureau.
