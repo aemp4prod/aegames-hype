@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.31.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.31.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -217,8 +217,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Avant chaque tournage, tu peux raconter **ce qui se passe dans ta vidéo** : le mini-jeu, les réactions et la suite de
   la partie s’en servent. Après le tournage, **le montage** (couper au rythme, ou trier les rushes) fait gagner ou
   perdre jusqu’à 15 points à ta vidéo, puis **la miniature** des vidéos longues : tu la composes (fond, tête, texte,
-  un détail) ou tu la dessines au doigt. Dans l’appli ChatGPT, en budget « Sans limite », l’IA peut finaliser ton
-  croquis (si ta connexion ChatGPT permet de créer des images). Un monteur ou un graphiste dans ton équipe s’en charge.
+  un détail), tu la dessines au doigt, ou (depuis la 0.31.1) tu la fais avec **tes images** : jusqu’à 6 images de ton
+  appareil, en plein cadre, côte à côte, en trio, en grille ou placées librement, chacune zoomée et recadrée, avec un
+  gros texte. Un short peut avoir une couverture faite de la même façon, au moment de le publier. Dans l’appli ChatGPT,
+  en budget « Sans limite », l’IA peut finaliser ton croquis (si ta connexion ChatGPT permet de créer des images). Un
+  monteur ou un graphiste dans ton équipe s’en charge.
   Une partie commence avec tes économies (de 0 à 1 000 €) : l’argent se gagne.
   Depuis la 0.30, **« ⚡ Maintenant »** (à la place du jour) tourne tout de suite et sort dès que c’est prêt, sans
   annonce : personne ne l’attend, personne n’est déçu si tu y renonces. Une sortie dont l’heure est passée pendant que
@@ -438,8 +441,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   d’innocent, c’est de la diffamation. Un moment trop intime pendant un rendez-vous coupe la
   scène (« Ce moment ne regarde pas les voyeurs. ») et la soirée reprend un peu plus tard.
 - **Le réseau qui vit** (0.29) : des **stories** de 24 h (celles des persos, avec leurs sondages et leurs questions, et
-  les tiennes, avec qui les a vues), des **groupes de discussion** (et parfois la capture d’un groupe où l’on parle de
-  toi… sans toi), **ta mère** qui débarque sur le réseau, des **comptes de fans** et des **ships**, des **faux
+  les tiennes, avec qui les a vues), des **groupes de discussion** (lancés par les persos, ou par toi depuis la 0.31.1 :
+  « Nouveau groupe » dans Messages, 2 à 5 persos, et chacun peut refuser d’en être ; parfois aussi la capture d’un
+  groupe où l’on parle de toi… sans toi), **ta mère** qui débarque sur le réseau, des **comptes de fans** et des **ships**, des **faux
   comptes** (un faux concours à ton nom à signaler, une parodie qui a le droit de rester). Et le quotidien d’un réseau :
   sous-entendus, soft launch, anniversaires (le tien se règle dans les réglages), souvenirs de tes anciens posts,
   « on t’a croisé·e », ratio, personnage principal du jour, une chaîne de drama, sondages dans les posts (les tiens

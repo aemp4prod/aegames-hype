@@ -216,7 +216,10 @@ async function refresh(page, lines) {
   const sour = await G(page, () => {
     const H = window.__hype, g = H.S.game, m = H.shopItems(g).find((x) => x.k === 'mug'), t = H.shopItems(g).find((x) => x.k === 'tshirt'), d0 = H.gameDay(Date.now());
     m.stars = [9, 4, 1, 0, 0]; m.why = { prix: 6, finition: 3 }; m.days = [{ d: d0, n: 3, ca: 45, rp: 0, rm: 1, rb: 13 }];
-    const S = H.shopOf(g); S.weekSold = 10; S.pend = 100; H.payShop(g, Date.now());
+    const S = H.shopOf(g); S.weekSold = 10; S.pend = 100;
+    let D = S.days.find((x) => x.d === d0); if (!D) { D = { d: d0, n: 0, ca: 0, ret: 0, rp: 0, rm: 0, rb: 0, np: 0, nb: 0 }; S.days.push(D); }
+    D.rp = Math.max(D.rp, 20); // (0.31.1: recent reviews of the shop, whatever the hour: just after midnight, today had too few)
+    H.payShop(g, Date.now());
     return { tca: Math.round(t.days.reduce((a, x) => a + (x.ca || 0), 0)), trev: Math.round(t.revenue), weekly: (g.notifs.filter((x) => /Ta boutique : .* cette semaine/.test(x.text)).slice(-1)[0] || {}).text || '' };
   });
   await shop(page, 'Les stats');

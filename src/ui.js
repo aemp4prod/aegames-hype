@@ -370,7 +370,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'group', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'group', 'newgroup', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -2686,6 +2686,7 @@ function Layer(props) {
   if (t === 'sell') return html`<${SellLayer} ...${props} />`; // 0.26: putting something on sale
   if (t === 'resale') return html`<${ResaleLayer} ...${props} />`; // 0.26: the second-hand app
   if (t === 'group') return html`<${GroupLayer} ...${props} />`; // 0.29: a group chat
+  if (t === 'newgroup') return html`<${NewGroupLayer} ...${props} />`; // 0.31.1: the player starts one
   if (t === 'storynew') return html`<${StoryNewLayer} ...${props} />`; // 0.29: a story of the player
   return null;
 }
@@ -3699,7 +3700,7 @@ if (window.__HYPE_TEST__) {
     ROLE_TPL, roleChar, criticOf, rebeccaOf, addRoleChar, ensureRoles, roleAskLines, roleLines, roleTag, decoratePost, applyRoleLine, criticAcct, CRIT_GAP, FIC_GAP, packPool, STYLE_OF, // 0.29
     drawPsy, psyNow, psyStage, psySign, psyKill, psyEscape, psyCore, psyTalkCtx, psyVisitCtx, psyPublicLines, psyAccuseLines, psyAccusation, psyUnmask, tickRoles, psyDeadlyDate, psyDeadlyVisit, nightAt, fleeDate,
     PSY_DANGER_DAYS, PSY_DANGER_SIGNS, PSY_HOLD_DAYS, PSY_HOLD_SIGNS, ellipseTalk, ELLIPSE_LINE, LATER_LINE, isPsy, summarize, isLiveVisit, resolveAuthor,
-    liveStories, storiesOf, addStory, postStory, openStory, voteStory, reactStory, storyViewers, storyViewsN, promptStory, addGroup, addGroupMsg, sendGroup, leaveGroup, quitGroup, liveGroups, unreadGroups, addLeak, addMom, addFanAcct, addShip, addFake, reportNpc, tickSocial, socialCtx, socialLines, applySocialLine, whoAny, // 0.29
+    liveStories, storiesOf, addStory, postStory, openStory, voteStory, reactStory, storyViewers, storyViewsN, promptStory, addGroup, addGroupMsg, sendGroup, leaveGroup, quitGroup, liveGroups, unreadGroups, createGroup, groupCands, newGroupWhy, groupOf, GROUP_MAX, tiCells, photoCtr, TI_MAX, addLeak, addMom, addFanAcct, addShip, addFake, reportNpc, tickSocial, socialCtx, socialLines, applySocialLine, whoAny, // 0.29
     decorateSocial, postPoll, pollRes, votePoll, bdayOf, mdOf, dayKey, bdayWish, tickNet, memoryOf, ratioMark, ratioCheck, setMainDay, setOutage, setAlgo, algoMult, outageOn, algoOn, topFanOf, pinReply, netCtx, netLines, applyNetLine, replyLang, WORLD_LINE, addReplyTo,
     S, makeScanner, computeOutcome, cleanEval, normHandle, niceRound, xpNeed, update, energyNow, questProgress, promptWorld, promptAct, promptDM,
     promptRefresh, promptIdeas, promptNewChar, WORLDS, START, mains, charByHandle, cloneJSON, addMem, applyVibe, setVibeGoal, addTrigger,

@@ -5,6 +5,16 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.31.1 — 22 octobre 2026 (build 31001)
+
+**Crée tes propres groupes de discussion, et fais tes miniatures avec tes propres images.**
+
+### ✨ Nouveautés
+
+- **👥 Nouveau groupe** : dans Messages, réunis 2 à 5 persos dans une même conversation, avec un nom, un emoji et ton premier message. Leurs IA répondent comme dans un vrai groupe, et quelqu’un qui ne veut pas en être (un ex, un rival) peut repartir tout de suite.
+- **🖼️ Ta miniature avec tes images** : un nouvel onglet dans l’étape de la miniature. Importe jusqu’à 6 images, place-les en plein cadre, côte à côte, en trio, en grille ou où tu veux, zoome et recadre chacune, et ajoute un gros texte.
+- **📱 La couverture de tes shorts** : au moment de publier un short, fais-lui une couverture avec tes images, au format vertical. Elle s’affiche dans le fil et sur ta chaîne, et donne un petit coup de pouce aux vues.
+
 ## 0.31.0 — 22 octobre 2026 (build 31000)
 
 **Deviens l’agent des persos : trouve-leur des marques, négocie leurs contrats, touche ta commission, puis monte ta propre agence d’influence.**

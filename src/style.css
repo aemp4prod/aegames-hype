@@ -2423,6 +2423,7 @@ svg.watch:active { cursor: grabbing; }
 .studio-step { display: flex; flex-direction: column; gap: 12px; text-align: left; }
 .studio-step.mg-intro { text-align: center; align-items: center; }
 .thumb-step .seg { align-self: flex-start; }
+.thumb-step .seg button { white-space: nowrap; } /* (0.31.1: « Tes images » on one line) */
 .th-preview { width: 100%; }
 .th-art { container-type: inline-size; position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--tb, #F3EEE4); }
 .th-art.sm { border-radius: 8px; }
@@ -2445,6 +2446,20 @@ svg.watch:active { cursor: grabbing; }
 .th-chosen small { color: var(--ink-3); }
 .thumb-step .thumb-opt .th-art { pointer-events: none; }
 .sketch { display: flex; flex-direction: column; gap: 8px; }
+/* 0.31.1: a thumbnail (or a short's cover) of the player's own images */
+.th-art.vert { aspect-ratio: 9 / 16; }
+.mini-thumb.custom .th-art.vert { aspect-ratio: auto; height: 100%; border-radius: inherit; }
+.ph-thumb { display: flex; flex-direction: column; gap: 10px; }
+.ph-cv { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; border: 1px solid var(--line-strong); touch-action: none; cursor: grab; background: #1D2142; display: block; }
+.ph-thumb.vert .ph-cv { width: min(100%, 240px); aspect-ratio: 9 / 16; align-self: center; }
+.ph-tools { align-items: center; gap: 10px; }
+.ph-sel { gap: 8px; }
+.ph-range { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.ph-range span { flex: none; width: 48px; }
+.ph-range input { flex: 1; min-width: 0; accent-color: var(--hot); }
+.cover-field .ph-thumb { padding: 10px; border-radius: 14px; border: 1px solid var(--line); }
+.cover-chosen { grid-template-columns: 56px 1fr; }
+.vert-prev.has-cover .vp-cover, .pv-screen .pv-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .sketch-cv { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; border: 1px solid var(--line-strong); touch-action: none; cursor: crosshair; background: #F3EEE4; }
 .sketch-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sk-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--c); }
@@ -3141,6 +3156,19 @@ body.os-win { overflow: hidden; }
 .gr-name { font-size: 12px; font-weight: 700; color: hsl(var(--h) 55% 40%); padding-left: 4px; }
 .gr-sys { align-self: center; font-size: 12.5px; color: var(--ink-3); padding: 4px 10px; }
 .gr-leave { display: block; margin: 8px auto 0; font-size: 13px; color: var(--ink-3); }
+/* 0.31.1: « Nouveau groupe » */
+.list-h-r { display: inline-flex; align-items: baseline; gap: 12px; }
+.ng-open { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--hot); }
+.gr-none { margin: -2px 16px 8px; font-size: 13px; color: var(--ink-3); }
+.ng-form { display: flex; flex-direction: column; gap: 12px; }
+.ng-form .field { display: flex; flex-direction: column; gap: 6px; }
+.ng-list { display: flex; flex-direction: column; gap: 6px; }
+.ng-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer; min-width: 0; }
+.ng-row.on { border-color: var(--hot); background: var(--hot-soft); }
+.ng-row input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--hot); }
+.ng-row > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ng-row b { font-size: 14.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ng-row small { font-size: 12.5px; color: var(--ink-2); }
 .dm-story { font-size: 12.5px; color: var(--ink-3); max-width: 80%; padding: 0 6px; overflow-wrap: anywhere; }
 .dm-story.me { align-self: flex-end; text-align: right; }
 .dm-card.leak .leak-shot { margin-top: 6px; padding: 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-strong); display: flex; flex-direction: column; gap: 6px; text-align: left; }

@@ -854,7 +854,7 @@ function SeriesCard({ g, s, now }) {
 // A small thumbnail of a release (the channel grid, the upload preview).
 function MiniThumb({ v }) {
   const W = WHATS[v.what] || WHATS.vidéo, T = THUMBS[v.thumb];
-  if (v.thumbLook || v.thumbImg) return html`<span class=${'mini-thumb custom w-' + v.what}><${ThumbArt} look=${v.thumbLook} img=${v.thumbImg} small=${true} /></span>`; // 0.14: made in the studio
+  if (v.thumbLook || v.thumbImg) return html`<span class=${'mini-thumb custom w-' + v.what}><${ThumbArt} look=${v.thumbLook} img=${v.thumbImg} small=${true} vert=${v.what === 'short'} /></span>`; // 0.14: made in the studio (0.31.1: a short's cover, upright)
   return html`<span class=${'mini-thumb th-' + (v.thumb || 'propre') + ' w-' + v.what} style=${'--h:' + (hashStr(v.topic || '') % 360)}><span aria-hidden="true">${v.thumb === 'choc' ? '😱' : v.thumb === 'mystere' ? '❓' : W.emoji}</span>${T && v.thumb === 'choc' ? html`<i>${str(v.title || v.topic, 22).toUpperCase()}</i>` : null}</span>`;
 }
 
@@ -1049,7 +1049,7 @@ function RumorBanner({ g, now }) {
 
 /* ---------- the upload screen of each platform (inspired by them, with Hype's own look) ---------- */
 // 0.27.7: an upload form half filled stays as it was, its window closed or put aside (the thumbnail is the release's own).
-const PUB_KEEP = ['title', 'caption', 'hook', 'trend', 'trend2', 'collab', 'deal', 'deals', 'premiere', 'mention', 'decl', 'membAvant', 'membLive'];
+const PUB_KEEP = ['title', 'caption', 'hook', 'cover', 'trend', 'trend2', 'collab', 'deal', 'deals', 'premiere', 'mention', 'decl', 'membAvant', 'membLive'];
 function pubDraft(r, deals) {
   const d = S.pubDrafts && S.pubDrafts[r.id];
   if (!d) return {};
@@ -1057,6 +1057,34 @@ function pubDraft(r, deals) {
   if (o.deal && !deals.some((x) => x.id === o.deal)) { delete o.deal; delete o.mention; } // (that contract is over since)
   if (Array.isArray(o.deals)) o.deals = o.deals.filter((id) => deals.some((x) => x.id === id)); // 0.30.1
   return o;
+}
+// 0.31.1: a short's cover (made of the player's images), kept with the draft: what the release carries.
+const coverOn = (kind, f) => (kind === 'vert' && f.cover && f.cover.img ? Object.assign(f, { thumbImg: f.cover.img, thumbCtr: f.cover.ctr }) : f);
+function CoverField({ g, f, set }) {
+  const [open, setOpen] = useState(false), [ph, setPh] = useState(null), [busy, setBusy] = useState(false);
+  const C = f.cover && f.cover.img ? f.cover : null;
+  const forget = (id) => { if (!id) return; mediaDel(id); g.media = (g.media || []).filter((x) => x !== id); };
+  const use = async () => {
+    if (!ph || busy) return;
+    setBusy(true);
+    const id = await keepThumbImage(g, ph.render());
+    setBusy(false);
+    if (!id) { toast('Impossible de garder ta couverture sur cet appareil.', 'bad'); return; }
+    if (C) forget(C.img);
+    set('cover', { img: id, ctr: ph.ctr }, { thumbImg: id, thumbCtr: ph.ctr });
+    setOpen(false);
+    setPh(null);
+  };
+  const drop = () => { if (C) forget(C.img); set('cover', null, { thumbImg: '', thumbCtr: undefined }); };
+  if (open) return html`<div class="field cover-field"><span class="lbl">La couverture</span>
+    <${PhotoThumb} vert=${true} onChange=${setPh} />
+    ${ph ? html`<small class="muted">≈ +${Math.round((ph.ctr - THUMBS.propre.ctr) * 100)} % de vues de plus${ph.text ? '' : ' · un gros texte de 2 à 4 mots aide'}</small>` : null}
+    <div class="row"><button type="button" class="btn btn-hot btn-sm" onClick=${use} disabled=${!ph || busy}><${Icon} n="check" s=${14} /> Utiliser cette couverture</button><button type="button" class="linkbtn quiet" onClick=${() => { setOpen(false); setPh(null); }}>Annuler</button></div>
+  </div>`;
+  return html`<div class="field cover-field"><span class="lbl">La couverture <small class="muted">(facultatif)</small></span>
+    ${C ? html`<div class="th-chosen cover-chosen"><${ThumbArt} img=${C.img} small=${true} vert=${true} /><div><b>Tes images</b><small>+${Math.round((C.ctr - THUMBS.propre.ctr) * 100)} % de vues de plus</small><span class="row"><button type="button" class="linkbtn" onClick=${() => setOpen(true)}>Changer</button><button type="button" class="linkbtn quiet" onClick=${drop}>Retirer</button></span></div></div>`
+      : html`<button type="button" class="btn btn-ghost btn-sm" onClick=${() => setOpen(true)}>🖼️ Faire une couverture avec tes images</button><small class="muted">Ce qu’on voit sur ton profil avant de lancer ton short.</small>`}
+  </div>`;
 }
 function keepPubDraft(r, f) { if (!S.pubDrafts) S.pubDrafts = {}; S.pubDrafts[r.id] = Object.fromEntries(PUB_KEEP.map((k) => [k, f[k]])); }
 const kindOfFmt = (w) => (w === 'vidéo' ? 'wide' : w === 'short' ? 'vert' : w === 'live' ? 'live' : 'audio');
@@ -1072,7 +1100,7 @@ function PublishForm({ g, r, now }) {
   const taken = (d) => plannedReleases(g).some((x) => x.id !== r.id && x.deal === d.id); // 0.27.6: carried by another planned release
   const d0 = r.big ? null : r.deal ? deals.find((d) => d.id === r.deal) || null : deals.find((d) => !taken(d)) || null; // 0.20 (0.30.1: a production's brands, below)
   const bigD0 = r.big ? r.big.deals.filter((id) => deals.some((d) => d.id === id)) : []; // 0.30.1: the sponsor chosen with the quote (0.27.6: delivered since by another release, none rather than another brand)
-  const [f, setF] = useState(() => Object.assign({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', deals: bigD0, premiere: false, mention: !(d0 && d0.shady) && !bigD0.some((id) => (dealOf(g, id) || {}).shady), decl: [], membAvant: false, membLive: false }, pubDraft(r, deals))); // (0.27.7: what was typed before the window was closed comes back)
+  const [f, setF] = useState(() => coverOn(kind, Object.assign({ title: str(r.topic, 100), caption: `${W.emoji} ${cap1(laW(r))} est en ligne : ${r.topic}`, thumb: T0 ? T0.preset || T0.kind : 'propre', thumbCtr: T0 ? T0.ctr : undefined, thumbLook: T0 && T0.look ? T0.look : null, thumbImg: T0 && T0.img ? T0.img : '', thumbChoc: !!(T0 && T0.choc), hook: '', trend: '', trend2: '', collab: partner ? partner.id : '', deal: d0 ? d0.id : '', deals: bigD0, premiere: false, mention: !(d0 && d0.shady) && !bigD0.some((id) => (dealOf(g, id) || {}).shady), decl: [], membAvant: false, membLive: false }, pubDraft(r, deals)))); // (0.27.7: what was typed before the window was closed comes back; 0.31.1: a short's cover too)
   const set = (k, v, more) => { const n = Object.assign({}, f, { [k]: v }, more || {}); keepPubDraft(r, n); setF(n); };
   const [lo, hi] = estimateViews(g, r, f);
   const aud = audienceAt(gameDate(now));
@@ -1086,7 +1114,7 @@ function PublishForm({ g, r, now }) {
     <div class="up-preview" aria-hidden="true">
       ${kind === 'wide' ? html`<div class="wide-prev">${f.thumbLook || f.thumbImg ? html`<div class="wp-thumb custom"><${ThumbArt} look=${f.thumbLook} img=${f.thumbImg} /><span class="vc-dur">${8 + (hashStr(r.topic) % 14)}:${String(hashStr(r.id) % 60).padStart(2, '0')}</span></div>` : html`<div class=${'wp-thumb th-' + f.thumb} style=${'--h:' + (hashStr(r.topic) % 360)}><span class="emo">${f.thumb === 'choc' ? '😱' : f.thumb === 'mystere' ? '❓' : W.emoji}</span>${f.thumb === 'choc' ? html`<i class="th-text">${str(f.title, 28).toUpperCase()}</i>` : f.thumb === 'mystere' ? html`<i class="th-q">???</i>` : null}<span class="vc-dur">${8 + (hashStr(r.topic) % 14)}:${String(hashStr(r.id) % 60).padStart(2, '0')}</span></div>`}
           <div class="wp-meta"><${Avatar} who=${author(g, 'p')} size=${32} /><div><b>${f.title || 'Sans titre'}</b><span>${g.player.name} · ≈ ${fmtN(lo)} vues · à l’instant</span></div></div></div>`
-      : kind === 'vert' ? html`<div class="vert-prev" style=${'--h:' + (hashStr(r.topic) % 360)}><span class="emo">${W.emoji}</span>${f.hook ? html`<b class="vp-hook">${f.hook}</b>` : null}
+      : kind === 'vert' ? html`<div class=${'vert-prev' + (f.thumbImg ? ' has-cover' : '')} style=${'--h:' + (hashStr(r.topic) % 360)}>${f.thumbImg && mediaSrc(f.thumbImg) ? html`<img class="vp-cover" src=${mediaSrc(f.thumbImg)} alt="" />` : html`<span class="emo">${W.emoji}</span>`}${f.hook ? html`<b class="vp-hook">${f.hook}</b>` : null}
           <div class="vp-rail"><span>♥</span><span>💬</span><span>↗</span></div>
           <div class="vp-foot"><b>@${g.player.handle}</b><span>${str(f.caption, 70)}</span><span>♫ ${sound || 'son original'}</span></div></div>`
       : kind === 'live' ? html`<div class="live-prev" style=${'--h:' + (hashStr(r.topic) % 360)}><span class="live-badge">● EN DIRECT</span><span class="emo">${W.emoji}</span><b>${f.title || r.topic}</b><span>≈ ${fmtN(Math.max(1, Math.round(lo * 0.25)))} spectateurs en même temps</span></div>`
@@ -1095,6 +1123,7 @@ function PublishForm({ g, r, now }) {
     ${kind !== 'vert' ? html`<div class="field"><label class="lbl" for="up-title">Titre</label><input id="up-title" class="input" maxlength="100" value=${f.title} onInput=${(ev) => set('title', ev.target.value)} /></div>` : null}
     ${kind === 'wide' && T0 ? html`<div class="field"><span class="lbl">Miniature</span><div class="th-chosen"><${ThumbArt} look=${T0.look} img=${T0.img} small=${true} /><div><b>${thumbWord(T0)}</b><small>+${Math.round(T0.ctr * 100)} % de vues${T0.choc ? ' · si c’est raté, « putaclic »' : ''}</small><button type="button" class="linkbtn" onClick=${() => { if (T0.kind === 'staff') r.staffThumb = T0; r.thumb = null; update(); }}>${T0.kind === 'staff' ? 'La faire moi-même' : 'Changer'}</button></div></div></div>` : null}
     ${kind === 'vert' ? html`<div class="field"><label class="lbl" for="up-hook">L’accroche (les 2 premières secondes)</label><input id="up-hook" class="input" maxlength="60" value=${f.hook} onInput=${(ev) => set('hook', ev.target.value)} placeholder="ex : Personne ne m’a cru. Alors j’ai filmé." /><small>Une vraie accroche retient les gens : +12 % de vues.</small></div>
+      <${CoverField} g=${g} f=${f} set=${set} />
       <div class="field"><span class="lbl">${pf === 'instagram' ? 'Audio tendance' : 'Son tendance'}</span>${trendChips(sounds, 'trend', 'Son original')}</div>
       ${tags.length ? html`<div class="field"><span class="lbl">Défi / hashtag</span>${trendChips(tags, 'trend2', 'Aucun')}</div>` : null}` : null}
     ${kind !== 'vert' && topics.length ? html`<div class="field"><span class="lbl">Surfer sur une tendance</span>${trendChips(topics, 'trend', 'Aucune')}</div>` : null}
@@ -1156,7 +1185,7 @@ function PlatformVideo({ g, p, now }) {
       : html`<button class="linkbtn" onClick=${(ev) => { ev.stopPropagation(); if (appealAds(g, p)) update(); }}>Demander un réexamen</button>`}</div>` : null;
   if (kind === 'vert') {
     return html`<div class=${'pv pv-vert pf-' + (v.plat || 'youtube')} style=${'--h:' + (h % 360)}>
-      <div class="pv-screen" role="img" aria-label=${`${cap1(v.noun || v.what)} : ${v.topic}`}><span class="emo" aria-hidden="true">${W.emoji}</span>${v.hook ? html`<b class="vp-hook">${v.hook}</b>` : null}<span class="pv-views">▶ ${fmtN(views)}</span>${v.trend && v.trend.kind === 'son' ? html`<span class="pv-sound">♫ ${v.trend.name}</span>` : null}</div>
+      <div class="pv-screen" role="img" aria-label=${`${cap1(v.noun || v.what)} : ${v.topic}`}>${v.thumbImg && mediaSrc(v.thumbImg) ? html`<img class="pv-cover" src=${mediaSrc(v.thumbImg)} alt="" />` : html`<span class="emo" aria-hidden="true">${W.emoji}</span>`}${v.hook ? html`<b class="vp-hook">${v.hook}</b>` : null}<span class="pv-views">▶ ${fmtN(views)}</span>${v.trend && v.trend.kind === 'son' ? html`<span class="pv-sound">♫ ${v.trend.name}</span>` : null}</div>
       <div class="pv-meta"><b>${v.topic}</b><div class="row">${sp}${tr}</div>${tierChip}<div class="row">${money}${fitChip}${mbChip}</div>${adsRow}</div>
     </div>`;
   }

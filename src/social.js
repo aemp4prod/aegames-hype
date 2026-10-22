@@ -177,6 +177,29 @@ function addGroup(g, o, at) {
   addNotif(g, { k: 'dm', at: t, text: `👥 ${by && ids.includes(by.id) ? firstName(by) : 'Quelqu’un'} t’a ajouté${px(g, '', 'e', '·e')} au groupe « ${name} »` });
   return gr;
 }
+// 0.31.1: the player starts a group (2 to 5 of the cast) with a first message: their AIs answer it, each in their own way;
+// whoever does not want to be in it (an ex, a rival, someone they cannot stand) may leave at once.
+const GROUP_PICK = [2, 5], GROUP_EMOJIS = ['💬', '🎉', '🔥', '✨', '🎮', '🎬', '🍕', '💅'];
+const groupable = (g, c) => !!c && isMain(c) && c.unlocked && !c.cut && !c.jailed && !(coolNow(c) && c.cool.k === 'bloque');
+const groupCands = (g) => mains(g).filter((c) => groupable(g, c)).sort((a, b) => b.rel - a.rel);
+function newGroupWhy(g) {
+  if (liveGroups(g).length >= GROUP_MAX) return `Tu es déjà dans ${GROUP_MAX} groupes : quitte-en un pour en créer un autre.`;
+  if (groupCands(g).length < GROUP_PICK[0]) return `Il te faut au moins ${GROUP_PICK[0]} persos à qui écrire.`;
+  return '';
+}
+function createGroup(g, ids, name, emoji) {
+  const why = newGroupWhy(g), nm = str(name, 30);
+  if (why) return { ok: false, why };
+  if (nm.length < 2) return { ok: false, why: 'Donne un nom au groupe.' };
+  if (groupByName(g, nm)) return { ok: false, why: 'Tu as déjà un groupe qui porte ce nom.' };
+  const cs = [...new Set(ids || [])].map((id) => g.chars[id]).filter((c) => groupable(g, c));
+  if (cs.length < GROUP_PICK[0] || cs.length > GROUP_PICK[1]) return { ok: false, why: `Choisis de ${GROUP_PICK[0]} à ${GROUP_PICK[1]} persos.` };
+  for (const c of cs) if (c.asleep) wake(g, c, ''); // (written to: back from « en retrait »)
+  const t = Date.now();
+  const gr = { id: uid('gr'), name: nm, emoji: GROUP_EMOJIS.includes(emoji) ? emoji : GROUP_EMOJIS[0], members: cs.map((c) => c.id), msgs: [{ id: uid('m'), sys: 'made', text: nm, ts: t, at: t }], readAt: t, at: t, mine: 1 };
+  groupsOf(g).push(gr);
+  return { ok: true, gr };
+}
 function addGroupMsg(g, gr, c, text, at) {
   text = str(text, 300);
   if (!gr || !c || !gr.members.includes(c.id) || !text) return null;
@@ -203,14 +226,15 @@ async function sendGroup(id, text) {
   S.busy.groups = Object.assign({}, S.busy.groups, { [id]: true });
   update(false);
   const f = startFlow(g);
-  let at = t + rand(1800, 3500), n = 0, rel = 0, mem = 0, quit = null, name = null, sign = null, ok = true;
+  let at = t + rand(1800, 3500), n = 0, rel = 0, mem = 0, name = null, sign = null, ok = true;
+  const quits = [], fresh = !!gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1; // (0.31.1: its very first message)
   const fx = [];
   try {
     await aiStream(promptGroup(g, gr, text), (o) => {
       if (o.t === 'msg' && n < 5) { const c = charByHandle(g, normHandle(o.by)); if (c && addGroupMsg(g, gr, c, o.text, at)) { n++; at += 900 + str(o.text, 300).length * 18; } }
       else if (o.t === 'rel' && rel < 2) { rel++; const when = at; fx.push(() => applyRel(g, o.by, int(o.d, -6, 6, 0), o.why, when, 6)); }
       else if (o.t === 'mem' && !mem) { mem = 1; fx.push(() => addMem(g, o.by, o.text)); }
-      else if (o.t === 'quit' && !quit) quit = o;
+      else if (o.t === 'quit' && quits.length < (fresh ? 2 : 1)) quits.push(o);
       else if (o.t === 'name' && !name) name = str(o.text, 36);
       else if (o.t === 'psy' && !sign) sign = o;
       update(false);
@@ -222,7 +246,8 @@ async function sendGroup(id, text) {
   for (const x of fx) { try { x(); } catch (err) { console.error(err); } }
   if (sign) psySign(g, charByHandle(g, normHandle(sign.by)), sign.text, at + 600);
   if (name && name !== gr.name) { gr.name = name; gr.msgs.push({ id: uid('m'), sys: 'name', text: name, ts: at, at }); }
-  if (quit) quitGroup(g, gr, charByHandle(g, normHandle(quit.by)), quit.why, at + 800);
+  for (const q of quits) { quitGroup(g, gr, charByHandle(g, normHandle(q.by)), q.why, at + 800); at += 600; }
+  if (!gr.members.length && !gr.left) { gr.left = Date.now(); gr.empty = 1; } // (0.31.1: everybody left)
   trimGroup(gr);
   if (S.busy.groups) { delete S.busy.groups[id]; if (!Object.keys(S.busy.groups).length) S.busy.groups = null; }
   endFlow(f);
@@ -248,8 +273,9 @@ function promptGroup(g, gr, text) {
   const L = [RULES_PRIVATE, '', ctxText(g, { kind: 'private', focus, feed: 3 }), '',
     `## LE GROUPE DE DISCUSSION « ${gr.name} » (le joueur et ${ms.map((c) => '@' + c.handle).join(', ')})`,
     'Ce qui s’y dit reste entre eux.', 'Derniers messages (du plus ancien au plus récent) :',
-    ...gr.msgs.slice(-14, -1).map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}`)),
+    ...gr.msgs.slice(-14, -1).map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : m.sys === 'made' ? 'le joueur a créé le groupe' : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}`)),
     'Nouveau message du joueur :', `« ${noJson(text)} »`];
+  if (gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1) L.push(`Le joueur vient de créer ce groupe et d’y ajouter ${ms.map((c) => '@' + c.handle).join(', ')} : c’est son premier message. Chacun réagit à sa façon, selon sa relation avec le joueur et avec les autres membres (content d’en être, surpris, gêné de se retrouver avec quelqu’un en particulier). Un membre qui ne veut vraiment pas en être (un·e ex, un rival, quelqu’un avec qui ça coince) peut le quitter tout de suite, avec ou sans un mot avant : {"t":"quit","by":"handle","why":"≤ 60 caractères"} (2 au plus).`); // 0.31.1
   for (const c of ms) if (isPsy(g, c) && psyNow(g)) L.push(`(Secret du jeu : @${c.handle} est le psychopathe de la partie ; dans le groupe, ${gx(c.g, 'il', 'elle', 'iel')} reste crédible, à peine trop intense avec le joueur.)`);
   L.push('', '## TA MISSION', 'Les membres réagissent comme dans un vrai groupe : pas tous, pas toujours d’accord, ils se répondent entre eux, des blagues internes, des messages courts. Chacun garde sa voix.',
     '', FORMAT, 'Lignes à produire :',
@@ -556,8 +582,9 @@ function StoryNewLayer({ g, now, i }) {
 /* ---------- on screen: the groups ---------- */
 function GroupRows({ g, now }) {
   const gs = liveGroups(g).slice().sort((a, b) => ((b.msgs[b.msgs.length - 1] || {}).at || b.at) - ((a.msgs[a.msgs.length - 1] || {}).at || a.at));
-  if (!gs.length) return null;
-  return html`<div class="list-h">Groupes<span>${gs.length}</span></div>${gs.map((gr) => {
+  const can = groupCands(g).length >= GROUP_PICK[0]; // 0.31.1: the player may start one too
+  if (!gs.length && !can) return null;
+  return html`<div class="list-h">Groupes<span class="list-h-r">${gs.length ? html`<span>${gs.length}</span>` : null}${can ? html`<button type="button" class="linkbtn ng-open" onClick=${() => openLayer({ t: 'newgroup' })}><${Icon} n="plus" s=${14} /> Nouveau groupe</button>` : null}</span></div>${!gs.length ? html`<p class="gr-none">Réunis 2 à 5 persos dans une même conversation.</p>` : null}${gs.map((gr) => {
     const last = gr.msgs.filter((m) => m.at <= now && !m.sys).pop(), n = unreadGroup(gr, now), ms = groupMembers(g, gr);
     return html`<button key=${gr.id} class=${'convo' + (n ? ' unread' : '')} onClick=${() => openLayer({ t: 'group', id: gr.id })}>
       <span class="gr-avs" aria-hidden="true">${ms.slice(0, 2).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${34} />`)}</span>
@@ -586,7 +613,7 @@ function GroupLayer({ l, g, now, i }) {
   };
   return html`<${LayerShell} i=${i} title=${gr.name}
     head=${html`<div class="who"><span class="gr-avs" aria-hidden="true">${ms.slice(0, 3).map((c) => html`<${Avatar} key=${c.id} who=${author(g, 'c:' + c.id)} size=${30} />`)}</span><div><b>${gr.emoji} ${gr.name}</b><span>Toi, ${ms.map((c) => firstName(c)).join(', ')}</span></div></div>`}
-    foot=${gr.left ? html`<p class="muted" style="text-align:center;font-size:13.5px">Tu as quitté ce groupe.</p>` : html`<div>
+    foot=${gr.left ? html`<p class="muted" style="text-align:center;font-size:13.5px">${gr.empty ? 'Tout le monde a quitté ce groupe.' : 'Tu as quitté ce groupe.'}</p>` : html`<div>
       <div class="reply-box">
         <textarea ref=${ref} rows="1" maxlength=${DM_MAX} placeholder=${'Message au groupe…'} value=${val} onInput=${(e) => { setVal(e.target.value); autosize(e.target); }}
           onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
@@ -597,12 +624,40 @@ function GroupLayer({ l, g, now, i }) {
     <div class="bubbles gr-bubbles" ref=${box}>
       <div class="dm-intro"><b>${gr.emoji} ${gr.name}</b><span>Groupe · toi et ${ms.length} ${plural(ms.length, 'autre', 'autres')}</span></div>
       ${msgs.map((m, k) => {
-        if (m.sys) return html`<div key=${m.id} class="gr-sys">${m.sys === 'quit' ? `${firstName(author(g, m.a))} a quitté le groupe${m.text ? ' (' + m.text + ')' : ''}` : `Le groupe s’appelle maintenant « ${m.text} »`}</div>`;
+        if (m.sys) return html`<div key=${m.id} class="gr-sys">${m.sys === 'quit' ? `${firstName(author(g, m.a))} a quitté le groupe${m.text ? ' (' + m.text + ')' : ''}` : m.sys === 'made' ? `Tu as créé le groupe « ${m.text} »` : `Le groupe s’appelle maintenant « ${m.text} »`}</div>`;
         if (m.a === 'p') return html`<div key=${m.id} class="bubble me">${emoParts(m.text)}</div>`;
         const au = author(g, m.a), prev = msgs[k - 1], head = !prev || prev.a !== m.a || prev.sys;
         return html`<div key=${m.id} class="gr-line">${head ? html`<${Avatar} who=${au} size=${28} />` : html`<span class="gr-pad"></span>`}<div>${head ? html`<small class="gr-name" style=${'--h:' + au.hue}>${firstName(au)}</small>` : null}<div class="bubble them">${emoParts(m.text)}</div></div></div>`;
       })}
       ${typing ? html`<div class="bubble them typing-b" aria-label="Le groupe écrit"><${Typing} /></div>` : null}
+    </div>
+  <//>`;
+}
+// 0.31.1: « Nouveau groupe »: its name, its emoji, who (2 to 5), the first message (their AIs answer it).
+function NewGroupLayer({ l, g, i }) {
+  const [sel, setSel] = useState([]), [name, setName] = useState(''), [emo, setEmo] = useState(GROUP_EMOJIS[0]), [text, setText] = useState('');
+  const cands = groupCands(g), why = newGroupWhy(g), max = GROUP_PICK[1];
+  const toggle = (id) => setSel((x) => (x.includes(id) ? x.filter((y) => y !== id) : x.length >= max ? x : x.concat(id)));
+  const ok = !why && sel.length >= GROUP_PICK[0] && str(name, 30).length >= 2 && !!text.trim() && canAfford(g, 'dm');
+  const go = () => {
+    const r = createGroup(g, sel, name, emo);
+    if (!r.ok) { toast(r.why, 'bad'); return; }
+    closeLayer(l);
+    openLayer({ t: 'group', id: r.gr.id });
+    sendGroup(r.gr.id, text.trim());
+  };
+  return html`<${LayerShell} i=${i} title="Nouveau groupe">
+    <div class="lpad ng-form">
+      <label class="field"><span class="lbl">Nom du groupe</span><input class="input" maxlength="30" value=${name} placeholder="Ex : la bande du jeudi" onInput=${(e) => setName(e.target.value)} /></label>
+      <div class="tr-chips" role="group" aria-label="L’emoji du groupe">${GROUP_EMOJIS.map((x) => html`<button type="button" key=${x} class=${'chip-btn' + (emo === x ? ' on' : '')} onClick=${() => setEmo(x)} aria-label=${'Emoji ' + x} aria-pressed=${emo === x}>${x}</button>`)}</div>
+      <div class="field"><span class="lbl">Avec qui ? <small class="muted">${sel.length}/${max} · ${GROUP_PICK[0]} au moins</small></span>
+        <div class="ng-list">${cands.map((c) => { const on = sel.includes(c.id); return html`<label key=${c.id} class=${'ng-row' + (on ? ' on' : '')}>
+          <input type="checkbox" checked=${on} disabled=${!on && sel.length >= max} onChange=${() => toggle(c.id)} />
+          <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><span><b>${c.name}</b><small>${relShown(c)} · ${fmtRel(c.rel)}</small></span></label>`; })}</div></div>
+      <label class="field"><span class="lbl">Ton premier message</span><textarea class="input" rows="2" maxlength=${DM_MAX} value=${text} placeholder="Ex : je vous ai réunis pour un truc…" onInput=${(e) => setText(e.target.value)}></textarea></label>
+      ${why ? html`<p class="notice"><${Icon} n="users" /><span>${why}</span></p>` : null}
+      <button class="btn btn-hot" disabled=${!ok} onClick=${go}><${Icon} n="users" s=${16} /> Créer le groupe</button>
+      <small class="muted">Chacun réagit à sa façon, et peut refuser d’en être. ≈ ${costLabel(g, 'dm')} café par message.</small>
     </div>
   <//>`;
 }

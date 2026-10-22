@@ -3,7 +3,8 @@
    - The edit: cut on the beat (or sort the rushes, when the shoot already was a rhythm game). An editor on the team does
      it for the player. A careful edit lifts the video, a sloppy one drags it down: the shoot's score moves by up to
      ±15 points (a good edit can save a so-so shoot, the way it does for real).
-   - The thumbnail (long videos): put one together (a background, a face, a few words, a detail) or draw it. A designer
+   - The thumbnail (long videos): put one together (a background, a face, a few words, a detail), draw it, or (0.31.1)
+     make it of the player's own images (a short gets an optional cover that way, when it goes out). A designer
      on the team does it. In the ChatGPT app, with no daily limit, the AI can turn the sketch into a real thumbnail.
    Nothing here calls the AI, but the last one (and only when the player asks).
    ========================================================= */
@@ -166,12 +167,12 @@ function staffThumb(g, r) {
   const look = { bg: pick(['jaune', 'rouge', 'ciel', 'rose']), emo: pick(THUMB_FACES.slice(0, 6)), text: thumbWords(r.topic), deco: pick(['fleche', 'cercle', 'none']) };
   return { kind: 'staff', look, ctr: Math.min(lookCtr(look), 0.2), choc: false, who }; // their own bonus comes on top (staffMult)
 }
-const thumbWord = (t) => (t.kind === 'staff' ? `Faite par ${t.who || 'ton graphiste'}` : t.kind === 'ai' ? 'Ton croquis, finalisé par l’IA' : t.kind === 'drawn' ? 'Dessinée à la main' : t.preset ? THUMBS[t.preset].label : 'Ta composition');
+const thumbWord = (t) => (t.kind === 'staff' ? `Faite par ${t.who || 'ton graphiste'}` : t.kind === 'ai' ? 'Ton croquis, finalisé par l’IA' : t.kind === 'drawn' ? 'Dessinée à la main' : t.kind === 'photos' ? 'Tes images' : t.preset ? THUMBS[t.preset].label : 'Ta composition');
 // A thumbnail on screen: a composition, or a picture (drawn, or made by the AI).
-function ThumbArt({ look, img, small, label }) {
+function ThumbArt({ look, img, small, label, vert }) {
   if (img) {
     const src = mediaSrc(img);
-    return html`<span class=${'th-art' + (small ? ' sm' : '')} role="img" aria-label=${label || 'Miniature'}>${src ? html`<img src=${src} alt="" />` : null}</span>`;
+    return html`<span class=${'th-art' + (small ? ' sm' : '') + (vert ? ' vert' : '')} role="img" aria-label=${label || 'Miniature'}>${src ? html`<img src=${src} alt="" />` : null}</span>`;
   }
   const L = look || {}, txt = String(L.text || '').trim();
   const fs = txt.length <= 8 ? 13 : txt.length <= 14 ? 10 : txt.length <= 20 ? 8.5 : 7;
@@ -280,6 +281,206 @@ async function keepThumbImage(g, url) {
   return id;
 }
 
+/* ---------- 0.31.1: a thumbnail (or a short's cover) made of the player's own images ----------
+   Up to six images of the device, placed by a layout (full frame, side by side, a trio, a grid) or freely (moved,
+   resized, one over another), each one reframed (dragged) and zoomed, and a big word at the top or the bottom. The
+   preview IS the picture: the same drawing on a canvas, then kept on the device like a drawn one. Nothing goes to the AI. */
+const TI_MAX = 6;
+const TI_LAYOUTS = [['plein', 'Plein cadre'], ['duo', 'Côte à côte'], ['trio', 'Trio'], ['grille', 'Grille'], ['libre', 'Libre']];
+const TI_SIZE = { wide: [1280, 720], vert: [720, 1280] };
+const TI_GAP = 0.006; // (a thin line between the cells)
+// The cells of a layout for n images (fractions of the frame: x, y, w, h); a vertical cover stacks instead of side by side.
+function tiCells(layout, n, vert) {
+  if (!n) return [];
+  const grid = (cols, rows) => Array.from({ length: n }, (x, k) => [(k % cols) / cols, Math.floor(k / cols) / rows, 1 / cols, 1 / rows]);
+  const strip = (m) => Array.from({ length: n }, (x, k) => (vert ? [0, k / m, 1, 1 / m] : [k / m, 0, 1 / m, 1]));
+  let out;
+  if (layout === 'duo') out = strip(n);
+  else if (layout === 'trio') {
+    const rest = n - 1, big = n === 1 ? 1 : 0.6;
+    out = [vert ? [0, 0, 1, big] : [0, 0, big, 1]].concat(Array.from({ length: rest }, (x, k) => (vert ? [k / rest, big, 1 / rest, 1 - big] : [big, k / rest, 1 - big, 1 / rest])));
+  } else if (layout === 'grille') {
+    const [c, r] = n <= 2 ? (vert ? [1, 2] : [2, 1]) : n <= 4 ? [2, 2] : vert ? [2, 3] : [3, 2];
+    out = grid(c, r);
+  } else { // full frame: the first one, the others in insets along the side
+    out = [[0, 0, 1, 1]].concat(Array.from({ length: n - 1 }, (x, k) => (vert ? [0.06 + (k % 2) * 0.47, 0.6 - Math.floor(k / 2) * 0.2, 0.41, 0.18] : [0.66, 0.06 + k * 0.19, 0.3, 0.17])));
+  }
+  if (layout === 'plein') return out;
+  return out.map(([x, y, w, h]) => [x + TI_GAP / 2, y + TI_GAP / 2, w - TI_GAP, h - TI_GAP]);
+}
+const tiRect = (st, k, vert) => (st.layout === 'libre' ? [st.layers[k].x, st.layers[k].y, st.layers[k].w, st.layers[k].h] : tiCells(st.layout, st.layers.length, vert)[k]);
+const tiBig = (t) => String(t || '').trim().replace(/\s+/g, ' ').toUpperCase().slice(0, 40);
+const TI_INK = { blanc: '#FFFFFF', jaune: '#FFD400' };
+// Draws the thumbnail on a canvas of W × H (sel: the image picked, outlined on screen only).
+function tiDraw(x, W, H, st, vert, imgs, sel) {
+  x.fillStyle = THUMB_BGS[st.bg] || THUMB_BGS.nuit;
+  x.fillRect(0, 0, W, H);
+  st.layers.forEach((L, k) => {
+    const im = imgs[L.id];
+    const [fx, fy, fw, fh] = tiRect(st, k, vert), rx = fx * W, ry = fy * H, rw = fw * W, rh = fh * H;
+    if (!im || !im.naturalWidth || rw < 2 || rh < 2) return;
+    const s = Math.max(rw / im.naturalWidth, rh / im.naturalHeight) * (L.zoom || 1), dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+    x.save();
+    x.beginPath(); x.rect(rx, ry, rw, rh); x.clip();
+    x.drawImage(im, rx - (dw - rw) * (L.px / 100), ry - (dh - rh) * (L.py / 100), dw, dh);
+    x.restore();
+    const inset = fx > 0.002 || fy > 0.002 || fw < 0.996 || fh < 0.996;
+    if (inset && (st.layout === 'libre' || st.layout === 'plein')) { x.lineWidth = Math.max(2, W * 0.004); x.strokeStyle = 'rgba(255,255,255,.9)'; x.strokeRect(rx, ry, rw, rh); } // (an inset has a white edge)
+    if (sel && L.id === sel) { x.lineWidth = Math.max(3, W * 0.006); x.setLineDash([W * 0.02, W * 0.012]); x.strokeStyle = '#E91E7A'; x.strokeRect(rx + 2, ry + 2, rw - 4, rh - 4); x.setLineDash([]); }
+  });
+  const t = tiBig(st.text);
+  if (t) { // the big word: as wide as it can be, two lines at most, an outline that reads on anything
+    let fs = Math.round((vert ? W * 0.17 : H * 0.2)), lines = [t];
+    const font = (n) => `800 ${n}px Unbounded, "Arial Black", sans-serif`;
+    const fit = () => {
+      x.font = font(fs);
+      const words = t.split(' '), out = [];
+      let cur = '';
+      for (const w of words) { const tr = cur ? cur + ' ' + w : w; if (cur && x.measureText(tr).width > W * 0.9) { out.push(cur); cur = w; } else cur = tr; }
+      if (cur) out.push(cur);
+      return out;
+    };
+    for (let k = 0; k < 40; k++) { lines = fit(); if (lines.length <= 2 && lines.every((l) => x.measureText(l).width <= W * 0.9)) break; fs = Math.round(fs * 0.9); }
+    const lh = fs * 1.02, top = st.pos === 'haut' ? H * 0.05 + fs * 0.86 : H * 0.95 - (lines.length - 1) * lh - fs * 0.12;
+    x.textAlign = 'center'; x.lineJoin = 'round';
+    lines.forEach((l, k) => {
+      const y = top + k * lh;
+      x.lineWidth = fs * 0.2; x.strokeStyle = '#111111'; x.strokeText(l, W / 2, y);
+      x.fillStyle = TI_INK[st.ink] || TI_INK.blanc; x.fillText(l, W / 2, y);
+    });
+  }
+}
+// What makes people click, as for the others: real pictures, a few big words, not too many images at once.
+function photoCtr(n, text, vert) {
+  const words = tiBig(text).split(' ').filter(Boolean).length;
+  if (vert) return Math.round((THUMBS.propre.ctr + (n ? 0.02 : 0) + (words >= 1 && words <= 4 ? 0.04 : words <= 6 && words ? 0.015 : 0)) * 100) / 100; // a short's cover: a little more than nothing
+  let c = 0.12;
+  if (words >= 1 && words <= 4) c += 0.06; else if (words > 4 && words <= 6) c += 0.02; else if (words > 6) c -= 0.02;
+  if (n === 2 || n === 3) c += 0.02; else if (n >= 5) c -= 0.02;
+  return Math.round(clamp(c, 0.04, 0.22) * 100) / 100;
+}
+// An image of the device, kept whole (never cropped here), 1600 px at most on its long side.
+async function tiLoad(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image')); i.src = url; });
+    const s = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(im.naturalWidth * s)); cv.height = Math.max(1, Math.round(im.naturalHeight * s));
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(im, 0, 0, cv.width, cv.height);
+    return cv.toDataURL('image/jpeg', 0.88);
+  } finally { URL.revokeObjectURL(url); }
+}
+const tiImg = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+function PhotoThumb({ vert, onChange }) {
+  const [W, H] = TI_SIZE[vert ? 'vert' : 'wide'];
+  const cv = useRef(null), file = useRef(null), imgs = useRef({}), drag = useRef(null);
+  const st = useRef({ layers: [], layout: 'plein', auto: true, bg: 'nuit', text: '', pos: vert ? 'haut' : 'bas', ink: 'blanc', sel: null }); // (a short's cover: its word on top, away from the counters)
+  const [, setN] = useState(0), [busy, setBusy] = useState(false);
+  const S0 = st.current, sel = S0.layers.find((L) => L.id === S0.sel) || null;
+  const paint = () => { const c = cv.current; if (c) tiDraw(ctx2d(c), W, H, S0, vert, imgs.current, S0.sel); };
+  const tell = () => {
+    setN((n) => n + 1);
+    paint();
+    if (!onChange) return;
+    if (!S0.layers.length) { onChange(null); return; }
+    const snap = JSON.parse(JSON.stringify(S0));
+    onChange({ n: snap.layers.length, text: tiBig(snap.text), ctr: photoCtr(snap.layers.length, snap.text, vert), render: () => { const c = document.createElement('canvas'); c.width = W; c.height = H; tiDraw(c.getContext('2d'), W, H, snap, vert, imgs.current, null); return c.toDataURL('image/jpeg', 0.86); } });
+  };
+  useEffect(() => { paint(); if (document.fonts && document.fonts.load) document.fonts.load('800 40px Unbounded').then(paint, () => {}); }, []);
+  const set = (k, v) => { S0[k] = v; tell(); };
+  const add = async (files) => {
+    const list = Array.from(files || []).filter(okImage).slice(0, TI_MAX - S0.layers.length);
+    if (!list.length) { toast(S0.layers.length >= TI_MAX ? `${TI_MAX} images au plus.` : 'Choisis des images (JPG, PNG ou WebP).', 'bad'); return; }
+    setBusy(true);
+    for (const f of list) {
+      try {
+        const url = await tiLoad(f), im = await tiImg(url);
+        if (!im) continue;
+        const id = uid('ph'), k = S0.layers.length, w = 0.5, h = Math.min(0.9, (w * W * im.naturalHeight) / im.naturalWidth / H);
+        imgs.current[id] = im;
+        S0.layers.push({ id, url, x: Math.min(0.45, 0.05 + 0.08 * k), y: Math.min(0.4, 0.05 + 0.08 * k), w, h, px: 50, py: 50, zoom: 1 });
+        S0.sel = id;
+      } catch (e) { toast(`Impossible d’importer ${str(f.name, 40)}.`, 'bad'); }
+    }
+    if (S0.auto) { const n = S0.layers.length; S0.layout = n <= 1 ? 'plein' : n === 2 ? 'duo' : n === 3 ? 'trio' : 'grille'; } // (until the player picks one: by how many there are)
+    setBusy(false);
+    tell();
+  };
+  const layout = (k) => {
+    if (k === 'libre' && S0.layout !== 'libre') S0.layers.forEach((L, j) => { const [x, y, w, h] = tiRect(S0, j, vert); Object.assign(L, { x, y, w, h }); }); // (free from where they are)
+    S0.auto = false;
+    set('layout', k);
+  };
+  const at = (e) => { const b = cv.current.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; };
+  const down = (e) => {
+    if (!S0.layers.length) return;
+    e.preventDefault();
+    const [fx, fy] = at(e);
+    let k = -1;
+    for (let j = S0.layers.length - 1; j >= 0; j--) { const [x, y, w, h] = tiRect(S0, j, vert); if (fx >= x && fx <= x + w && fy >= y && fy <= y + h) { k = j; break; } }
+    if (k < 0) { S0.sel = null; tell(); return; }
+    const L = S0.layers[k];
+    S0.sel = L.id;
+    try { cv.current.setPointerCapture(e.pointerId); } catch (err) { /* a synthetic event */ }
+    drag.current = { L, k, fx, fy, x: L.x, y: L.y, px: L.px, py: L.py };
+    paint();
+  };
+  const move = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const [fx, fy] = at(e), L = d.L, dx = fx - d.fx, dy = fy - d.fy;
+    if (S0.layout === 'libre') { L.x = clamp(d.x + dx, 0.04 - L.w, 0.96); L.y = clamp(d.y + dy, 0.04 - L.h, 0.96); } // (moved: a corner always stays in)
+    else { // reframed inside its cell
+      const im = imgs.current[L.id], [, , fw, fh] = tiRect(S0, d.k, vert);
+      if (im) {
+        const rw = fw * W, rh = fh * H, s = Math.max(rw / im.naturalWidth, rh / im.naturalHeight) * L.zoom, ox = im.naturalWidth * s - rw, oy = im.naturalHeight * s - rh;
+        if (ox > 1) L.px = clamp(d.px - ((dx * W) / ox) * 100, 0, 100);
+        if (oy > 1) L.py = clamp(d.py - ((dy * H) / oy) * 100, 0, 100);
+      }
+    }
+    paint();
+  };
+  const up = () => { if (drag.current) { drag.current = null; tell(); } };
+  const resize = (v) => { // libre: its size, from its centre, its shape kept
+    const L = sel;
+    if (!L) return;
+    const cx = L.x + L.w / 2, cy = L.y + L.h / 2, r = L.h / L.w, w = clamp(v / 100, 0.15, 1.2), h = w * r;
+    Object.assign(L, { w, h, x: cx - w / 2, y: cy - h / 2 });
+    tell();
+  };
+  const swap = (d) => { const k = S0.layers.indexOf(sel), j = k + d; if (!sel || j < 0 || j >= S0.layers.length) return; const a = S0.layers; [a[k], a[j]] = [a[j], a[k]]; tell(); };
+  const front = () => { if (!sel) return; S0.layers = S0.layers.filter((L) => L !== sel).concat(sel); tell(); };
+  const drop = () => { if (!sel) return; delete imgs.current[sel.id]; S0.layers = S0.layers.filter((L) => L !== sel); S0.sel = S0.layers.length ? S0.layers[S0.layers.length - 1].id : null; if (S0.auto || (S0.layers.length < 2 && S0.layout !== 'libre')) { const n = S0.layers.length; S0.layout = n <= 1 ? 'plein' : n === 2 ? 'duo' : n === 3 ? 'trio' : 'grille'; } tell(); };
+  const k = sel ? S0.layers.indexOf(sel) : -1;
+  return html`<div class=${'ph-thumb' + (vert ? ' vert' : '')}>
+    <canvas ref=${cv} width=${W} height=${H} class="ph-cv" aria-label=${vert ? 'Ta couverture : touche une image pour la choisir, fais-la glisser pour la placer' : 'Ta miniature : touche une image pour la choisir, fais-la glisser pour la placer'}
+      onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}></canvas>
+    <div class="row ph-tools">
+      <button type="button" class="btn btn-ghost btn-sm" onClick=${() => file.current && file.current.click()} disabled=${busy || S0.layers.length >= TI_MAX}>${busy ? html`<${Typing} />` : html`<${Icon} n="upload" s=${14} />`} ${S0.layers.length ? 'Ajouter des images' : 'Importer tes images'}</button>
+      <input ref=${file} type="file" accept="image/*" multiple hidden onChange=${(ev) => { const fs = Array.from(ev.target.files || []); ev.target.value = ''; add(fs); }} />
+      <small class="muted">${S0.layers.length}/${TI_MAX}</small>
+    </div>
+    ${S0.layers.length ? html`
+      <div class="field"><span class="lbl">La disposition</span><div class="tr-chips">${TI_LAYOUTS.filter(([id]) => S0.layers.length > 1 || id === 'plein' || id === 'libre').map(([id, lb]) => html`<button type="button" key=${id} class=${'chip-btn' + (S0.layout === id ? ' on' : '')} aria-pressed=${S0.layout === id} onClick=${() => layout(id)}>${lb}</button>`)}</div>
+        <small class="muted">${S0.layout === 'libre' ? 'Fais glisser une image pour la placer ; la dernière choisie peut passer devant.' : 'Fais glisser une image pour la recadrer dans sa case.'}</small></div>
+      ${sel ? html`<div class="field ph-sel"><span class="lbl">L’image choisie</span>
+        <label class="ph-range"><span>Zoom</span><input type="range" min="100" max="300" step="5" value=${Math.round(sel.zoom * 100)} onInput=${(ev) => { sel.zoom = Number(ev.target.value) / 100; tell(); }} aria-label="Zoom de l’image" /></label>
+        ${S0.layout === 'libre' ? html`<label class="ph-range"><span>Taille</span><input type="range" min="15" max="120" step="1" value=${Math.round(sel.w * 100)} onInput=${(ev) => resize(Number(ev.target.value))} aria-label="Taille de l’image" /></label>` : null}
+        <div class="tr-chips">
+          ${S0.layout === 'libre' ? html`<button type="button" class="chip-btn" onClick=${front} disabled=${k === S0.layers.length - 1}>Devant</button>` : html`<button type="button" class="chip-btn" onClick=${() => swap(-1)} disabled=${k <= 0}>◀ Avant</button><button type="button" class="chip-btn" onClick=${() => swap(1)} disabled=${k >= S0.layers.length - 1}>Après ▶</button>`}
+          <button type="button" class="chip-btn" onClick=${drop}>Retirer</button>
+        </div></div>` : null}
+      <div class="field"><span class="lbl">Le fond</span><div class="th-swatches">${Object.keys(THUMB_BGS).map((b) => html`<button key=${b} type="button" class=${'th-sw' + (S0.bg === b ? ' on' : '')} style=${'--c:' + THUMB_BGS[b]} aria-label=${THUMB_BG_NAMES[b]} aria-pressed=${S0.bg === b ? 'true' : 'false'} onClick=${() => set('bg', b)}></button>`)}</div></div>
+      <div class="field"><label class="lbl" for=${vert ? 'ph-text-v' : 'ph-text'}>Le texte</label>
+        <input id=${vert ? 'ph-text-v' : 'ph-text'} class="input" maxlength="40" value=${S0.text} onInput=${(ev) => set('text', ev.target.value)} placeholder="2 à 4 mots, en gros (facultatif)" />
+        <div class="tr-chips"><button type="button" class=${'chip-btn' + (S0.pos === 'haut' ? ' on' : '')} onClick=${() => set('pos', 'haut')}>En haut</button><button type="button" class=${'chip-btn' + (S0.pos === 'bas' ? ' on' : '')} onClick=${() => set('pos', 'bas')}>En bas</button><button type="button" class=${'chip-btn' + (S0.ink === 'blanc' ? ' on' : '')} onClick=${() => set('ink', 'blanc')}>Blanc</button><button type="button" class=${'chip-btn' + (S0.ink === 'jaune' ? ' on' : '')} onClick=${() => set('ink', 'jaune')}>Jaune</button></div></div>`
+      : html`<p class="muted">Importe jusqu’à ${TI_MAX} images de ton appareil (tes photos, celles de ton perso IA) : elles restent sur cet appareil.</p>`}
+  </div>`;
+}
+
 /* ---------- the steps, between the shoot and the upload screen ---------- */
 function EditStep({ g, r, now }) {
   const [game] = useState(() => r.editGame || (r.editGame = makeEdit(r, g)));
@@ -309,6 +510,7 @@ function ThumbStep({ g, r, onDone }) {
   const [tab, setTab] = useState('compose');
   const [look, setLook] = useState(() => presetLook('propre', r));
   const [sketch, setSketch] = useState(null);
+  const [ph, setPh] = useState(null); // 0.31.1: the player's own images
   const [ai, setAi] = useState(null); // { busy } | { url } | { err }
   const preset = Object.keys(PRESET_CTR).find((k) => sameLook(look, presetLook(k, r))) || null;
   const ctr = preset ? PRESET_CTR[preset] : lookCtr(look), choc = preset ? preset === 'choc' : lookChoc(look);
@@ -321,6 +523,12 @@ function ThumbStep({ g, r, onDone }) {
     const id = await keepThumbImage(g, sketch.url);
     if (!id) { toast('Impossible de garder ton dessin sur cet appareil : prends une composition.', 'bad'); return; }
     done({ kind: 'drawn', img: id, ctr: drawnCtr(sketch), choc: false });
+  };
+  const usePhotos = async () => {
+    if (!ph || (ai && ai.busy)) return;
+    const id = await keepThumbImage(g, ph.render());
+    if (!id) { toast('Impossible de garder ta miniature sur cet appareil : prends une composition.', 'bad'); return; }
+    done({ kind: 'photos', img: id, ctr: ph.ctr, choc: false });
   };
   const finishAi = async () => {
     if (!sketch || (ai && ai.busy)) return;
@@ -339,10 +547,11 @@ function ThumbStep({ g, r, onDone }) {
   return html`<div class="studio-step thumb-step">
     <span class="eyebrow">La miniature</span>
     ${r.staffThumb ? html`<p class="ss-edit">🖼️ ${thumbWord(r.staffThumb)} · +${Math.round(r.staffThumb.ctr * 100)} % de vues <button type="button" class="linkbtn" onClick=${() => done(r.staffThumb)}>La garder</button></p>` : null}
-    <div class="th-preview">${tab === 'draw' ? null : html`<${ThumbArt} look=${look} label=${'Aperçu de ta miniature'} />`}</div>
+    <div class="th-preview">${tab === 'compose' ? html`<${ThumbArt} look=${look} label=${'Aperçu de ta miniature'} />` : null}</div>
     <div class="seg" role="tablist" aria-label="Comment la faire">
       <button type="button" role="tab" aria-selected=${tab === 'compose' ? 'true' : 'false'} class=${tab === 'compose' ? 'on' : ''} onClick=${() => setTab('compose')}>Composer</button>
       <button type="button" role="tab" aria-selected=${tab === 'draw' ? 'true' : 'false'} class=${tab === 'draw' ? 'on' : ''} onClick=${() => setTab('draw')}>Dessiner</button>
+      <button type="button" role="tab" aria-selected=${tab === 'images' ? 'true' : 'false'} class=${tab === 'images' ? 'on' : ''} onClick=${() => setTab('images')}>Tes images</button>
     </div>
     ${tab === 'compose' ? html`<div class="th-compose">
       <div class="field"><span class="lbl">Modèles</span><div class="thumb-pick">${Object.keys(PRESET_CTR).map((k) => html`<button type="button" key=${k} class=${'thumb-opt' + (preset === k ? ' on' : '')} onClick=${() => setLook(presetLook(k, r))}><${ThumbArt} look=${presetLook(k, r)} small=${true} /><b>${THUMBS[k].label}</b><small>+${Math.round(PRESET_CTR[k] * 100)} % de vues${THUMBS[k].risk ? ' · si c’est raté, « putaclic »' : ''}</small></button>`)}</div></div>
@@ -354,6 +563,10 @@ function ThumbStep({ g, r, onDone }) {
       <div class="field"><span class="lbl">Le détail</span><div class="tr-chips">${THUMB_DECOS.map(([k, l]) => html`<button key=${k} type="button" class=${'chip-btn' + (look.deco === k ? ' on' : '')} onClick=${() => set('deco', k)}>${l}</button>`)}</div></div>
       <p class="th-est"><b>≈ +${Math.round(ctr * 100)} % de vues</b>${choc ? ' · accrocheur… mais si ta vidéo est ratée, on criera au putaclic' : ''}</p>
       <button class="btn btn-hot th-ok" onClick=${useCompose}><${Icon} n="check" s=${16} /> Valider la miniature</button>
+    </div>` : tab === 'images' ? html`<div class="th-photos">
+      <${PhotoThumb} onChange=${setPh} />
+      ${ph ? html`<p class="th-est"><b>≈ +${Math.round(ph.ctr * 100)} % de vues</b> · tes images${ph.text ? '' : ' · un gros texte de 2 à 4 mots donne envie de cliquer'}</p>` : null}
+      <button class="btn btn-hot th-ok" onClick=${usePhotos} disabled=${!ph}><${Icon} n="check" s=${16} /> Utiliser cette miniature</button>
     </div>` : html`<div class="th-draw">
       <${SketchPad} onChange=${setSketch} />
       ${ai && ai.err ? html`<p class="notice"><span>${ai.err}</span></p>` : null}
