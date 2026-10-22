@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.31.2';
+const APP_VERSION = '0.31.3';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -1967,7 +1967,7 @@ function addEvent(g, o, src) {
   if (g.events.some((e) => e.c === c.id && ((e.state === 'scheduled' && Math.abs(e.due - due) < 3 * 3600000)
     || (player ? e.kind === 'rdv' && e.state === 'scheduled' && sameWhat(e.what, what, c.name)
       : e.kind === kind && t - e.at < 12 * 3600000 && sameWhat(e.what, what, c.name))))) return null;
-  if (activeEvents(g).length >= 6) return null;
+  if (!player && activeEvents(g).filter((e) => !e.player).length >= 6) return null; // (0.31.3: a date with the player, never refused for room: six at most of the others' events only)
   const ev = { id: uid('ev'), kind: player ? 'rdv' : kind, c: c.id, what, at: t, due, state: 'scheduled', src: src || null, player, game: null, played: null, diff: player ? fameDiff(c) : null, tries: 0 };
   // their answer to a bad buzz (still running, or barely over): the network waits for it, the event decides
   if (!player && (kind === 'live' || kind === 'annonce') && due - t <= 48 * 3600000 && c.badBuzz && (inBadBuzz(c) || t - c.badBuzz.until < 6 * 3600000)) {
@@ -2664,9 +2664,9 @@ function levelUp(g) {
     addChronicle(g, `${next.name} (@${next.handle}) vient d’arriver dans le monde.`);
     addTrigger(g, `@${next.handle} vient d’arriver sur le réseau : qu’il ou elle se présente avec un premier post qui ouvre une nouvelle intrigue.`, next.id);
     newcomerRoll(g, next); // 0.30: maybe not who they seem
-  }
+  } else g.castOwed = (g.castOwed || 0) + 1; // 0.31.3: every planned one is there: the AI brings someone new, no question asked (tickNewChars)
   addNotif(g, { k: 'level', text: `Niveau ${s.level} atteint : +${LEVEL_GEMS} gemmes` });
-  queueModalFor(g, { t: 'level', level: s.level, charId: next ? next.id : null });
+  queueModalFor(g, { t: 'level', level: s.level, charId: next ? next.id : null, auto: !next });
 }
 function checkMilestones(g) {
   const s = g.stats;
@@ -3036,13 +3036,55 @@ function addIncomingDM(g, by, text, at, opts = {}) {
   bumpLive(at + 1000);
   return true;
 }
+/* 0.31.3: the player's likes reach the one liked: their AI knows (in private, and on the network, where likes show), a
+   post or a comment alike. A little warmth the first time, nothing more: what it means, their AI decides. */
+const LIKES_KEEP = 6;
+function noteLike(g, x, o, t = Date.now()) { // o: { id, k: 'post' | 'reply' | 'photo' | 'slides' | 'pin', text, on: under whose post ('p': the player's) }
+  if (!x || x.kind === 'media') return;
+  x.likes = (x.likes || []).filter((l) => l.id !== o.id).concat({ id: o.id, k: o.k, text: str(o.text, 90), on: o.on || '', at: t }).slice(-LIKES_KEEP);
+}
+const unnoteLike = (x, id) => { if (x && x.likes) x.likes = x.likes.filter((l) => l.id !== id); };
+// What they liked, as the AI reads it: « son commentaire « … » sous le post de @zara.vey »
+// (and what the player pinned: « a épinglé son commentaire « … » en haut de son post »)
+const likeWord = (l) => (l.k === 'pin' ? `a épinglé son commentaire « ${l.text} » en haut de son post` : 'a aimé ' + (l.k === 'post' ? `son post « ${l.text} »` : l.k === 'photo' ? `sa photo « ${l.text} »` : l.k === 'slides' ? `son diaporama « ${l.text} »`
+  : `son commentaire « ${l.text} »${l.on === 'p' ? ' sous le post du joueur' : l.on ? ` sous le post de @${l.on}` : ''}`));
+const likesSince = (x, since, t = Date.now()) => ((x && x.likes) || []).filter((l) => l.at > since && l.at <= t).slice(-3);
 function toggleLike(p) {
   const g = S.game;
   if (!g || p.a === 'p') return;
   p.liked = !p.liked;
-  if (p.liked && p.a.startsWith('c:')) touch(g.chars[p.a.slice(2)]);
-  if (p.liked && !p.likeRel && p.a.startsWith('c:')) { freeRel(g.chars[p.a.slice(2)], 1); p.likeRel = true; }
+  const c = p.a.startsWith('c:') ? g.chars[p.a.slice(2)] : null;
+  if (p.liked) { p.likedAt = Date.now(); if (c) noteLike(g, c, { id: p.id, k: 'post', text: p.text || (p.photo ? '(une photo)' : '') }); } else { delete p.likedAt; unnoteLike(c, p.id); }
+  if (p.liked && c) touch(c);
+  if (p.liked && !p.likeRel && c) { freeRel(c, 1); p.likeRel = true; }
   update();
+}
+function toggleReplyLike(p, r) {
+  const g = S.game;
+  if (!g || !p || !r || r.a === 'p') return;
+  r.liked = !r.liked;
+  const c = r.a.startsWith('c:') ? g.chars[r.a.slice(2)] : null;
+  if (r.liked) { r.likedAt = Date.now(); if (c) noteLike(g, c, { id: r.id, k: 'reply', text: r.text, on: p.a === 'p' ? 'p' : author(g, p.a).handle }); } else { delete r.likedAt; unnoteLike(c, r.id); }
+  if (r.liked && c) touch(c);
+  if (r.liked && !r.likeRel && c) { freeRel(c, 1); r.likeRel = true; }
+  update();
+}
+/* 0.31.3: the player reacts to a message received (in private or in a group): one emoji, or none. The AI of whoever wrote
+   it sees it in the conversation, and, left without a word since, on the network too (they may write about it). */
+const MSG_REACTS = [['❤️', 'J’adore'], ['😂', 'Haha'], ['😮', 'Wouah'], ['😢', 'Triste'], ['😡', 'Grrr'], ['👍', 'Ok'], ['🔥', 'Le feu']];
+function setReact(g, m, emo, who, t = Date.now()) {
+  if (!g || !m || m.me || m.a === 'p' || m.sys || !m.text) return false;
+  if (!emo || m.rx === emo || !MSG_REACTS.some(([e]) => e === emo)) { delete m.rx; delete m.rxAt; } else { m.rx = emo; m.rxAt = t; } // (rx: m.r already marks a reply)
+  if (m.rx && who) touch(who);
+  update();
+  return true;
+}
+const reactTag = (m) => (m && m.rx ? ` [le joueur a réagi : ${m.rx}]` : '');
+// Their messages the player reacted to without a word since, from either side (the last 12 h, 2 at most).
+function pendingReacts(g, c, t = Date.now()) {
+  const M = ((g.dms && g.dms[c.id]) || {}).msgs || [];
+  const lastAt = M.reduce((x, m) => (m.at <= t ? Math.max(x, m.at) : x), 0);
+  return M.filter((m) => m.rx && !m.me && !m.sys && m.rxAt > lastAt && t - m.rxAt < 12 * 3600000).slice(-2);
 }
 function toggleRepost(p) {
   const g = S.game;

@@ -5,6 +5,22 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.31.3 — 22 octobre 2026 (build 31003)
+
+**Réagis aux messages qu’on t’envoie, et les persos voient tes likes et tes commentaires épinglés. Quelqu’un de nouveau arrive tout seul à chaque niveau, et tes rendez-vous n’ont plus de limite.**
+
+### ✨ Nouveautés
+
+- **😍 Réagir à un message** : pose un emoji sur un message reçu (❤️ 😂 😮 😢 😡 👍 🔥), en privé comme dans un groupe. Sur ordi, un bouton apparaît quand tu passes sur le message ; sur téléphone, fais un appui long, ou un double-tap pour un ❤️. Touche ta réaction pour la changer ou la retirer. Le perso la voit, et peut t’en parler même si tu n’as rien écrit.
+- **❤️ Tes likes se voient** : quand tu aimes le post, le commentaire, la photo ou le diaporama de quelqu’un, la personne le sait. Elle peut t’en parler en privé ou y répondre sous le post, et les autres le voient aussi.
+- **📌 Tes commentaires épinglés aussi** : le perso dont tu épingles le commentaire sait lequel, et tout le réseau le voit.
+- **👋 Quelqu’un de nouveau à chaque niveau** : une fois tous les persos prévus arrivés, le jeu ne te demande plus si tu veux en faire venir un, quelqu’un débarque tout seul. Ceux à qui tu ne parles plus passent toujours « en retrait » au bout de quelques jours (ils ne coûtent rien) : le réseau reste léger.
+
+### 🛠️ Corrigé
+
+- **📅 Plus de limite aux rendez-vous** : avec déjà plusieurs événements prévus, un rendez-vous de plus pouvait ne jamais s’inscrire dans ton agenda, alors que le perso t’attendait. Il n’y a plus de limite, et l’IA connaît tous tes rendez-vous à venir, même plusieurs avec la même personne.
+- **🎬 Les feats à l’heure** : un tournage à deux prévu après une autre sortie ne te prévenait pas à son heure. Maintenant, le jeu te dit quand la personne t’attend, et tu peux le tourner tout de suite depuis ton Programme.
+
 ## 0.31.2 — 22 octobre 2026 (build 31002)
 
 **Une vidéo ne se lance plus jamais toute seule : c’est toi qui coches « Faire une vidéo à partir de ce post ». Et tes groupes s’ouvrent à tous tes contacts.**

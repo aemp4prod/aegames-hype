@@ -30,6 +30,7 @@ function emoKids(v) {
 const html = (...a) => emoKids(htmlRaw(...a));
 
 const ICONS = {
+  smile: '<path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/><path d="M16 5h6"/><path d="M19 2v6"/>', // 0.31.3: react to a message
   minus: '<path d="M5 12h14"/>', // 0.27.7: the windows
   detach: '<path d="M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4"/><rect width="10" height="7" x="12" y="13" rx="2"/>',
   dock: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/>',
@@ -1501,7 +1502,7 @@ function ReplyRow({ g, p, r, now, depth, parent }) {
       ${me && revealed(r, now) ? html`<${ResChips} r=${r.res} now=${now} removed=${!!r.removed} />` : null}
       <div class="post-actions" style="max-width:240px">
         <button class=${'act' + (picked ? ' on-reply' : '')} onClick=${() => replyToReply(p, r)} aria-label=${'Répondre à @' + au.handle}><${Icon} n="msg" s=${17} /><span>Répondre</span></button>
-        <button class=${'act act-like' + (r.liked ? ' on' : '')} disabled=${me} onClick=${() => { r.liked = !r.liked; update(); }} aria-label="J’aime" aria-pressed=${r.liked ? 'true' : 'false'}><${Icon} n="heart" s=${17} fill=${!!r.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
+        <button class=${'act act-like' + (r.liked ? ' on' : '')} disabled=${me} onClick=${() => toggleReplyLike(p, r)} aria-label="J’aime" aria-pressed=${r.liked ? 'true' : 'false'}><${Icon} n="heart" s=${17} fill=${!!r.liked} /><span>${likes ? fmtN(likes) : ''}</span></button>
         ${p.a === 'p' && !me && !depth ? html`<button class=${'act act-pin' + (pinned ? ' on' : '')} onClick=${() => pinReply(g, p, r)} aria-label=${pinned ? 'Désépingler' : 'Épingler ce commentaire'} aria-pressed=${pinned ? 'true' : 'false'} title=${pinned ? 'Désépingler' : 'Épingler'}><span aria-hidden="true">📌</span></button>` : null}
       </div>
     </div>
@@ -3049,6 +3050,46 @@ function DMBox({ c, g, now }) {
     </div>
   </div>`;
 }
+/* 0.31.3: a message received, and the emoji the player puts on it: a button on hover (a computer), a long press or, for
+   ❤️, a double tap (a phone). Whoever wrote it sees it (their AI reads it in the conversation). */
+function ReactBubble({ m, cls, who, children }) {
+  const [open, setOpen] = useState(false), [below, setBelow] = useState(false);
+  const wrap = useRef(null), press = useRef(null), tap = useRef(0), start = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (wrap.current && !wrap.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', off, true);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', off, true); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const show = () => { const el = wrap.current, top = el ? el.getBoundingClientRect().top : 999, head = el && el.closest('.layer') ? el.closest('.layer').getBoundingClientRect().top : 0; setBelow(top - head < 130); setOpen(true); };
+  const pick = (e) => { setOpen(false); setReact(S.game, m, e, who); };
+  const cancel = () => { if (press.current) { clearTimeout(press.current); press.current = null; } };
+  const down = (ev) => {
+    if (ev.pointerType === 'mouse') return;
+    start.current = [ev.clientX, ev.clientY];
+    cancel();
+    press.current = setTimeout(() => { press.current = null; tap.current = 0; show(); try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* (no vibration) */ } }, 450);
+  };
+  const move = (ev) => { if (press.current && start.current && Math.hypot(ev.clientX - start.current[0], ev.clientY - start.current[1]) > 10) cancel(); };
+  const up = (ev) => {
+    if (ev.pointerType !== 'touch') { cancel(); return; }
+    const was = !!press.current; // (a long press already opened the choice: no tap)
+    cancel();
+    if (!was || open) return;
+    const t = Date.now();
+    if (t - tap.current < 320) { tap.current = 0; if (m.rx !== '❤️') pick('❤️'); } else tap.current = t;
+  };
+  const r = MSG_REACTS.find(([e]) => e === m.rx); // (m.rx: m.r already marks a reply)
+  return html`<div ref=${wrap} class=${'react-wrap' + (m.rx ? ' has-r' : '') + (open ? ' open' : '')}
+    onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel} onContextMenu=${(ev) => { if (ev.pointerType === 'touch' || open || (ev.nativeEvent && ev.nativeEvent.pointerType === 'touch')) ev.preventDefault(); }}>
+    <div class=${cls}>${children}</div>
+    <button type="button" class="react-btn" aria-label="Réagir à ce message" aria-expanded=${open ? 'true' : 'false'} onClick=${() => (open ? setOpen(false) : show())}><${Icon} n="smile" s=${17} /></button>
+    ${m.rx ? html`<button type="button" class="react-badge" onClick=${() => (open ? setOpen(false) : show())} aria-label=${`Ta réaction : ${r ? r[1] : m.rx}. La changer`}>${emoParts(m.rx, 'rb')}</button>` : null}
+    ${open ? html`<div class=${'react-pick' + (below ? ' below' : '')} role="menu" aria-label="Réagir">${MSG_REACTS.map(([e, label]) => html`<button type="button" key=${e} role="menuitemradio" aria-checked=${m.rx === e ? 'true' : 'false'} class=${m.rx === e ? 'on' : ''} onClick=${() => pick(e)} aria-label=${m.rx === e ? label + ' (retirer)' : label} title=${label}>${emoParts(e, 'rp' + e)}</button>`)}</div>` : null}
+  </div>`;
+}
 function DMLayer({ l, g, now, i }) {
   const c = g.chars[l.id];
   const convo = g.dms[l.id];
@@ -3088,7 +3129,8 @@ function DMLayer({ l, g, now, i }) {
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
           <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
           <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
-        : html`${m.story ? html`<div key=${m.id + 's'} class=${'dm-story ' + (m.me ? 'me' : 'them')}>${m.me ? 'Tu as répondu à sa story' : 'A répondu à ta story'} : « ${m.story.text} »</div>` : null}<div key=${m.id} class=${'bubble ' + (m.me ? 'me' : 'them') + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`)}
+        : html`${m.story ? html`<div key=${m.id + 's'} class=${'dm-story ' + (m.me ? 'me' : 'them')}>${m.me ? 'Tu as répondu à sa story' : 'A répondu à ta story'} : « ${m.story.text} »</div>` : null}${m.me ? html`<div key=${m.id} class=${'bubble me' + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`
+          : html`<${ReactBubble} key=${m.id} m=${m} who=${c} cls=${'bubble them' + (emoOnly(m.text) ? ' jumbo' : '')}>${emoParts(m.text)}<//>`}`)}
       ${seenShown && !typing && !lost ? html`<div class="seen-tag">Vu</div>` : null}
       ${lost ? html`<div class="seen-tag lost">Non distribué</div>` : null}
       ${typing ? html`<div class="bubble them typing-b" aria-label=${c.name + ' écrit'}><${Typing} /></div>` : null}
@@ -3500,8 +3542,7 @@ function Modal({ m, g }) {
       ${c ? html`<p>Quelqu’un de nouveau arrive sur le réseau :</p>
         <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span></div></div>
         <button class="btn btn-hot" onClick=${() => { close(); openChar(c.id); }}>Voir son profil</button>`
-      : html`<p>Tous les personnages prévus sont déjà là. Tu peux en faire venir un nouveau.</p>
-        <button class="btn btn-hot" onClick=${() => genNewChar(m)} disabled=${S.busy.newchar}>${S.busy.newchar ? html`<${Typing} /> ${AI_NAME} crée quelqu’un…` : 'Faire venir quelqu’un'}</button>`}
+      : html`<p class="lv-coming">${S.busy.newchar ? html`<${Typing} /> Quelqu’un de nouveau arrive sur le réseau…` : 'Quelqu’un de nouveau va bientôt arriver sur le réseau.'}</p>`}
       <button class="btn btn-ghost" onClick=${close}>Continuer</button>
     </div>`;
   } else if (m.t === 'train' || m.t === 'trainend') {
@@ -3719,6 +3760,16 @@ function tick() {
     if (!skipBusy()) for (const x of plannedReleases(g)) if (x.prodWait) { prodJump(g, x); update(); } // 0.30.1: a shoot done while the characters were writing: its time passes now
     if (!skipBusy()) for (const x of plannedReleases(g)) if (x.big && x.big.wait) { bigJump(g, x); update(); } // 0.30.1: a production's stage, the same
     if (g.timeDebt && !skipBusy() && !inMiniGame()) { const ms = g.timeDebt, why = g.timeWhy; g.timeDebt = 0; delete g.timeWhy; spendTime(g, ms, why); update(); } // 0.30.1: time spent elsewhere
+    for (const x of plannedReleases(g)) { // 0.31.3: a feat: someone waits for the player at that hour, even behind another release (said, and it can be shot)
+      if (x === rl || !x.collab || x.big || hidden) continue;
+      const xc = g.chars[x.collab];
+      if (!x.soonSaid && x.due - t > 0 && x.due - t <= 3600000 && t - (x.at || 0) > 15 * 60000) { x.soonSaid = true; addNotif(g, { k: 'event', c: xc ? xc.id : null, at: t, text: `⏰ Dans ${fmtLeft(x.due - t)} : ton tournage avec ${xc ? xc.name : 'ton feat'}, « ${str(x.topic, 60)} ».` }); update(); }
+      if (x.dueSaid || t < x.due) continue;
+      x.dueSaid = true;
+      addNotif(g, { k: 'releasedue', c: xc ? xc.id : null, at: t, text: `🎬 C’est l’heure de retrouver ${xc ? xc.name : 'ton feat'} pour tourner ${ta(x)} « ${str(x.topic, 60)} ».` });
+      if (!inMiniGame()) toast(`🎬 ${xc ? `${firstName(xc)} t’attend` : 'C’est l’heure'} pour tourner ${ta(x)} !`, 'flash', { label: 'Tourner', run: () => startShoot(x) });
+      update();
+    }
     if (rl && !rl.dueSaid && t >= rl.due && rl.big) { rl.dueSaid = true; bigDueNotif(g, rl, t); update(); } // 0.30.1: a production's stage
     if (rl && !rl.dueSaid && t >= rl.due) { // wherever the player is, the release time is called out
       rl.dueSaid = true;
@@ -3729,7 +3780,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -3881,7 +3932,7 @@ if (window.__HYPE_TEST__) {
     ACH, ACH_BY, ACH_GROUPS, unlockAch, tickAch, achGot, achCount, ensureAch, achProgress, achKeep, myTrend, dealSignedAch, leftFor, giftCounted, noteCaught, vibeLine, osDesk, OS_KINDS, productFlop, buy, releaseDone, markViral, accusationResult, apologyResult, commitEval, cancelDate, // 0.28: the achievements, a present
     checkDeals, relLimit, fanPlanned, startShoot, paletteClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
-    plannedReleases, planRoom, MAX_PLANNED, vagueAnnounce, vagueReleasesOut, annOf, sameRelease, annTopic, annMoments, annResolve, annWhy, VID_TALK_RE, postWhen, PF, advanceRelease, advanceChoices, trimReleases, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
+    plannedReleases, planRoom, MAX_PLANNED, toggleReplyLike, toggleLike, levelUp, gainXP, threadLines, promptGroup, noteLike, unnoteLike, likeWord, likesSince, MSG_REACTS, setReact, reactTag, pendingReacts, tickNewChars, genNewChar, pinCtx, vagueAnnounce, vagueReleasesOut, annOf, sameRelease, annTopic, annMoments, annResolve, annWhy, VID_TALK_RE, postWhen, PF, advanceRelease, advanceChoices, trimReleases, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
     openPalette, paletteKey, paletteApply, paletteOn, paletteNum, tapCash, SWATCH_ROW, checkPayout, billGear, // 0.27.4: the palette
     startPractice, PRACTICE_GAMES, paletteLines, paletteNudge, paletteVal, PALETTE_TITLES, // 0.27.6: the practice rounds (0.27.9: the palette's window)
     // 0.20: the gear, the connection, the subscriptions, the start

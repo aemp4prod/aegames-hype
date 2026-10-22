@@ -181,7 +181,8 @@ function ctxText(g, o = {}) {
   if (stand) L.push(stand);
   L.push(...secretsOutCtx(g, now)); // 0.18: a secret of the player that came out, and how they answered
   let dates = 0;
-  for (const ev of activeEvents(g).slice(0, 4)) {
+  const evs = activeEvents(g), shownEvs = evs.filter((e) => e.player).slice(0, 10).concat(evs.filter((e) => !e.player).slice(0, 4)).sort((a, b) => a.due - b.due); // (0.31.3: every date with the player, not the first four events)
+  for (const ev of shownEvs) {
     const ec = g.chars[ev.c];
     if (ec && ev.player) dates++;
     if (ec) L.push(ev.player ? `Rendez-vous prévu entre le joueur et @${ec.handle} : « ${ev.what} », ${dueText(ev.due, now)}.` : `@${ec.handle} a annoncé : « ${ev.what} », ${dueText(ev.due, now)}.`);
@@ -229,6 +230,10 @@ function ctxText(g, o = {}) {
     if (sk) extra.push(sk);
     const vs = visitCtx(g, c, now); // 0.18: they came over lately
     if (vs) extra.push(vs);
+    const lk = likesSince(c, now - 24 * 3600000, now).slice(-2); // 0.31.3: what the player liked of theirs (likes show)
+    if (lk.length) extra.push('le joueur ' + lk.map(likeWord).join(' et '));
+    const rx = pendingReacts(g, c, now); // 0.31.3: an emoji on their private message, and not a word since
+    if (rx.length) { privs++; extra.push(`en privé, le joueur a réagi ${rx.map((m) => `${m.rx} à son message « ${str(m.text, 70)} »`).join(' et ')}, sans rien écrire depuis (il y a ${fmtDur(now - rx[rx.length - 1].rxAt)})`); }
     if (inFocus(c)) { const t = ticsOf(linesOf(g, c), skipWords); if (t.length) extra.push('a trop répété ' + ticText(t) + ' : varie'); }
     if (!extra.length && !inFocus(c)) { light.push(head); continue; }
     links.push(head + (extra.length ? ' · ' + extra.join(' · ') : ''));
@@ -313,7 +318,7 @@ function ctxText(g, o = {}) {
       const ph = p.photo ? photoCtx(p, recentPh) : p.slides ? ' [diaporama photo]' : '';
       const ev = p.ev ? ` [pièce jointe, ${evLabel(p.ev.kind)} : ${p.ev.desc.slice(0, 90)}${p.ev.busted ? ' — démasquée : c’est un faux' : ''}]` : '';
       const vd = p.video ? ` [${p.video.what} : ${p.video.topic.slice(0, 80)}${p.video.plot ? ` — ${str(p.video.plot, 160)}` : ''}]` : '';
-      L.push(`@${au.handle}${p.a === 'p' ? ' (le joueur)' : ''}${q} : ${p.text.slice(0, 160)}${ph}${ev}${vd}${roleCtxOf(g, p)}`); // (0.29: a fanfiction, a critic video)
+      L.push(`@${au.handle}${p.a === 'p' ? ' (le joueur)' : ''}${q} : ${p.text.slice(0, 160)}${ph}${ev}${vd}${roleCtxOf(g, p)}${p.liked ? ' [aimé par le joueur]' : ''}${pinCtx(g, p)}`); // (0.29: a fanfiction, a critic video; 0.31.3: liked, a comment pinned)
     }
   }
   const qs = K.quests === 'none' ? [] : storyQuests(g, K.quests === 'about' ? about : null);
@@ -566,11 +571,11 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     L.push(`Le joueur répond à un commentaire de @${ra.handle}${targetReply.a === 'p' ? ' (son propre commentaire)' : ''}, sous le post de @${au.handle}${target.a === 'p' ? ' (le joueur)' : ''}.`,
       `Le post : « ${target.text} »`);
     if (parent) L.push(`Ce commentaire répondait à @${author(g, parent.a).handle} : « ${parent.text.slice(0, 200)} »`);
-    L.push(`Le commentaire de @${ra.handle} : « ${targetReply.text} »`, `Réponse du joueur à @${ra.handle} :`, `« ${text} »`);
+    L.push(`Le commentaire de @${ra.handle} : « ${targetReply.text} »${targetReply.liked ? ' (le joueur l’a aimé)' : ''}`, `Réponse du joueur à @${ra.handle} :`, `« ${text} »`);
   } else {
     const au = author(g, target.a);
-    const prev = target.replies.filter((r) => r.at <= Date.now()).slice(-6).map((r) => `@${author(g, r.a).handle} : ${r.text.slice(0, 200)}`);
-    L.push(`Le joueur répond au post de @${au.handle}${target.a === 'p' ? ' (son propre post)' : ''} :`, `« ${target.text} »`);
+    const prev = target.replies.filter((r) => r.at <= Date.now()).slice(-6).map((r) => `@${author(g, r.a).handle} : ${r.text.slice(0, 200)}${target.pin === r.id ? ' [épinglé en haut par le joueur]' : ''}${r.liked ? ' [aimé par le joueur]' : ''}`);
+    L.push(`Le joueur répond au post de @${au.handle}${target.a === 'p' ? ' (son propre post)' : target.liked ? ' (un post qu’il a aimé)' : ''} :`, `« ${target.text} »`);
     if (prev.length) L.push('Réponses déjà présentes sous ce post :', ...prev);
     L.push('Réponse du joueur :', `« ${text} »`);
   }
@@ -671,8 +676,10 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   const seen = main ? seenCtx(g, c) : '';
   if (seen) L.push(`${c.name} ${seen} (à ressortir ou non, selon son caractère).`); // 0.17
   if (inBadBuzz(c)) L.push(!bbByPlayer(c) ? `${c.name} est en plein bad buzz après « ${c.badBuzz.reason.slice(0, 100)} »${c.badBuzz.self ? ' (le joueur n’y est pour rien ; ce qu’il en dit compte)' : ''}.` : `${c.name} est en plein bad buzz : le joueur l’a accusé·e en public (« ${c.badBuzz.reason.slice(0, 100)} »).`);
-  const date = main ? activeEvents(g).find((e) => e.player && e.c === c.id && !e.awayUntil) || null : null; // (0.30: not one missed while the player was away)
+  const dates = main ? activeEvents(g).filter((e) => e.player && e.c === c.id && !e.awayUntil) : []; // (0.30: not one missed while the player was away)
+  const date = dates[0] || null;
   const inv = main ? openInvite(g, c) : null;
+  if (dates.length > 1) L.push(`Autres rendez-vous déjà prévus entre eux : ${dates.slice(1, 4).map((e) => `« ${str(e.what, 60)} », ${dueText(e.due)}`).join(' ; ')}.`); // 0.31.3: all of them
   if (date) { // 0.22.1: with its day and hour; a mix-up of theirs in the messages above was only a mix-up
     const mixed = date.mixAsked || history.slice(-8).some((m) => !m.me && !m.sys && MIXED_RE.test(m.text || ''));
     L.push(`Rendez-vous prévu entre eux : « ${str(date.what, 80)} », ${dueText(date.due)}.${mixed ? ` Si un message de ${c.name} plus haut le dit passé, raté ou à un autre moment, c’était une erreur de sa part : ${gx(c.g, 'il', 'elle', 'iel')} le reconnaît dès que le joueur le relève, et le rendez-vous tient toujours.` : ''}`);
@@ -709,14 +716,17 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
   if (rumor) L.push(rumor);
   if (history.length) {
-    L.push('Messages précédents (du plus ancien au plus récent) :');
+    const shown = history.slice(-intensityOf(g).mem.dm);
+    L.push(`Messages précédents (du plus ancien au plus récent${shown.some((m) => m.rx) ? ' ; [le joueur a réagi : ❤️] = un emoji que le joueur a posé sur ce message, sans rien écrire' : ''}) :`); // (0.31.3)
     let day = '';
-    for (const m of history.slice(-intensityOf(g).mem.dm)) {
+    for (const m of shown) {
       const d = m.ts ? dayLabel(m.ts) : ''; // 0.22.1: the day they were written, so that an old « à demain » reads right
       if (d && d !== day) { L.push(`[${d}]`); day = d; }
-      L.push(m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur' + (m.adv ? ', un conseil' : '') + ')' : c.name} : ${(m.me ? noJson(m.text) : m.text).slice(0, 220)}`);
+      L.push(m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur' + (m.adv ? ', un conseil' : '') + ')' : c.name} : ${(m.me ? noJson(m.text) : m.text).slice(0, 220)}${reactTag(m)}`);
     }
   } else L.push('C’est le début de leur conversation privée.');
+  const lk = likesSince(c, history.reduce((x, m) => Math.max(x, m.at || 0), 0)); // 0.31.3: liked since they last wrote to each other
+  if (lk.length) L.push(`Depuis leur dernier échange, le joueur ${lk.map(likeWord).join(', ')} : ${c.name} l’a vu.`);
   const story = storyQuests(g, c);
   const ids = story.map((q) => q.id).join(', ');
   // 0.19: a meeting talked about (or an invitation, a date), an initiative they may take, a message that could be used
@@ -1835,7 +1845,7 @@ function finishAct(ctx) {
 function threadLines(g, p, n = 14) {
   return p.replies.filter((r) => r.at <= Date.now() + 600000).slice(-n).map((r) => {
     const to = r.to ? p.replies.find((x) => x.id === r.to) : null;
-    return `@${author(g, r.a).handle}${to ? ` (à @${author(g, to.a).handle})` : ''} : ${str(r.text, 160)}`;
+    return `@${author(g, r.a).handle}${to ? ` (à @${author(g, to.a).handle})` : ''} : ${str(r.text, 160)}${p.pin === r.id ? ' [épinglé en haut par le joueur]' : ''}${r.liked ? ' [aimé par le joueur]' : ''}`; // (0.31.3: the player's like and pin show)
   });
 }
 // Vivant, Ultime: the player's post keeps circulating; new people arrive, minutes later (written now, shown as they come).
@@ -2794,7 +2804,7 @@ function dateSituation(g, c, nDm = 14, nPub = 6) {
   if (playerBadBuzz(g, t)) state.push('le joueur est lui-même en plein bad buzz');
   if (standLv(g)) state.push(`${STAND_SAY[String(standLv(g))]} ; ${first}, ${temperText(g, c, true)}`);
   const msgs = ((g.dms[c.id] || {}).msgs || []).filter((m) => m.at <= t && (m.text || m.title) && m.sys !== 'deal').slice(-nDm);
-  const dm = msgs.map((m) => (m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur)' : first} : ${str(m.text, 200)}`));
+  const dm = msgs.map((m) => (m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur)' : first} : ${str(m.text, 200)}${reactTag(m)}`));
   const pub = publicBetween(g, c, nPub);
   return [`Où ils en sont : ${state.join(' · ')}.`,
     dm.length ? 'Leurs derniers messages privés (du plus ancien au plus récent) :\n' + dm.join('\n') : 'Ils ne se sont presque rien écrit en privé.',
@@ -3074,7 +3084,7 @@ async function loadIdeas(target, targetReply, quest) {
   endFlow(f);
   update(false);
 }
-async function genNewChar(m, why = '') {
+async function genNewChar(m, why = '', owed = false) {
   const g = S.game;
   if (!g || S.busy.newchar) return;
   S.busy.newchar = true;
@@ -3097,10 +3107,22 @@ async function genNewChar(m, why = '') {
     addChronicle(g, `${c.name} (@${c.handle}) vient d’arriver dans le monde.`);
     if (post) addAmbientPost(g, Object.assign({}, post, { by: c.handle }), Date.now() + 1500);
     if (m) m.charId = c.id;
-  } else if (!failed) toast('Personne n’est venu… Réessaie.', 'bad');
+    if (owed) { g.castOwed = Math.max(0, (g.castOwed || 0) - 1); g.castFails = 0; }
+  } else if (owed) g.castFails = (g.castFails || 0) + 1; // (tried again a little later: tickNewChars)
+  else if (!failed) toast('Personne n’est venu… Réessaie.', 'bad');
   S.busy.newchar = false;
   endFlow(f);
   update();
+}
+/* 0.31.3: no question at a level-up any more: once every planned character is there, the AI brings a new one by itself,
+   one per level (owed until the budget and the network allow it: a minute later, then longer after each miss). The cast
+   stays light all the same: those the player no longer talks to step back (« en retrait », 0.30: they cost nothing). */
+function tickNewChars(g, t = Date.now()) {
+  if (!g || !(g.castOwed > 0) || S.busy.newchar || S.busy.create || !canAfford(g, 'newchar')) return false;
+  if (t - (g.castTry || 0) < Math.min(60, 2 ** Math.min(g.castFails || 0, 6)) * 60000) return false;
+  g.castTry = t;
+  genNewChar(S.modals.find((x) => x.t === 'level' && x.auto && !x.charId) || null, '', true);
+  return true;
 }
 
 /* =========================================================

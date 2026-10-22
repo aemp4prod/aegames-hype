@@ -1142,7 +1142,7 @@ function InstaLayer({ l, g, now, i }) {
     name: c.name, handle: c.handle, role: c.role, bio: c.bio, followers: c.followers, following: 60 + (hashStr(c.handle) % 840),
     avatar: author(g, 'c:' + c.id), follow: { on: c.youFollow, run: () => toggleFollow(c) }, dm: DM_KINDS.includes(c.kind) ? () => openDM(c.id) : null,
   };
-  const onLike = (it) => { const e = it.e; e.liked = !e.liked; if (e.liked && !e.lr) { e.lr = 1; freeRel(c, 1); } update(); };
+  const onLike = (it) => { const e = it.e; e.liked = !e.liked; if (e.liked) { noteLike(g, c, { id: e.id, k: 'photo', text: it.cap }); touch(c); } else unnoteLike(c, e.id); if (e.liked && !e.lr) { e.lr = 1; freeRel(c, 1); } update(); }; // (0.31.3: they know)
   return html`<${LayerShell} i=${i} title=${title} onBack=${open ? () => setOpen(null) : null}
     head=${html`<div class="ig-title"><b>${c.handle}</b><span>${title}</span></div>`}>
     <${IgView} prof=${prof} items=${items} highlights=${[]} open=${open} setOpen=${setOpen} onLike=${onLike} now=${now} g=${g} />
@@ -1160,7 +1160,7 @@ function TikTokLayer({ l, g, now, i }) {
   if (!c || !s) return html`<${LayerShell} i=${i} title=${title}><div class="empty"><b>Pas encore de diaporama</b></div><//>`;
   const au = author(g, 'c:' + c.id);
   const go = (d) => setN((x) => clamp(x + d, 0, list.length - 1));
-  const like = () => { s.liked = !s.liked; if (s.liked && !s.lr) { s.lr = 1; freeRel(c, 1); } update(); };
+  const like = () => { s.liked = !s.liked; if (s.liked) { noteLike(g, c, { id: s.id, k: 'slides', text: s.ti }); touch(c); } else unnoteLike(c, s.id); if (s.liked && !s.lr) { s.lr = 1; freeRel(c, 1); } update(); }; // (0.31.3: they know)
   const cm = Math.round(s.lk * 0.04) + 2;
   return html`<${LayerShell} i=${i} title=${title} dark=${true}
     head=${html`<div class="ig-title"><b>@${c.handle}</b><span>${title} · ${n + 1} sur ${list.length}</span></div>`}>

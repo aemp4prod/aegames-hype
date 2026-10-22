@@ -1697,7 +1697,7 @@ function promptWrite(g, w) {
     const d = g.deals.find((x) => x.contact === c.id && DEAL_OPEN.includes(x.state));
     if (d) L.push(`Contexte : un partenariat avec ${d.brand} : ${dealSummary(g, d)}.`, `Chiffres du joueur (vrais, à utiliser s’il faut un budget ou un devis détaillé) : ${fmtPlain(g.stats.followers)} abonnés sur ${pfName(g, platformOf(g))}, environ ${fmtPlain(Math.round(expectedViews(g, d.what)))} vues par ${dealWhat(g, d)}, niche ${nicheOf(g).label.toLowerCase()}, réputation ${rep1000(g.stats.reputation)}/1000. Un devis détaillé liste les livrables, le tarif de chacun, les options (mention, durée de mise en ligne, exclusivité, droits d’utilisation) et le total.`);
     if (c.cand) L.push(`C’est un candidat au poste de ${roleName(c.cand.role, c.g).toLowerCase()} (${c.cand.years} ans d’expérience, demande ${payWord(g, c.cand)}).`);
-    if (hist.length) { L.push('La conversation jusqu’ici :'); for (const m of hist) L.push(`${m.me ? P.name + ' (le joueur)' : c.name} : ${m.text.slice(0, 300)}`); }
+    if (hist.length) { L.push('La conversation jusqu’ici :'); for (const m of hist) L.push(`${m.me ? P.name + ' (le joueur)' : c.name} : ${m.text.slice(0, 300)}${reactTag(m)}`); }
     L.push(w.draft ? `Ce que le joueur avait commencé à écrire (garde son idée) : « ${w.draft} »` : 'Réponds au dernier message de façon utile et naturelle.');
   } else if (w.kind === 'reply') {
     const au = author(g, w.p.a);

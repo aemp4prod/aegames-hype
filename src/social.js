@@ -282,8 +282,8 @@ function promptGroup(g, gr, text) {
   const ms = groupMembers(g, gr), focus = new Set(ms.map((c) => c.id));
   const L = [RULES_PRIVATE, '', ctxText(g, { kind: 'private', focus, feed: 3 }), '',
     `## LE GROUPE DE DISCUSSION « ${gr.name} » (le joueur et ${ms.map((c) => '@' + c.handle).join(', ')})`,
-    'Ce qui s’y dit reste entre eux.', 'Derniers messages (du plus ancien au plus récent) :',
-    ...gr.msgs.slice(-14, -1).map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : m.sys === 'made' ? 'le joueur a créé le groupe' : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}`)),
+    'Ce qui s’y dit reste entre eux.', `Derniers messages (du plus ancien au plus récent${gr.msgs.slice(-14, -1).some((m) => m.rx) ? ' ; [le joueur a réagi : 😂] = un emoji que le joueur a posé sur ce message, sans rien écrire' : ''}) :`,
+    ...gr.msgs.slice(-14, -1).map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : m.sys === 'made' ? 'le joueur a créé le groupe' : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}${reactTag(m)}`)), // (0.31.3: the player's emoji on it)
     'Nouveau message du joueur :', `« ${noJson(text)} »`];
   if (gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1) L.push(`Le joueur vient de créer ce groupe et d’y ajouter ${ms.map((c) => '@' + c.handle).join(', ')} : c’est son premier message. Chacun réagit à sa façon, selon sa relation avec le joueur et avec les autres membres (content d’en être, surpris, gêné de se retrouver avec quelqu’un en particulier). Un membre qui ne veut vraiment pas en être (un·e ex, un rival, quelqu’un avec qui ça coince) peut le quitter tout de suite, avec ou sans un mot avant : {"t":"quit","by":"handle","why":"≤ 60 caractères"} (2 au plus).`); // 0.31.1
   for (const c of ms) if (isPsy(g, c) && psyNow(g)) L.push(`(Secret du jeu : @${c.handle} est le psychopathe de la partie ; dans le groupe, ${gx(c.g, 'il', 'elle', 'iel')} reste crédible, à peine trop intense avec le joueur.)`);
@@ -645,7 +645,7 @@ function GroupLayer({ l, g, now, i }) {
         if (m.sys) return html`<div key=${m.id} class="gr-sys">${m.sys === 'quit' ? `${firstName(author(g, m.a))} a quitté le groupe${m.text ? ' (' + m.text + ')' : ''}` : m.sys === 'made' ? `Tu as créé le groupe « ${m.text} »` : `Le groupe s’appelle maintenant « ${m.text} »`}</div>`;
         if (m.a === 'p') return html`<div key=${m.id} class="bubble me">${emoParts(m.text)}</div>`;
         const au = author(g, m.a), prev = msgs[k - 1], head = !prev || prev.a !== m.a || prev.sys;
-        return html`<div key=${m.id} class="gr-line">${head ? html`<${Avatar} who=${au} size=${28} />` : html`<span class="gr-pad"></span>`}<div>${head ? html`<small class="gr-name" style=${'--h:' + au.hue}>${firstName(au)}</small>` : null}<div class="bubble them">${emoParts(m.text)}</div></div></div>`;
+        return html`<div key=${m.id} class="gr-line">${head ? html`<${Avatar} who=${au} size=${28} />` : html`<span class="gr-pad"></span>`}<div>${head ? html`<small class="gr-name" style=${'--h:' + au.hue}>${firstName(au)}</small>` : null}<${ReactBubble} m=${m} who=${m.a && m.a.startsWith('c:') ? g.chars[m.a.slice(2)] : null} cls=${'bubble them' + (emoOnly(m.text) ? ' jumbo' : '')}>${emoParts(m.text)}<//></div></div>`; // (0.31.3: the player may react)
       })}
       ${typing ? html`<div class="bubble them typing-b" aria-label="Le groupe écrit"><${Typing} /></div>` : null}
     </div>
@@ -929,14 +929,20 @@ function TopFanTag({ g, a }) {
 }
 function pinReply(g, p, r) {
   if (!p || p.a !== 'p' || !r || r.a === 'p') return false;
-  if (p.pin === r.id) { p.pin = null; update(); return true; }
+  const ch = (x) => (x && x.a && x.a.startsWith('c:') ? g.chars[x.a.slice(2)] : null);
+  if (p.pin === r.id) { p.pin = null; unnoteLike(ch(r), 'pin:' + r.id); update(); return true; }
+  const was = p.pin ? p.replies.find((x) => x.id === p.pin) : null; // (the one it takes the place of)
+  if (was) unnoteLike(ch(was), 'pin:' + was.id);
   p.pin = r.id;
-  const c = r.a.startsWith('c:') ? g.chars[r.a.slice(2)] : null;
-  if (c && isMain(c) && !(r.pinned)) { applyRel(g, c, 2, 'tu as épinglé son commentaire', later() + 800, 3); addMem(g, c, 'le joueur a épinglé mon commentaire sous son post'); }
+  const c = ch(r);
+  if (c) { noteLike(g, c, { id: 'pin:' + r.id, k: 'pin', text: r.text }); touch(c); } // 0.31.3: they know which, in private and on the network
+  if (c && isMain(c) && !(r.pinned)) { applyRel(g, c, 2, 'tu as épinglé son commentaire', later() + 800, 3); addMem(g, c, `le joueur a épinglé mon commentaire « ${str(r.text, 60)} » en haut de son post`); }
   r.pinned = true;
   update();
   return true;
 }
+// 0.31.3: the comment a post of the player keeps on top, as the AI reads the feed
+const pinCtx = (g, p) => { const r = p.a === 'p' && p.pin ? p.replies.find((x) => x.id === p.pin) : null; return r ? ` [le joueur a épinglé le commentaire de @${author(g, r.a).handle} : « ${str(r.text, 70)} »]` : ''; };
 const pinFirst = (p, rows) => { if (!p.pin) return rows; const k = rows.findIndex((x) => x.r.id === p.pin); if (k <= 0) return rows; const row = Object.assign({}, rows[k], { depth: 0, parent: null }); return [row, ...rows.slice(0, k), ...rows.slice(k + 1)]; };
 
 /* ---------- what the AI reads and may start (the rest) ---------- */

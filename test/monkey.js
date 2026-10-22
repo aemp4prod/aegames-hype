@@ -69,7 +69,7 @@ const DMS = ['salut ! ça va ?', 'tu viens au bal avec moi ?', 'je voudrais un a
 // One random step: what was done, for the log.
 async function step(page, k) {
   const act = pickW([['post', 14], ['dm', 16], ['offer', 8], ['sign', 6], ['plan', 8], ['sooner', 5], ['shoot', 8], ['skip', 10], ['sell', 6], ['palette', 4], ['screens', 10], ['roundtrip', 2], ['postpone', 3],
-    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4], ['shop', 10], ['social', +(process.env.SOCIAL_W || 10)]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements; 0.29: the shop)
+    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4], ['shop', 10], ['social', +(process.env.SOCIAL_W || 10)], ['react', 6]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements; 0.29: the shop; 0.31.3: reactions, likes, pins)
   await G(page, () => { const H = window.__hype; H.S.modals = []; H.update(false); });
   if (act === 'post') {
     await G(page, () => { const H = window.__hype; H.S.stack = []; if (H.S.fabAway) H.S.fabAway = false; H.goTab('feed'); });
@@ -280,6 +280,29 @@ async function step(page, k) {
     }, which);
     await sleep(400);
     return 'screen ' + which;
+  }
+  if (act === 'react') { // 0.31.3: an emoji on a message received, a like on a comment or a post, a pin
+    const r = rnd(), r2 = rnd();
+    return G(page, (a) => {
+      const H = window.__hype, g = H.S.game, t = Date.now();
+      if (a.r < 0.45) { // a message received, in private or in a group
+        const all = [];
+        for (const id in g.dms) for (const m of g.dms[id].msgs) if (!m.me && !m.sys && m.text && m.at <= t) all.push([m, g.chars[id]]);
+        for (const gr of H.liveGroups(g)) for (const m of gr.msgs) if (m.a && m.a !== 'p' && !m.sys && m.text && m.at <= t) all.push([m, g.chars[m.a.slice(2)]]);
+        if (!all.length) return 'react (nothing)';
+        const [m, c] = all[Math.floor(a.r2 * all.length)], e = H.MSG_REACTS[Math.floor(a.r2 * 7) % 7][0], was = m.rx || null;
+        H.setReact(g, m, e, c);
+        return 'react ' + (m.rx || 'off') + ((was === e ? !!m.rx : m.rx !== e) ? ' BAD' : '');
+      }
+      const ps = g.posts.filter((p) => p.at <= t && p.replies.some((x) => x.a !== 'p' && x.at <= t)).slice(-10);
+      const p = ps[Math.floor(a.r2 * ps.length)];
+      if (!p) return 'like (no post)';
+      const rs = p.replies.filter((x) => x.a !== 'p' && x.at <= t), x = rs[Math.floor(a.r2 * rs.length)];
+      if (a.r < 0.8) { const was = !!x.liked; H.toggleReplyLike(p, x); return 'like comment ' + (x.liked ? 'on' : 'off') + (!!x.liked === was ? ' BAD' : ''); }
+      if (p.a !== 'p') { H.toggleLike(p); return 'like post ' + (p.liked ? 'on' : 'off'); }
+      H.pinReply(g, p, x);
+      return 'pin ' + (p.pin === x.id ? 'on' : 'off');
+    }, { r, r2 });
   }
   if (act === 'social') { // 0.29: stories, groups, polls, a pinned comment, the network's own days
     const r = rnd(), r2 = rnd();

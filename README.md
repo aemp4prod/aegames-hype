@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.31.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.31.3 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -34,7 +34,11 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   repoussées, tes contrats, tes salaires, les rumeurs, les captures, les lapins…
 - **Les messages privés** : on négocie, on drague, on se confie… et une capture est vite partie. Les persos proches
   prennent aussi l’initiative : une sortie, une activité, une vidéo à tourner ensemble (acceptée, elle devient ta
-  prochaine sortie dans le Studio, avec ce perso dedans : son public la voit aussi).
+  prochaine sortie dans le Studio, avec ce perso dedans : son public la voit aussi). Depuis la 0.31.3, tu peux **réagir
+  à un message reçu** (❤️ 😂 😮 😢 😡 👍 🔥 : un bouton au survol sur ordi, un appui long ou un double-tap pour ❤️ sur
+  téléphone), en privé comme dans un groupe : le perso la voit, et peut t’en parler même si tu n’as rien écrit. Tes
+  **likes** (un post, un commentaire, une photo, un diaporama) et tes **commentaires épinglés** se voient aussi : la
+  personne le sait, en privé comme sous le post.
 - **Les rendez-vous** : le premier avec quelqu’un est un mini-jeu écrit d’après où vous en êtes (vos messages, vos
   échanges publics, une dispute, un bad buzz) ; **les suivants se jouent pour de vrai** : une conversation de cinq
   échanges où tu réponds avec tes mots, jugée d’après qui tu as été avec ce perso en privé et en public (taquin en
@@ -53,7 +57,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   message privé) : avancer le temps jusqu’à un premier rendez-vous ne lui fait plus croire que le suivant est passé. De
   temps en temps (un rendez-vous sur dix environ, et c’est l’IA qui choisit de le jouer), quelqu’un s’emmêle les
   pinceaux sur l’heure ou le jour et te met un petit coup de pression : le rendez-vous tient toujours, et il ou elle
-  s’excuse dès que tu le relèves.
+  s’excuse dès que tu le relèves. Depuis la 0.31.3, il n’y a plus de limite au nombre de rendez-vous prévus, et un feat
+  calé après une autre sortie te prévient à son heure (tu peux le tourner tout de suite).
   Depuis la 0.22.3, la soirée ne s’arrête plus net au cinquième échange : tu as **un dernier mot** avant de vous
   quitter (le raccompagner, rentrer ensemble, rester dormir, se revoir vite… avec tes mots), ou tu te dis juste au
   revoir. Il ou elle accepte ou refuse selon son cœur, son rythme et la soirée ; si c’est oui, la scène s’arrête à la
@@ -133,7 +138,8 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   personnes (l’IA décide quand). Ceux à qui tu ne parles plus depuis plusieurs jours passent « en retrait » : ils sortent
   des appels de l’IA (ils ne coûtent plus rien) et reviennent dès que tu leur écris, que tu les cites, que l’IA les fait
   parler, ou de temps en temps d’eux-mêmes ; il en reste toujours au moins dix. Sans visage dans le pack, un nouveau
-  venu a un emoji pour photo.
+  venu a un emoji pour photo. Depuis la 0.31.3, une fois tous les persos prévus arrivés, quelqu’un de nouveau débarque
+  tout seul à chaque niveau (le jeu ne pose plus la question).
 - **L’âge des persos** : chacun a un âge (18 ans et plus, toujours) et une maturité qui va avec. À 19 ans on est souvent
   immature (trolls, blagues bêtes, tacles), parfois très mûr. Une partie sur deux, un ou deux persos plus âgés (de 35 à
   68 ans). Depuis la 0.28, la romance est possible à tout âge adulte : plus de « rôle à part » pour eux.
