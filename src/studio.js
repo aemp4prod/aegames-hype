@@ -773,7 +773,7 @@ function PlanRow({ g, r, first, now }) {
         : first ? html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${14} /> ${r.played ? 'Voir le tournage' : 'Tourner'}</button>` : html`<small class="muted">après la précédente</small>`}
       ${left > 0 && !r.series && !cc ? (fc ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (!S.drafts.dm[fc.id]) S.drafts.dm[fc.id] = featText(g, r); openDM(fc.id); }}><${Icon} n="msg" s=${14} /> Écrire à ${firstName(fc)}</button>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'feat', id: r.id })}>🤝 Feat</button>`) : null}
       ${canTz ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'series', id: 'single', what: 'short', promo: r.id })}>📣 ${cap1(PF(g).shortName)} d’annonce</button>` : null}
-      ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+      ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>${r.auto ? 'Retirer sans malus' : 'Abandonner'}</button>`}
     </div>
   </div>`;
 }

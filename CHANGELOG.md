@@ -5,6 +5,19 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.31.2 — 22 octobre 2026 (build 31002)
+
+**Une vidéo ne se lance plus jamais toute seule : c’est toi qui coches « Faire une vidéo à partir de ce post ». Et tes groupes s’ouvrent à tous tes contacts.**
+
+### ✨ Nouveautés
+
+- **📅 Faire une vidéo à partir de ce post** : une case sous ton post. Coche-la et ton post devient l’annonce d’une vidéo, d’un short ou d’un live qui reprend son sujet. Tu choisis le format, le moment (l’heure que dit ton post, au plus vite, ce soir ou demain), le sujet, et la personne qu’elle vise si tu en mentionnes une. Le jeu te dit combien de temps il te faut pour la faire, et si elle est déjà prévue. Quand ton post parle d’une vidéo, la case s’allume, mais elle ne se coche jamais toute seule.
+
+### 🛠️ Corrigé
+
+- **📅 Les vidéos lancées sans toi** : un post qui parlait d’une vidéo (« un jour, une vidéo sortira… ») pouvait lancer un compte à rebours, et y renoncer coûtait cher. C’est fini : sans la case, ni un post ni une réponse ne lance rien. Si une phrase comme « un jour… » t’avait lancé une vidéo pas encore tournée, elle quitte ton programme à la mise à jour, sans rien te coûter. Les autres sorties que le jeu avait lancées à partir de tes posts restent prévues, avec un bouton « Retirer sans malus ». Tes posts demandent aussi un peu moins de tokens : l’IA n’a plus à y chercher des annonces.
+- **👥 Les groupes** : tu peux maintenant y ajouter tous les gens à qui tu écris, pas seulement les persos principaux : une marque, un candidat, ton équipe, un fan. Dans un groupe avec une marque et ton talent, la marque peut revoir son offre et ton talent l’accepter, comme en privé.
+
 ## 0.31.1 — 22 octobre 2026 (build 31001)
 
 **Crée tes propres groupes de discussion, et fais tes miniatures avec tes propres images.**

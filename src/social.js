@@ -180,8 +180,14 @@ function addGroup(g, o, at) {
 // 0.31.1: the player starts a group (2 to 5 of the cast) with a first message: their AIs answer it, each in their own way;
 // whoever does not want to be in it (an ex, a rival, someone they cannot stand) may leave at once.
 const GROUP_PICK = [2, 5], GROUP_EMOJIS = ['💬', '🎉', '🔥', '✨', '🎮', '🎬', '🍕', '💅'];
-const groupable = (g, c) => !!c && isMain(c) && c.unlocked && !c.cut && !c.jailed && !(coolNow(c) && c.cool.k === 'bloque');
-const groupCands = (g) => mains(g).filter((c) => groupable(g, c)).sort((a, b) => b.rel - a.rel);
+// (0.31.2: anyone the player can write to: the cast, and the contacts they already talk with: a brand, a candidate,
+// their team, a fan; the cast first, by how close, then the contacts, the latest conversation first)
+const lastDM = (g, c) => { const m = (g.dms[c.id] || {}).msgs || []; return m.length ? m[m.length - 1].at || 0 : 0; };
+const groupable = (g, c) => !!c && DM_KINDS.includes(c.kind) && c.unlocked && !c.cut && !c.jailed && !(coolNow(c) && c.cool.k === 'bloque') && (isMain(c) || lastDM(g, c) > 0);
+function groupCands(g) {
+  const all = Object.values(g.chars).filter((c) => groupable(g, c));
+  return all.filter((c) => isMain(c)).sort((a, b) => b.rel - a.rel).concat(all.filter((c) => !isMain(c)).sort((a, b) => lastDM(g, b) - lastDM(g, a)));
+}
 function newGroupWhy(g) {
   if (liveGroups(g).length >= GROUP_MAX) return `Tu es déjà dans ${GROUP_MAX} groupes : quitte-en un pour en créer un autre.`;
   if (groupCands(g).length < GROUP_PICK[0]) return `Il te faut au moins ${GROUP_PICK[0]} persos à qui écrire.`;
@@ -228,6 +234,8 @@ async function sendGroup(id, text) {
   const f = startFlow(g);
   let at = t + rand(1800, 3500), n = 0, rel = 0, mem = 0, name = null, sign = null, ok = true;
   const quits = [], fresh = !!gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1; // (0.31.1: its very first message)
+  const careerFx = []; // (0.31.2: a brand's new figure, a candidate's price, for a contact of the group; a talent's yes)
+  let tdx = null;
   const fx = [];
   try {
     await aiStream(promptGroup(g, gr, text), (o) => {
@@ -237,13 +245,15 @@ async function sendGroup(id, text) {
       else if (o.t === 'quit' && quits.length < (fresh ? 2 : 1)) quits.push(o);
       else if (o.t === 'name' && !name) name = str(o.text, 36);
       else if (o.t === 'psy' && !sign) sign = o;
+      else if (o.t === 'partenariat' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => applyTdealAnswer(g, c, o); }
+      else if (o.by && careerFx.length < 3 && o.t !== 'quit') { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && !isMain(c)) applyDMCareerLine(g, c, o, text, careerFx); }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'group' });
   } catch (e) {
     if (e && e.code === 'refused') { gr.msgs = gr.msgs.filter((m) => m !== mine); ok = false; }
     if (!e || e.code !== 'cancelled') reportAiError(e, null, 'dm');
   }
-  for (const x of fx) { try { x(); } catch (err) { console.error(err); } }
+  for (const x of fx.concat(careerFx, tdx ? [tdx] : [])) { try { x(); } catch (err) { console.error(err); } }
   if (sign) psySign(g, charByHandle(g, normHandle(sign.by)), sign.text, at + 600);
   if (name && name !== gr.name) { gr.name = name; gr.msgs.push({ id: uid('m'), sys: 'name', text: name, ts: at, at }); }
   for (const q of quits) { quitGroup(g, gr, charByHandle(g, normHandle(q.by)), q.why, at + 800); at += 600; }
@@ -277,13 +287,21 @@ function promptGroup(g, gr, text) {
     'Nouveau message du joueur :', `« ${noJson(text)} »`];
   if (gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1) L.push(`Le joueur vient de créer ce groupe et d’y ajouter ${ms.map((c) => '@' + c.handle).join(', ')} : c’est son premier message. Chacun réagit à sa façon, selon sa relation avec le joueur et avec les autres membres (content d’en être, surpris, gêné de se retrouver avec quelqu’un en particulier). Un membre qui ne veut vraiment pas en être (un·e ex, un rival, quelqu’un avec qui ça coince) peut le quitter tout de suite, avec ou sans un mot avant : {"t":"quit","by":"handle","why":"≤ 60 caractères"} (2 au plus).`); // 0.31.1
   for (const c of ms) if (isPsy(g, c) && psyNow(g)) L.push(`(Secret du jeu : @${c.handle} est le psychopathe de la partie ; dans le groupe, ${gx(c.g, 'il', 'elle', 'iel')} reste crédible, à peine trop intense avec le joueur.)`);
+  const pros = ms.filter((c) => !isMain(c)); // 0.31.2: the contacts in it (a brand, a candidate, the team, a fan): who they are, what is on with the player
+  if (pros.length) {
+    L.push('', '## LES CONTACTS DU GROUPE (pas des persos principaux)');
+    for (const c of pros) L.push(`@${c.handle} (${c.name}) : ${c.role || 'un contact du joueur'}${c.personality ? ` ; ${str(c.personality, 120)}` : ''}${c.voice ? ` ; sa façon d’écrire : ${str(c.voice, 80)}` : ''}.`, ...dmCareerCtx(g, c));
+  }
+  for (const c of ms.filter((x) => isMain(x))) L.push(...agentDMCtx(g, c)); // (a talent of the player's: their contract, the offer passed on)
   L.push('', '## TA MISSION', 'Les membres réagissent comme dans un vrai groupe : pas tous, pas toujours d’accord, ils se répondent entre eux, des blagues internes, des messages courts. Chacun garde sa voix.',
     '', FORMAT, 'Lignes à produire :',
     '- 1 à 4 lignes : {"t":"msg","by":"handle d’un membre","text":"≤ 160 caractères"}',
     '- Facultatif (au plus 2) : {"t":"rel","by":"handle","d":2,"why":"≤ 60 caractères"} (d de -6 à 6)',
     '- Facultatif (au plus 1) : {"t":"mem","by":"handle","text":"≤ 90 caractères"}',
     '- Facultatif, rare : {"t":"name","text":"≤ 30 caractères"} si quelqu’un renomme le groupe ; {"t":"quit","by":"handle","why":"≤ 60 caractères"} si quelqu’un le quitte, vexé.',
-    psyNow(g) && ms.includes(psyNow(g)) ? '- Facultatif (au plus 1) : {"t":"psy","by":"handle","text":"≤ 90 caractères : ce que le joueur a pu remarquer"} si le psychopathe laisse un détail inquiétant.' : null);
+    psyNow(g) && ms.includes(psyNow(g)) ? '- Facultatif (au plus 1) : {"t":"psy","by":"handle","text":"≤ 90 caractères : ce que le joueur a pu remarquer"} si le psychopathe laisse un détail inquiétant.' : null,
+    ...pros.flatMap((c) => dmCareerLines(g, c).filter((x) => !x.includes('"t":"quit"')).map((x) => `${x} (Dans le groupe, ajoute "by":"${c.handle}" à cette ligne.)`)), // 0.31.2
+    ...ms.filter((c) => isMain(c) && tdealAsking(g, c)).map((c) => { const d = tdealAsking(g, c); return `- Quand @${c.handle} a décidé pour le partenariat ${d.brand} que le joueur, son agent, lui a transmis : {"t":"partenariat","by":"${c.handle}","ok":true,"why":"≤ 60 caractères"} (ok:false s’${gx(c.g, 'il', 'elle', 'iel')} refuse). Rien s’${gx(c.g, 'il', 'elle', 'iel')} hésite encore.`; }));
   return L.filter((x) => x !== null).join('\n');
 }
 // A group without the player: a friend sends a screenshot of it.
@@ -653,7 +671,7 @@ function NewGroupLayer({ l, g, i }) {
       <div class="field"><span class="lbl">Avec qui ? <small class="muted">${sel.length}/${max} · ${GROUP_PICK[0]} au moins</small></span>
         <div class="ng-list">${cands.map((c) => { const on = sel.includes(c.id); return html`<label key=${c.id} class=${'ng-row' + (on ? ' on' : '')}>
           <input type="checkbox" checked=${on} disabled=${!on && sel.length >= max} onChange=${() => toggle(c.id)} />
-          <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><span><b>${c.name}</b><small>${relShown(c)} · ${fmtRel(c.rel)}</small></span></label>`; })}</div></div>
+          <${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><span><b>${c.name}</b><small>${isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}` : c.role || 'Un contact'}</small></span></label>`; })}</div></div>
       <label class="field"><span class="lbl">Ton premier message</span><textarea class="input" rows="2" maxlength=${DM_MAX} value=${text} placeholder="Ex : je vous ai réunis pour un truc…" onInput=${(e) => setText(e.target.value)}></textarea></label>
       ${why ? html`<p class="notice"><${Icon} n="users" /><span>${why}</span></p>` : null}
       <button class="btn btn-hot" disabled=${!ok} onClick=${go}><${Icon} n="users" s=${16} /> Créer le groupe</button>

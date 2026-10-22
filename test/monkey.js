@@ -74,12 +74,25 @@ async function step(page, k) {
   if (act === 'post') {
     await G(page, () => { const H = window.__hype; H.S.stack = []; if (H.S.fabAway) H.S.fabAway = false; H.goTab('feed'); });
     await page.click('.fab', { timeout: 4000 }).catch(() => {});
+    let how = '';
     if (await page.$('#compose')) {
       await page.fill('#compose', pickOne(POSTS));
+      // 0.31.2: now and then the player ticks « Faire une vidéo à partir de ce post » (and picks a moment, a format)
+      const box = rnd() < 0.3 && !!(await page.$('.layer .ann-card input:not([disabled])'));
+      if (box) {
+        await page.check('.layer .ann-card input', { timeout: 3000 }).catch(() => {});
+        const chips = await page.$$('.layer .ann-box .tr-chips[aria-label="Quand"] .chip-btn');
+        if (chips.length && rnd() < 0.5) await chips[Math.floor(rnd() * chips.length)].click({ timeout: 3000 }).catch(() => {});
+        const fmts = await page.$$('.layer .ann-box .seg button:not([disabled])');
+        if (fmts.length && rnd() < 0.3) await fmts[Math.floor(rnd() * fmts.length)].click({ timeout: 3000 }).catch(() => {});
+      }
+      const ids = await G(page, () => window.__hype.S.game.posts.map((p) => p.id));
       await page.locator('.layer-head button', { hasText: 'Publier' }).first().click({ timeout: 4000 }).catch(() => {});
       await idle(page);
+      // never a release the player did not tick: one points to this post only when the box was ticked
+      how = await G(page, (a) => { const g = window.__hype.S.game, p = g.posts.find((x) => x.a === 'p' && !a.ids.includes(x.id)); if (!p) return ' (not sent)'; const n = (g.releases || []).filter((r) => r.post === p.id).length; return a.box ? ` +box (${n})` : n ? ' BAD: a release from an unticked post' : ''; }, { ids, box });
     }
-    return act;
+    return act + how;
   }
   if (act === 'dm') {
     const id = await G(page, (r) => { const H = window.__hype, g = H.S.game, c = Object.values(g.chars).filter((x) => x.unlocked && x.kind !== 'media'); const x = c[Math.floor(r * c.length)]; return x ? x.id : null; }, rnd());
@@ -167,10 +180,10 @@ async function step(page, k) {
       return `quote ${dv.items.length}+${dv.have.length} ${ok ? 'paid' : stale ? 'stale' : 'no money'}`;
     }, rnd());
   }
-  if (act === 'announce') { // the player's own words, with things already planned (the fallback reads them)
+  if (act === 'announce') { // a release announced by a post, with things already planned (0.31.2: what the box sends, a moment)
     return G(page, (r) => {
-      const H = window.__hype, g = H.S.game, before = H.plannedReleases(g).length;
-      const o = r < 0.4 ? { what: 'vidéo', topic: 'ma vidéo sort dans 1h', in: 60, loose: true } : r < 0.7 ? { what: 'short', topic: 'un short sur les potions ratées', in: 180 } : { what: 'live', topic: 'live questions réponses', in: 120 };
+      const H = window.__hype, g = H.S.game, before = H.plannedReleases(g).length, t = Date.now();
+      const o = r < 0.4 ? { what: 'vidéo', topic: 'ma vidéo sort dans 1h', at: t + 3600000 } : r < 0.7 ? { what: 'short', topic: 'un short sur les potions ratées', at: t + 3 * 3600000 } : { what: 'live', topic: 'live questions réponses', in: 120 };
       window.__hypeEasyGear = true;
       const x = H.addRelease(g, o, null, o.topic);
       window.__hypeEasyGear = false;
@@ -383,6 +396,7 @@ function invariants() {
     const e0 = errors.length;
     let what = '';
     try { what = await step(page, k); } catch (e) { what = 'step error: ' + e.message.split('\n')[0]; problems.push(`#${k} ${what}`); }
+    if (/\bBAD\b/.test(what)) problems.push(`#${k} ${what}`); // (a step that saw something wrong says so)
     await dismiss(page);
     await idle(page);
     const inv = await G(page, invariants);

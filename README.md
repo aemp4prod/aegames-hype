@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.31.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.31.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 ## Dans le jeu
 
@@ -196,7 +196,10 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   (pas de report possible pendant un défi : le jeu le dit à la place du bouton « Repousser »).
   Depuis la 0.27.4, tu peux **programmer jusqu’à 6 sorties d’avance**, même pendant un défi : la plus proche passe en
   premier, les autres attendent leur tour dans le Programme du Studio, et chacune peut **sortir plus tôt** (maintenant,
-  bientôt ou à une heure de ton choix avant la date prévue), sans aucun malus. Depuis la 0.27.6, un épisode de défi
+  bientôt ou à une heure de ton choix avant la date prévue), sans aucun malus. Depuis la 0.31.2, une vidéo ne se lance
+  jamais toute seule : en écrivant un post, coche **« 📅 Faire une vidéo à partir de ce post »** (le format, le moment, le
+  sujet repris de ton post, la personne qu’elle vise) et ton post devient son annonce ; sans la case, un post ne lance
+  rien, même s’il parle d’une vidéo (la case s’allume alors, sans se cocher). Depuis la 0.27.6, un épisode de défi
   garde son heure (pas de « Plus tôt »), une sortie qui attendait derrière une autre a son propre délai quand vient son
   tour, et la carte d’une sortie en retard dit combien de temps il reste pour la tourner. Une exclusivité ne bloque
   plus une signature : le jeu dit ce qu’elle coûtera (contrat rompu, pénalité, réputation), puis c’est toi qui décides ;
@@ -442,8 +445,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   scène (« Ce moment ne regarde pas les voyeurs. ») et la soirée reprend un peu plus tard.
 - **Le réseau qui vit** (0.29) : des **stories** de 24 h (celles des persos, avec leurs sondages et leurs questions, et
   les tiennes, avec qui les a vues), des **groupes de discussion** (lancés par les persos, ou par toi depuis la 0.31.1 :
-  « Nouveau groupe » dans Messages, 2 à 5 persos, et chacun peut refuser d’en être ; parfois aussi la capture d’un
-  groupe où l’on parle de toi… sans toi), **ta mère** qui débarque sur le réseau, des **comptes de fans** et des **ships**, des **faux
+  « Nouveau groupe » dans Messages, 2 à 5 persos ou contacts (depuis la 0.31.2, une marque, un candidat, ton équipe ou
+  un fan à qui tu écris déjà), et chacun peut refuser d’en être ; parfois aussi la capture d’un groupe où l’on parle de
+  toi… sans toi), **ta mère** qui débarque sur le réseau, des **comptes de fans** et des **ships**, des **faux
   comptes** (un faux concours à ton nom à signaler, une parodie qui a le droit de rester). Et le quotidien d’un réseau :
   sous-entendus, soft launch, anniversaires (le tien se règle dans les réglages), souvenirs de tes anciens posts,
   « on t’a croisé·e », ratio, personnage principal du jour, une chaîne de drama, sondages dans les posts (les tiens

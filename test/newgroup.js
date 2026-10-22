@@ -140,6 +140,42 @@ async function newGame(page) {
   check('everybody left: the group ends; 2 to 5 picked, a name; four groups at most (said why)',
     lim.ended && lim.n >= 6 && !lim.six && !lim.one && /de 2 à 5 persos/.test(lim.oneWhy) && /Donne un nom/.test(lim.noName) && /déjà dans 4 groupes/.test(lim.why) && !lim.five && lim.live === 4, lim);
 
+  // ---------- 0.31.2: the contacts too: a brand writing for a talent, the talent and the player, negotiated together ----------
+  const pro = await G(page, () => {
+    const H = window.__hype, g = H.S.game, theo = H.charByHandle(g, 'theo.marlin');
+    g.groups = [];
+    theo.followers = 50000;
+    H.askAgent(g, theo, { cut: 15 }); H.applyAgentLine(g, theo, { ok: true });
+    const d = H.makeTalentOffer(g, theo, { brand: 'Philtre & Co', sector: 'boisson', product: 'ses potions énergisantes' });
+    H.askTalentDeal(g, d);
+    const b = g.chars[d.contact];
+    return { id: d.id, b: b.id, bh: b.handle, bn: b.name, max: d.max, cands: H.groupCands(g).map((c) => c.handle) };
+  });
+  await clear(page);
+  await G(page, () => window.__hype.goTab('dms'));
+  await page.waitForSelector('.ng-open');
+  await page.click('.ng-open');
+  await page.waitForSelector('.layer .ng-form');
+  const brandRow = await G(page, (bn) => { const r = [...document.querySelectorAll('.layer .ng-row')].find((x) => x.textContent.includes(bn)); return r ? r.textContent : ''; }, pro.bn);
+  await page.fill('.layer .ng-form input.input', 'Deal Philtre');
+  await page.locator('.layer .ng-row', { hasText: 'Théo' }).locator('input').check();
+  await page.locator('.layer .ng-row', { hasText: pro.bn }).locator('input').check();
+  await page.fill('.layer .ng-form textarea', 'On boucle le contrat de Théo ici, tous les trois ?');
+  await G(page, (a) => { window.__mockOnce = [{ has: '## LE GROUPE DE DISCUSSION', lines: [
+    { t: 'msg', by: a.bh, text: 'Avec plaisir ! On peut monter un peu pour Théo.' }, { t: 'tdeal', by: a.bh, fee: 99999 },
+    { t: 'msg', by: 'theo.marlin', text: 'ça me va, on signe !' }, { t: 'partenariat', by: 'theo.marlin', ok: true, why: 'les potions, c’est moi' }] }]; }, pro);
+  const n1 = await G(page, () => window.__prompts.length);
+  await page.locator('.layer .ng-form .btn-hot').click();
+  await idle(page);
+  await sleep(2500);
+  const deal = await G(page, (a) => {
+    const H = window.__hype, g = H.S.game, d = H.tdealOf(g, a.id), pr = window.__prompts.slice(a.n1).find((x) => x.includes('## LE GROUPE DE DISCUSSION')) || '';
+    return { fee: d.fee, max: a.max, state: d.state, ctx: pr.includes('## LES CONTACTS DU GROUPE') && pr.includes('@' + a.bh) && /en tant qu’AGENT de @theo\.marlin/.test(pr), by: pr.includes(`"by":"${a.bh}"`), ans: /"t":"partenariat","by":"theo\.marlin"/.test(pr), talent: /Le joueur, son agent, lui transmet une proposition/.test(pr) };
+  }, Object.assign({ n1 }, pro));
+  await shot(page, 'group-brand');
+  check('0.31.2: the contacts too (a brand the player talks with, its role under its name): the brand, the talent and the player in one group; the brand\'s offer and the talent\'s answer are told to the AI, its lines apply: the price raised (never above its maximum), signed',
+    pro.cands.includes(pro.bh) && /Partenariats · Philtre & Co/.test(brandRow) && deal.ctx && deal.by && deal.ans && deal.talent && deal.fee === deal.max && deal.state === 'signed', { pro, brandRow, deal });
+
   // ---------- on a phone ----------
   await G(page, () => { const g = window.__hype.S.game; g.groups = g.groups.slice(0, 1); });
   await clear(page);

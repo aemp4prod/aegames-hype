@@ -532,6 +532,7 @@ async function studioSteps(page, thumb) {
   await sleep(300);
   await clickFab(page);
   await page.fill('#compose', 'ma vidéo sur les magouilles de @leandre.aube sort dans 5h. je vais tout prouver.');
+  await page.check('.layer .ann-card input'); // 0.31.2: the player ticks « Faire une vidéo à partir de ce post » (the moment its words say, about Léandre)
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
   await idle();
@@ -675,6 +676,7 @@ async function studioSteps(page, thumb) {
   await G(page, () => { const g = window.__hype.S.game; g.stats.energy = g.stats.maxEnergy; window.__hype.update(); });
   await clickFab(page);
   await page.fill('#compose', 'ma deuxième vidéo sur @leandre.aube sort dans 5h. cette fois j’ai les comptes du trésorier.');
+  await page.check('.layer .ann-card input');
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
   await idle();
@@ -987,17 +989,26 @@ async function studioSteps(page, thumb) {
   await clickText(page, '.tab', 'Fil');
   await sleep(400);
 
-  // ---------- a live announced in passing, in a reply (no announce line from the model: the player's words are enough) ----------
+  // ---------- 0.31.2: a live said in passing, in a reply, launches nothing; ticked in a post, it does ----------
   await G(page, () => { const g = window.__hype.S.game; g.stats.energy = g.stats.maxEnergy; window.__hype.update(); });
   await page.locator('.post', { hasText: 'la vidéo est en ligne' }).first().click();
   await page.waitForSelector('.layer .post-big');
+  const rl1 = await G(page, () => window.__hype.plannedReleases(window.__hype.S.game).length);
   await page.fill('.layer .reply-box textarea', 'et mon live de réponse sort dans 5mn, préparez le popcorn');
   await page.click('.layer .send');
   await sleep(6000);
   await dismiss(page);
-  const rl2 = await G(page, () => { const r = window.__hype.activeRelease(window.__hype.S.game); return r && { what: r.what, left: Math.round((r.due - Date.now()) / 60000), post: !!r.post }; });
-  check('a live announced in a reply starts a countdown', !!rl2 && rl2.what === 'live' && rl2.left >= 4 && rl2.left <= 5 && rl2.post, rl2);
+  const rl1b = await G(page, () => window.__hype.plannedReleases(window.__hype.S.game).length);
   await back(page);
+  await clickFab(page);
+  await page.fill('#compose', 'mon live de réponse commence dans 5mn, préparez le popcorn');
+  await page.check('.layer .ann-card input');
+  await clickText(page, '.layer-head button', 'Publier');
+  await page.waitForSelector('.release-card', { timeout: 20000 });
+  await sleep(1500);
+  await dismiss(page);
+  const rl2 = await G(page, () => { const r = window.__hype.activeRelease(window.__hype.S.game); return r && { what: r.what, left: Math.round((r.due - Date.now()) / 60000), post: !!r.post }; });
+  check('a live said in a reply launches nothing; ticked in a post, its countdown starts at the time the post says', rl1b === rl1 && !!rl2 && rl2.what === 'live' && rl2.left >= 4 && rl2.left <= 5 && rl2.post, { rl1, rl1b, rl2 });
   await G(page, () => { const r = window.__hype.activeRelease(window.__hype.S.game); r.due = Date.now() - 1000; });
   const relToast = page.locator('.toast', { hasText: 'doit sortir' });
   await relToast.waitFor({ timeout: 6000 });

@@ -182,10 +182,12 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     const has = (p) => ({ vibe: p.includes('{"t":"vibe","by"'), plan: p.includes('{"t":"plan","by"'), announce: p.includes('{"t":"announce"') });
     return { plain: has(H.promptAct(g, 'post', 'premier café en terrasse de l’année ☀️', null, {})),
       duel: has(H.promptAct(g, 'post', 'qui vient voir le duel demain à 8h ? @zara.vey', null, {})),
-      video: has(H.promptAct(g, 'post', 'grosse vidéo qui sort bientôt sur la bibliothèque interdite', null, {})) };
+      video: has(H.promptAct(g, 'post', 'grosse vidéo qui sort bientôt sur la bibliothèque interdite', null, {})),
+      // 0.31.2: a video comes only from the player's box (« Faire une vidéo à partir de ce post »): the reactions are told
+      boxed: (() => { const p = H.promptAct(g, 'post', 'grosse vidéo qui sort bientôt sur la bibliothèque interdite', null, {}, null, { announce: { what: 'vidéo', topic: 'La bibliothèque interdite', at: Date.now() + 3 * 3600000, about: '' } }); return Object.assign(has(p), { told: /Avec ce post, le joueur annonce une vidéo : « La bibliothèque interdite », qui sort /.test(p) }); })() };
   });
-  check('a post: a change of relationship, an event with a time, an announced video are offered when the post calls for them (a banal post goes without)',
-    !opt.plain.vibe && !opt.plain.plan && !opt.plain.announce && opt.duel.vibe && opt.duel.plan && opt.video.announce, opt);
+  check('a post: a change of relationship, an event with a time are offered when the post calls for them (a banal post goes without); a video is never looked for in the words (0.31.2), the box tells the reactions',
+    !opt.plain.vibe && !opt.plain.plan && !opt.plain.announce && opt.duel.vibe && opt.duel.plan && !opt.video.announce && !opt.boxed.announce && opt.boxed.told, opt);
 
   // ---------- the memory of each level ----------
   const mem = await G(page, () => {

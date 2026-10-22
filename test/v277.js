@@ -277,7 +277,7 @@ async function newGame(page, identity) {
     out.adv = H.advanceRelease(g, ep, Date.now()) === false;
     const m0 = Math.round((H.relAnn(ep) - Date.now()) / 60000); // (0.30.1: its time out, not its shoot)
     const r2 = H.addRelease(g, { what: 'vidéo', topic: 'ma routine skincare', in: m0 + 240 }, null, 'nouvelle vidéo ce soir à 22h sur ma routine skincare');
-    const r3 = H.addRelease(g, { what: 'vidéo', topic: 'plus que 30 min avant ma vidéo !', in: m0 + 210, loose: true }, null, 'plus que 30 min avant ma vidéo !');
+    const r3 = H.addRelease(g, { what: 'vidéo', topic: 'plus que 30 min avant ma vidéo !', in: m0 + 210 }, null, 'plus que 30 min avant ma vidéo !');
     out.dedupe = { second: !!r2 && r2.topic === 'ma routine skincare', reminder: r3 === null, n: H.plannedReleases(g).length };
     H.endSeries(g, g.series, false);
     clear();

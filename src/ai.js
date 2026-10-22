@@ -411,11 +411,11 @@ const VIBE_IDS = VIBE_FAMS.map(([k, w]) => `${w} : ` + Object.keys(VIBES).filter
 const VIBE_LINE = (withBy) => `- Facultatif (au plus 1) : {"t":"vibe",${withBy ? '"by":"handle",' : ''}"vibe":"crush","why":"≤ 60 caractères"} seulement si la dynamique entre un personnage et le joueur naît ou change vraiment, et que le personnage le veut aussi. vibe parmi : ${VIBE_IDS}. Une étape à la fois : en couple avant les fiançailles, fiançailles avant le mariage ; une rupture donne ex ou complique. Si le personnage quitte le joueur pour quelqu’un d’autre du réseau, ajoute "pour":"handle de cette personne".`;
 
 /* 0.19: the lines the model only needs when the action calls for them. The rest of the time they were read for nothing:
-   a relationship that may change, a meeting or an event with a time, a content the player announces, a compromising
-   message. Generous on purpose: a line too many costs a little, a line missing costs a feature. */
+   a relationship that may change, a meeting or an event with a time, a compromising message (0.31.2: a content the
+   player announces is no longer read into the words: the player ticks it). Generous on purpose: a line too many costs a
+   little, a line missing costs a feature. */
 const REL_RE = /aim|ador|love|crush|c[œo]eur|bisou|c[âa]lin|couple|ensemble|rencard|date|flirt|drag|mignon|charmant|ami|pote|bff|fr[èe]re|s[œo]eur|famille|mentor|[ée]l[èe]ve|rival|ennemi|\bex\b|rupture|cass|trah|confian|secret|complice|coloc|alli|partenai|collab|fan|jalou|manque|pardon|d[ée]sol|excuse|merci|bravo|fier|soutien|d[ée]fend|d[ée]test|hais|clash|guerre|paix/i;
 const WHEN_RE = /ce soir|demain|tout [àa] l|plus tard|dans \d|\d\s?h\b|\d\s?h\d\d|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|week-?end|live|direct|concert|match|annonc|rdv|rendez-vous|rencard|verre|d[îi]ner|resto|soir[ée]e|appel|visio|on se (?:voit|capte|retrouve|fait)|qui vient|venez|viens|rejoin|prochain/i;
-const ANNOUNCE_RE = /vid[ée]o|live|direct|stream|clip|podcast|short|reel|tiktok|story|stories|[ée]pisode|[ée]mission|teaser|trailer|bande-annonce|sortie|sort |bient[ôo]t|demain|ce soir|tout [àa] l|prochain|pr[ée]par|arrive|annonc|stay tuned|restez|en ligne|upload|poster|publi|tourn|film|montage|cha[îi]ne|abonn|preuve|prouv|d[ée]voil|r[ée]v[ée]l|expos/i;
 const INTEL_RE = /@|secret|entre nous|dis (?:pas|rien)|personne (?:sait|ne sait)|avou|menti|trich|vol[ée]|fait semblant|hypocrite|d[ée]test|supporte pas|nul|conn|bouffon|clown|fake|faux|fausse|menteu|mytho|arnaque|pi[èe]ge|veng|d[ée]truire|couler|balanc|expos|humili|ridicul|promets|promis|jure|trahi|ruin|cancel|bad buzz|rumeur|ragot|potin|achet|pay[ée]|argent|thune|fric/i;
 const MAKE_RE = /collab|tourn|vid[ée]o|live|feat|ensemble/i; // making something together
 const MIXED_RE = /pass[ée]e?s?\b|rat[ée]e?s?\b|loup[ée]|manqu[ée]|lapin|annul|t[’']?[ée]tais o[uù]|pas venu|hier soir/i; // 0.22.1: a date said gone
@@ -429,10 +429,10 @@ const PLAN_DM = (c) => `- Seulement si un rendez-vous est vraiment fixé dans ce
 // A character asks the player out (0.9.4): the player gets a card to accept or decline in one tap.
 const INVITE_DM = (c) => `- Si ${c.name} PROPOSE dans ses messages de voir le joueur à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) et que ce n’est pas encore accepté : {"t":"invite","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble (une vidéo, un live, un short à deux). Pas pour un « un de ces jours » vague.`;
 const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un personnage principal PROPOSE au joueur, dans son message privé ("dm"), de se voir à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) : juste après ce "dm", {"t":"invite","by":"handle","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble. Les personnages proches du joueur (relation 30 ou plus) prennent ce genre d’initiative ${often}.`;
-// A video (or live, clip…) the player announces for later: the game starts a countdown.
-const ANNOUNCE_LINE = '- Si le joueur annonce dans son message qu’il sortira bientôt un contenu (vidéo, live, clip, podcast…), même en passant : {"t":"announce","what":"vidéo","topic":"≤ 80 caractères : ce qu’il veut montrer ou prouver, fidèle à SES mots ; s’il ne le dit pas, reprends ce qu’il défendait lui-même juste avant, sans y mélanger les autres intrigues du moment","in":60,"about":"handle du personnage visé s’il veut prouver ou dénoncer quelque chose sur lui, sinon vide"} ("in" = minutes avant la sortie d’après ce qu’il dit et l’heure qu’il est, 60 si ce n’est pas précisé, entre 1 et 1440). Les réactions peuvent déjà en parler.';
-// 0.27.4: with releases already planned, the model knows which: a post about one of them is no new one
-const announceLine = (g, now = Date.now()) => { const P = plannedReleases(g); return ANNOUNCE_LINE + (P.length ? ` Déjà prévu : ${P.map((r) => `${unW(r)} « ${str(r.topic, 50)} » ${fmtWhen(relAnn(r), now)}`).join(' ; ')}. S’il parle d’une de ces sorties, pas de ligne "announce" : seulement pour un nouveau contenu.` : ''); };
+// 0.31.2: a video made from this post, only when the player ticked « Faire une vidéo à partir de ce post » (the game no
+// longer reads one into the words, nor asks the model to): the post is its announcement, the reactions may talk about it.
+const annCtxLine = (g, a, now = Date.now()) => { const r = { what: a.what, noun: a.what === 'short' ? PF(g).shortName : '' }, c = a.about ? charByHandle(g, a.about) : null;
+  return `Avec ce post, le joueur annonce ${unW(r)} : « ${str(a.topic, 80)} »${c ? ` (au sujet de @${c.handle})` : ''}, ${a.what === 'live' ? 'en direct' : 'qui sort'} ${dueText(a.at, now)}. Les réactions peuvent en parler : certains font monter la hype, d’autres doutent.`; };
 // The shoot (mini-game) decides how the release is received.
 const VIDEO_TIER_TEXT = {
   top: (r) => `RÉUSSI : ${laW(r)} est ${whatF(r) ? 'réussie' : 'réussi'}, convainc, fait rire ou impressionne ; quality 7-9, reception 6-9, virality 7-9`,
@@ -559,6 +559,7 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     if (quote) { const qa = author(g, quote.a); L.push(`Il cite le post de @${qa.handle} : « ${quote.text.slice(0, 200)} ». @${qa.handle} réagit forcément.`); }
     if (extra.merch) L.push(merchLine(g, extra.merch)); // 0.22: the post launches the merch
     if (extra.contest) L.push(contestLine()); // 0.29: the post asks the community for designs
+    if (extra.announce) L.push(annCtxLine(g, extra.announce)); // 0.31.2: the player's own box
   } else if (targetReply) {
     const au = author(g, target.a), ra = author(g, targetReply.a);
     const parent = targetReply.to ? target.replies.find((r) => r.id === targetReply.to) : null;
@@ -614,7 +615,6 @@ function promptAct(g, kind, text, target, boosts, targetReply, extra = {}) {
     secrets ? CLUE_LINE(true) : null,
     ...(story.length ? STORY_LINES(ids) : []),
     story.length < 2 ? '- Comme le joueur a moins de deux quêtes histoire, ajoute : {"t":"newquest","title":"≤ 50 caractères","desc":"objectif concret ≤ 120 caractères","char":"handle du personnage concerné, ou vide"}' : null,
-    !acc && !vid && !deb && !secAns && !conf && !extra.apology && planRoom(g) && ANNOUNCE_RE.test(text) ? announceLine(g) : null, // (the game also reads the player's own words: parseAnnounce)
     planHere ? PLAN_LINE : null,
     ...secretActLines(g, focus), // 0.18: someone who holds a secret of the player, a denial someone can prove
     ...dilemmaLines(g), // 0.18: two friends ask for the same spot
@@ -1248,7 +1248,9 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   const contest = kind === 'post' && !!extra.contest && !vid && !callout && !rumor && !secAns && !conf && !drop; // 0.29: a design contest
   const pfp = kind === 'post' && !vid && !callout && !rumor && !secAns && !conf && !drop && !contest && photo && photo.own && photo.own.includes(extra.pfp) ? extra.pfp : null; // 0.25.1: the new profile photo
   const poll = kind === 'post' && !vid && !callout && !rumor && !secAns && !conf && !drop && !contest && !pfp && extra.poll ? postPoll({ a: extra.poll.opts }) : null; // 0.29: a poll (the post asks)
-  const actExtra = { photo, quote, apology, trig, video: vid, debunk: rumor, caps, accuse: callout ? { c: accuse, clues: cited, fake } : null, secret: secAns, confess: conf, merch: drop, pfp, contest, poll };
+  const ann = kind === 'post' && extra.announce && !vid && !callout && !rumor && !secAns && !conf && !drop && !contest && !pfp && !apology ? annOf(g, extra.announce) : null; // 0.31.2: « Faire une vidéo à partir de ce post »
+  if (kind === 'post' && extra.announce && !ann) toast('Ta vidéo n’a pas pu être programmée : ton post part sans.', 'bad');
+  const actExtra = { photo, quote, apology, trig, video: vid, debunk: rumor, caps, accuse: callout ? { c: accuse, clues: cited, fake } : null, secret: secAns, confess: conf, merch: drop, pfp, contest, poll, announce: ann };
   const prompt = promptAct(g, kind, text, target, boosts, targetReply || null, actExtra); // built before any change
   // the same post read from its description, should the images not go through
   const promptText = photo && photo.see ? promptAct(g, kind, text, target, boosts, targetReply || null, Object.assign({}, actExtra, { photo: Object.assign({}, photo, { see: 0 }) })) : null;
@@ -1259,7 +1261,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   const t = Date.now();
   if (kind === 'post') g.boosts = { reach: false, viral: false, push: vid ? false : !!g.boosts.push }; // the push waits for a release
   const ctx = {
-    f, g, kind, target, targetReply: targetReply || null, boosts, costKind, trig, men, apology, accuse, fake, debunk: null, video: vid, rumor, caps, announce: null, plans: [], lastOf: {}, t0: t,
+    f, g, kind, target, targetReply: targetReply || null, boosts, costKind, trig, men, apology, accuse, fake, debunk: null, video: vid, rumor, caps, announce: ann, plans: [], lastOf: {}, t0: t,
     secAns, conf, citedIds: callout ? (extra.accuse.clues || []).slice() : [], // 0.18
     merch: drop, // 0.22
     contest, designs: null, // 0.29
@@ -1492,9 +1494,6 @@ function applyActObj(ctx, o) {
       break;
     case 'plan': // a character announces something for later (a live, an answer…) or sets a date with the player
       if (ctx.plans.length < 2) ctx.plans.push(o);
-      break;
-    case 'announce': // a video (live, clip…) announced for later, in a post or a reply: a countdown starts once committed
-      if (!ctx.announce && !ctx.video && !ctx.accuse && !ctx.apology) ctx.announce = o;
       break;
     case 'debunk': { // kept hidden: posted only if a counter-investigation exposes the fake later
       const text = str(o.text, 300);
@@ -1773,13 +1772,7 @@ function finishAct(ctx) {
   try {
     commitEval(ctx);
     for (const fx of ctx.effects) { try { fx(); } catch (err) { console.error(err); } }
-    if (!ctx.announce && !ctx.video && !ctx.accuse && !ctx.apology && planRoom(g)) { // the model missed it: the player's own words (0.27.6: with other releases planned too)
-      const said = (ctx.post || ctx.mine).text;
-      const pa = parseAnnounce(said);
-      const men = mentionedChars(g, said).filter((c) => isMain(c));
-      if (pa) ctx.announce = { what: pa.what, in: pa.in, topic: str(said, 100), about: men[0] ? men[0].handle : '', loose: true };
-    }
-    if (ctx.announce) addRelease(g, ctx.announce, ctx.post || ctx.target, (ctx.post || ctx.mine).text);
+    if (ctx.announce) addRelease(g, ctx.announce, ctx.post, ctx.post.text); // 0.31.2: only from the player's box, never read into the words
     for (const o of ctx.plans) { // under the message where the character said it
       const c = charByHandle(g, normHandle(o.by));
       addEvent(g, o, (c && ctx.lastOf['c:' + c.id]) || { p: (ctx.post || ctx.target).id });

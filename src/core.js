@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.31.1';
+const APP_VERSION = '0.31.2';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -420,7 +420,7 @@ const S = {
   busy: { act: null, dm: null, refresh: false, ideas: false, newchar: false, create: false, load: false, mg: null, ev: null, save: false, rp: false, prep: null, review: null, more: null },
   lastInputAt: 0, // 0.10: the last time the player touched the game (the network only lives on its own while they play)
   ideas: null,
-  drafts: { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, reply: {}, dm: {}, confess: null, secAns: null, conf: {} },
+  drafts: { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, reply: {}, dm: {}, confess: null, secAns: null, conf: {}, plan: null }, // (0.31.2: plan, « Faire une vidéo à partir de ce post »)
   vision: 0, // images the AI can see with one call (0: none in this view)
   visionMiss: 0,
   visionOff: false,
@@ -595,6 +595,7 @@ function migrate(g) {
     if (r && r.state === 'scheduled' && r.outAt == null && r.prod == null) r.prod = 0; // 0.30.1: planned before the time it takes: as it was
   }
   dedupeCollabs(g); // 0.30.2: a feat confirmed several times in the messages had been planned each time
+  if (!g.fix312) { g.fix312 = 1; vagueReleasesOut(g); } // 0.31.2: a release launched by « un jour, une vidéo sortira… »
   if (!g.fix31) { g.fix31 = 1; unblockFix31(g); } // 0.31: a partner who blocked the player for two messages while angry
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
@@ -1578,17 +1579,13 @@ function parseWhen(t, now) {
   if (/\btout [àa] l'heure\b/.test(t)) return 120;
   return null;
 }
-// The player announces a release in their own words: « ma vidéo sort dans 5mn », « live ce soir à 21h ».
-// A safety net for when the model does not flag the announcement itself.
-function parseAnnounce(text, now = gameDate(Date.now())) {
+// 0.31.2: the moment a post says (« ce soir à 21 h », « dans 2 h », « samedi »), offered by the composer's box « Faire une
+// vidéo à partir de ce post » (the player picks it or not): minutes from now, within a week, or null. (Before 0.31.2,
+// parseAnnounce read a release into the player's words by itself.)
+function postWhen(text, now = gameDate(Date.now())) {
   const t = ' ' + String(text || '').toLowerCase().replace(/’/g, "'") + ' ';
-  const k = /\b(vid[ée]o|vlog|live|stream|short|tik ?tok|reel|clip|single|son|podcast|[ée]pisode|reportage|enqu[êe]te|docu(?:mentaire)?)s?\b/.exec(t);
-  if (!k) return null;
-  const isLive = /live|stream/.test(k[1]);
-  if (!isLive && !/\b(sort|sortie|sortira|arrive|tombe|dispo|en ligne|publi|post|balance|l[âa]che|upload|drop|lance|diffus|nouve(?:lle|au)|prochaine?)/.test(t)) return null;
-  const mins = parseWhen(t, now);
-  if (mins == null || mins < 1 || mins > 1440) return null;
-  return { what: k[1], in: mins };
+  const m = parseWhen(t, now);
+  return m != null && m >= 1 && m <= 7 * 24 * 60 ? m : null;
 }
 // A character's own words promising something for later (« je réponds ce soir en live », « mon dossier sort demain »),
 // for when the model forgets its plan line, and for promises made before events existed.
@@ -1604,6 +1601,14 @@ function parsePlan(text, now = gameDate(Date.now())) {
   const mins = parseWhen(t, now);
   if (mins == null || mins < 5 || mins > 2880) return null;
   return { kind: live ? 'live' : 'annonce', in: mins };
+}
+// 0.31.2: « un jour, une vidéo sortira sur vous » is a threat, a wish, an idea: no release on the clock. Vague words for
+// when (un jour, un de ces jours, tôt ou tard, peut-être, si ça continue…), and nothing near or at a time in them.
+const VAGUE_RE = /\bun (?:beau )?jour\b|\bun de ces (?:jours|quatre)\b|\bt[ôo]t ou tard\b|\bpeut[- ]?[êe]tre\b|\bsi (?:ça|ca) continue\b|\bj'aimerais\b|\bje pourrais\b|\bpourquoi pas\b|\bun jour viendra\b|\bun jour ou l'autre\b|\bil se pourrait\b|\b(?:faudrait|faudra) (?:que je|qu'on)\b|\bje devrais\b/;
+const NEAR_RE = /\bbient[ôo]t\b|\bce soir\b|\bcette nuit\b|\bdemain\b|\bcette semaine\b|\bce (?:week-?end|matin|midi|aprem|soir)\b|\btout [àa] l'heure\b|\bprochaine?\b|\bdans \d|\bdans (?:une|un|quelques)\b|\barrive\b|\ben ligne\b|\bstay tuned\b|\brestez connect/;
+function vagueAnnounce(text, now = gameDate(Date.now())) {
+  const t = ' ' + String(text || '').toLowerCase().replace(/’/g, "'") + ' ';
+  return VAGUE_RE.test(t) && !NEAR_RE.test(t) && parseWhen(t, now) == null;
 }
 // What happens in a release, in the player's words (0.9.2): the AI knows what the content is, not only its topic.
 const PLOT_MAX = 300;
@@ -1677,41 +1682,60 @@ function laterChoices(g, r, now = Date.now()) {
   }
   return out.sort((a, b) => a.at - b.at).slice(0, 20);
 }
-// The words of a topic that say what it is about (not « ma nouvelle vidéo ce soir »).
-const REL_GENERIC = new Set(['video', 'videos', 'tiktok', 'tiktoks', 'short', 'shorts', 'reel', 'reels', 'live', 'lives', 'stream', 'podcast', 'episode', 'episodes', 'clip', 'clips', 'nouveau', 'nouvelle', 'nouvel', 'prochain', 'prochaine', 'demain', 'soir', 'heure', 'heures', 'minute', 'minutes', 'bientot', 'arrive', 'sortie', 'sort', 'annonce', 'chaine', 'abonnes', 'rendez', 'vous', 'ensemble', 'surprise']);
-const relWords = (s) => bigWords(s).filter((w) => !REL_GENERIC.has(w));
-// said: the player's own message that announced it (the topic stays theirs). o.loose: read in the player's own words
-// (the model missed it), so its « topic » is the whole message.
+// 0.31.2: what the player asked in the composer (« Faire une vidéo à partir de ce post »), checked again when it goes:
+// a format they can make, a topic, a moment within a week, room in the programme, a channel that is not suspended.
+const ANN_MAX = 7 * 24 * 3600000;
+function annOf(g, a, t = Date.now()) {
+  if (!a || !planRoom(g) || suspended(g, t)) return null;
+  const topic = str(a.topic, 100);
+  let what = normWhat(a.what);
+  if (!PF(g).fmts.includes(what)) what = PF(g).main;
+  const at = Math.max(Math.round(+a.at), t + 60000); // (« dans 1 min », said a few seconds ago: still a minute)
+  if (topic.length < 3 || !Number.isFinite(at) || at > t + ANN_MAX || !canMake(g, what, t).ok) return null;
+  const c = a.about ? charByHandle(g, normHandle(a.about)) : null;
+  return { what, topic, at, about: c && isMain(c) && c.unlocked ? c.handle : '' };
+}
+// 0.27.4: another post about a release already planned is not a second one (the planned one gets the announcement):
+// the same format, around the same time (a video next to a live is a video). 0.31.2: the player asks for it, so later
+// that day it is another one, even on a close topic (before, the game guessed: the same day and the same words, the same).
+function sameRelease(g, what, due) {
+  const told = (x) => (x.ann && x.ann < relAnn(x) ? x.ann : relAnn(x)); // (0.30.1: the time the public was told)
+  return plannedReleases(g).find((x) => !x.big && x.what === what && Math.abs(told(x) - due) < 90 * 60000) || null;
+}
+// said: the player's own message that announced it (the topic stays theirs). o.at: when it comes out (0.31.2: the moment
+// the player picked in their post; before, o.in, minutes read in their words).
 function addRelease(g, o, post, said) {
   if (!planRoom(g)) return null;
   const topic = str(o.topic, 100);
   if (!topic) return null;
-  const mins = int(o.in, 1, 1440, 60);
   const t = Date.now();
+  const mins = Number.isFinite(o.at) ? clamp(Math.round((o.at - t) / 60000), 1, ANN_MAX / 60000) : int(o.in, 1, 1440, 60);
   const target = o.about ? charByHandle(g, normHandle(o.about)) : null;
   let what = normWhat(o.what);
   if (!PF(g).fmts.includes(what)) what = PF(g).main; // a « vidéo » on TikTok is a tiktok
   const asked = what;
   what = makeableWhat(g, what); // 0.20: no computer, no long video: the announcement becomes what the player can make
-  // 0.27.4: another post about a release already planned is not a second one (the planned one gets the announcement).
-  // 0.27.6: the same format, around the same time; later that day, only about the same thing (or in words that name
-  // nothing new): two shorts on two topics the same day are two releases, a video announced next to a live is a video.
-  const due = t + mins * 60000, day = (x) => gameDate(x).toDateString(), words = relWords(topic);
-  const told = (x) => (x.ann && x.ann < relAnn(x) ? x.ann : relAnn(x)); // (0.30.1: the time the public was told)
-  const same = plannedReleases(g).find((x) => x.what === what && (Math.abs(told(x) - due) < 90 * 60000 || (day(told(x)) === day(due) && (o.loose || !words.length || sameThing(x.topic, topic)))));
-  if (same) { if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); } if (!same.c && target && isMain(target) && target.unlocked) same.c = target.id; return null; }
+  const due = t + mins * 60000;
+  const same = sameRelease(g, what, due);
+  if (same) { // (0.31.2: the player is told: their post announces the one already planned)
+    if (!same.post && post) { same.post = post.id; same.said = same.said || str(said, 280); }
+    if (!same.c && target && isMain(target) && target.unlocked) same.c = target.id;
+    addNotif(g, { k: 'release', p: post ? post.id : null, text: `📣 Ton post annonce ${ta(same)} « ${str(same.topic, 60)} », déjà ${whatF(same) ? 'prévue' : 'prévu'} ${fmtWhen(relAnn(same), t)}.` });
+    return null;
+  }
   const r = {
-    id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: post ? post.id : null, at: t, due: t + mins * 60000, state: 'scheduled', delays: 0, tries: 0,
+    id: uid('rl'), what, noun: what === 'short' ? PF(g).shortName : '', topic, post: post ? post.id : null, at: t, due, state: 'scheduled', delays: 0, tries: 0,
     c: target && isMain(target) && target.unlocked ? target.id : null, game: null, played: null,
     said: str(said, 280), diff: 'moyen',
   };
+  if (Number.isFinite(o.at)) r.pick = 1; // 0.31.2: the player ticked « Faire une vidéo à partir de ce post » (never dropped as vague)
   if (!g.releases) g.releases = [];
   const tm = teamOf(g, r.what); if (tm) r.team = tm; // 0.30.1: the team saves time, counted from now
   setOut(r, r.due, t); // 0.30.1: the time it takes (announced too soon: it will come out late)
   g.releases.push(r);
   trimReleases(g);
   const prodNote = r.what === 'live' ? '' : r.ann ? ` Il te faut ${prodWord(r.what, r.care, r.team)} de travail : à toi de tourner maintenant, ${whatF(r) ? 'elle' : 'il'} sortira vers ${hourOf(r.outAt)}, en retard sur ton annonce.` : ` Le tournage commence ${fmtWhen(r.due, t)} (${prodWord(r.what, r.care, r.team)} de travail${r.team ? ', ' + teamWord(r.team) : ''}).`;
-  addNotif(g, { k: 'release', p: r.post, text: `Compte à rebours lancé : ${ta(r)} « ${topic} » ${r.what === 'live' ? 'commence' : 'sort'} dans ${fmtLeft(mins * 60000)}.${asked !== what ? ` (${asked === 'vidéo' ? 'Pas de quoi monter une vidéo longue' : asked === 'live' ? 'Pas de connexion pour un live' : 'Pas le matos'} : ce sera ${unW(r)}.)` : ''}${prodNote}` });
+  addNotif(g, { k: 'release', p: r.post, text: `Compte à rebours lancé : ${ta(r)} « ${topic} » ${r.what === 'live' ? 'commence' : 'sort'} ${fmtWhen(due, t)}.${asked !== what ? ` (${asked === 'vidéo' ? 'Pas de quoi monter une vidéo longue' : asked === 'live' ? 'Pas de connexion pour un live' : 'Pas le matos'} : ce sera ${unW(r)}.)` : ''}${prodNote}` });
   addTrigger(g, `Le joueur a annoncé ${unW(r)} dans ${fmtDur(mins * 60000)} : « ${str(topic, 80)} ». Le public l’attend : certains font monter la hype, d’autres doutent.`);
   return r;
 }
@@ -1782,6 +1806,7 @@ function dropRelease(g, r, forgot) {
   keptToInv(g, r, 'neuf');
   if (r.big) bigDropped(g, r); // 0.30.1: a big promise, a cast told
   if (r.now) { addNotif(g, { k: 'release', at: t, text: `${cap1(ta(r))} « ${str(r.topic, 60)} » ne sortira pas. Personne ne l’attendait : rien de perdu.` }); return; } // 0.30: never announced, never missed
+  if (r.auto) { addNotif(g, { k: 'release', at: t, text: `${cap1(ta(r))} « ${str(r.topic, 60)} » quitte ton programme : c’est le jeu qui l’avait lancé${whatF(r) ? 'e' : ''} à partir de ton post, rien de perdu.` }); return; } // 0.31.2: never chosen by the player
   const loss = Math.round(s.followers * 0.04);
   const T = r.big ? 'ta grosse production' : ta(r), Sa = r.big ? 'sa grosse production' : sa(r), F = r.big || whatF(r); // (0.30.1: a production)
   const dr = repMove(g, DROP_PLAN, `${Sa} promis${F ? 'e' : ''}, jamais sorti${F ? 'e' : ''}`, { noCheck: true });
@@ -1790,6 +1815,22 @@ function dropRelease(g, r, forgot) {
   addChronicle(g, `${g.player.name} n’a jamais sorti ${Sa} « ${str(r.topic, 80)} » : on dit qu’${px(g, 'il s’est défilé', 'elle s’est défilée', 'iel s’est défilé·e')}.`);
   addTrigger(g, `Le joueur a abandonné ${Sa} « ${str(r.topic, 60)} » promise à tout le monde : moqueries, déception, certains parlent de lâcheté.`, r.c || null);
   checkCancel(g);
+}
+// 0.31.2, once per game: the releases the game had read into the player's posts by itself (before the box: r.said, never
+// one programmed, r.planned, nor one ticked, r.pick). One from vague words (« un jour… ») leaves the programme, free; the
+// others stay, and letting them go costs nothing (r.auto): the player never chose them. (A new game is migrated too, on
+// its first load: it has none.)
+function vagueReleasesOut(g) {
+  let kept = 0;
+  for (const r of g.releases || []) {
+    if (r.state !== 'scheduled' || r.played || r.series || r.big || r.now || r.pick || r.planned || !r.said) continue;
+    if (!vagueAnnounce(r.said)) { r.auto = 1; kept++; continue; }
+    r.state = 'dropped';
+    r.vague = 1;
+    keptToInv(g, r, 'neuf');
+    addNotif(g, { k: 'release', text: `📅 ${cap1(ta(r))} « ${str(r.topic, 60)} » n’avait pas vraiment été annoncé${whatF(r) ? 'e' : ''} (« un jour… ») : ${whatF(r) ? 'elle' : 'il'} quitte ton programme, sans rien te coûter.` });
+  }
+  if (kept) addNotif(g, { k: 'release', text: `📅 Désormais, une vidéo ne se lance que si tu coches « Faire une vidéo à partir de ce post ». ${kept > 1 ? `Les ${kept} sorties que le jeu avait lancées à partir de tes posts restent prévues : tu peux les retirer` : 'La sortie que le jeu avait lancée à partir de ton post reste prévue : tu peux la retirer'} sans malus.` });
 }
 // The moment a release past its time is given up (0.27.6: shown on its card).
 const prodEnd = (r) => (r.played && r.prodAt ? r.prodAt + prodMs(r) : 0); // 0.30.1: shot, the end of its making

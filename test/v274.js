@@ -169,12 +169,11 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     const c = H.scheduleRelease(g, { what: 'short', topic: 'un sort en 30 secondes', due: t + 5 * HR });
     window.__hypeEasyGear = false;
     H.update();
-    return { ok: !!(a && b && c), order: H.plannedReleases(g).map((r) => r.topic), first: H.activeRelease(g).topic, ctx: H.ctxText(g), ann: H.announceLine(g) };
+    return { ok: !!(a && b && c), order: H.plannedReleases(g).map((r) => r.topic), first: H.activeRelease(g).topic, ctx: H.ctxText(g) };
   });
-  check('three releases planned at once, in any order: the soonest is the one on the clock; the AI knows all three (and an announcement about one of them is no new one)',
+  check('three releases planned at once, in any order: the soonest is the one on the clock; the AI knows all three',
     r0.ok && r0.order.join('|') === 'mes potions ratées|un sort en 30 secondes|la grande dictée de Lumen' && r0.first === 'mes potions ratées'
-    && /annoncé une vidéo : « mes potions ratées »/.test(r0.ctx) && /aussi annoncé un short : « un sort en 30 secondes »/.test(r0.ctx) && /aussi annoncé une vidéo : « la grande dictée de Lumen »/.test(r0.ctx)
-    && /Déjà prévu : une vidéo « mes potions ratées »/.test(r0.ann) && /pas de ligne "announce"/.test(r0.ann), { order: r0.order, ann: r0.ann.slice(-300) });
+    && /annoncé une vidéo : « mes potions ratées »/.test(r0.ctx) && /aussi annoncé un short : « un sort en 30 secondes »/.test(r0.ctx) && /aussi annoncé une vidéo : « la grande dictée de Lumen »/.test(r0.ctx), { order: r0.order });
   await page.waitForSelector('.release-card .rl-more');
   const more = await page.$eval('.release-card', (e) => e.textContent);
   await shot(page, 'release-card-next');

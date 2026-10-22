@@ -136,6 +136,8 @@ async function studioSteps(page, thumb) {
   await dismiss(page);
   await clickFab(page);
   await page.fill('#compose', 'ma vidéo sur les secrets de la bibliothèque sort dans 1h. préparez-vous');
+  await page.check('.layer .ann-card input'); // 0.31.2: the player ticks « Faire une vidéo à partir de ce post »
+  await clickText(page, '.layer .ann-box .chip-btn', 'Au plus vite');
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
   await idle(page);

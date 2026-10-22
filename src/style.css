@@ -3203,6 +3203,18 @@ body.os-win { overflow: hidden; }
 .poll-edit { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; border: 1px dashed var(--line-strong); }
 .poll-edit .lbl { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
 .poll-edit .input { flex: 1; min-width: 0; }
+/* 0.31.2: « Faire une vidéo à partir de ce post » (ticked by the player, never by the game) */
+.ann-wrap { display: flex; flex-direction: column; gap: 8px; }
+.ann-card { padding: 9px 12px; }
+.ann-card b { font-size: 14px; }
+.ann-card.hint { border-color: var(--hot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot) 14%, transparent); }
+.ann-card.off { opacity: 0.6; cursor: default; }
+.ann-box { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: 14px; border: 1px dashed var(--hot); background: color-mix(in srgb, var(--hot) 4%, var(--surface)); }
+.ann-box .field .lbl { font-size: 13px; color: var(--ink-2); }
+.ann-box .input { min-height: 40px; padding: 8px 12px; font-size: 15px; }
+.ann-box .seg button { white-space: nowrap; }
+.ann-note { font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.ann-note.warn { color: var(--warn); }
 .pin-tag { font-size: 12.5px; color: var(--ink-3); font-weight: 600; margin-bottom: 2px; }
 .reply-row.pinned { background: color-mix(in srgb, var(--hot-soft) 45%, transparent); }
 .act-pin { opacity: 0.55; }

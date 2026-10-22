@@ -246,7 +246,7 @@ function openLayer(l) {
   if (l.t === 'dm' && S.game && S.game.dms[l.id]) S.game.dms[l.id].readAt = Date.now();
   update(false);
 }
-const resetComposeExtras = () => Object.assign(S.drafts, { photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [] });
+const resetComposeExtras = () => Object.assign(S.drafts, { photo: null, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], plan: null }); // (0.31.2: the box too, never ticked on its own when the composer opens again)
 // which: the window whose « Retour » or veil was clicked (0.28.1: that one, not the top one); none (Échap): the top one.
 function closeLayer(which) {
   const o = osActive(); // 0.27.9: a close asked from a window out of the game closes that one
@@ -1862,8 +1862,10 @@ function postponeCost(g, r) {
   return `${n === 1 ? 'Premier' : n === 2 ? 'Deuxième' : 'Dernier'} report : ${repWord(repTry(g, postponePlan(n)))}${n >= 2 ? ' et des abonnés qui partent' : ''}.`;
 }
 function askDrop(g, r) {
+  const free = !r.series && !r.big && (r.now || r.auto); // (0.30: made right away, nobody waited; 0.31.2: launched by the game, not the player)
   askConfirm({
-    title: `Abandonner ${ta(r)} ?`, text: `Tout le monde l’attendait : ${repWord(repTry(g, DROP_PLAN))} et des abonnés qui partent.`, ok: 'Abandonner', danger: true,
+    title: `${free ? 'Retirer' : 'Abandonner'} ${ta(r)} ?`, ok: free ? 'Retirer' : 'Abandonner', danger: !free,
+    text: r.auto && free ? `C’est le jeu qui l’avait lancé${whatF(r) ? 'e' : ''} à partir de ton post : tu peux ${whatF(r) ? 'la' : 'le'} retirer sans rien perdre.` : free ? 'Personne ne l’attendait : rien de perdu.' : `Tout le monde l’attendait : ${repWord(repTry(g, DROP_PLAN))} et des abonnés qui partent.`,
     run: () => { dropRelease(g, r); dropLayers((l) => l.t === 'minigame' && l.id === r.id); update(); },
   });
 }
@@ -1892,7 +1894,7 @@ function ReleaseCard({ g, now }) {
         ${left > 0 ? html`<button class="btn btn-hot btn-sm" onClick=${() => skipTime(left + 1000, relDue(r))}>${S.skipWait ? html`<${Typing} /> J’avance dès que c’est fini` : html`<${Icon} n="ffwd" s=${15} /> ${pw ? 'Avancer jusqu’au tournage' : 'Avancer jusqu’à la sortie'}`}</button>`
           : html`<button class="btn btn-hot btn-sm" onClick=${() => startShoot(r)}><${Icon} n="clapper" s=${15} /> ${r.played ? 'Voir le tournage' : 'Tourner ' + laW(r)}</button>`}
         ${left > 0 && !r.series ? html`<button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'move', id: r.id })}><${Icon} n="ffwd" s=${14} /> Sortir plus tôt</button>` : null}
-        ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>Abandonner</button>`}
+        ${r.series ? null : html`${canPostpone(r, now) ? html`<button class="btn btn-ghost btn-sm" onClick=${() => askPostpone(g, r)}>Repousser</button>` : null}<button class="btn btn-ghost btn-sm" onClick=${() => askDrop(g, r)}>${r.auto ? 'Retirer sans malus' : 'Abandonner'}</button>`}
       </div>
       ${more.length ? html`<button type="button" class="linkbtn rl-more" onClick=${() => goTab('studio')}>Ensuite : ${more.slice(0, 2).map((x) => `${(WHATS[x.what] || WHATS.vidéo).emoji} « ${wordCut(x.topic, 28)} » ${fmtWhen(relAnn(x), now)}`).join(' · ')}${more.length > 2 ? ` · +${more.length - 2}` : ''}</button>` : null}
     </div>
@@ -2451,7 +2453,7 @@ function ShootResult({ r, g, now }) {
     <${StudioSteps} g=${g} r=${r} now=${now} />
     ${tier !== 'top' && !r.series && r.delays < MAX_DELAYS ? html`<button class="btn btn-ghost" onClick=${() => askPostpone(g, r)}>Repousser pour retenter · ${repWord(repTry(g, postponePlan(r.delays + 1)))}</button>` : null}
     ${tier !== 'top' && !r.series && r.delays >= MAX_DELAYS ? html`<small class="muted">Tu as déjà repoussé ${MAX_DELAYS} fois : publie ou abandonne.</small>` : null}
-    ${!r.series ? html`<button class="btn btn-ghost" onClick=${() => askDrop(g, r)}>Abandonner</button>` : null}
+    ${!r.series ? html`<button class="btn btn-ghost" onClick=${() => askDrop(g, r)}>${r.auto ? 'Retirer sans malus' : 'Abandonner'}</button>` : null}
   </div>`;
 }
 // 0.27.8: a failed shoot is not the end while the edit can still lift it (up to 15 points, never for a live)
@@ -3136,6 +3138,93 @@ const FAKE_HINTS = {
   vocal: (c, f) => `ex : la voix de ${f} qui dit « j’ai triché, et alors ? »`,
   temoin: (c, f) => `ex : quelqu’un affirme avoir vu ${f} mentir à tout le monde`,
 };
+/* ---------- 0.31.2: « Faire une vidéo à partir de ce post » ----------
+   The player ticks it, never the game: the post becomes the announcement of a video (a short, a live…) that starts with
+   the post's own topic, at a moment the player picks. Unticked, a post never launches anything, whatever it says. When
+   the post talks of a video, the box shows it, still unticked. */
+const VID_TALK_RE = /(?<![\p{L}\d])(vid[ée]os?|vlogs?|lives?|streams?|shorts?|tik ?toks?|reels?|clips?|podcasts?|[ée]pisodes?)(?![\p{L}\d])/iu;
+const ANN_WHEN_RE = /\s*(?<![\p{L}\d])(?:un (?:beau )?jour|un de ces (?:jours|quatre)|ce soir|cette nuit|apr[èe]s[- ]demain|demain(?: soir| matin| midi)?|tout [àa] l['’]heure|bient[ôo]t|aujourd['’]hui|ce (?:week-?end|matin|midi)|cette semaine|(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(?: soir| matin| prochain)?|dans (?:\d{1,3}|une?|quelques) ?(?:h|heures?|min(?:utes?)?|mn|jours?)|(?:(?:[àa]|vers|d[èe]s|de) )?\d{1,2} ?h(?: ?\d\d)?)(?![\p{L}\d])/giu;
+const ANN_VERB_RE = /\s+(?:sort(?:ira)?|sortent|arrive(?:ra)?|tombe(?:ra)?|d[ée]barque(?:ra)?|(?:est|sera) en ligne|dispo(?:nible)?)(?=\s*(?:[!?.…]|$))/giu;
+const ANN_LEAD_RE = /^(?:(?:(?:ma|mon|notre)\s+(?:(?:nouvelle|nouveau|nouvel|prochaine?|petite?|grosse?)\s+)?|(?:nouvelle|nouveau|nouvel|prochaine?)\s+)(?:vid[ée]o|vlog|live|stream|short|tik ?tok|reel|clip|podcast|[ée]pisode)(?![\p{L}\d])\s*(?:(?:sur|de|du|:|–|-)(?![\p{L}\d])\s*)*|(?:vid[ée]o|vlog|live|stream|short|tik ?tok|reel|clip|podcast)(?![\p{L}\d])\s*(?:(?:sur|:|–|-|,)(?![\p{L}\d])\s*)+)/iu;
+// The topic it starts with: the post's words, without « ce soir à 21 h » nor « ma vidéo… sort » (the player changes it).
+function annTopic(text) {
+  const t = String(text || '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+  let x = t.replace(ANN_WHEN_RE, '').replace(/\s{2,}/g, ' ').trim().replace(/^[,;:–-]+\s*/, '');
+  x = x.replace(ANN_VERB_RE, '').replace(ANN_LEAD_RE, '').replace(/\s*[,;:–-]+\s*$/, '').trim();
+  return wordCut(cap1(x.length >= 8 ? x : t), 80);
+}
+const up5 = (ts) => { const d = gameDate(ts), r = (d.getMinutes() % 5) * 60000 + d.getSeconds() * 1000 + d.getMilliseconds(); return r ? ts - r + 300000 : ts; };
+// The moments it offers (when it comes out; a live: when it starts): the one the post says, then in 1 h (or as soon as
+// it can be made), tonight, tomorrow. D: the time it takes. Only the post's own moment can be too soon (its words).
+function annMoments(text, D = 0, t = Date.now()) {
+  const out = [], add = (k, at) => { if (!out.some((m) => Math.abs(m.at - at) < 5 * 60000)) out.push({ k, at }); };
+  const pw = postWhen(text);
+  if (pw != null) add('post', t + pw * 60000);
+  add('h1', D > 3600000 ? up5(t + D) : t + 3600000);
+  const soir = dayDue(0, 21, t);
+  if (soir > t + Math.max(90 * 60000, D + 15 * 60000)) add('soir', soir);
+  add('dem', dayDue(1, 18, t));
+  return out;
+}
+const annLabel = (m, D, t = Date.now()) => (m.k === 'post' ? `Comme ton post : ${fmtWhen(m.at, t)}` : m.k === 'h1' ? (D > 3600000 ? `Au plus vite (${hourOf(m.at)})` : 'Dans 1 h') : cap1(fmtWhen(m.at, t)));
+// What the box says right now (null when unticked): what the player picked, or else what the post says.
+function annResolve(g, p, text, alt = '', t = Date.now()) {
+  if (!p || !p.on) return null;
+  const P = PF(g), src = String(text || alt || '');
+  const kw = VID_TALK_RE.exec(src), guess = kw ? normWhat(kw[1]) : P.main;
+  const what = p.what && P.fmts.includes(p.what) ? p.what : makeableWhat(g, P.fmts.includes(guess) && canMake(g, guess, t).ok ? guess : P.main);
+  const team = teamOf(g, what), D = what === 'live' ? 0 : Math.round(prodH(what, false, team) * 3600000);
+  const ms = annMoments(src, D, t);
+  const m = ms.find((x) => x.k === p.when) || ms.find((x) => x.k === 'post') || ms[0];
+  const mains = mentionedChars(g, src).filter((c) => isMain(c) && c.unlocked).slice(0, 4);
+  const about = p.about != null ? (mains.some((c) => c.handle === p.about) ? p.about : '') : mains.length === 1 ? mains[0].handle : '';
+  return { what, at: m.at, when: m.k, topic: p.topic != null ? p.topic : annTopic(src), about, D, team, ms, mains, late: what !== 'live' && m.at < t + D - 60000 };
+}
+// Why it cannot go as it is ('' when it can).
+function annWhy(g, A, t = Date.now()) {
+  if (!A) return '';
+  if (!planRoom(g)) return `${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.`;
+  if (suspended(g, t)) return 'Ta chaîne est suspendue : rien ne peut sortir pour l’instant.';
+  const can = canMake(g, A.what, t);
+  if (!can.ok) return can.why;
+  if (str(A.topic, 100).length < 3) return `Écris le sujet de ${laW({ what: A.what, noun: A.what === 'short' ? PF(g).shortName : '' })}.`;
+  return '';
+}
+function AnnBox({ g, text, alt, set }) {
+  const p = S.drafts.plan || null, on = !!(p && p.on), t = Date.now();
+  const P = PF(g), noun = (w) => (w === 'short' ? P.shortName : w);
+  const off = !on && (!planRoom(g) || suspended(g, t));
+  const talk = VID_TALK_RE.test(String(text || ''));
+  const A = on ? annResolve(g, p, text, alt, t) : null;
+  const tick = (v) => { S.drafts.plan = v ? { on: true, what: null, when: null, topic: null, about: null } : null; set(); if (v) setTimeout(() => { const el = byId('ann-topic'); if (el && !el.value) el.focus(); }, 40); }; // (unticked: what was picked goes)
+  const pick = (k, v) => { S.drafts.plan = Object.assign({}, S.drafts.plan, { [k]: v }); set(); };
+  const r = A ? { what: A.what, noun: A.what === 'short' ? P.shortName : '' } : null;
+  const same = A ? sameRelease(g, makeableWhat(g, A.what), A.at) : null;
+  const why = A ? annWhy(g, A, t) : '';
+  const note = !A ? '' : same ? `📣 Tu as déjà ${ta(same)} « ${wordCut(same.topic, 40)} » ${fmtWhen(relAnn(same), t)} : ce post l’annoncera, sans en faire ${whatF(same) ? 'une deuxième' : 'un deuxième'}.`
+    : A.what === 'live' ? `🔴 Le live commence ${fmtWhen(A.at, t)} (il dure ${prodWord('live')}).`
+      : A.late ? `⚠️ Il te faut ${hWord(A.D / 3600000)} de travail : ${whatF(r) ? 'annoncée' : 'annoncé'} ${fmtWhen(A.at, t)}, ${whatF(r) ? 'elle' : 'il'} sortira en retard, vers ${hourOf(t + A.D)}.`
+        : `⏱️ ${hWord(A.D / 3600000)} de travail${A.team ? ' ' + teamWord(A.team) : ''} : tu tournes ${fmtWhen(A.at - A.D, t)} pour une sortie ${fmtWhen(A.at, t)}.`;
+  return html`<div class="ann-wrap">
+    <label class=${'check-card ann-card' + (on ? ' on' : talk && !off ? ' hint' : '') + (off ? ' off' : '')}>
+      <input type="checkbox" checked=${on} disabled=${off} onChange=${(e) => tick(e.target.checked)} />
+      <span><b>📅 Faire une vidéo à partir de ce post</b><small>${!on && !planRoom(g) ? `${MAX_PLANNED} sorties prévues, c’est le maximum : publie-en une d’abord.`
+        : !on && suspended(g, t) ? 'Ta chaîne est suspendue : rien ne peut sortir pour l’instant.'
+          : on ? 'Ce post l’annonce : le public va l’attendre.' : talk ? 'Ton post en parle ? Coche si tu veux la faire : ce post sera son annonce.' : 'Ce post sera son annonce, et la vidéo reprendra son sujet.'}</small></span>
+    </label>
+    ${A ? html`<div class="ann-box">
+      <div class="field"><span class="lbl">Format</span><${Seg} items=${P.fmts.map((f) => [f, cap1(noun(f)), !canMake(g, f, t).ok])} value=${A.what} onPick=${(v) => pick('what', v)} label="Format" /></div>
+      <div class="field"><span class="lbl">${A.what === 'live' ? 'Quand commence le live ?' : whatF(r) ? 'Quand sort-elle ?' : 'Quand sort-il ?'}</span>
+        <div class="tr-chips" role="group" aria-label="Quand">${A.ms.map((m) => html`<button type="button" key=${m.k} class=${'chip-btn' + (A.when === m.k ? ' on' : '')} aria-pressed=${A.when === m.k ? 'true' : 'false'} onClick=${() => pick('when', m.k)}>${annLabel(m, A.D, t)}</button>`)}</div></div>
+      <div class="field"><label class="lbl" for="ann-topic">Le sujet</label>
+        <input id="ann-topic" class="input" maxlength="80" value=${A.topic} placeholder="ex : je teste les potions du marché noir" onInput=${(ev) => pick('topic', ev.target.value)} /></div>
+      ${A.mains.length ? html`<div class="field"><span class="lbl">Au sujet de quelqu’un ?</span>
+        <div class="tr-chips" role="group" aria-label="Au sujet de">${[['', 'Personne']].concat(A.mains.map((c) => [c.handle, '@' + c.handle])).map(([h, lb]) => html`<button type="button" key=${h || 'none'} class=${'chip-btn' + (A.about === h ? ' on' : '')} aria-pressed=${A.about === h ? 'true' : 'false'} onClick=${() => pick('about', h)}>${lb}</button>`)}</div>
+        <small>Pour prouver ou dénoncer quelque chose sur ${A.mains.length > 1 ? 'l’un d’eux' : gx(A.mains[0].g, 'lui', 'elle', 'iel')}.</small></div>` : null}
+      ${why ? html`<small class="ann-note warn">${why}</small>` : html`<small class=${'ann-note' + (A.late && !same ? ' warn' : '')}>${note}</small>`}
+    </div>` : null}
+  </div>`;
+}
 function ComposeLayer({ g, now, i }) {
   const [, force] = useState(0);
   const ref = useRef(null);
@@ -3169,7 +3258,15 @@ function ComposeLayer({ g, now, i }) {
   const first = target ? firstName(target) : '';
   const fk = accuse ? d.fake : null; // a proof the player makes up
   const fakeOK = !fk || fk.desc.trim().length >= 6;
-  const can = (!!val.trim() || photoOK) && (!hasPhoto || photoOK) && !S.busy.act && !low && canAfford(g, costKind) && (!accuse || !!val.replace('@' + target.handle, '').trim()) && fakeOK;
+  // 0.29: a poll (2 to 4 choices): only for a plain post, without a photo
+  const pollAllowed = !hasPhoto && !accuse && !rumor && !secAns && !conf && !drop && !contest && !pfp && !apology && !quote;
+  const pollOn = pollAllowed && Array.isArray(d.poll);
+  const pollOpts = pollOn ? d.poll.map((x) => str(x, 40)).filter(Boolean) : [];
+  // 0.31.2: « Faire une vidéo à partir de ce post »: a plain post (a photo, a quote too), ticked by the player
+  const planAllowed = !accuse && !rumor && !secAns && !conf && !drop && !contest && !pfp && !apology && !pollOn;
+  const ann = planAllowed ? annResolve(g, d.plan, val.trim(), hasPhoto ? d.photo : '', now) : null;
+  const annBad = ann ? annWhy(g, ann, now) : '';
+  const can = (!!val.trim() || photoOK) && (!hasPhoto || photoOK) && !S.busy.act && !low && canAfford(g, costKind) && (!accuse || !!val.replace('@' + target.handle, '').trim()) && fakeOK && !annBad;
   const publish = async () => {
     const D = S.drafts;
     const text = (D.post || '').trim(); // live state, not this render's
@@ -3184,14 +3281,18 @@ function ComposeLayer({ g, now, i }) {
       contest: !!contest, // 0.29
       poll: pollOn && pollOpts.length >= 2 ? { opts: pollOpts } : null, // 0.29: a poll (the post is its question)
       pfp: D.accuse || D.debunk || D.confess || D.secAns || D.merch || !ph || !ph.own || !ph.own.includes(D.pfp) ? null : D.pfp }; // 0.25.1
-    Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null, contest: false, poll: null });
+    const A = planAllowed ? annResolve(S.game, D.plan, text, ph ? ph.desc : '') : null; // 0.31.2: only when the player ticked it
+    if (A && annWhy(S.game, A)) { toast(annWhy(S.game, A), 'bad'); return; }
+    extra.announce = A ? { what: A.what, topic: str(A.topic, 100), at: A.at, about: A.about } : null;
+    const plan0 = D.plan ? Object.assign({}, D.plan) : null;
+    Object.assign(S.drafts, { post: '', photo: null, pics: [], diapo: false, see: false, quote: null, apology: false, accuse: null, cite: [], fake: null, debunk: null, caps: [], confess: null, secAns: null, merch: null, pfp: null, contest: false, poll: null, plan: null });
     S.ideas = null;
     dropLayers((l) => l.t === 'compose'); // close this layer, not whatever is on top (0.27.7: nor one put aside)
     goFeedTop();
     update(false);
     const ok = await runAct('post', text, null, null, extra);
     if (ok === false && extra.poll) S.drafts.poll = extra.poll.opts.slice(); // 0.29 (the poll comes back too)
-    if (ok === false) { Object.assign(S.drafts, { post: text, photo: ph ? ph.desc : null, pics: ph && ph.own ? ph.own : [], diapo: !!(ph && ph.diapo), see: !!(ph && ph.see), quote: extra.quote, apology: extra.apology, debunk: extra.debunk, caps: extra.caps, accuse: extra.accuse ? extra.accuse.c : null, cite: extra.accuse ? extra.accuse.clues : [], fake: extra.accuse ? extra.accuse.fake : null, confess: extra.confess, secAns: extra.secret, merch: extra.merch, pfp: extra.pfp, contest: !!extra.contest }); openCompose(); }
+    if (ok === false) { Object.assign(S.drafts, { post: text, photo: ph ? ph.desc : null, pics: ph && ph.own ? ph.own : [], diapo: !!(ph && ph.diapo), see: !!(ph && ph.see), quote: extra.quote, apology: extra.apology, debunk: extra.debunk, caps: extra.caps, accuse: extra.accuse ? extra.accuse.c : null, cite: extra.accuse ? extra.accuse.clues : [], fake: extra.accuse ? extra.accuse.fake : null, confess: extra.confess, secAns: extra.secret, merch: extra.merch, pfp: extra.pfp, contest: !!extra.contest, plan: plan0 }); openCompose(); }
   };
   const toggleCite = (id) => { const c = S.drafts.cite; S.drafts.cite = c.includes(id) ? c.filter((x) => x !== id) : [...c, id]; force((x) => x + 1); };
   const toggleCap = (x) => { const c = S.drafts.caps || []; S.drafts.caps = c.some((y) => y.m === x.m) ? c.filter((y) => y.m !== x.m) : [...c, { c: x.c, m: x.m }].slice(-3); force((n) => n + 1); };
@@ -3207,10 +3308,6 @@ function ComposeLayer({ g, now, i }) {
   const [left, cancel, arm] = useAutoSend('post', val, can, publish);
   const title = accuse ? `Bad buzz contre ${target.name}` : rumor ? 'Démentir la rumeur' : secAns ? STANCES[secAns.stance].title : conf ? 'Avouer un secret' : apology ? 'Excuses publiques' : drop ? (drop.items.every((p) => MERCH[p.k].book) ? 'Lancer ton livre' : 'Lancer ton merch') : contest ? 'Concours de design' : pfp ? 'Nouvelle photo de profil' : quote ? 'Citer un post' : 'Nouveau post';
   const unMode = (k) => { S.drafts[k] = null; force((x) => x + 1); };
-  // 0.29: a poll (2 to 4 choices): only for a plain post, without a photo
-  const pollAllowed = !hasPhoto && !accuse && !rumor && !secAns && !conf && !drop && !contest && !pfp && !apology && !quote;
-  const pollOn = pollAllowed && Array.isArray(d.poll);
-  const pollOpts = pollOn ? d.poll.map((x) => str(x, 40)).filter(Boolean) : [];
   const setOpt = (k, v) => { S.drafts.poll = d.poll.slice(); S.drafts.poll[k] = v; force((x) => x + 1); };
   const addPhoto = () => { S.drafts.photo = ''; force((x) => x + 1); setTimeout(() => { const el = byId('photo-desc'); if (el) el.focus(); }, 40); };
   return html`<${LayerShell} i=${i} title=${title}
@@ -3252,6 +3349,7 @@ function ComposeLayer({ g, now, i }) {
         </div>` : null}
         ${photoOK && !(d.pics || []).length ? html`<${PhotoCard} ph=${{ desc: d.photo.trim(), emoji: photoEmoji(d.photo) }} hue=${g.player.hue} />` : null}
         ${quote ? html`<div class="quote-wrap"><${QuoteCard} g=${g} q=${{ id: quote.id, a: quote.a, text: quote.text, photo: quote.photo || null }} /><button type="button" class="iconbtn quote-x" onClick=${() => { S.drafts.quote = null; force((x) => x + 1); }} aria-label="Ne plus citer ce post"><${Icon} n="x" s=${15} /></button></div>` : null}
+        ${planAllowed ? html`<${AnnBox} g=${g} text=${val.trim()} alt=${hasPhoto ? d.photo : ''} set=${() => force((x) => x + 1)} />` : null}
         ${accuse ? (clues.length ? html`<div class="cite-list"><span class="lbl">Preuves à citer</span>${clues.map((k) => html`<label key=${k.id} class="cite"><input type="checkbox" checked=${d.cite.includes(k.id)} onChange=${() => toggleCite(k.id)} /><span>${k.text}</span></label>`)}</div>`
           : html`<p class="muted cite-none">Aucun indice dans ton dossier sur ${target.name} : ton accusation ne reposera que sur tes arguments.</p>`) : null}
         ${accuse ? html`<${CapturePicker} g=${g} target=${target} sel=${d.caps || []} onToggle=${toggleCap} />` : null}
@@ -3705,7 +3803,7 @@ if (window.__HYPE_TEST__) {
     S, makeScanner, computeOutcome, cleanEval, normHandle, niceRound, xpNeed, update, energyNow, questProgress, promptWorld, promptAct, promptDM,
     promptRefresh, promptIdeas, promptNewChar, WORLDS, START, mains, charByHandle, cloneJSON, addMem, applyVibe, setVibeGoal, addTrigger,
     activeTriggers, checkCancel, startLowProfile, syncLow, applyAbsence, trends, VIBES, SHOP, FLOWS, Store, lastWritten, addClue, regulars, inBadBuzz, ticsOf, linesOf,
-    playerBadBuzz, rollVigilance, fakeNeed, checkFakes, activeRelease, parseAnnounce, activeEvents, eventOf, escapeChance, openDM, aiTier,
+    playerBadBuzz, rollVigilance, fakeNeed, checkFakes, activeRelease, activeEvents, eventOf, escapeChance, openDM, aiTier,
     cancelHurt, fameDiff, shiftTime, checkEvents, addEvent, checkNeglect, writeSave, parsePlan, scanPlans, dueText, dayLabel, winText, mixPick, MIX_P,
     vibePrivate, learnLove, allLearn, knowsOf, seesChron, privNote, dateSeen, KNOW_RULE, lastWord, lastWordsFor, STAY_RE, logDate, backfillDates, dateLogText, dateLogOf, dateLogFor, DATE_LOG_MAX,
     JOB_KINDS, addJob, addJobFile, jobOf, openJob, jobsOf, jobWorked, sendJob, jobOutcome, tickJobs, jobsCtx, jobDMCtx, jobTalk, JOB_LINE, jobFilesWanted, thumbQual, jobGame, payCap,
@@ -3772,7 +3870,7 @@ if (window.__HYPE_TEST__) {
     VOL, volId, volFor, levelOf, chattyOn, autoLiveOn, lifeK, COST_IN, COST_OUT, costAt, hourCafes, hourCafesOf, setOpt, COMMENTS, COMMENT_IDS, LIVE, LIVE_IDS, commentsOf, liveOf, volIdOf, usesOf, USE_LABELS, livePause, AUTO_IDLE_MS,
     SKILL_MAX, SKILL_TREE, SKILL_IDS, SKILL_CUM, skillNeed, skillLevelOf, skillLevel, skillFx, skillFxAt, ensureSkills, trainSkill, practiseAct, practiseDM, practiseTalk, skillsCtx, skillNow, nextTier,
     BUY_KINDS, BUY_RE, buyTalk, BUY_LINE, applyBuy, buyText, buyLabel, buyTotals, buyPrice, PAY_DEFAULT, sround, talkTranscript,
-    makeChat, makeMix, makeFrame, ROUND_MAKERS, mgTime, mgExtra, MG_EXTRA, mgRead, mgClock, mgChars, MG_PACE, clockSec, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, ANNOUNCE_RE, INTEL_RE, VIBE_IDS,
+    makeChat, makeMix, makeFrame, ROUND_MAKERS, mgTime, mgExtra, MG_EXTRA, mgRead, mgClock, mgChars, MG_PACE, clockSec, ROUNDS_FOR, EDIT_FOR, ARCADE_KINDS, REL_RE, WHEN_RE, INTEL_RE, VIBE_IDS,
     importPhoto, removePhoto, ownPhoto, setPhotoDesc, pfpQuiet, pfpAnnounce, pfpPosted, // 0.25.1
     JOB_TIERS, JOB_K, JOB_DIFFS, JOB_FLOP, jobTier, jobQual, jobQ, qOf, jobBest, legendFrom, jobExpect, tierRank, // 0.25.2
     nightTogether, untilMorning, stayOn, endStay, stayCtx, jumpClock, STAY_MS, // 0.25.3
@@ -3783,7 +3881,7 @@ if (window.__HYPE_TEST__) {
     ACH, ACH_BY, ACH_GROUPS, unlockAch, tickAch, achGot, achCount, ensureAch, achProgress, achKeep, myTrend, dealSignedAch, leftFor, giftCounted, noteCaught, vibeLine, osDesk, OS_KINDS, productFlop, buy, releaseDone, markViral, accusationResult, apologyResult, commitEval, cancelDate, // 0.28: the achievements, a present
     checkDeals, relLimit, fanPlanned, startShoot, paletteClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
-    plannedReleases, planRoom, MAX_PLANNED, advanceRelease, advanceChoices, trimReleases, announceLine, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
+    plannedReleases, planRoom, MAX_PLANNED, vagueAnnounce, vagueReleasesOut, annOf, sameRelease, annTopic, annMoments, annResolve, annWhy, VID_TALK_RE, postWhen, PF, advanceRelease, advanceChoices, trimReleases, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
     openPalette, paletteKey, paletteApply, paletteOn, paletteNum, tapCash, SWATCH_ROW, checkPayout, billGear, // 0.27.4: the palette
     startPractice, PRACTICE_GAMES, paletteLines, paletteNudge, paletteVal, PALETTE_TITLES, // 0.27.6: the practice rounds (0.27.9: the palette's window)
     // 0.20: the gear, the connection, the subscriptions, the start
