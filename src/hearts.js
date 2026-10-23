@@ -549,6 +549,7 @@ function talkTranscript(g, ev) {
   for (const x of T.lines) {
     if (x.who === 'c') out.push(`${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}`);
     else if (x.who === 'n') out.push(`(${x.text})`);
+    else if (x.who === 'x') out.push(`${g.chars[x.c] ? firstName(g.chars[x.c]) : 'L’autre'} : « ${x.text} »`); // 0.33.1: the one who came along
     else if (x.geste) { const G = gesteOf(g, ev, x.geste); out.push(`${P} ${G ? G.ai(first) : 'tente un geste'}.`); }
     else if (x.who === 'b') out.push(`(${cap1(buyText(g, x.b))})`); // 0.24: what the player paid
     else if (x.who === 'gf') out.push(`(${first} offre au joueur : ${x.text})`); // 0.26
@@ -632,7 +633,7 @@ function promptTalk(g, ev, said) {
     T && T.ex && T.ex.pub ? `Ils sont dans un lieu public et on les reconnaît : glisse de vrais imprévus de gens connus (des fans qui demandent une photo, quelqu’un qui filme en douce, une connaissance à la table d’à côté), sans tout gâcher. Comment le joueur gère ça compte.` : null,
     T && T.expect ? `Ce que ${first} attend de cette soirée, sans le dire franchement (le joueur ne le sait pas) : « ${T.expect} ».` : null,
     ev.late ? `Le joueur est arrivé avec ${ev.late} min de retard : ${first} le lui fait sentir.` : null,
-    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part)
+    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c), ...plusTalkLines(g, ev)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part; 0.33.1: someone came along)
   if (T && (T.lines.length || T.scene)) L.push('', '## CE QUI S’EST DIT CE SOIR (du début à maintenant)', ...talkTranscript(g, ev));
   if (T && T.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux (« ${ELLIPSE_LINE} ») : rien ne s’en raconte ; la soirée a repris un peu plus tard, ils se reparlent${sensual(g) ? ', avec une complicité nouvelle (une allusion, un regard, jamais de détail)' : ''}.`); // 0.29
   L.push('');
@@ -682,6 +683,7 @@ function promptTalk(g, ev, said) {
       G && G.id === 'payer' ? BUY_LINE(g, c, true) : !G && buyTalk(said.text) ? BUY_LINE(g, c) : null, // 0.24: what the player pays, charged for real
       giftTalk(said.text, T.lines.slice(-4)) ? GIFT_LINE(g, c) : null); // 0.26: a present for the player
   }
+  L.push(PLUS_SAY(g, ev)); // 0.33.1: the one who came along speaks too
   L.push(...psyTalkOut(g, ev, c, !!(said && said.last))); // 0.29: a red flag; tonight, the way out (or none)
   if (askTest) T.testAt = n + 1;
   return L.filter((x) => x !== null).join('\n');
@@ -708,7 +710,8 @@ async function openTalk(ev) {
       if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'expect' && !T.expect) T.expect = str(o.text, 120);
       else if (o.t === 'scene' && !T.scene) T.scene = str(o.text, 300);
-      else if (o.t === 'say' && T.lines.length < 2) { const x = str(o.text, 260); if (x) T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); }
+      else if (o.t === 'say' && T.lines.filter((x) => x.who === 'c').length < 2) { const x = str(o.text, 260); if (x) T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); }
+      else if (o.t === 'say2' && plusOf(g, ev) && !T.lines.some((x) => x.who === 'x')) { const x = str(o.text, 200); if (x) T.lines.push({ who: 'x', c: ev.plus.c, text: x }); } // 0.33.1: the one who came along
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'talk', tier: talkTier(g) });
   } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date'); }
@@ -744,7 +747,7 @@ async function talkTurn(ev, text, geste) {
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, fade = false, after = null, metNow = false, buy = null, gift = null, sign = null, esc = null, fin = null;
+  let react = null, says = 0, ok = true, fade = false, after = null, metNow = false, buy = null, gift = null, sign = null, esc = null, fin = null, atk = null, says2 = 0;
   const deadly = ev.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
@@ -753,6 +756,8 @@ async function talkTurn(ev, text, geste) {
       else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29: a red flag; tonight, a way out, or the end
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
+      else if (o.t === 'attaque' && deadly && atk == null) atk = str(o.text, 200); // 0.33.1: they strike (someone came along: the game plays it)
+      else if (o.t === 'say2' && !says2 && plusOf(g, ev)) { const x = str(o.text, 200); if (x) { T.lines.push({ who: 'x', c: ev.plus.c, text: x }); says2++; } }
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26
       else if (o.t === 'buy' && !buy && ((G && G.id === 'payer') || (!G && buyTalk(text)))) buy = o; // 0.24
       else if (o.t === 'judge' && !react) { react = normReact(o.react); if (T.expect && (o.met === true || o.met === 'true')) metNow = true; }
@@ -778,6 +783,8 @@ async function talkTurn(ev, text, geste) {
   if (sign) psySign(g, c, sign);
   if (esc != null) { fleeDate(g, ev, c, esc); update(); return true; } // 0.29: they got away
   const stayed = !!(G && G.id === 'rester' && (react === 'charme' || react === 'amuse'));
+  if (deadly && !stayed && (plusOf(g, ev) || duelOn()) && (atk != null || fin != null) && T.turn >= 2) { startAttack(g, T, c, atk || fin, { ev, f: plusOf(g, ev), where: 'date' }); update(); return true; } // 0.33.1: they strike: one defends oneself (two of them, or alone)
+  if (stayed && isPsy(g, c) && psyStage(g) >= 3 && duelOn()) { nightAttack(g, ev, c); update(); return true; } // 0.33.1: the night with them: one wakes up
   if ((fin != null && T.turn >= 2) || (stayed && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // a night with them, once they are ready
   if (fade && !stayed && T.turn < T.max) { ellipseTalk(g, ev); if (after) T.lines.push(after); update(); return true; } // 0.29: the scene cuts, the evening goes on (0.31: and they pick it back up)
   if (fade || stayed) { fadeTalk(g, ev, 0.78); update(); return true; } // 0.14: they stay together
@@ -810,7 +817,7 @@ async function lastWord(ev, text) {
   S.busy.talk = ev.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, stay = false, buy = null, gift = null, sign = null, esc = null, fin = null;
+  let react = null, says = 0, ok = true, stay = false, buy = null, gift = null, sign = null, esc = null, fin = null, atk = null, says2 = 0;
   const deadly = ev.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
@@ -818,6 +825,8 @@ async function lastWord(ev, text) {
       else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && fin == null) fin = str(o.text, 260);
+      else if (o.t === 'attaque' && deadly && atk == null) atk = str(o.text, 200); // 0.33.1
+      else if (o.t === 'say2' && !says2 && plusOf(g, ev)) { const x = str(o.text, 200); if (x) { T.lines.push({ who: 'x', c: ev.plus.c, text: x }); says2++; } }
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26
       else if (o.t === 'buy' && !buy && buyTalk(text)) buy = o; // 0.24
       else if (o.t === 'judge' && !react) react = normReact(o.react);
@@ -840,6 +849,8 @@ async function lastWord(ev, text) {
   T.lastWord = text;
   if (sign) psySign(g, c, sign);
   if (esc != null) { fleeDate(g, ev, c, esc); update(); return true; } // 0.29: they got away, at the last moment
+  if (deadly && !yes && (plusOf(g, ev) || duelOn())) { startAttack(g, T, c, atk || fin, { ev, f: plusOf(g, ev), where: 'date' }); update(); return true; } // 0.33.1: they strike: one defends oneself
+  if (yes && isPsy(g, c) && psyStage(g) >= 3 && duelOn()) { nightAttack(g, ev, c); update(); return true; } // 0.33.1: the night with them: one wakes up
   if (deadly || (yes && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // the trap closes (the game saved before the evening)
   if (yes) { if (react === 'charme') c.dareWon = Date.now(); fadeTalk(g, ev, 0.78); } // together: the scene stops at the door
   else { finishTalk(g, ev); prepEnd(g, ev); }
@@ -875,6 +886,7 @@ function dateSeen(g, ev, fol = 0) {
 // Once the evening has ended (dateOutcome): what tonight leaves behind.
 function afterDate(g, ev, c) {
   c.dates = (c.dates || 0) + 1;
+  plusAfter(g, ev, c); // 0.33.1: the one who came along
   if (ev.stolen == null) dateSeen(g, ev); // (an evening between friends: decided here)
   trialAfterDate(g, ev, c); // 0.12: a rival's challenge met
   whisperFromDate(g, ev, c); // 0.13: told around
@@ -896,6 +908,7 @@ function afterDate(g, ev, c) {
 function endUnfinished(g, ev) {
   const c = g.chars[ev.c];
   if (!c || ev.state !== 'scheduled') return false;
+  if (ev.talk && ev.talk.attack && !ev.talk.attack.done) { attackTimeout(g, ev.talk); if (g.over) return true; } // 0.33.1: left in the middle of the attack: the seconds ran out
   if (typeof END_PREP !== 'undefined') END_PREP.delete(ev.id); // (0.28.1: an end written ahead, never opened)
   if (!ev.played && ev.talk && ev.talk.turn >= ev.talk.max) finishTalk(g, ev); // 0.22.3: gone at the last word: the evening was over
   else if (!ev.played && ev.talk && ev.talk.turn >= 1) { // left in the middle of the evening
@@ -933,6 +946,7 @@ function logDate(g, ev, c, recap) {
     e.lines = T.lines.slice(0, 40).map((x) => {
       if (x.who === 'n') return { who: 'n', text: str(x.text, 200) };
       if (x.who === 'c') return x.seen ? { who: 'c', text: str(x.text, 260), seen: str(x.seen, 70) } : { who: 'c', text: str(x.text, 260) };
+      if (x.who === 'x') return { who: 'x', text: str(x.text, 200), name: g.chars[x.c] ? firstName(g.chars[x.c]) : '' }; // 0.33.1
       if (x.geste) { const G = gesteOf(g, ev, x.geste); return { who: 'g', text: G ? G.you(first) : 'Tu tentes un geste.', emoji: G ? G.emoji : '✨' }; }
       if (x.who === 'b') return { who: 'b', text: x.b ? buyLabel(g, x.b) : '' }; // 0.24: what was paid
       if (x.who === 'gf') return { who: 'b', text: `🎁 ${first} t’offre : ${str(x.text, 80)}` }; // 0.26: a present
@@ -963,6 +977,7 @@ function dateLogText(g, e) {
   for (const x of e.lines || []) {
     if (x.who === 'n') out.push(`(${x.text})`);
     else if (x.who === 'c') out.push(`${first} : « ${x.text} »${x.seen ? ` (${x.seen})` : ''}`);
+    else if (x.who === 'x') out.push(`${x.name || '…'} : « ${x.text} »`); // 0.33.1
     else if (x.who === 'g') out.push(`${x.emoji} ${x.text}`);
     else if (x.who === 'b') out.push(x.text);
     else out.push(`${me}${x.last ? ' (un dernier mot)' : ''} : « ${x.text} »`);
@@ -1053,10 +1068,10 @@ function DateTalk({ ev, g, now }) {
     const ok = await lastWord(ev, text);
     if (ok === false) setVal(text);
   };
-  return html`<div class="talk" ref=${box}>
+  return html`<div class=${'talk' + (T.attack && !T.attack.done && !g.over ? ' atk-on' : '')} ref=${box}>
     <div class="talk-scene"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><p>${T.scene || '…'}</p></div>
     <div class="talk-lines">
-      ${T.lines.map((x, j) => (x.who === 'n' ? html`<p key=${j} class="talk-fade">${x.text}</p>` : x.who === 'c'
+      ${T.lines.map((x, j) => (x.who === 'n' ? html`<p key=${j} class=${'talk-fade' + (x.atk ? ' atk-line' : '')}>${x.text}</p>` : x.who === 'x' ? html`<div key=${j} class="talk-line them is-plus"><span class="talk-who">${g.chars[x.c] ? firstName(g.chars[x.c]) : ''}</span><div class="bubble them is-plus">${x.text}</div></div>` : x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${x.text}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
         : x.geste ? html`<div key=${j} class="talk-geste">${(gesteOf(g, ev, x.geste) || {}).emoji || '✨'} ${gesteOf(g, ev, x.geste) ? gesteOf(g, ev, x.geste).you(first) : 'Tu tentes un geste.'}</div>`
           : x.who === 'b' ? html`<div key=${j} class=${'talk-buy' + (x.b && x.b.refused ? ' refused' : x.b && x.b.free ? ' free' : '')}>${x.b ? buyLabel(g, x.b) : ''}</div>`
@@ -1065,11 +1080,12 @@ function DateTalk({ ev, g, now }) {
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
       ${!busy && !over && T.lines.length && T.lines[T.lines.length - 1].text === LATER_LINE ? html`<p class="talk-hint">À toi de reprendre la conversation.</p>` : null}
     </div>
+    ${T.attack && !T.attack.done && !g.over ? html`<${AttackView} g=${g} H=${T} />` : null}
     ${over ? html`<div class="talk-foot talk-over">
       <p>${T.fled ? 'Tu es dehors, le cœur qui cogne. Tu ne te retournes pas.' : T.faded ? 'La soirée se termine à deux.' : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
       <button class="btn btn-hot" onClick=${() => { T.closed = true; update(); }}>${T.fled ? 'Rentrer chez toi' : 'Terminer la soirée'}</button>
     </div>` : null}
-    ${lastStage ? html`<div class="talk-foot talk-last">
+    ${lastStage && !T.attack ? html`<div class="talk-foot talk-last">
       <p>La soirée touche à sa fin. Un dernier mot avant de vous quitter ?</p>
       <div class="talk-gestes" role="group" aria-label="Idées de dernier mot">${lastWordsFor(g, ev).map((x) => html`<button key=${x} type="button" class="chip-btn" onClick=${() => { setVal(x); if (ref.current) ref.current.focus(); }}>${x}</button>`)}</div>
       <div class="reply-box">
@@ -1080,11 +1096,11 @@ function DateTalk({ ev, g, now }) {
       </div>
       <button class="btn btn-ghost btn-sm talk-bye" onClick=${() => lastWord(ev, '')}>Se dire au revoir</button>
     </div>` : null}
-    ${!over && !lastStage && ev.clash && ev.clash.length && T.lines.length ? html`<div class="talk-clash" role="status">
+    ${!over && !lastStage && !T.attack && ev.clash && ev.clash.length && T.lines.length ? html`<div class="talk-clash" role="status">
       <p>⏰ ${cap1(ev.clash.map((x) => x.text).join(' ; '))}.</p>
       <button type="button" class="btn btn-ghost btn-sm" disabled=${busy} onClick=${() => cutDate(ev)}>Écourter la soirée</button>
     </div>` : null}
-    ${!over && left > 0 && T.lines.length ? html`<div class="talk-foot">
+    ${!over && left > 0 && T.lines.length && !T.attack ? html`<div class="talk-foot">
       ${gestes.length ? html`<div class="talk-gestes" role="group" aria-label="Oser un geste">${gestes.map((x) => html`<button key=${x.id} type="button" class=${'chip-btn' + (arm === x.id ? ' armed' : '')} disabled=${busy} onClick=${() => tapGeste(x)}>${x.emoji} ${arm === x.id ? 'Vraiment ? Touche encore' : x.label}</button>`)}</div>` : null}
       <div class="reply-box">
         <textarea ref=${ref} rows="1" maxlength=${TALK_MAX} placeholder=${'Ta réponse à ' + first + '…'} value=${val} disabled=${busy}

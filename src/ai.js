@@ -156,7 +156,7 @@ function ctxText(g, o = {}) {
   L.push('', '## PERSONNAGES PRINCIPAUX (@handle — nom · rôle · personnalité · voix)');
   const roster = [], matus = new Set(), shown = [];
   for (const c of others) {
-    if (!inFocus(c)) { roster.push(K.roster === 'brief' ? `@${c.handle} (${c.name}, ${str(c.role, 40)}${c.jailed ? ', arrêté·e' : ''})` : `@${c.handle} (${c.name}, ${c.role}${c.age ? ', ' + c.age + ' ans' : ''}${c.jailed ? ', arrêté·e : ne poste plus' : ''})`); continue; }
+    if (!inFocus(c)) { roster.push(K.roster === 'brief' ? `@${c.handle} (${c.name}, ${str(c.role, 40)}${c.gone ? ', porté·e disparu·e' : c.jailed ? ', arrêté·e' : ''})` : `@${c.handle} (${c.name}, ${c.role}${c.age ? ', ' + c.age + ' ans' : ''}${c.gone ? ', porté·e disparu·e : personne ne sait où' : c.jailed ? ', arrêté·e : ne poste plus' : ''})`); continue; }
     const lk = faceLook(g, c), ag = ageText(c, true);
     if (c.age) matus.add(MATU[c.matu] ? c.matu : 'pose');
     L.push(`@${c.handle} — ${c.name} · ${c.role} · ${c.personality} · voix : ${c.voice}${ag ? ' · ' + ag : ''}${lk ? ' · physique : ' + lk : ''}${rosterTrait(c)}${roleTag(c)}`); // (0.29: their role; 0.32: their way of fighting)
@@ -719,6 +719,8 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   if (main) L.push(...featDMCtx(g, c)); // 0.29.1: a feat, proposed
   if (main) L.push(...agentDMCtx(g, c)); // 0.31: the player as their agent
   if (main) L.push(...castDMCtx(g, c)); // 0.30.1: the cast of a big production
+  if (main) L.push(...plusDMCtx(g, c, text)); // 0.33.1: a date of the player's they may come along to
+  if (main) L.push(...missionDMCtx(g, c, text)); // 0.33.1: going to see someone for the player
   if (trig.length) L.push('À jouer dans cette conversation : ' + trig.map((x) => x.text).join(' '));
   const rumor = main ? brandRumorLine(g, c, text) : ''; // 0.20: the player asks about a brand: what the milieu says
   if (rumor) L.push(rumor);
@@ -773,6 +775,8 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     canJoin(c) ? `- Facultatif, seulement si c’est vraiment le cas : si l’échange devient personnel (${c.name} se confie, flirte, a envie de voir le joueur en dehors du travail, ou une vraie complicité naît), ajoute {"t":"perso","why":"≤ 60 caractères"} : la relation n’est plus seulement pro (son travail ne change pas).` : null,
     ...dmCareerLines(g, c),
     main && t33On() && hireOK(g, c) && (c.hireAsk || HIRE_RE.test(text)) ? hireLine(g, c) : null, // 0.33: a job for them, offered by the player
+    main ? plusLine(g, c, text) : null, // 0.33.1: coming along to a date of the player's
+    main ? missionLine(g, c, text) : null, // 0.33.1: going to see someone for the player
     ...(main && (openJob(g, c.id) || jobTalk(history, text)) ? JOB_LINE(g, c) : []), // 0.23: a service, its files
     buyTalk(text) && !paid ? BUY_LINE(g, c) : null, // 0.24: something bought, charged for real (0.28.1: not a present already paid)
     main && giftTalk(text, history) ? GIFT_LINE(g, c) : null, // 0.26: a present for the player, to the inventory
@@ -1954,6 +1958,7 @@ async function sendDM(charId, text, opts = {}) {
   if (Object.keys(S.busy.dms || {}).length >= 3) { toast('Trois conversations te répondent déjà : attends une réponse.', 'bad'); return null; }
   text = String(text || '').trim().slice(0, DM_MAX);
   if (!text) return null;
+  if (c.gone) { const t0 = Date.now(), cv = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 }); cv.msgs.push({ id: uid('m'), me: true, text, ts: t0, at: t0 }); update(); return true; } // 0.33.1: gone: no one answers any more
   if (!canAfford(g, 'dm')) { budgetBlocked(); return false; }
   if (c.asleep) wake(g, c, ''); // 0.30: written to, they are back
   // 0.28: a present for them, bought now (given back if the message does not go)
@@ -2067,6 +2072,8 @@ async function dmAnswer(g, c, convo, A) {
       else if ((o.t === 'ouvert' || o.t === 'trouple') && !fx.open && isMain(c)) { const oo = o; fx.open = () => applyOpenLine(g, c, oo); } // 0.32: open, a throuple
       else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => ((o.collab === true || o.collab === 'true' || COLLAB_RE.test(o.what || '')) && isMain(c) && planCollab(g, c, o)) || addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); } // (0.29.1: a feat agreed goes in the Studio)
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
+      else if (o.t === 'accompagne' && !fx.plus && isMain(c)) fx.plus = () => applyPlusLine(g, c, o); // 0.33.1: they come along to a date, or not
+      else if (o.t === 'mission' && !fx.mission && isMain(c)) fx.mission = () => applyMissionLine(g, c, o); // 0.33.1: they go and see someone, or not
       else if (o.t === 'agent' && !fx.agent && isMain(c)) fx.agent = () => applyAgentLine(g, c, o); // 0.31: the player as their agent
       else if (o.t === 'partenariat' && !fx.tdeal && isMain(c)) fx.tdeal = () => applyTdealAnswer(g, c, o); // 0.31: a brand their agent found
       else if (o.t === 'plus_tard' && !fx.tdeal && isMain(c)) fx.tdeal = () => tdealLater(g, c, o); // 0.33: they want to try it first, and say for when
@@ -2107,7 +2114,7 @@ async function dmAnswer(g, c, convo, A) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.plus, fx.mission, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (A.late && msgs && at0 < Date.now() - 60000) addNotif(g, { k: 'dm', c: c.id, at: Date.now(), text: `💬 ${c.name} t’a répondu.` }); // 0.32: an answer from while the time went by (no toast of its own)
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
@@ -2343,6 +2350,7 @@ function jumpClock(g, ms, how = 'skip') {
   tickSecrets(g, Date.now()); // 0.18: a secret that kept people talking meanwhile
   tickDilemmas(g, Date.now());
   tickVisits(g, Date.now());
+  tickMissions(g, Date.now()); // 0.33.1: the ones sent went meanwhile
   tickRoles(g, Date.now()); // 0.29: the psychopath's clock, the roles of an old game
   tickSocial(g, Date.now()); // 0.29: a fake account taken down, or that fooled fans meanwhile
 }
@@ -2980,6 +2988,7 @@ function promptDateEnd(g, ev) {
       : `Comment ça s’est passé (mini-jeu joué par le joueur, difficulté ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`,
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',
     ...talkEndLines(g, ev),
+    plusOf(g, ev) ? `@${plusOf(g, ev).handle} (${plusOf(g, ev).name}) était là aussi, toute la soirée, venu·e avec le joueur : le récit le dit.` : null, // 0.33.1
     ...psyEndLines(g, ev), // 0.29: they fled
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,
     ev.cut ? `Le joueur a ÉCOURTÉ la soirée, il devait partir (${ev.cut.why || 'un engagement'}) : ${c.name} le prend à sa façon (compréhensi${gx(c.g, 'f', 've', 'f·ve')}, déçu${gx(c.g, '', 'e', '·e')}, vexé${gx(c.g, '', 'e', '·e')}…), selon votre relation, son cœur et la soirée jusque-là.` : null, // 0.30.1

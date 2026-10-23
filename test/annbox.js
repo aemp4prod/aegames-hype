@@ -260,7 +260,7 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
     return {
       t1: H.annTopic('Live ce soir 21h, je réponds à vos questions'), t2: H.annTopic('Un jour, une vidéo sortira sur vous et vous serez pas prévenu…'), t3: H.annTopic('demain'),
       t4: H.annTopic('mon prochain short arrive dans 2h !'), t5: H.annTopic('j’arrive pas à croire que ma vidéo marche autant'),
-      w1: H.postWhen('rdv samedi 20h'), w2: H.postWhen('un jour peut-être'), w3: H.postWhen('dans 30 min'),
+      w1: H.postWhen('rdv samedi 20h', new Date(2026, 9, 21, 12, 0)) /* (a Wednesday: said on a Saturday, « samedi » is the next one, beyond the week) */, w2: H.postWhen('un jour peut-être'), w3: H.postWhen('dans 30 min'),
       talk: [H.VID_TALK_RE.test('un live ce soir'), H.VID_TALK_RE.test('je vis ma meilleure vie'), H.VID_TALK_RE.test('Épisode 2 bientôt'), H.VID_TALK_RE.test('olive')],
     };
   });

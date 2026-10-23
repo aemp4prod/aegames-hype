@@ -2015,11 +2015,77 @@ svg.watch:active { cursor: grabbing; }
 .sg-opt small { color: var(--ink-3); font-size: 12.5px; }
 .hire-pay { gap: 8px; align-items: center; }
 .hire-pay input { width: 120px; }
-.prof-job { align-self: flex-start; }
+.prof-job, .prof-mission { align-self: flex-start; }
 .dl-guest { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
 .dl-guest.ok { background: color-mix(in srgb, var(--good) 10%, var(--surface-2)); }
 .dl-guest .row { gap: 8px; flex-wrap: wrap; align-items: center; }
 .inv-pub { font-size: 13px; font-weight: 600; color: var(--good); }
+/* 0.33.1: someone came along; the attack, under pressure */
+.plus-btn { align-self: stretch; }
+.date-late.plus-on { color: var(--good); }
+.talk-line.is-plus { align-items: flex-start; }
+.talk-who { margin: 0 0 3px 10px; font-size: 11.5px; font-weight: 700; color: var(--ink-3); }
+.bubble.them.is-plus { background: color-mix(in srgb, var(--hot) 9%, var(--surface-2)); }
+.talk-fade.atk-line { color: var(--bad); font-style: normal; font-weight: 600; border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+/* the attack, like a horror film: a dark box with a heartbeat, the edges of the screen closing in, a flash at each blow */
+.atk-wrap { position: relative; z-index: 3; margin-top: 10px; }
+.talk.atk-on::before { content: ''; position: fixed; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(18, 0, 5, 0.78) 100%); animation: atk-vig 2.4s ease-in-out infinite alternate; }
+.atk-fx { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; }
+.atk-fx.fx-go { background: #E0313B; animation: atk-flash 0.32s ease-out; }
+.atk-fx.fx-hit { background: #B0000F; animation: atk-flash 0.7s ease-out; }
+.atk-fx.fx-ok { background: #FFFFFF; animation: atk-flash 0.25s ease-out; }
+.atk-fx.fx-dark { background: #000; animation: atk-dark 0.9s ease-out; }
+.atk { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; border: 2px solid #E0313B; background: radial-gradient(ellipse at 50% 0%, #2B0E19, #0B0407 78%); color: #F6EEF2; animation: atk-in 0.25s ease-out, atk-beat 1.05s ease-in-out 0.25s infinite; }
+.atk-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #FF5A5F; }
+.atk .atk-text { font-size: 16px; font-weight: 700; color: #F6EEF2; }
+.atk .atk-text.reveal { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 400; font-size: 21px; line-height: 1.45; }
+.atk-timer { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.atk-timer i { display: block; height: 100%; width: 100%; background: #E0313B; transform-origin: left center; animation-name: atk-shrink; animation-timing-function: linear; animation-fill-mode: forwards; }
+.atk-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.atk-opt { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 10px; border-radius: 12px; border: 1px solid #4A2A35; background: rgba(255, 255, 255, 0.05); color: #F6EEF2; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.atk-opt:hover, .atk-opt:focus-visible { border-color: #FF5A5F; background: rgba(224, 49, 59, 0.14); }
+.atk-opt kbd { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; border: 1px solid #5A3744; font: 700 11px/1 var(--f-mono); color: #BBA9B3; }
+.atk-with { color: #BBA9B3; font-size: 12.5px; }
+.qte-arena { position: relative; height: 170px; border-radius: 12px; background: rgba(0, 0, 0, 0.45); overflow: hidden; display: grid; place-items: center; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.qte-wait { width: 10px; height: 10px; border-radius: 50%; background: #E0313B; animation: atk-pulse 0.9s ease-in-out infinite; }
+.atk .qte-go { margin: 0; font: 800 26px/1 var(--f-display); letter-spacing: 0.03em; text-transform: uppercase; color: #FF5A5F; text-align: center; pointer-events: none; animation: qte-go 0.3s ease-out; }
+.qte-target { position: absolute; width: 76px; height: 76px; margin: -38px 0 0 -38px; padding: 0; border: 0; border-radius: 50%; background: #E0313B; color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 0 6px rgba(224, 49, 59, 0.25), 0 0 30px rgba(224, 49, 59, 0.6); animation: qte-pop 0.16s ease-out; touch-action: manipulation; }
+.qte-target b { font: 800 24px/1 var(--f-mono); }
+.qte-ring { position: absolute; inset: -16px; border-radius: 50%; border: 3px solid #FF9A9E; pointer-events: none; animation-name: qte-ring; animation-timing-function: linear; animation-fill-mode: forwards; }
+.qte-mash { position: absolute; inset: 0 0 10px 0; width: 100%; border: 0; border-radius: 12px; background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; overflow: hidden; touch-action: manipulation; }
+.qte-mash:active { transform: scale(0.985); }
+.qte-mash b { position: relative; font: 800 26px/1 var(--f-display); letter-spacing: 0.03em; text-transform: uppercase; }
+.qte-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #7A0D18, #E0313B); transition: width 0.08s linear; }
+.qte-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.08); }
+.qte-bar i { display: block; height: 100%; width: 100%; background: #FF9A9E; transform-origin: left center; animation-name: atk-shrink; animation-timing-function: linear; animation-fill-mode: forwards; }
+.atk .qte-count { margin: 0 0 54px; font: 800 64px/1 var(--f-display); color: #fff; text-shadow: 0 0 24px rgba(224, 49, 59, 0.8); animation: qte-pop 0.18s ease-out; }
+.qte-push { position: absolute; left: 12px; right: 12px; bottom: 12px; min-height: 48px; border: 0; border-radius: 12px; background: #E0313B; color: #fff; font: 800 18px/1 var(--f-display); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
+.qte-still { display: grid; place-items: center; gap: 10px; text-align: center; }
+.qte-still b { font: 800 22px/1 var(--f-display); letter-spacing: 0.03em; text-transform: uppercase; color: #BBA9B3; }
+.qte-hold { width: 54px; height: 54px; border-radius: 50%; border: 3px solid #3A2530; border-top-color: #FF5A5F; animation-name: qte-spin; animation-timing-function: linear; animation-fill-mode: forwards; }
+.atk .qte-whisper { margin: 0; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 17px; color: #FF9A9E; animation: fade 0.6s ease-out; }
+.atk.q-still.ph-go { animation: atk-in 0.25s ease-out, atk-beat 0.6s ease-in-out infinite; }
+.atk.atk-dead { align-items: center; text-align: center; border-color: #FF2D3A; background: radial-gradient(ellipse at 50% 40%, #3A0710, #0B0407 80%); animation: atk-in 0.25s ease-out, atk-shake 0.45s ease-out; }
+.atk .atk-dead-t { margin: 0; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 32px; color: #FF5A5F; }
+.atk .atk-dead-s { margin: 0; color: #F6EEF2; font-size: 15px; }
+.atk .atk-dead-n { margin: 0; color: #BBA9B3; font-size: 13px; }
+.atk-dead-b { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.atk-dead-b .btn-ghost { color: #F6EEF2; border-color: #4A2A35; }
+@keyframes atk-shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes atk-in { from { transform: scale(0.97); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes atk-beat { 0%, 100% { box-shadow: 0 0 0 0 rgba(224, 49, 59, 0); } 14% { box-shadow: 0 0 22px 2px rgba(224, 49, 59, 0.55); } 28% { box-shadow: 0 0 6px 0 rgba(224, 49, 59, 0.2); } 42% { box-shadow: 0 0 18px 1px rgba(224, 49, 59, 0.45); } }
+@keyframes atk-vig { from { opacity: 0.75; } to { opacity: 1; } }
+@keyframes atk-flash { 0% { opacity: 0.55; } 100% { opacity: 0; } }
+@keyframes atk-dark { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes atk-pulse { 0%, 100% { transform: scale(0.7); opacity: 0.5; } 50% { transform: scale(1.3); opacity: 1; } }
+@keyframes atk-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+@keyframes qte-go { from { transform: scale(1.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes qte-pop { from { transform: scale(0.6); opacity: 0.2; } to { transform: none; opacity: 1; } }
+@keyframes qte-ring { from { transform: scale(1.7); opacity: 0.35; } to { transform: scale(0.82); opacity: 1; } }
+@keyframes qte-spin { from { transform: rotate(0deg); } to { transform: rotate(720deg); } }
+@media (max-width: 420px) { .atk-opts { grid-template-columns: 1fr; } }
+@media (pointer: coarse) { .atk-opt kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .atk, .atk.atk-dead, .atk.q-still.ph-go, .talk.atk-on::before, .qte-ring, .qte-wait, .atk .qte-count, .atk .qte-go, .qte-target, .atk .qte-whisper { animation: none; } .atk-fx { display: none; } }
 .chan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .chan-cell { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; text-align: left; font-size: 12px; color: var(--ink-3); }
 .chan-cell b { color: var(--ink); }

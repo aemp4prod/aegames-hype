@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.33.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -405,6 +405,17 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   d’abonnés pour le plus gros) arrivent à mesure que tu grandis : il y en a toujours quelques-uns au-dessus de toi, et
   tant que tu es petit, ils ne répondent pas à n’importe qui. En fin de partie, tu peux les dépasser. Les abonnés de tous
   les persos grandissent aussi au fil des jours (moins pour ceux qui se font discrets, et un bad buzz les fait baisser).
+- **Venir avec quelqu’un** (0.33.1) : sur l’écran d’un rendez-vous, « 👥 Venir avec quelqu’un » (ou demande-le en
+  message) : son IA décide. Si c’est oui, la personne est là toute la soirée, parle et réagit, et celui ou celle qui te
+  reçoit réagit à sa présence (en amoureux, une personne de trop, ça refroidit). La soirée compte pour vous trois.
+- **Se défendre** (0.33.1) : si quelqu’un passe à l’acte, la scène se joue comme un film d’horreur : trois choix en
+  quelques secondes et, entre eux, des réflexes surprises (esquiver, se dégager en tapant vite, pousser « à trois » avec
+  la personne venue avec toi, ne plus bouger dans le noir). Elle t’aide selon votre relation, et peut te rattraper ;
+  seul, c’est beaucoup plus dur. Un réflexe raté, tu reviens juste avant (un peu plus facile à chaque essai ; après
+  trois ratés, tu peux passer le moment, blessé).
+- **Envoyer quelqu’un parler à un perso** (0.33.1) : sur son profil, « 🕵️ Envoyer quelqu’un lui parler » (ou en
+  message) : celui que tu envoies décide s’il y va, et jusqu’où, puis te raconte ce qu’il a vu. Plus tu en demandes,
+  plus tu envoies de monde, plus ça peut mal tourner : il arrive qu’on ne revienne pas.
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro
@@ -505,8 +516,8 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   gênantes (et pudiques) sur les gens du réseau, toi compris ; c’est un perso comme les autres, qu’on peut aussi
   draguer. Et **un psychopathe se cache parmi les persos**, tiré au sort à chaque partie (ton premier abonné compris) :
   il ou elle veut tout être pour toi. Rien n’arrive la première semaine ; ensuite, certaines soirées peuvent très mal
-  finir, et la partie s’arrête sur un écran de fin qui propose de revenir à une sauvegarde (le jeu en fait toujours une
-  juste avant un rendez-vous ou une visite). Démasqué en public, il tombe, et toi tu montes ; accuser quelqu’un
+  finir (depuis la 0.33.1, tu peux te défendre), et si tu n’en réchappes pas, la partie s’arrête sur un écran de fin qui
+  propose de revenir à une sauvegarde (le jeu en fait toujours une juste avant un rendez-vous ou une visite). Démasqué en public, il tombe, et toi tu montes ; accuser quelqu’un
   d’innocent, c’est de la diffamation. Un moment trop intime pendant un rendez-vous coupe la
   scène (« Ce moment ne regarde pas les voyeurs. ») et la soirée reprend un peu plus tard.
 - **Le réseau qui vit** (0.29) : des **stories** de 24 h (celles des persos, avec leurs sondages et leurs questions, et
@@ -624,7 +635,8 @@ src/                le jeu : core.js, ai.js, career.js (la carrière : argent,
                     stalkers.js (0.32 : ceux qui suivent le joueur de trop près, à partir de 10 000 abonnés), equipe.js
                     (0.33 : l’équipe qui progresse, son matériel, son moral, les augmentations, le débauchage, les persos
                     à qui on donne du boulot), affiche.js (0.33 : les têtes d’affiche, la croissance des persos, le contenu
-                    sponsorisé à plusieurs), social.js (le réseau qui vit :
+                    sponsorisé à plusieurs), accompagne.js (0.33.1 : venir avec quelqu’un, la scène où l’on se défend
+                    et ses réflexes), enquete.js (0.33.1 : envoyer quelqu’un parler à un perso), social.js (le réseau qui vit :
                     stories, groupes, la mère, les fans, les faux comptes, les petits faits du quotidien), studio.js (ses
                     écrans), montage.js (le
                     montage, la miniature et le dessin, après le tournage), photos.js

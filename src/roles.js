@@ -101,6 +101,7 @@ function roleAskLines(g) {
 /* ---------- the roles, as the AI reads them ---------- */
 function roleTag(c) {
   if (!c) return '';
+  if (c.gone) return ' · PORTÉ·E DISPARU·E (personne ne sait ce qui lui est arrivé) : ne poste plus, ne répond plus'; // 0.33.1
   if (c.jailed) return ' · DÉMASQUÉ·E ET ARRÊTÉ·E (obsédé·e par le joueur, dangereux·se) : ne poste plus, ne répond plus';
   if (c.fixed === 'critique') return ' · RÔLE : le critique du réseau, le plus dur avec le joueur (relève chacun de ses faux pas et lance les dramas ; reconnaît une vraie réussite, à contrecœur)';
   if (c.fixed === 'fanfic') return ' · RÔLE : écrit des fanfictions mélodramatiques sur les gens du réseau';
@@ -256,7 +257,7 @@ function psyStage(g, t = Date.now()) {
   return Math.max(s, P.stage || 0);
 }
 // A red flag the player could notice: noted in their file on them (a clue to cite), counted.
-function psySign(g, c, text, at) {
+function psySign(g, c, text, at, force) {
   const P = g && g.psy;
   if (!P || P.out || !c || c.id !== P.c) return stalkSign(g, c, text, at); // (0.32: or a sign of one who follows the player)
   text = str(text, 130);
@@ -266,7 +267,7 @@ function psySign(g, c, text, at) {
   if (!Array.isArray(g.clues)) g.clues = [];
   const mine = g.clues.filter((k) => k.c === c.id && k.psy);
   let k = null;
-  if (mine.length < PSY_CLUES && !mine.some((x) => similar(x.text, text))) {
+  if ((force || mine.length < PSY_CLUES) && !mine.some((x) => x.text === text || (!force && similar(x.text, text)))) { // (0.33.1 force: what they did, always noted)
     const t = at || later();
     k = tag({ id: uid('k'), c: c.id, text, ts: t, at: t, psy: 1 });
     g.clues.push(k);
@@ -277,11 +278,17 @@ function psySign(g, c, text, at) {
 }
 const PSY_SIGNS = 'il ou elle sait des choses que le joueur ne lui a jamais dites, répond à 3 h du matin à la seconde, insiste quand le joueur ne répond pas (« ?? », « tu es où »), est jaloux·se de tous ceux qui l’approchent, « passe » devant chez lui, a des photos de lui qu’il n’a jamais postées, parle de leur avenir comme d’une évidence';
 const PSY_HOME = 'un sourire figé qui dure beaucoup trop longtemps, un couteau toujours posé à portée de main (« pour les fruits »), des photos du joueur au mur, une porte fermée à clé dont il ou elle ne parle jamais, une deuxième brosse à dents « pour toi », une playlist faite de leurs conversations, des fleurs fanées gardées « depuis ton premier message »';
+// 0.33.1: what they say goes further too, stage after stage: from a possessive lover to someone who frightens (« je
+// pensais au tueur, mais je pensais aussi juste à une personne possessive »).
+const PSY_CREEP = {
+  2: 'Ses phrases aussi deviennent bizarres, de plus en plus au fil d’une conversation : il ou elle parle du joueur comme d’un acquis (« quand tu habiteras ici », « nos affaires »), laisse échapper ce qu’il a fait hier soir sans qu’il l’ait raconté, plaisante sur le fait qu’il ne pourrait pas partir (« tu ne m’échapperas pas, hein ? »), avec un rire qui dure trop',
+  3: 'Plus de doute pour qui écoute, et ça monte au fil d’une conversation : des phrases qui glacent (« ici, personne ne nous dérangera », « j’ai tout prévu pour nous deux », « la dernière personne qui a voulu me quitter l’a regretté », « tu n’auras plus besoin de ton téléphone »), un calme qui fait peur, des choses qu’on ne peut plus prendre pour de la jalousie. Jamais d’aveu, jamais de violence montrée, rien de gore',
+};
 const PSY_STAGES = [
   'tout semble parfait : charmant·e, attentionné·e, toujours là… à peine trop. Pas encore de vrai signe (au plus un, minuscule)',
   'les premiers signaux, discrets : ' + PSY_SIGNS,
-  'l’emprise : il ou elle veut isoler le joueur (glisse du mal de ses proches, se vexe quand il voit d’autres gens) et l’attirer chez lui ou elle. Chez lui ou elle, des détails de film d’horreur (' + PSY_HOME + ') : la soirée est étrange, mais il ne lui arrive rien',
-  'il ou elle est prêt·e à passer à l’acte : il ou elle veut le joueur seul, la nuit (chez lui ou elle, ou en débarquant chez le joueur), et le propose avec une douceur insistante ; rien n’arrive sans que le joueur accepte',
+  'l’emprise : il ou elle veut isoler le joueur (glisse du mal de ses proches, se vexe quand il voit d’autres gens) et l’attirer chez lui ou elle. Chez lui ou elle, des détails de film d’horreur (' + PSY_HOME + ') : la soirée est étrange, mais il ne lui arrive rien. ' + PSY_CREEP[2],
+  'il ou elle est prêt·e à passer à l’acte : il ou elle veut le joueur seul, la nuit (chez lui ou elle, ou en débarquant chez le joueur), et le propose avec une douceur insistante ; rien n’arrive sans que le joueur accepte. ' + PSY_CREEP[3],
 ];
 // How they want the player: a seducer who overdoes it, or the friend who never lets go (the bond says it).
 function psyMode(g, c) {
@@ -296,14 +303,20 @@ function psyMode(g, c) {
 function psyCore(g, c) {
   const st = Math.max(0, psyStage(g)), first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   return ['', `## SECRET DU JEU : ${first.toUpperCase()} EST LE PSYCHOPATHE DE CETTE PARTIE`,
-    `Personne ne le sait : ni le joueur, ni les autres personnages. ${first} ne l’avoue jamais, ne menace jamais franchement et ne se trahit jamais d’un coup : tout passe par des détails, comme dans un film d’horreur. Rien de gore.`,
+    `Personne ne le sait : ni le joueur, ni les autres personnages. ${first} ne l’avoue jamais et ne se trahit jamais d’un coup : tout passe par des détails et des phrases de plus en plus inquiétantes à mesure que ça avance, comme dans un film d’horreur (jamais de menace en toutes lettres avant de passer à l’acte). Rien de gore.`,
     `Ce qu’${il} veut : devenir tout pour le joueur, à n’importe quel prix. ${psyMode(g, c)}`,
     `Où ${il} en est : ${PSY_STAGES[st]}.`];
 }
 const PSY_SIGN_LINE = '- Facultatif (au plus 1) : si tu glisses un détail inquiétant (naturellement, jamais souligné ni expliqué), ajoute {"t":"psy","text":"≤ 90 caractères : ce que le joueur a pu remarquer, factuel (ex : « connaît le nom de ta sœur alors que tu ne l’as jamais dit »)"}.';
+// 0.33.1: the signs noted go further with the stage: past jealousy, then frightening.
+const PSY_SIGN_DEEP = {
+  2: ' À ce stade, un détail qui met vraiment mal à l’aise, au-delà de la jalousie (ex : « un carnet avec tes horaires de la semaine », « une photo de toi prise de nuit, devant chez toi »).',
+  3: ' À ce stade, un détail qui fait peur, qu’on ne peut plus prendre pour de la possessivité (ex : « une coupure de presse sur un ex porté disparu, dans son tiroir », « un couteau caché sous le coussin du canapé », « du ruban adhésif et une corde dans le placard de l’entrée »), sans rien de gore.',
+};
+const psySignLine = (g) => PSY_SIGN_LINE + (PSY_SIGN_DEEP[Math.max(0, psyStage(g))] || '');
 // Their private messages.
 function psyDMCtx(g, c) { return psyNow(g) && isPsy(g, c) ? psyCore(g, c) : stalkCore(g, c); } // (0.32: or one who follows the player)
-const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? PSY_SIGN_LINE : isStalker(g, c) ? STALK_SIGN_LINE : null);
+const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? psySignLine(g) : isStalker(g, c) ? STALK_SIGN_LINE : null);
 // The refreshes and the reactions: the secret, in a line (their public face, their DMs written there).
 function psyPublicLines(g) {
   const c = psyNow(g), st = c ? psyStage(g) : -1;
@@ -315,27 +328,41 @@ function psyPublicLines(g) {
 /* ---------- an evening with them, a visit of theirs ---------- */
 const nightAt = (t) => { const h = gameDate(t).getHours(); return h >= 22 || h < 6; };
 // The evening alone with them, once they are ready: the deadly one (decided as it opens, the game saved just before).
-const psyDeadlyDate = (g, ev) => { const c = g.chars[ev.c]; return isPsy(g, c) && psyStage(g) >= 3 && PSY_ALONE_RE.test(ev.what || ''); };
+// 0.33.1: alone with them, said as the place says it (« chez Zara », « chez @pseudo », a closed place: as meetPlace reads it)
+const psyAlone = (g, ev) => PSY_ALONE_RE.test(ev.what || '') || ['home', 'shut'].includes(meetPlace(g, ev));
+const psyDeadlyDate = (g, ev) => { const c = g.chars[ev.c]; return isPsy(g, c) && psyStage(g) >= 3 && psyAlone(g, ev); };
 const PSY_ESCAPE = (first, il, home) => `Le joueur peut encore s’en sortir : s’il se méfie vraiment et agit (${home ? 'mettre ' + first + ' dehors et fermer à clé, s’enfermer dans une pièce, appeler quelqu’un, s’enfuir par l’escalier' : 's’enfuir, inventer une excuse crédible et partir pour de bon, appeler quelqu’un, refuser ce qu’' + il + ' lui sert, ne pas entrer dans la pièce fermée'}), il s’échappe de justesse : ajoute alors {"t":"escape","text":"≤ 160 caractères : comment il s’en sort"}. Une simple gêne ou un « je vais y aller » poli ne suffit pas : ${first} le retient, avec douceur.`;
 const PSY_FIN = (first) => `{"t":"fin","text":"≤ 200 caractères : la dernière image, pudique (une lumière qui s’éteint, une porte qui se referme, une playlist qui continue), sans rien de gore, à la deuxième personne"}`;
 function psyTalkCtx(g, ev, c) {
   if (!psyNow(g) || !isPsy(g, c)) return stalkCore(g, c); // (0.32: or one who follows the player)
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = psyCore(g, c);
+  const f = plusOf(g, ev); // 0.33.1: someone came with the player
+  if (ev.psy === 'deadly' && f) L.push(`## CE SOIR, LE JOUEUR N’EST PAS VENU SEUL : @${f.handle} (${f.name}) EST LÀ`, `${first} ne s’y attendait pas. ${cap1(il)} veut le joueur seul : ${il} essaie de les séparer (envoyer @${f.handle} chercher quelque chose, ${gx(f.g, 'l’', 'l’', 'l’')}éloigner, ${gx(f.g, 'le', 'la', 'le ou la')} pousser à partir), sourit trop, se crispe quand ${firstName(f)} parle. Le joueur et ${firstName(f)} peuvent encore partir à temps ; s’${il} passe à l’acte, c’est contre eux deux.`);
+  else if (f && psyStage(g) >= 1) L.push(`Ce soir, le joueur n’est pas venu seul : @${f.handle} est là. ${first} reste ${gx(c.g, 'charmant', 'charmante', 'charmant·e')} en façade, mais sa jalousie envers ${firstName(f)} affleure (un regard, une pique, un silence de trop).`);
+  const T = ev.talk, n = T ? T.turn || 0 : 0, max = T ? T.max || TALK_TURNS : TALK_TURNS; // 0.33.1: where the evening is: it goes further, line after line
   if (ev.psy === 'deadly') {
     L.push(`## CE SOIR, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
-      `La soirée vire lentement au cauchemar, comme dans un film d’horreur : d’abord trop parfaite, puis de plus en plus inquiétante (une porte qu’${il} ferme à clé derrière eux, un couteau qui change de place, des photos du joueur partout, ${il} répond à des questions que le joueur n’a pas posées…). La peur passe par les détails, les silences, les regards.`,
+      `La soirée vire lentement au cauchemar, comme dans un film d’horreur : d’abord trop parfaite, puis de plus en plus inquiétante (une porte qu’${il} ferme à clé derrière eux, un couteau qui change de place, des photos du joueur partout, ${il} répond à des questions que le joueur n’a pas posées…). La peur passe par les détails, les silences, les regards, et par ce qu’${il} dit.`,
+      `Où en est la soirée : réplique ${Math.min(n + 1, max)} sur ${max}. ${n < 1 ? `Encore trop parfaite, avec un premier détail qui cloche, et une phrase de ${first} un peu trop intense.` : n < 3 ? `Ça monte : ses phrases deviennent franchement bizarres (${PSY_CREEP[2].split(' : ')[1] || 'des phrases qui dérangent'}).` : `Plus aucun doute pour qui écoute : ${first} dit des choses qui glacent (« ici, personne ne nous dérangera », « tu n’as plus besoin de ton téléphone », « j’ai tout prévu pour nous deux »), et ce que le joueur voit fait peur. Sans aveu, sans violence montrée.`}`,
       PSY_ESCAPE(first, il, false));
-  } else if (PSY_ALONE_RE.test(ev.what || '') && psyStage(g) >= 2) { // (0.29.1: from the hold on, not before: the first days, all seems perfect)
-    L.push(`Ce soir, ils sont seuls (« ${ev.what} ») : glisse un ou deux détails de film d’horreur dans la scène ou dans ce que le joueur voit (${PSY_HOME}). La soirée est étrange, mais il ne lui arrive rien ce soir.`);
-  } else if (psyStage(g) >= 3) L.push(`Vers la fin de la soirée, ${first} propose, l’air de rien, de la finir chez ${lui} ou de rester dormir ensemble.`);
+  } else if (psyAlone(g, ev) && psyStage(g) >= 2 && !f) { // (0.29.1: from the hold on, not before: the first days, all seems perfect; 0.33.1: alone)
+    L.push(`Ce soir, ils sont seuls (« ${ev.what} ») : glisse un ou deux détails de film d’horreur dans la scène ou dans ce que le joueur voit (${PSY_HOME}), et des phrases de ${first} de plus en plus étranges au fil de la soirée (réplique ${Math.min(n + 1, max)} sur ${max}). La soirée est étrange, mais il ne lui arrive rien ce soir.`);
+  } else if (psyStage(g) >= 3) L.push(`Vers la fin de la soirée, ${first} propose, l’air de rien, de la finir chez ${lui} ou de rester dormir ensemble. Une ou deux de ses phrases glacent, même ici.`);
   if (ev.talk && ev.talk.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux : rien ne s’en raconte ; la soirée continue un peu plus tard, et ${first} est encore plus collant·e.`);
   return L;
 }
 // The lines they may add tonight. last: the end of the evening (their last words).
 function psyTalkOut(g, ev, c, last) {
   if (!psyNow(g) || !isPsy(g, c)) return isStalker(g, c) ? [STALK_SIGN_LINE] : [];
-  const L = [PSY_SIGN_LINE];
+  const L = [psySignLine(g)];
+  const f = plusOf(g, ev), atk = `{"t":"attaque","text":"≤ 160 caractères : ce que ${firstName(c)} fait, au présent, sans rien de gore"}`;
+  if (ev.psy === 'deadly' && (f || duelOn())) { // 0.33.1: the strike is a scene the game plays (they defend themselves, two of them or alone)
+    L.push(f ? `- Seulement si le joueur s’échappe vraiment avec ${firstName(f)} : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut).` : '- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut).');
+    L.push(last ? `- C’est la fin de la soirée : si le joueur ne s’est pas échappé, ${firstName(c)} passe à l’acte : sa dernière réplique, puis ${atk}.`
+      : `- Seulement si ${firstName(c)} passe à l’acte maintenant (le joueur se laisse isoler, suit ${firstName(c)} dans la pièce fermée, boit ce qu’on lui tend…) : sa dernière réplique, puis ${atk}.`);
+    return L;
+  }
   if (ev.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut).');
     if (last) L.push(`- C’est la fin de la soirée : si le joueur ne s’est pas échappé, ${firstName(c)} referme le piège : sa dernière réplique, puis ${PSY_FIN(firstName(c))}.`);
@@ -347,7 +374,9 @@ function psyTalkOut(g, ev, c, last) {
 function psyEndLines(g, ev) {
   const c = g.chars[ev.c];
   if (!ev.fled || !c) return [];
-  const first = firstName(c);
+  const first = firstName(c), A = ev.talk && ev.talk.attack, f = A && A.ok && A.f ? g.chars[A.f] : null;
+  if (A && A.ok && !f) return [`${first} a attaqué le joueur avec un couteau${A.where === 'night' ? ', en pleine nuit, pendant qu’il dormait' : ''} : seul, il s’est défendu et s’est enfui de justesse, puis a appelé la police. Le récit le dit sobrement, sans rien de gore. Puis ${first} lui écrit comme si de rien n’était, d’une douceur glaçante (pas de menace franche).`]; // 0.33.1: alone
+  if (f) return [`${first} les a attaqués, le joueur et @${f.handle}, avec un couteau : ils se sont défendus ensemble et se sont enfuis, ${firstName(f)} a appelé la police. Le récit le dit sobrement, sans rien de gore. Puis ${first} écrit au joueur comme si de rien n’était, d’une douceur glaçante (pas de menace franche).`]; // 0.33.1
   return [`Le joueur s’est enfui en pleine soirée, terrifié par ce qu’il a vu chez ${first} : le récit le dit sobrement. Puis ${first} lui écrit comme si de rien n’était, d’une douceur glaçante (pas de menace franche).`];
 }
 // A visit: at night, once they are ready, opening the door may be the last thing the player does.
@@ -364,10 +393,10 @@ function psyVisitCtx(g, v, c) {
 }
 function psyVisitOut(g, v, c, last) {
   if (!psyNow(g) || !isPsy(g, c)) return isStalker(g, c) ? [STALK_SIGN_LINE] : [];
-  const L = [PSY_SIGN_LINE];
+  const L = [psySignLine(g)];
   if (v.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut). Alors, pas de ligne leave.');
-    if (last) L.push(`- C’est la fin de la visite : si le joueur ne s’est pas échappé, pas de ligne leave : la dernière réplique de ${firstName(c)}, puis ${PSY_FIN(firstName(c))}.`);
+    if (last) L.push(`- C’est la fin de la visite : si le joueur ne s’est pas échappé, pas de ligne leave : la dernière réplique de ${firstName(c)}, puis ${duelOn() ? `{"t":"attaque","text":"≤ 160 caractères : ce que ${firstName(c)} fait, au présent, sans rien de gore"}` : PSY_FIN(firstName(c))}.`);
   }
   return L;
 }

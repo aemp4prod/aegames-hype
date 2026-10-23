@@ -5,6 +5,19 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.1 — 24 octobre 2026 (build 33001)
+
+**Emmène quelqu’un à tes rendez-vous, envoie quelqu’un parler à un perso, et si ça tourne mal, défends-toi : une vraie scène de film d’horreur, avec des réflexes à avoir.**
+
+### ✨ Nouveautés
+
+- **👥 Venir avec quelqu’un** : sur l’écran d’un rendez-vous, « Venir avec quelqu’un » : choisis un perso, ta demande l’attend dans vos messages, et son IA décide si elle vient. Tu peux aussi lui demander toi-même en message. Si c’est oui, la personne est là toute la soirée : elle parle (son prénom au-dessus de ses messages), réagit à ce qui se dit, et celui ou celle qui te reçoit réagit à sa présence (en amoureux, une personne de trop, ça refroidit ; entre amis, ça peut faire plaisir). La soirée compte pour vous trois.
+- **🔪 Se défendre** : si quelqu’un passe à l’acte contre toi, la scène se joue. Trois moments où tu as quelques secondes pour choisir quoi faire et, entre eux, sans prévenir, des moments où il faut réagir vite : esquiver un coup (clique la cible, touche-la ou appuie sur la touche affichée), te dégager en tapant le plus vite possible, pousser « à trois » en même temps que la personne venue avec toi, ou ne plus bouger du tout dans le noir. L’écran se resserre, flashe, un cœur bat, et ça vibre sur téléphone.
+- **🤝 À deux, c’est mieux** : la personne venue avec toi agit aussi. Elle t’aide, te rattrape quand tu rates un réflexe, ou reste pétrifiée. Plus vous êtes proches, plus elle t’aide, et plus tu as de marge quand vous agissez ensemble. Avec quelqu’un de très proche, vous pouvez vous en sortir même avec de mauvais choix. Seul, ça se joue aussi, mais c’est beaucoup plus dur.
+- **↺ Revenir juste avant** : rater un réflexe n’est pas la fin. « Trop tard », puis tu reviens juste avant pour le retenter, un peu plus facile à chaque essai. Après trois ratés, tu peux passer ce moment, mais tu t’en sors blessé, et ça compte pour la suite.
+- **🕵️ Envoyer quelqu’un parler à un perso** : sur le profil d’un perso, « Envoyer quelqu’un lui parler », ou demande-le en message, avec tes mots. Choisis qui y va et dis ce que tu veux savoir. Son IA décide si elle y va, et jusqu’où : un café, passer chez lui, fouiller… Elle y va quelques heures plus tard et te raconte en message ce qu’elle a vu. Plus tu lui demandes d’aller loin, plus tu envoies de monde, plus ça peut mal tourner : il arrive qu’on ne revienne pas.
+- **🎃 Juste à temps pour Halloween** : le psychopathe fait encore plus peur.
+
 ## 0.33.0 — 23 octobre 2026 (build 33000)
 
 **Ton équipe vit et progresse, tu peux faire travailler n’importe quel perso, partager tes contenus sponsorisés, et il y a toujours plus gros que toi sur le réseau.**

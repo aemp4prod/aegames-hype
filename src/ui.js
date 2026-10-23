@@ -336,7 +336,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { hire: '💼', stgear: '🧰', dealguest: '🤝', feat: '🤝', ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { hire: '💼', stgear: '🧰', dealguest: '🤝', plus: '👥', mission: '🕵️', feat: '🤝', ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -371,7 +371,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'group', 'newgroup', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach', 'hire', 'stgear', 'dealguest']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'group', 'newgroup', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach', 'hire', 'stgear', 'dealguest', 'plus', 'mission']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -747,6 +747,7 @@ const toastFirst = (x) => !!(x.pri || (x.action && x.action.ach) || /^Quête ré
 // A modal whose buttons would be under the toasts (no room left under its card): they wait for it to close.
 function toastHold() {
   if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+  if (document.querySelector('.atk')) return true; // 0.33.1: in the middle of an attack, nothing else on screen
   const card = document.querySelector('.modal .modal-card');
   return !!card && window.innerHeight - card.getBoundingClientRect().bottom < 140;
 }
@@ -1461,7 +1462,7 @@ function Side({ g, now }) {
       ${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(g.pbb.until - now)}</span>` : null}
     </section>
     ${tr.length ? html`<section class="panel"><h3>Tendances</h3>${tr.map(([tg]) => { const n = postsWithTag(g, tg, now).length; return html`<button class="trend" key=${tg} onClick=${() => openTag(tg)}><small>Tendance · ${g.world.name}</small><b>${tg}</b>${n ? html`<small>${n} ${plural(n, 'post', 'posts')}</small>` : null}</button>`; })}</section>` : null}
-    <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}</span></div></button>`)}</section>
+    <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${c.gone ? `🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}` : `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}`}</span></div></button>`)}</section>
   </aside>`;
 }
 
@@ -2615,6 +2616,7 @@ function DateSetup({ ev, g, now }) {
     ${partnerOf(g, c) && (ROMANCE.includes(c.vibe) || ROMANTIC_RE.test(ev.what)) ? html`<p class="date-late"><${Icon} n="heart" s=${15} /> ${partnerWord(partnerOf(g, c))}, ${firstName(partnerOf(g, c))}, n’est pas au courant… pour l’instant.</p>` : null}
     ${(() => { const cl = eveningClash(g, ev).filter((x) => !x.ev || !oc || x.ev !== other.id); return cl.length ? html`<p class="date-late date-clash"><${Icon} n="clock" s=${15} /> <span>Pendant ta soirée (≈ ${DATE_H} h) : ${cl.map((x) => x.text).join(' ; ')}. ${isTalk(g, ev) ? 'Tu pourras l’écourter pour y être.' : 'Pour y être, décale l’un ou l’autre avant.'}</span></p>` : null; })()}
     ${oc ? html`<p class="date-late"><${Icon} n="calendar" s=${15} /> Tu as aussi rendez-vous avec ${firstName(oc)} (${fmtWhen(other.due, now)}). Si tu y vas sans ${gx(oc.g, 'le', 'la', 'l’')} prévenir, ${gx(oc.g, 'il', 'elle', 'iel')} t’attendra pour rien.</p>` : null}
+    <${PlusBox} g=${g} ev=${ev} now=${now} />
     ${early > 0 ? html`<button class="btn btn-hot" onClick=${() => skipTime(early + 1000, () => ev.due)} disabled=${!!heldRel(g, now)}><${Icon} n="ffwd" s=${16} /> Avancer jusqu’au rendez-vous</button>${heldRel(g, now) ? html`<small class="muted why-off">${heldWhy(heldRel(g, now))}</small>` : null}`
       : html`<button class="btn btn-hot" onClick=${() => genDate(ev)}>${wed ? '💒' : MEET[meetKind(c, ev)].emoji} C’est parti</button>`}
     ${due && care ? html`<small class="muted prep-note">${S.busy.prep === ev.id ? html`<${Typing} /> ${wed ? 'La cérémonie se prépare' : 'La soirée se prépare'} et se relit (rendez-vous soignés)…` : ev.prep ? (wed ? '💒 Cérémonie prête, relue pour coller à votre histoire.' : '💘 Soirée prête, relue pour coller à votre histoire.') : ''}</small>` : null}
@@ -2798,6 +2800,8 @@ function Layer(props) {
   if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
   if (t === 'hire') return html`<${HireLayer} ...${props} />`; // 0.33: a job for someone of the cast
   if (t === 'dealguest') return html`<${DealGuestLayer} ...${props} />`; // 0.33: someone in a sponsored content
+  if (t === 'plus') return html`<${PlusLayer} ...${props} />`; // 0.33.1: someone coming along to a date
+  if (t === 'mission') return html`<${MissionLayer} ...${props} />`; // 0.33.1: someone sent to see them
   if (t === 'stgear') return html`<${StaffGearLayer} ...${props} />`; // 0.33: the gear of the team
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
@@ -3010,12 +3014,13 @@ function CharLayer({ l, g, now, i }) {
         </div>
       </div>
       <div><h2>${c.name}${cast ? html`<${Verified} />` : null}</h2><span class="handle">@${c.handle}</span></div>
-      <div class="row" style="gap:6px">${c.role ? html`<span class="chip">${c.role}</span>` : null}${c.age && c.kind !== 'media' ? html`<span class="chip">${c.age} ans</span>` : null}${c.followsYou ? html`<span class="chip good">Te suit</span>` : null}${V ? html`<span class="chip hot">${V.emoji} ${V.label}</span>` : null}${inBadBuzz(c, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(c.badBuzz.until - now)}</span>` : null}${c.cut ? html`<span class="chip bad">🚫 A coupé les ponts</span>` : null}</div>
+      <div class="row" style="gap:6px">${c.role ? html`<span class="chip">${c.role}</span>` : null}${c.age && c.kind !== 'media' ? html`<span class="chip">${c.age} ans</span>` : null}${c.followsYou ? html`<span class="chip good">Te suit</span>` : null}${V ? html`<span class="chip hot">${V.emoji} ${V.label}</span>` : null}${inBadBuzz(c, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(c.badBuzz.until - now)}</span>` : null}${c.cut ? html`<span class="chip bad">🚫 A coupé les ponts</span>` : null}${c.gone ? html`<span class="chip bad">🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}</span>` : null}</div>
       ${c.bio ? html`<p class="bio">${emoParts(c.bio)}</p>` : null}
       <div class="prof-stats"><span><b>${fmtN(c.followers)}</b> ${plural(c.followers, 'abonné', 'abonnés')}</span>${main ? html`<span>Relation : <b>${relShown(c)}</b> (${fmtRel(c.rel)})</span>` : null}</div>
       ${main ? html`<${RelMeter} rel=${c.rel} />` : null}
       ${main ? html`<${SocialLinks} g=${g} c=${c} now=${now} />` : null}
       ${t33On() && hireOK(g, c) ? html`<button class="btn btn-ghost btn-sm prof-job" onClick=${() => openLayer({ t: 'hire', id: c.id })}>💼 Proposer un boulot</button>` : null}
+      ${missionTarget(g, c) ? html`<button class="btn btn-ghost btn-sm prof-mission" onClick=${() => openLayer({ t: 'mission', id: c.id })}>🕵️ Envoyer quelqu’un lui parler</button>` : null}
     </div>
     ${main ? html`<${TrustSection} g=${g} c=${c} now=${now} />` : null}
     ${main ? html`<${TemperSection} c=${c} />` : null}
@@ -3163,6 +3168,7 @@ function DMBox({ c, g, now }) {
     <div class="foot-tools"><${WriteBtn} w=${{ kind: 'dm', key: 'dm:' + c.id, c, draft: val.trim(), advice: adv }} onText=${(t) => { S.drafts.dm[c.id] = t; update(false); if (ref.current) { ref.current.value = t; ref.current.focus(); autosize(ref.current); } }} /><${VoiceChip} />${em.btn}<${ConfideChip} g=${g} c=${c} onPick=${setConf} />${isMain(c) ? html`<button type="button" class=${'voice-chip adv-toggle' + (adv ? ' on' : '')} aria-pressed=${adv ? 'true' : 'false'} onClick=${() => setAdv(!adv)}><${Icon} n="bulb" s=${14} /> Conseil</button>` : null}${isMain(c) && !c.cut ? html`<button type="button" class=${'voice-chip gift-toggle' + (gift ? ' on' : '')} aria-pressed=${gift ? 'true' : 'false'} onClick=${() => setGift(gift ? null : { what: '', price: 100 })}><span aria-hidden="true">🎁</span> Cadeau</button>` : null}<span>${canAfford(g, 'dm') ? `≈ ${costLabel(g, 'dm')} ${plural(costLabel(g, 'dm'), 'café', 'cafés')} par message${e.unlimited ? '' : ` · il t’en reste ${fmtCafes(e.left)}`}` : html`Budget IA épuisé ·<button class="linkbtn" onClick=${budgetBlocked}>options</button>`}</span></div>
     ${adv ? html`<div class="voice-hint adv-hint"><${Icon} n="bulb" s=${15} /><span>Ton message est un conseil : ${first} décide de le suivre ou non. ${adviceHint(c)}</span></div>` : null}
     ${c.cut ? html`<div class="voice-hint cut-hint"><span aria-hidden="true">🚫</span><span>${first} a coupé les ponts : tes messages ne lui parviennent plus.</span></div>` : null}
+    ${c.gone ? html`<div class="voice-hint cut-hint"><span aria-hidden="true">🕯️</span><span>${first} ne répond plus. Personne ne l’a ${gx(c.g, 'revu', 'revue', 'revu·e')} depuis sa visite chez ${g.chars[c.gone.by] ? firstName(g.chars[c.gone.by]) : 'quelqu’un'}.</span></div>` : null}
     ${conf && !conf.out ? html`<div class="voice-hint conf-hint"><span aria-hidden="true">🤫</span><span>Tu confies à ${first} : « ${str(conf.t, 80)} ». ${first} saura. Ce qu’${gx(c.g, 'il', 'elle', 'iel')} en fera, c’est son choix.</span><button type="button" class="iconbtn" onClick=${() => setConf(null)} aria-label="Ne plus confier ce secret"><${Icon} n="x" s=${15} /></button></div>` : null}
     ${em.panel}
     ${gift ? html`<div class="gift-sheet">
@@ -3918,7 +3924,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); if (tickMissions(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -4050,6 +4056,8 @@ if (window.__HYPE_TEST__) {
     HIRE_RE, normRole, hireRoles, hireOK, hireText, hireCtx, hireLine, applyHireLine, mainJobEnd, migrateTeam, workLoad, gearGap, applyDMCareerLine, dmCareerLines, tdealAsking,
     tdealLater, tickFollow, ownAskWhy, ownAskLine, brandOffersPlayer, BRAND_NOW_LINE, BRAND_NOW_GROUP, TDEAL_LATER, // 0.33: partnerships that do not stall
     affOn, LADDER_MIN, LADDER_TOP, LADDER_K, ladderGap, tickLadder, BIG_BRIEF, bigArrives, starCtx, dayGrowth, tickGrowth, // 0.33: always someone above
+    endUnfinished, AttackView, COME_RE, ATTACK_MS, ATTACK_OK, plusOK, plusDates, plusOf, plusAsked, askPlus, plusDMCtx, plusLine, applyPlusLine, plusTalkLines, PLUS_SAY, plusAfter, plusBond, startAttack, attackPick, attackEnd, attackTimeout, ATK_BEATS, ATTACK_SOLO, duelOn, nightAttack, atkCur, qteEnd, qteRetry, qteSkip, QTE_TXT, attackSteps, qteTune, // 0.33.1: someone comes along; the fight
+    MISSION_RE, missionOK, missionOn, missionTarget, askMission, missionWho, missionDMCtx, missionLine, applyMissionLine, missionDue, missionDanger, missionPeek, goMission, vanish, tellGone, promptMission, missionReport, tickMissions, // 0.33.1: someone sent
     askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,
     // 0.17: ages and maturity, the people who see, the train of the hyyype
     MATU, drawCastAges, drawMatu, initAge, isOlder, ageText, newcomerAge,

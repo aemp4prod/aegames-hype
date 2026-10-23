@@ -134,13 +134,14 @@ async function visitTurn(v, text) {
   S.busy.visit = v.id;
   update(false);
   const f = startFlow(g);
-  let react = null, says = 0, ok = true, leave = null, mem = null, vibe = null, sign = null, esc = null, fin = null;
+  let react = null, says = 0, ok = true, leave = null, mem = null, vibe = null, sign = null, esc = null, fin = null, atk = null;
   const deadly = v.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
       if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
+      else if (o.t === 'attaque' && deadly && atk == null) atk = str(o.text, 200); // 0.33.1
       else if (o.t === 'judge' && !react) react = normReact(o.react);
       else if (o.t === 'say' && says < 2) { const x = str(o.text, 260); if (x) { v.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); says++; } }
       else if (o.t === 'leave' && !leave) leave = { mood: normMood(o.mood), why: str(o.why, 90) };
@@ -169,6 +170,7 @@ async function visitTurn(v, text) {
     update();
     return true;
   }
+  if (deadly && (fin != null || atk != null || v.turn >= v.max) && duelOn()) { startAttack(g, v, c, atk || fin, { where: 'visit' }); update(); return true; } // 0.33.1: they strike, at the player's: one defends oneself, alone
   if (deadly && (fin != null || v.turn >= v.max)) { psyKill(g, c, fin, 'visit'); return true; } // the door was opened, at night
   if (leave || v.turn >= v.max) { // the last words stay on screen: the player sees them out
     v.ending = true;
@@ -187,6 +189,7 @@ function visitCard(g, c, v, text, mood) {
 // The visit is over: what it leaves behind, from how it went.
 function endVisit(g, v) {
   if (!g || !isLiveVisit(v)) return null;
+  if (v.attack && !v.attack.done) { attackTimeout(g, v); if (g.over) return v; } // 0.33.1: left in the middle of it
   const c = g.chars[v.c];
   v.state = 'done';
   v.endAt = Date.now();
@@ -197,7 +200,7 @@ function endVisit(g, v) {
   v.score = Math.round(score * 100) / 100;
   if (v.fled) { // 0.29: put out in the night (the escape was told already)
     const ent = gx(c.g, 'entré', 'entrée', 'entré·e'), dehors = gx(c.g, 'mis dehors', 'mise dehors', 'mis·e dehors');
-    visitCard(g, c, v, `${firstName(c)} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache');
+    visitCard(g, c, v, v.attack && v.attack.ok ? `${firstName(c)} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau, chez toi, en pleine nuit : tu l’as ${dehors}.` : `${firstName(c)} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache'); // (0.33.1: after a fight)
     return v;
   }
   let rel = (score >= 0.7 ? 6 : score >= 0.55 ? 3 : score >= 0.4 ? 0 : score >= 0.25 ? -5 : -9) + M.rel;
@@ -324,16 +327,17 @@ function VisitCard({ g, v, close }) {
   };
   const over = !!v.ending && !busy;
   const night = nightAt(v.at); // 0.29: at night, one does not open just like that
-  return html`<div class="modal-card visit-card">
-    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">Visite surprise</span><b>${c.name} débarque chez toi</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
+  const atk = !!(v.attack && !v.attack.done && !g.over); // 0.33.1: they strike
+  return html`<div class=${'modal-card visit-card' + (atk ? ' atk-on' : '')}>
+    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">Visite surprise</span><b>${c.name} débarque chez toi</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
     <div class="visit-lines" ref=${box}>
       ${v.lines.map((x, j) => (x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${emoParts(x.text)}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
-        : x.who === 'n' ? html`<p key=${j} class="talk-fade">${x.text}</p>`
+        : x.who === 'n' ? html`<p key=${j} class=${'talk-fade' + (x.atk ? ' atk-line' : '')}>${x.text}</p>`
           : html`<div key=${j} class="talk-line me"><div class="bubble me">${emoParts(x.text)}</div></div>`))}
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
     </div>
-    ${over ? html`<div class="visit-foot visit-over">
+    ${atk ? html`<${AttackView} g=${g} H=${v} />` : over ? html`<div class="visit-foot visit-over">
       <p>${v.fled ? 'La porte est fermée. Tu restes là, le dos contre elle, à écouter.' : MOODS[v.mood] ? `${first} s’en va, ${MOODS[v.mood].word(c)}.` : `${first} s’en va.`}</p>
       <button class="btn btn-hot" onClick=${() => { endVisit(g, v); close(); update(); }}>${v.fled ? 'Fermer à double tour' : 'Raccompagner ' + first}</button>
     </div>` : html`<div class="visit-foot">
