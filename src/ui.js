@@ -4038,7 +4038,8 @@ if (window.__HYPE_TEST__) {
     foesOf, closeToFoe, foesNotice, BOND_VIBES, selfBuzzOK, startSelfBuzz, sideSelfBuzz, selfBuzzOver, bbByPlayer, cutTies, reconnect,
     mentionAt, mentionPicks, toastBottom, openNotif, openCompose, goTab, SELF_BUZZ_LINE, toast, queueModal,
     isMain, canJoin, joinCast, jobLine, JOIN_REL, candidates, // 0.16: anyone can join the cast
-    dateExigence, FAMOUS, // 0.16: the exigence of a date played for real
+    dateExigence, FAMOUS, meetPlace, // 0.16: the exigence of a date played for real (0.32.1: where it is)
+    progRefusal, reviewProgram321, // 0.32.1: why a partner program says no; a refusal of before looked at again
     // 0.17: ages and maturity, the people who see, the train of the hyyype
     MATU, drawCastAges, drawMatu, initAge, isOlder, ageText, newcomerAge,
     noteSeen, seenCheck, seenCtx, seenNeed, seenNow, witnessAct, ignoredFriends,

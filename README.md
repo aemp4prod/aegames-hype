@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.32.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.32.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -45,8 +45,8 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   journée ils bossent, sortent ou mettent un moment à reprendre leur téléphone. Ton message les attend (« Envoyé »), et
   ils répondent à tout d’un coup quand ils le voient ; une conversation lancée reste fluide, et leur IA peut décider de
   décrocher (« je file au taf, je te réponds ce soir »). Les impulsifs, les jaloux, les fans et ceux pour qui c’est dans
-  leur nature restent très dispos, les marques répondent aux heures de bureau, et un point vert dit qui est en ligne. Les
-  groupes aussi attendent que quelqu’un soit là.
+  leur nature restent très dispos, les marques te répondent tout de suite à toute heure (depuis la 0.32.1), et un point
+  vert dit qui est en ligne. Les groupes aussi attendent que quelqu’un soit là.
 - **Les rendez-vous** : le premier avec quelqu’un est un mini-jeu écrit d’après où vous en êtes (vos messages, vos
   échanges publics, une dispute, un bad buzz) ; **les suivants se jouent pour de vrai** : une conversation de cinq
   échanges où tu réponds avec tes mots, jugée d’après qui tu as été avec ce perso en privé et en public (taquin en
@@ -57,7 +57,8 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   confiance, son cœur, ce qui pèse (un froid, une rumeur sur toi, son bad buzz, quelqu’un d’autre dans ta vie), l’enjeu
   du soir (un verre entre potes, un dîner en tête-à-tête, un grand soir), ce qu’il ou elle attend de la soirée (né de vos
   messages, jamais dit) et la célébrité pour de vrai (connu, on vous reconnaît en public, et une photo volée peut
-  circuler ; chez l’un ou l’autre, la paix). Les gains suivent. Un perso peut annuler s’il ne veut plus te voir. Quand un perso te propose de vous voir, une
+  circuler ; chez l’un ou l’autre, dans un lieu fermé ou privé, ou chacun chez soi en appel, personne ne vous voit : la
+  paix, depuis la 0.32.1 quel que soit l’hôte). Les gains suivent. Un perso peut annuler s’il ne veut plus te voir. Quand un perso te propose de vous voir, une
   **invitation** arrive dans vos messages : « Accepter » la met dans ton agenda (même dans plusieurs jours), « Décliner »
   répond poliment, et un « oui » écrit de ta main compte aussi. Option **Rendez-vous soignés** (à la création de la
   partie et dans les réglages, ≈ +1 café par rendez-vous) : la soirée se prépare dès que tu y vas et l’IA la relit.
@@ -214,8 +215,10 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   (moins payées et plus rares dans un scandale, plus généreuses au sommet), tes recrues et ton équipe, et certains
   moments reviennent des jours plus tard (effets papillon), en bien ou en mal.
 - **Le Studio** : ta chaîne (YouTube, TikTok, Instagram, Twitch ou Spotify), avec un écran de publication propre à
-  chaque plateforme, les tendances du moment, l’argent qui suit les vraies règles (seuils de monétisation, partage des
-  revenus, saisons : les pubs paient plus en fin d’année, moins en janvier et l’été), les sponsors à négocier
+  chaque plateforme, les tendances du moment, l’argent qui suit les vraies règles (seuils de monétisation, avec un
+  programme partenaire qui dit pourquoi il refuse : depuis la 0.32.1, seuls un bad buzz encore en cours, un cancel ou une
+  réputation trop basse le bloquent ; partage des revenus, saisons : les pubs paient plus en fin d’année, moins en
+  janvier et l’été), les sponsors à négocier
   (le prix, la mention « Collaboration commerciale », l’exclusivité, le délai, l’acompte : tout se discute en privé, et
   le contrat suit ce que vous décidez ; à toi de repérer les pièges ; par défaut, un cachet se paie 30 % à la signature
   dès 500 €, le reste à la publication ; depuis la 0.27.4, l’acompte négocié est inscrit au contrat, et une hausse

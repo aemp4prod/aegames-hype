@@ -166,6 +166,29 @@ async function studioSteps(page, thumb) {
   await shot(page, 'program-accepted');
   await dismiss(page);
   check('the partner program: apply when the real thresholds are met (1 000 subs, 4 000 h), reviewed, then monetized', rev === 'review' && await G(page, () => window.__hype.S.game.career.prog.state === 'on'), rev);
+  // 0.32.1: a bad buzz already over no longer blocks it; one still going does, and why is said (the notice, the Studio);
+  // a refusal of before (no reason kept) is looked at again
+  const pr = await G(page, () => {
+    const H = window.__hype, g = H.S.game, c = g.career, t = Date.now(), keep = { prog: c.prog, pbb: g.pbb || null, rep: g.stats.reputation };
+    const decide = (pbb) => { g.pbb = pbb; c.prog = { state: 'review', at: t - 3 * 864e5, until: t - 1 }; H.tickCareer(g); return Object.assign({}, c.prog); };
+    const over = decide({ at: t - 2 * 864e5, until: t - 2 * 864e5 + 420000, c: null, kind: 'pub', sorry: 1, over: 1 });
+    const live = decide({ at: t - 600000, until: t + 3000000, c: null, kind: 'pub' });
+    const notif = g.notifs.slice(-4).some((n) => /^Refusé.* : tu étais en plein bad buzz au moment de l’examen\. Retente dans 7 jours\.$/.test(n.text));
+    g.stats.reputation = 20;
+    const low = decide(null);
+    g.stats.reputation = keep.rep;
+    c.prog = { state: 'refused', at: t - 864e5, retry: t + 6 * 864e5 };
+    const again = H.reviewProgram321(g, t), after = Object.assign({}, c.prog), told = g.notifs.slice(-2).some((n) => /a réexaminé ta candidature : accepté/.test(n.text));
+    c.prog = { state: 'refused', at: t, retry: t + 6 * 864e5, why: 'tu étais en plein bad buzz au moment de l’examen' };
+    H.update();
+    return { over: over.state, live: [live.state, live.why], notif, low: [low.state, low.why], again, after: after.state, told, keep };
+  });
+  await sleep(300);
+  const prTxt = await G(page, () => [...document.querySelectorAll('.section')].map((x) => x.textContent).find((x) => /Programme Partenaire/.test(x)) || '');
+  await G(page, (k) => { const g = window.__hype.S.game; g.career.prog = k.prog; g.pbb = k.pbb; window.__hype.update(); }, pr.keep);
+  check('0.32.1: a bad buzz already over no longer blocks the partner program; one still going, or a reputation under 250/1000, does, and the notice and the Studio say why; a refusal of before is looked at again (yes, now)',
+    pr.over === 'on' && pr.live[0] === 'refused' && /plein bad buzz/.test(pr.live[1]) && pr.notif && pr.low[0] === 'refused' && /réputation est trop basse \(200\/1000, il faut au moins 250\)/.test(pr.low[1])
+      && pr.again === true && pr.after === 'on' && pr.told && /Refusé(e|·e)? parce que tu étais en plein bad buzz au moment de l’examen\./.test(prTxt), Object.assign({ prTxt: prTxt.slice(0, 200) }, pr, { keep: undefined }));
   await clickText(page, '.tab', 'Fil');
   await clickText(page, '.release-card button', 'Tourner');
   await page.waitForSelector('.mg-setup');
@@ -323,7 +346,8 @@ async function studioSteps(page, thumb) {
   await sleep(500);
   const s0 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { on: g.series && g.series.state, ep: r && r.ep, series: !!(r && r.series), hour: r && H.gameDate(H.relAnn(r)).getHours() }; }); // (0.30.1: its hour is when it comes out)
   check('the daily upload starts: episode 1 programmed at the chosen hour (18 h), no postponing', s0.on === 'on' && s0.ep === 1 && s0.series && s0.hour === 18, s0);
-  await clickText(page, '.release-card button', 'Avancer jusqu');
+  // (0.32: its 8 h of work start at 10 h: played in the afternoon, the shoot is already due, nothing to skip to)
+  if (!(await page.$('.release-card.due'))) await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 10000 });
   const noPostpone = await G(page, () => !/Repousser/.test((document.querySelector('.release-card') || {}).textContent || ''));
   await clickText(page, '.release-card button', 'Tourner');
@@ -343,7 +367,7 @@ async function studioSteps(page, thumb) {
   await page.waitForSelector('.release-card', { timeout: 25000 });
   await idle(page);
   await sleep(1500);
-  const s1 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { streak: g.series.streak, mult: H.seriesMult(g), next: r && r.ep, inDays: r && Math.round((r.due - Date.now()) / 3600000) }; });
+  const s1 = await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); return { streak: g.series.streak, mult: H.seriesMult(g), next: r && r.ep, inDays: r && Math.round((H.relAnn(r) - Date.now()) / 3600000) }; }); // (0.32: its release tomorrow 18 h; its shoot starts 8 h before)
   check('episode 1 aced: the streak grows (×1,2 on the next one), episode 2 tomorrow at the same time', noPostpone && s1.streak === 1 && Math.abs(s1.mult - 1.2) < 1e-9 && s1.next === 2 && s1.inDays >= 18 && s1.inDays <= 30, { noPostpone, s1 });
   await G(page, () => { const H = window.__hype, g = H.S.game, r = H.activeRelease(g); const back = H.relAnn(r) - (Date.now() - 2 * 3600000); r.due -= back; if (r.outAt != null) r.outAt -= back; H.update(); }); // (0.30.1: its shoot and its hour, both long past)
   await sleep(2500); // the clock gives the missed episode up

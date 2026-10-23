@@ -155,7 +155,7 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     const pr = window.__prompts.filter((x) => x.includes('CONVERSATION PRIVÉE')).slice(-1)[0] || '';
     const d = H.gameDate(Date.now()); d.setHours(20, 30, 0, 0); d.setDate(d.getDate() + 3);
     return { iv: iv && { what: iv.what, ok: iv.due === d.getTime() - (g.clockOff || 0) }, card: !!document.querySelector('.layer .dm-card.invite'), btns: [...document.querySelectorAll('.layer .dm-card.invite .btn')].map((b) => b.textContent.trim()),
-      events: H.activeEvents(g).filter((e) => e.c === id).length, ask: pr.includes('{"t":"invite","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"}') && pr.includes('"day" (jours à partir d’aujourd’hui') };
+      events: H.activeEvents(g).filter((e) => e.c === id).length, ask: pr.includes('{"t":"invite","what":"≤ 80 caractères : où (chez qui, si c’est chez quelqu’un) et quoi","day":2,"at":"20:30"}') && pr.includes('"day" (jours à partir d’aujourd’hui') };
   }, ids.iris);
   await page.locator('.layer .dm-card.invite').scrollIntoViewIfNeeded();
   await shot(page, 'invite-card');

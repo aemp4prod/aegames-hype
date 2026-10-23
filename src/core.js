@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.32.0';
+const APP_VERSION = '0.32.1';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -619,6 +619,7 @@ function migrate(g) {
   for (const id in g.dms) { if (!Array.isArray(g.dms[id].msgs)) g.dms[id].msgs = []; }
   budgetOf(g);
   migrateCareer(g); // v0.7
+  if (!g.fix321) { g.fix321 = 1; reviewProgram321(g); } // 0.32.1: a partner program refused for a bad buzz already over
   migrateGear(g); // 0.20
   migrateTrust(g); // v0.9
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves

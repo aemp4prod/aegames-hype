@@ -197,6 +197,25 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
     ex.talk && ex.x1.ix === 0 && ex.x1.why.includes('💞 Vous êtes proches') && ex.x1.why.includes('🍻 Entre potes')
     && ex.x2a.ix === 3 && ex.x2a.pub && ex.x2a.why.includes('🕯️ Un dîner en tête-à-tête') && ex.x2a.why.includes('👀 On vous reconnaît en public')
     && ex.x2b.ix === 4 && ex.x2b.why.includes('🗣️ Une rumeur court sur toi') && ex.x3.ix === 2 && !ex.x3.pub && ex.x3.why.includes('🏠 Chez vous, tranquilles'), ex);
+  // 0.32.1: at someone's place (« Chez Zara », « chez @handle », « chez le joueur »), somewhere closed, or each at home: nobody
+  // recognizes them (no « On vous reconnaît en public », no stolen photo, no leak, no fans « vus ensemble »)
+  const pl = await G(page, () => {
+    const H = window.__hype, g = H.S.game, z = H.charByHandle(g, 'zara.vey'), P = (what) => H.meetPlace(g, { what });
+    const mk = (what) => { const e = H.addEvent(g, { by: z.handle, what, kind: 'rdv', in: 1200 }); const x = H.dateExigence(g, e); const end = (() => { e.played = { tier: 'top', score: 0.9, diff: e.diff || 'moyen' }; e.talk = null; return H.promptDateEnd(g, e); })(); g.events = g.events.filter((y) => y !== e); return { pub: x.pub, why: x.why, seen: end.includes('des gens les ont reconnus'), leak: end.includes('la photo floue qui fuite'), quiet: end.includes('personne ne les a vus ensemble') }; };
+    return {
+      home: ['Chez Zara : cuisiner et soirée à deux', 'Soirée chez @zara.vey, elle apporte un dessert', 'Chez le joueur : dîner et film', `Un goûter chez @${g.player.handle}, tous les deux`, 'Dîner chez Zara et soirée à deux', 'Une soirée chez ses parents'].map(P),
+      shut: ['Au local : démo sur les platines avant l’ouverture', 'Au bar : filmer la balance dans la salle vide', 'Soirée privée au rooftop', 'Une séance au studio photo'].map(P),
+      apart: ['Vocal et quelques parties de Valorant', 'Appel pour inventer un concept', 'Visio du soir', 'Appel au calme, chacun chez soi avec une boisson'].map(P),
+      out: ['Dîner à volonté chez Luigi, chacun paie son repas', 'Un verre au café du Port', 'Balade au bord du canal'].map(P),
+      xHome: mk('Chez Zara : cuisiner et soirée à deux'), xShut: mk('Au local : démo sur les platines'), xApart: mk('Visio du soir'), xOut: mk('Un verre au café du Port'),
+    };
+  });
+  check('0.32.1: at someone’s place, somewhere closed or each at home, nobody recognizes them (never « On vous reconnaît en public », no leak at the end); in a café or a restaurant « chez Luigi », yes',
+    pl.home.every((x) => x === 'home') && pl.shut.every((x) => x === 'shut') && pl.apart.every((x) => x === 'apart') && pl.out.every((x) => x === 'public')
+    && !pl.xHome.pub && pl.xHome.why.includes('🏠 Chez vous, tranquilles') && !pl.xHome.seen && !pl.xHome.leak && pl.xHome.quiet
+    && !pl.xShut.pub && pl.xShut.why.includes('🔒 À l’abri des regards') && !pl.xShut.leak && pl.xShut.quiet
+    && !pl.xApart.pub && pl.xApart.why.includes('📱 À distance, tranquilles') && !pl.xApart.leak
+    && pl.xOut.pub && pl.xOut.why.includes('👀 On vous reconnaît en public') && pl.xOut.seen && pl.xOut.leak, pl);
   await G(page, (id) => { window.__hype.S.stack = []; window.__hype.openLayer({ t: 'minigame', id }); window.__hype.update(); }, ex.e2);
   await page.waitForSelector('.layer .ex-why .chip', { timeout: 5000 });
   const setup = await page.$eval('.layer', (e) => ({ head: (e.querySelector('.diff-opt b') || {}).textContent || '', small: (e.querySelector('.diff-opt small') || {}).textContent || '', chips: [...e.querySelectorAll('.ex-why .chip')].map((x) => { const c = x.cloneNode(true); for (const i of c.querySelectorAll('img.emo')) i.replaceWith(i.alt); return c.textContent; }) })); // (our stickers read as their emoji)
@@ -235,6 +254,25 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   }, ex.e2);
   check('recognized in public: a stolen photo of the two of them may go around afterwards… and a secret couple is a secret no more',
     ph.officiel === 'leaked' && ph.trig && ph.notif, ph);
+  // 0.32.1: an evening at home with someone famous: no fans « vus ensemble », no stolen photo; in a café, yes
+  const seen = await G(page, () => {
+    const H = window.__hype, g = H.S.game, z = H.charByHandle(g, 'zara.vey');
+    const one = (what) => {
+      const e = H.addEvent(g, { by: z.handle, what, kind: 'rdv', in: 1500 });
+      e.played = { tier: 'top', score: 0.95, at: Date.now(), kind: 'game', diff: 'moyen' };
+      window.__trustRolls = [0.1];
+      H.dateOutcome(g, e, z);
+      const r = { fol: e.result.fol, stolen: !!e.stolen, notif: g.notifs.some((n) => n.c === z.id && /vous avez été vus ensemble/.test(n.text) && n.at >= e.played.at - 5000) };
+      g.events = g.events.filter((y) => y !== e);
+      return r;
+    };
+    const home = one('Chez Zara : sablés et soirée à deux');
+    g.notifs = g.notifs.filter((n) => !/vous avez été vus ensemble/.test(n.text));
+    const out = one('Un verre au café du Port');
+    return { home, out };
+  });
+  check('0.32.1: a good evening at Zara’s place: nobody sees them (no followers « vus ensemble », no stolen photo); the same in a café: seen together',
+    seen.home.fol === 0 && !seen.home.stolen && !seen.home.notif && seen.out.fol > 0 && seen.out.notif, seen);
 
   await browser.close();
   console.log('ERRORS', errors.length ? '\n' + errors.join('\n') : 'none');

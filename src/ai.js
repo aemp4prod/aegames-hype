@@ -436,10 +436,10 @@ const ADS_RULE = ' Pour cette sortie, juge aussi ce qu’en penseraient les anno
 // When it happens: minutes for the next hours, or a day and a clock time (0.9.4: a date can be a few days away).
 const WHEN_HELP = '"in" = minutes d’ici là d’après l’heure qu’il est, pour les prochaines heures ; pour un autre jour ou une heure précise, mets plutôt "day" (jours à partir d’aujourd’hui : 0 aujourd’hui, 1 demain, 2 après-demain… jusqu’à 7) et "at":"20:30" (l’heure du jeu) à la place de "in"';
 const PLAN_LINE = '- Facultatif, rare : seulement si un personnage principal annonce dans ce que tu écris un événement public précis que le joueur pourra suivre (un live, une réponse officielle, une annonce, un concert, un match), ou fixe avec le joueur une vraie rencontre acceptée des deux côtés (en vrai, en appel ou en visio), avec un moment dit dans le texte (« ce soir », « dans 2 h », « samedi à 20 h ») : {"t":"plan","by":"handle","kind":"live","what":"≤ 80 caractères : ce qui va se passer","in":180} juste après la ligne où il l’annonce (kind parmi live, annonce, match, rdv ; ' + WHEN_HELP + '). Jamais pour une intention (« je regarde ça ce soir »), une échéance, une attente (« j’attends tes pièces »), une réponse privée (« je te réponds ce soir ») ou un « plus tard » vague.';
-const PLAN_DM = (c) => `- Seulement si un rendez-vous est vraiment fixé dans cet échange entre le joueur et ${c.name} (une rencontre en vrai, un appel ou une visio, acceptée des deux côtés, à un moment précis, même dans plusieurs jours) ou si ${c.name} y annonce un événement public précis à venir : {"t":"plan","kind":"rdv","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (kind rdv pour une rencontre avec le joueur, sinon live, annonce ou match ; ${WHEN_HELP}). Ajoute "collab":true si c’est pour faire ensemble une vidéo, un live ou un short (un feat). Jamais pour une échéance, une attente ou une simple intention.`;
+const PLAN_DM = (c) => `- Seulement si un rendez-vous est vraiment fixé dans cet échange entre le joueur et ${c.name} (une rencontre en vrai, un appel ou une visio, acceptée des deux côtés, à un moment précis, même dans plusieurs jours) ou si ${c.name} y annonce un événement public précis à venir : {"t":"plan","kind":"rdv","what":"≤ 80 caractères : où (chez qui, si c’est chez quelqu’un) et quoi","day":2,"at":"20:30"} (kind rdv pour une rencontre avec le joueur, sinon live, annonce ou match ; ${WHEN_HELP}). Ajoute "collab":true si c’est pour faire ensemble une vidéo, un live ou un short (un feat). Jamais pour une échéance, une attente ou une simple intention.`;
 // A character asks the player out (0.9.4): the player gets a card to accept or decline in one tap.
-const INVITE_DM = (c) => `- Si ${c.name} PROPOSE dans ses messages de voir le joueur à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) et que ce n’est pas encore accepté : {"t":"invite","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble (une vidéo, un live, un short à deux). Pas pour un « un de ces jours » vague.`;
-const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un personnage principal PROPOSE au joueur, dans son message privé ("dm"), de se voir à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) : juste après ce "dm", {"t":"invite","by":"handle","what":"≤ 80 caractères : où et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble. Les personnages proches du joueur (relation 30 ou plus) prennent ce genre d’initiative ${often}.`;
+const INVITE_DM = (c) => `- Si ${c.name} PROPOSE dans ses messages de voir le joueur à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) et que ce n’est pas encore accepté : {"t":"invite","what":"≤ 80 caractères : où (chez qui, si c’est chez quelqu’un) et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble (une vidéo, un live, un short à deux). Pas pour un « un de ces jours » vague.`;
+const INVITE_LINE = (often = 'de temps en temps') => `- Facultatif : si un personnage principal PROPOSE au joueur, dans son message privé ("dm"), de se voir à un moment précis (un verre, un dîner, une sortie, un appel, une visio, une vidéo à tourner ensemble…) : juste après ce "dm", {"t":"invite","by":"handle","what":"≤ 80 caractères : où (chez qui, si c’est chez quelqu’un) et quoi","day":2,"at":"20:30"} (${WHEN_HELP}) : le joueur reçoit une invitation à accepter ou décliner. Ajoute "collab":true si c’est pour créer ensemble. Les personnages proches du joueur (relation 30 ou plus) prennent ce genre d’initiative ${often}.`;
 // 0.31.2: a video made from this post, only when the player ticked « Faire une vidéo à partir de ce post » (the game no
 // longer reads one into the words, nor asks the model to): the post is its announcement, the reactions may talk about it.
 const annCtxLine = (g, a, now = Date.now()) => { const r = { what: a.what, noun: a.what === 'short' ? PF(g).shortName : '' }, c = a.about ? charByHandle(g, a.about) : null;
@@ -778,7 +778,8 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     ...dil.lines,
     ...(story.length ? STORY_LINES(ids) : []),
     '- Facultatif, si quelque chose d’important se dit (secret, alliance, dispute, rendez-vous…) : {"t":"memo","text":"une phrase qui le résume"}',
-    t32On() ? DISPO_LINE(c) : null, // 0.32: they may step away
+    t32On() && c.kind !== 'brand' ? DISPO_LINE(c) : null, // 0.32: they may step away (0.32.1: never a brand, it answers right away)
+    t32On() && c.kind === 'brand' ? BRAND_NOW_LINE(c) : null, // 0.32.1: and deals with it now
     main ? psyOutLine(g, c) : null);
   return L.filter((x) => x !== null).join('\n');
 }
@@ -2054,7 +2055,7 @@ async function dmAnswer(g, c, convo, A) {
       else if (o.t === 'mem' && !fx.mem) fx.mem = () => addMem(g, c, o.text);
       else if (o.t === 'gift' && !fx.gift && isMain(c) && giftTalk(text, history)) { const when = at; fx.gift = () => { const x = receiveGift(g, c, o, when); if (x) convo.msgs.push({ id: uid('m'), sys: 'gift', me: false, text: '🎁 ' + x.name, gift: x.id, ts: when, at: when }); }; } // 0.26
       else if (o.t === 'vibe' && !fx.vibe && !daring) { const when = at + 800; fx.vibe = () => vibeLine(g, c, o, when); } // a dare decides by itself
-      else if (o.t === 'dispo' && !fx.dispo) { const when = at + 400; fx.dispo = () => setAway(g, c, o, when); } // 0.32: they step away (their AI's word)
+      else if (o.t === 'dispo' && !fx.dispo && c.kind !== 'brand') { const when = at + 400; fx.dispo = () => setAway(g, c, o, when); } // 0.32: they step away (their AI's word; 0.32.1: never a brand)
       else if (o.t === 'judge' && !fx.judge && isMain(c)) fx.judge = normReact(o.react);
       else if (o.t === 'quest' && !fx.quest && o.done !== false) fx.quest = () => completeStoryQuest(g, o.id);
       else if (o.t === 'questprog' && !fx.prog) fx.prog = () => setQuestProg(g, o.id, o.pct, o.step);
@@ -2964,9 +2965,9 @@ function promptDateGame(g, ev) {
 }
 function promptDateEnd(g, ev) {
   const c = g.chars[ev.c], tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff);
-  const famous = c.followers >= 20000;
+  const famous = c.followers >= 20000, where = meetPlace(g, ev), seenOut = famous && where === 'public'; // 0.32.1: at home, somewhere closed or apart, nobody sees them
   const M = MEET[meetKind(c, ev)], res = M.res[tierIx(tier)];
-  return [famous ? RULES : RULES_PRIVATE, '', ctxText(g, { kind: 'scene', about: c, feed: 3, crowd: famous ? 4 : 0, medias: famous }), '',
+  return [seenOut ? RULES : RULES_PRIVATE, '', ctxText(g, { kind: 'scene', about: c, feed: 3, crowd: seenOut ? 4 : 0, medias: seenOut }), '',
     '## TÂCHE : LA FIN DU RENDEZ-VOUS',
     `Le joueur et @${c.handle} (${c.name}) viennent de passer leur rendez-vous (${M.task}) : « ${ev.what} ».`,
     `Fiche de ${c.name} : ${ficheText(g, c)}.`,
@@ -2980,7 +2981,8 @@ function promptDateEnd(g, ev) {
     ev.cut ? `Le joueur a ÉCOURTÉ la soirée, il devait partir (${ev.cut.why || 'un engagement'}) : ${c.name} le prend à sa façon (compréhensi${gx(c.g, 'f', 've', 'f·ve')}, déçu${gx(c.g, '', 'e', '·e')}, vexé${gx(c.g, '', 'e', '·e')}…), selon votre relation, son cœur et la soirée jusque-là.` : null, // 0.30.1
     dateKind(c, ev) === 'wedding' ? `C’est le MARIAGE du joueur et de ${c.name} : ${tier === 'flop' ? 'tout tourne mal, la cérémonie est reportée' : 'ils se disent oui (raconte la cérémonie, les vœux, la fête)'}.` : null,
     dateKind(c, ev) === 'proposal' ? `Le joueur fait sa demande en fiançailles : ${tier === 'top' ? `${c.name} dit oui` : tier === 'mid' ? `${c.name} demande à réfléchir` : `${c.name} dit non, malaise`}.` : null,
-    famous ? `${c.name} est ${gx(c.g, 'connu', 'connue', 'connu·e')} (${fmtPlain(c.followers)} abonnés) : des gens les ont reconnus, ça peut fuiter sur le réseau.` : `${c.name} n’est pas très ${gx(c.g, 'connu', 'connue', 'connu·e')} : personne ne les a remarqués.`,
+    seenOut ? `${c.name} est ${gx(c.g, 'connu', 'connue', 'connu·e')} (${fmtPlain(c.followers)} abonnés) : des gens les ont reconnus, ça peut fuiter sur le réseau.`
+      : famous ? `${c.name} est ${gx(c.g, 'connu', 'connue', 'connu·e')}, mais ils étaient ${where === 'apart' ? 'chacun de leur côté' : where === 'home' ? 'à la maison' : 'dans un lieu fermé au public'} : personne ne les a vus ensemble, rien ne fuite (sauf ce que l’un d’eux choisit de poster).` : `${c.name} n’est pas très ${gx(c.g, 'connu', 'connue', 'connu·e')} : personne ne les a remarqués.`,
     '', FORMAT, 'Lignes à produire :',
     '- D’abord : {"t":"recap","text":"≤ 380 caractères : le récit de la soirée et ses moments forts"}',
     ev.talk && ev.talk.faded // 0.25.3: they spent the night together: the morning, not a message sent on the way home
@@ -2988,7 +2990,7 @@ function promptDateEnd(g, ev) {
       : `- Puis 1 ou 2 lignes : {"t":"msg","text":"≤ 200 caractères"} : le message privé que ${c.name} envoie au joueur en rentrant, dans sa voix.`,
     VIBE_LINE(false),
     `- Facultatif (au plus 1) : {"t":"mem","text":"≤ 90 caractères"} : ce que ${c.name} retient de la soirée.`,
-    famous ? '- 1 ou 2 lignes : {"t":"post","by":"handle d’un média ou d’un compte du public","text":"≤ 220 caractères"} : la rumeur ou la photo floue qui fuite.' : null,
+    seenOut ? '- 1 ou 2 lignes : {"t":"post","by":"handle d’un média ou d’un compte du public","text":"≤ 220 caractères"} : la rumeur ou la photo floue qui fuite.' : null,
   ].filter((x) => x !== null).join('\n');
 }
 // 0.28.1: the end of an evening, written as soon as the player's last action ends it (their last word, a goodbye, the
@@ -3072,7 +3074,8 @@ function dateOutcome(g, ev, c) {
   const xp = Math.round({ top: 40, mid: 20, flop: 8 }[tier] * (tier === 'flop' ? 1 : D.mult));
   gainXP(g, xp);
   let fol = 0;
-  if (tier !== 'flop' && c.followers >= 20000) { // seen together: their fans look you up
+  const outside = meetPlace(g, ev) === 'public' || dateKind(c, ev) === 'wedding'; // 0.32.1: at home, somewhere closed or apart, nobody sees them together (a wedding has its guests)
+  if (tier !== 'flop' && c.followers >= 20000 && outside) { // seen together: their fans look you up
     fol = grow(s.followers, Math.round(Math.sqrt(c.followers) * (tier === 'top' ? 0.6 : 0.2) * D.mult * rand(0.8, 1.2)));
     s.followers += fol;
     checkMilestones(g);

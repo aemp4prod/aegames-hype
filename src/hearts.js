@@ -561,7 +561,30 @@ function talkTranscript(g, ev) {
    a cool, a rumor about the player, their bad buzz, someone else in the player's life), the stakes of the evening (a drink
    with friends, a dinner for two, a big night), their expectation (born from what they said in private, never told), and
    fame for real (well known, they get recognized in public: fans, a stolen photo; at home, peace). The gains follow. */
-const AT_HOME_RE = /chez (?:moi|toi|lui|elle|eux|nous|vous|l’un|l'un)|à la maison|appart|plaid|canap|soirée pyjama|dîner maison|cuisiner ensemble|en tête-à-tête chez/i;
+const AT_HOME_RE = /chez (?:moi|toi|lui|elle|eux|nous|vous|soi|le joueur|la joueuse|l’un|l'un)\b|chez (?:ses|tes|mes|nos|vos|leurs|sa|ta|ma|son|ton|mon|des|un|une) |à la maison|\bmaison\b|domicile|appart|\bcoloc|\bchambre\b|dortoir|plaid|canap|soirée pyjama|dîner maison|cuisiner ensemble|en tête-à-tête chez/i;
+// 0.32.1 (« quand le joueur invite quelqu'un chez lui ou quand l'IA invite le joueur chez lui… si c'est des lieux fermés ou
+// privés, c'est pas logique » d'être reconnus) : a place shut to the public, or each one at home (a call, a game online).
+const SHUT_RE = /\b(?:au|du|le|leur|son|sa|ton|ta|mon|ma|notre|votre) local\b|salle vide|avant l[’']ouverture|après la fermeture|fermée? au public|privatis|\bpriv[ée]|coulisses|backstage|\bloge\b|\bstudio\b|\bchalet\b|\bvilla\b/i;
+const FAR_RE = /à distance|chacun chez soi/i;
+const APART_RE = /en ligne|\bvocal\b|\bappel\b|\bvisio|facetime|discord|minecraft|valorant|fortnite|roblox/i;
+const plainW = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^@/, '').replace(/[.'’-]+$/, '');
+// « Chez Zara », « chez @zara.vey » : the home of someone of this world, or the player's (« chez Luigi », a restaurant,
+// is nobody's home).
+function chezSomeone(g, what) {
+  const names = new Set();
+  const add = (s) => { const x = plainW(s); if (x.length >= 2) names.add(x); };
+  if (g && g.player) { add(g.player.handle); add(firstName(g.player)); }
+  for (const c of Object.values((g && g.chars) || {})) if (c) { add(c.handle); add(firstName(c)); }
+  const re = /chez\s+@?([\p{L}\p{M}][\p{L}\p{M}0-9._'’-]*)/giu;
+  let m;
+  while ((m = re.exec(String(what || '')))) if (names.has(plainW(m[1]))) return true;
+  return false;
+}
+// Where a meeting is: 'home' (someone's place), 'shut' (closed or private), 'apart' (each on their side) or 'public'.
+function meetPlace(g, ev) {
+  const w = String((ev && ev.what) || '');
+  return FAR_RE.test(w) ? 'apart' : AT_HOME_RE.test(w) || chezSomeone(g, w) ? 'home' : APART_RE.test(w) ? 'apart' : SHUT_RE.test(w) ? 'shut' : 'public';
+}
 const BIG_NIGHT_RE = /demande|bague|fian[cç]|parents|famille|(?:ses|tes|mes) (?:amis|proches|potes)|présenter|rencontrer (?:ses|tes|mes)|anniversaire de couple/i;
 const DINNER_RE = /d[îi]ner|chandelle|gastro|romanti|tête-à-tête/i;
 const FAMOUS = 50000; // that well known, people recognize you in the street
@@ -584,9 +607,9 @@ function dateExigence(g, ev, t = Date.now()) {
   if (dateKind(c, ev) === 'proposal' || BIG_NIGHT_RE.test(ev.what)) { k += 2; say('💍 Un grand soir', 'un grand soir'); }
   else if (mk === 'friends') { k -= 1; say('🍻 Entre potes', 'entre potes'); }
   else if (mk === 'love' && DINNER_RE.test(ev.what)) { k += 1; say('🕯️ Un dîner en tête-à-tête', 'un dîner en tête-à-tête'); }
-  const famous = Math.max(c.followers || 0, g.stats.followers || 0) >= FAMOUS, home = AT_HOME_RE.test(ev.what);
+  const famous = Math.max(c.followers || 0, g.stats.followers || 0) >= FAMOUS, where = meetPlace(g, ev), home = where !== 'public';
   if (famous && !home) { k += 1; say('👀 On vous reconnaît en public', 'on les reconnaît en public'); }
-  else if (famous) say('🏠 Chez vous, tranquilles', 'chez eux, tranquilles');
+  else if (famous) say(...(where === 'home' ? ['🏠 Chez vous, tranquilles', 'chez eux, tranquilles'] : where === 'apart' ? ['📱 À distance, tranquilles', 'à distance, tranquilles'] : ['🔒 À l’abri des regards', 'à l’abri des regards'])); // (0.32.1: closed, private, apart: nobody to recognize them)
   if (ev.late || t - ev.due >= 15 * 60000) { k += 1; say(`⏰ Tu es en retard`, 'le joueur est arrivé en retard'); }
   return { ix: clamp(k, 0, 4), why, ai, pub: famous && !home, first };
 }

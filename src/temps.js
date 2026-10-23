@@ -212,12 +212,12 @@ function rythmeOf(g, c) {
   else if (OWL_RE.test(txt)) { bed += 1.75; wake += 1.25; } else if (LARK_RE.test(txt)) { bed -= 1; wake -= 1.25; }
   if (c.age && c.age < 23) { bed += 0.5; wake += 0.5; }
   const psy = typeof isPsy === 'function' && isPsy(g, c);
-  let speed = c.kind === 'fan' ? 2 : c.kind === 'brand' || c.kind === 'media' ? 45 : c.kind === 'staff' || c.kind === 'cand' ? 25 : DISPO_SPEED[c.coeur] || 12;
+  let speed = c.kind === 'fan' ? 2 : c.kind === 'media' ? 45 : c.kind === 'staff' || c.kind === 'cand' ? 25 : DISPO_SPEED[c.coeur] || 12; // (0.32.1: a brand never waits, see dispoOf)
   const glued = c.kind === 'fan' || psy || DISPO_GLUED.includes(c.coeur);
   if (psy) { speed = 1; bed += 1.5; } // (all theirs: at hand, at any hour)
   else if (c.coeur === 'chaudfroid' && isMain(c)) speed = cfHot(c) ? 3 : 90; // 0.32: a warm spell, a cold one
   if (isMain(c)) speed *= LOVE_ACTIVE.includes(c.vibe) ? 0.45 : c.rel >= 60 ? 0.7 : c.rel <= -20 ? 1.8 : 1;
-  return { bed: bed % 24, wake, speed, glued, biz: c.kind === 'brand' || c.kind === 'cand' };
+  return { bed: bed % 24, wake, speed, glued, biz: c.kind === 'cand' };
 }
 // Asleep at t on the game's clock: until when (0: awake).
 function asleepUntil(R, t = Date.now()) {
@@ -242,6 +242,7 @@ const onlineNow = (g, c, t = Date.now()) => { const m = lastFrom(((g.dms[c.id] |
 // Can they answer now? { now: true }, or { at, why } (when they will, and what kept them: for their AI).
 function dispoOf(g, c, t = Date.now(), convo = g.dms[c.id]) {
   if (!c || !t32On() || c.kind === 'gone') return { now: true };
+  if (c.kind === 'brand') return { now: true }; // 0.32.1: the partnerships answer right away, at any hour (the player's ask: waiting for them was a chore)
   if (stayOn(g, t) && g.stay.c === c.id) return { now: true }; // (together)
   if (isMain(c) && activeEvents(g).some((e) => e.player && e.c === c.id && e.due - t < 2 * 3600000 && t - e.due < DATE_H * 3600000)) return { now: true }; // (about to meet, or meeting)
   if (isMain(c) && awayDateOf(g, c, t)) return { now: true }; // (a date missed: they wait for the player's word)
@@ -265,6 +266,8 @@ function setAway(g, c, o, at = Date.now()) {
   c.away = { at, until: at + Math.round(h * 3600000), why: str(o.why, 50) };
 }
 const DISPO_LINE = (c) => { const il = gx(c.g, 'il', 'elle', 'iel'); return `- Facultatif : si, après ces messages, ${firstName(c)} n’est plus dispo pendant un moment (${il} part travailler, en cours, au sport, en soirée, va dormir, coupe son téléphone, ou n’a pas envie de répondre tout de suite), ajoute {"t":"dispo","h":2,"why":"≤ 40 caractères"} (h : dans combien d’heures ${il} reprend son téléphone, de 0,5 à 12). Selon qui ${il} est : quelqu’un d’impulsif, de collant ou d’accro à son téléphone décroche rarement ; quelqu’un de très pris, de distant ou qui se fait désirer, plus souvent. S’${il} prévient le joueur, c’est dans ses messages.`; };
+// 0.32.1: a brand answers right away, at any hour, and deals with what was asked in that very answer.
+const BRAND_NOW_LINE = (c) => `- ${firstName(c)} répond tout de suite, à toute heure : ${gx(c.g, 'il', 'elle', 'iel')} traite ce que dit le joueur dans ce message même (un oui, un non, une question, une contre-proposition), sans le renvoyer à plus tard ni « aux heures de bureau ».`;
 // The message waits for them: no answer now (theirs comes when they pick up their phone).
 function deferDM(g, c, convo, text, av, t = Date.now()) {
   convo.msgs.push({ id: uid('m'), me: true, text, ts: t, at: t });
@@ -285,8 +288,12 @@ function tickReplies(g, t = Date.now()) {
   let best = null;
   for (const id in g.dms) {
     const D = g.dms[id].due;
-    if (!D || D.at > t || dmBusy(id)) continue;
+    if (!D || dmBusy(id)) continue;
     const c = g.chars[id];
+    if (D.at > t) {
+      if (!c || c.kind !== 'brand') continue;
+      D.at = t; D.why = ''; // 0.32.1: a brand's answer put off before (office hours, its AI stepping away) comes now
+    }
     if (!c || c.cut || c.kind === 'gone') { delete g.dms[id].due; continue; }
     if (!best || D.at < best.D.at) best = { c, D };
   }
@@ -311,7 +318,11 @@ function tickGroups(g, t = Date.now()) {
   if (!g || S.busy.refresh || S.busy.act || inMiniGame()) return false;
   for (const gr of g.groups || []) {
     const D = gr.due;
-    if (!D || D.at > t || gr.left || groupBusy(gr.id)) continue;
+    if (!D || gr.left || groupBusy(gr.id)) continue;
+    if (D.at > t) {
+      if (!groupMembers(g, gr).some((c) => c.kind === 'brand')) continue;
+      D.at = t; // 0.32.1: a brand in the group: someone answers now (an answer put off before)
+    }
     if (!canAfford(g, 'dm')) { D.at = t + 30 * 60000; continue; }
     answerGroupDue(g, gr);
     return true;

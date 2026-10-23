@@ -209,6 +209,20 @@ function programOf(g) {
   return Object.assign({ pf, ok: needs.every((n) => n.cur >= n.goal), needs }, P);
 }
 const monetized = (g) => g.career.prog.state === 'on' && !demonetized(g); // 0.21: three warnings, no ads for a while
+// 0.32.1: a refusal decided by the old rule (no reason kept) is looked at again: yes now if nothing blocks any more
+function reviewProgram321(g, t = Date.now()) {
+  const c = g.career, P = c && c.prog && c.prog.state === 'refused' && !c.prog.why ? programOf(g) : null;
+  if (!P) return false;
+  const why = progRefusal(g, t);
+  if (!why && P.ok) {
+    c.prog = { state: 'on', at: t, again: 1 };
+    addNotif(g, { k: 'money', at: t, text: `✅ Le ${P.name} a réexaminé ta candidature : ${px(g, 'accepté', 'acceptée', 'accepté·e')} ! Tes ${platformOf(g) === 'twitch' ? 'lives' : 'contenus'} rapportent de l’argent maintenant.` });
+  } else {
+    c.prog.why = why || 'il te manque encore une condition';
+    if (!why) c.prog.retry = Math.min(c.prog.retry || t, t); // (only the conditions: retry once they are met)
+  }
+  return true;
+}
 function applyProgram(g) {
   const P = programOf(g), c = g.career;
   if (!P || !P.ok || c.prog.state === 'on' || c.prog.state === 'review') return false;
@@ -216,14 +230,25 @@ function applyProgram(g) {
   addNotif(g, { k: 'money', text: P.review ? `Candidature envoyée au ${P.name} : réponse sous ${P.review} jours (en vrai, ça peut prendre jusqu’à un mois).` : `Tu rejoins le ${P.name}.` });
   return true;
 }
+// 0.32.1: why a partner program says no ('' : yes). Only what weighs when it decides: a reputation far too low, a cancel,
+// a bad buzz still going, ads cut for warnings. A bad buzz that is over, even a recent one, no longer blocks (before: any
+// bad buzz in the 7 days before; « à peine j'ai un drama pas ouf… j'ai pas pu l'avoir et je sais même pas pourquoi »).
+const PROG_REP_MIN = 25;
+function progRefusal(g, t = Date.now()) {
+  const s = g.stats;
+  if (s.reputation < PROG_REP_MIN) return `ta réputation est trop basse (${rep1000(s.reputation)}/1000, il faut au moins ${rep1000(PROG_REP_MIN)})`;
+  if (s.cancelled) return 'tu es en plein cancel';
+  if (g.pbb && !g.pbb.over && t < g.pbb.until) return 'tu étais en plein bad buzz au moment de l’examen';
+  if (demonetized(g, t)) return 'tes pubs sont coupées pour avertissements';
+  return '';
+}
 function checkProgram(g, t) {
   const c = g.career;
   if (c.prog.state !== 'review' || t < c.prog.until) return false;
-  const P = programOf(g);
-  const refused = g.stats.reputation < 25 || (g.pbb && t - g.pbb.at < 7 * DAY_MS);
-  if (refused) {
-    c.prog = { state: 'refused', at: t, retry: t + 7 * DAY_MS };
-    addNotif(g, { k: 'money', text: `${px(g, 'Refusé', 'Refusée', 'Refusé·e')} au ${P ? P.name : 'programme'} : ta chaîne est jugée trop sulfureuse pour les annonceurs. Retente dans 7 jours, avec une meilleure réputation.` });
+  const P = programOf(g), why = progRefusal(g, t);
+  if (why) {
+    c.prog = { state: 'refused', at: t, retry: t + 7 * DAY_MS, why };
+    addNotif(g, { k: 'money', text: `${px(g, 'Refusé', 'Refusée', 'Refusé·e')} au ${P ? P.name : 'programme'} : ${why}. Retente dans 7 jours.` });
   } else {
     c.prog = { state: 'on', at: t };
     addNotif(g, { k: 'money', text: `${px(g, 'Accepté', 'Acceptée', 'Accepté·e')} au ${P ? P.name : 'programme'} ! Tes ${platformOf(g) === 'twitch' ? 'lives' : 'contenus'} rapportent de l’argent maintenant.` });

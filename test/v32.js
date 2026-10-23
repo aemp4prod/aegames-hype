@@ -9,7 +9,8 @@
 // - the network tells the hours gone by untold (2 h of work: a refresh « pendant que le joueur travaillait »);
 // - the characters' lives: asleep at night (the message waits, « Envoyé », a tip once, then all of it answered at their
 //   waking, with the late prompt), a conversation going on stays instant, their AI may step away (« dispo »), the impulsive
-//   and the psychopath at hand, brands at office hours, a date soon at hand; the online dot; a group waits for someone;
+//   and the psychopath at hand, brands at hand at any hour (0.32.1; an answer they had put off comes at once; a candidate
+//   keeps office hours), a date soon at hand; the online dot; a group waits for someone;
 // - on a phone, the strip keeps its room; without window.__t32 (the suites written before), none of it.
 // Run: OUT=<dir> UMD=<path to htm/preact/standalone.umd.js> node test/v32.js
 const { chromium } = require('/opt/npm-tools/node_modules/playwright');
@@ -339,13 +340,44 @@ const toastHas = (page, re) => G(page, (src) => window.__hype.S.toasts.some((x) 
   });
   check('by nature: the impulsive answers at once, the cautious one after a while; the psychopath and the impulsive are glued to their phone', nature.imp === true && nature.pru === 20 && nature.psy && nature.glued, nature);
   await goTo(page, 22, 0);
-  const brand = await G(page, () => {
+  // 0.32.1: a brand answers right away, at any hour, and never steps away; a candidate keeps office hours
+  const NOW_LINE = 'répond tout de suite, à toute heure';
+  const brand = await G(page, async (NOW_LINE) => {
     const H = window.__hype, g = H.S.game, t = Date.now();
-    const b = H.dispoOf(g, { id: 'zz', kind: 'brand', handle: 'marque.test', name: 'Marque Test' }, t, { msgs: [] });
-    const d = H.gameDate(b.at);
-    return { why: b.why, h: d.getHours() + d.getMinutes() / 60, next: H.gameDate(b.at).getDate() !== H.gameDate(t).getDate() };
-  });
-  check('a brand at 22 h: office hours, its answer tomorrow between 9 h and 10 h 30', brand.why === 'hors des heures de bureau' && brand.h >= 9 && brand.h <= 10.5 && brand.next, brand);
+    g.chars.brandtest = { id: 'brandtest', kind: 'brand', name: 'Clémence Vidal', handle: 'clemence.partenariats', emoji: '💼', g: 'f', role: 'Chargée de partenariats, Marque Test', bio: 'Les partenariats de la Marque Test.', personality: 'pro et chaleureuse', voice: 'tutoie vite, phrases courtes', followers: 900, rel: 10, unlocked: true, unlockedAt: t - 864e5, mem: [], dmSent: 0 };
+    g.order.push('brandtest');
+    const c = g.chars.brandtest, av = H.dispoOf(g, c, t, { msgs: [] });
+    const cand = H.dispoOf(g, { id: 'zz', kind: 'cand', handle: 'cand.test', name: 'Candidat Test' }, t, { msgs: [] }), d = H.gameDate(cand.at);
+    const p = H.promptDM(g, c, [], 'x');
+    window.__mockOnce = [{ has: NOW_LINE, lines: [{ t: 'msg', text: 'Bonsoir ! Oui, on peut en parler tout de suite.' }, { t: 'dispo', h: 3, why: 'fin de journée' }] }];
+    const n = window.__prompts.length;
+    const ok = await H.sendDM(c.id, 'Bonsoir ! On pourrait parler d’un partenariat ?');
+    return { now: av.now, cand: cand.why === 'hors des heures de bureau' && d.getHours() >= 9 && d.getHours() < 11, line: p.includes(NOW_LINE) && !p.includes('{"t":"dispo","h":2'), ok, n };
+  }, NOW_LINE);
+  await idle(page); await settle();
+  const brand2 = await G(page, ([n, NOW_LINE]) => {
+    const H = window.__hype, g = H.S.game, c = g.chars.brandtest, cv = g.dms[c.id];
+    return { calls: window.__prompts.slice(n).filter((p) => p.includes(NOW_LINE)).length, answered: cv.msgs.some((m) => m.text === 'Bonsoir ! Oui, on peut en parler tout de suite.'), away: !c.away, due: !cv.due };
+  }, [brand.n, NOW_LINE]);
+  check('a brand at 22 h (0.32.1): at hand, its AI told to deal with it now (never to step away), it answers right away and a « dispo » of its AI is ignored; a candidate keeps office hours',
+    brand.now === true && brand.line && brand.ok && brand.cand && brand2.calls === 1 && brand2.answered && brand2.away && brand2.due, Object.assign({}, brand, brand2));
+  // an answer a brand had put off with 0.32.0 (office hours): it comes now
+  const nLate = await G(page, (NOW_LINE) => {
+    const H = window.__hype, g = H.S.game, cv = g.dms.brandtest, t = Date.now();
+    cv.msgs.push({ id: 'mx1', me: true, text: 'Et pour la date de tournage ?', ts: t - 60000, at: t - 60000 });
+    cv.due = { at: t + 11 * 3600000, why: 'hors des heures de bureau', from: t - 60000 };
+    window.__mockOnce = [{ has: NOW_LINE, lines: [{ t: 'msg', text: 'Le tournage peut se faire jeudi.' }] }];
+    return window.__prompts.length;
+  }, NOW_LINE);
+  await until(page, () => window.__hype.S.game.dms.brandtest.msgs.some((m) => m.text === 'Le tournage peut se faire jeudi.'), null, 20000);
+  await idle(page);
+  const putOff = await G(page, (n) => {
+    const H = window.__hype, g = H.S.game, P = window.__prompts.slice(n).find((p) => p.includes('Et pour la date de tournage')) || '';
+    const r = { answered: g.dms.brandtest.msgs.some((m) => m.text === 'Le tournage peut se faire jeudi.'), asked: !!P, bureau: P.includes('hors des heures de bureau'), due: !g.dms.brandtest.due };
+    delete g.chars.brandtest; delete g.dms.brandtest; g.order = g.order.filter((x) => x !== 'brandtest');
+    return r;
+  }, nLate);
+  check('an answer a brand had put off before (office hours, with 0.32.0) comes at once, without « hors des heures de bureau »', putOff.answered && putOff.asked && !putOff.bureau && putOff.due, putOff);
   await goTo(page, 23, 30);
   const soon = await G(page, () => {
     const H = window.__hype, g = H.S.game, c = H.charByHandle(g, 'leandre.aube');

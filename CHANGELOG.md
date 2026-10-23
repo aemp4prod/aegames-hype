@@ -5,6 +5,16 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.32.1 — 23 octobre 2026 (build 32001)
+
+**Les partenariats te répondent tout de suite, un rendez-vous chez quelqu’un reste entre vous, et le programme partenaire ne te refuse plus pour un vieux bad buzz.**
+
+### 🛠️ Corrigé
+
+- **🤝 Les marques répondent directement** : depuis la 0.32, tes contacts de partenariat ne répondaient qu’aux heures de bureau, et parfois des heures plus tard. Désormais, une marque te répond tout de suite, à n’importe quelle heure, et traite ta demande dans sa réponse même (un oui, un non, une question ou une contre-proposition) au lieu de la renvoyer à plus tard. Pareil dans un groupe où il y a une marque. Un message qui attendait encore sa réponse l’a dès que tu ouvres ta partie. Les autres persos gardent leur rythme.
+- **🏠 Chez quelqu’un, personne ne vous reconnaît** : un rendez-vous chez toi, chez l’autre ou chez quelqu’un d’autre (« Chez Zara », « chez @pseudo »…) pouvait encore afficher « On vous reconnaît en public » si l’un de vous était connu, avec la soirée plus difficile, la photo volée et les fans qui vous voyaient ensemble. Désormais, chez quelqu’un, dans un lieu fermé ou privé (un local, un studio, une soirée privée, une salle vide), ou chacun chez soi en appel ou en jeu en ligne, personne ne vous voit : pas de fans, pas de photo volée, rien qui fuite (sauf si l’un de vous poste quelque chose). Dans un café, un restaurant ou dans la rue, rien ne change.
+- **💸 Le programme partenaire (YouTube, TikTok, Twitch) moins sévère, et il te dit pourquoi** : n’importe quel bad buzz dans les 7 jours avant la réponse suffisait à te faire refuser, même un tout petit, terminé depuis longtemps, excuses faites. Désormais, seul compte ce qui se passe au moment de la réponse : une réputation sous 250/1000, un cancel, un bad buzz encore en cours, ou des pubs coupées pour avertissements. Le refus te dit lequel, dans la notification et dans le Studio, et pendant l’examen, le Studio te rappelle ce qui peut le faire refuser. Si l’ancienne règle t’avait refusé la monétisation, ta candidature est réexaminée à l’ouverture de ta partie : acceptée si plus rien ne bloque.
+
 ## 0.32.0 — 23 octobre 2026 (build 32000)
 
 **Le temps passe pour de vrai, et les persos ont plus de caractère : chaque action prend du temps, tu te fatigues, tu dors, et les persos ont leur vie, leur rythme et leurs façons d’aimer et de se disputer.**
