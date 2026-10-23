@@ -31,6 +31,14 @@ async function dismiss(page) { for (let k = 0; k < 6 && (await page.$('.modal'))
 async function newPage(browser, viewport = { width: 390, height: 844 }) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: true, colorScheme: 'light' });
   await ctx.addInitScript(MOCK);
+  await ctx.addInitScript((on) => {
+    if (!on) return;
+    window.__t32 = true; window.__drawTraits = true; window.__stalkPlan = { doux: 3600000, hater: 7200000 };
+    window.__mockOnce = [ // (the newcomers they are: names of their own, the usual one being taken by then)
+      { has: 'Pas méchant·e : maladroit·e', lines: [{ t: 'char', name: 'Noé Lazare', handle: 'noe.lazare', emoji: '🌻', g: 'm', role: 'Apprenti herboriste', bio: 'des plantes et du thé', personality: 'doux, attentionné', voice: 'douce', followers: 800, rel: 12 }, { t: 'post', by: 'noe.lazare', text: 'première infusion de la saison 🍵' }] },
+      { has: 'l’admiration peut tourner à la rancœur', lines: [{ t: 'char', name: 'Inès Morel', handle: 'ines.morel', emoji: '📷', g: 'f', role: 'Photographe', bio: 'je capture ce que vous ne voyez pas', personality: 'intense, passionnée', voice: 'sèche', followers: 2400, rel: 5 }, { t: 'post', by: 'ines.morel', text: 'lumière parfaite ce matin.' }] },
+    ];
+  }, process.env.T32 !== '0'); // 0.32: le temps qui passe, the hearts and traits the game draws, the ones who follow the player past 10 000 followers (T32=0: as before)
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[error] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
@@ -69,7 +77,7 @@ const DMS = ['salut ! ça va ?', 'tu viens au bal avec moi ?', 'je voudrais un a
 // One random step: what was done, for the log.
 async function step(page, k) {
   const act = pickW([['post', 14], ['dm', 16], ['offer', 8], ['sign', 6], ['plan', 8], ['sooner', 5], ['shoot', 8], ['skip', 10], ['sell', 6], ['palette', 4], ['screens', 10], ['roundtrip', 2], ['postpone', 3],
-    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4], ['shop', 10], ['social', +(process.env.SOCIAL_W || 10)], ['react', 6]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements; 0.29: the shop; 0.31.3: reactions, likes, pins)
+    ['amend', 6], ['walk', 2], ['series', 2], ['practice', 3], ['quote', 4], ['announce', 4], ['shop', 10], ['social', +(process.env.SOCIAL_W || 10)], ['react', 6], ['sleep', 4]]); // (0.27.6: the contracts, the challenges, the practice rounds, the quotes, the announcements; 0.29: the shop; 0.31.3: reactions, likes, pins; 0.32: a night, a nap)
   await G(page, () => { const H = window.__hype; H.S.modals = []; H.update(false); });
   if (act === 'post') {
     await G(page, () => { const H = window.__hype; H.S.stack = []; if (H.S.fabAway) H.S.fabAway = false; H.goTab('feed'); });
@@ -244,6 +252,14 @@ async function step(page, k) {
     }
     return res.msg;
   }
+  if (act === 'sleep') { // 0.32: « Dormir » (the night, or a nap in the day): the clock moves on, the energy comes back
+    const before = await G(page, () => { const H = window.__hype, g = H.S.game, P = H.sleepPlan(g); return { e: H.nrgNow(g), off: g.clockOff || 0, ok: P.ok, nap: P.nap, held: !!(H.activeRelease(g) && H.activeRelease(g).due <= Date.now()) }; });
+    if (!before.ok || before.held) return 'sleep (no time for it)';
+    await G(page, () => window.__hype.goSleep());
+    await idle(page, 40000);
+    const after = await G(page, () => { const H = window.__hype, g = H.S.game; return { e: H.nrgNow(g), off: g.clockOff || 0 }; });
+    return `${before.nap ? 'nap' : 'sleep'} ${Math.round(before.e)} → ${Math.round(after.e)} %${after.off <= before.off || after.e + 0.5 < before.e ? ' BAD' : ''}`;
+  }
   if (act === 'skip') { const ms = Math.round((0.2 + rnd() * 10) * 3600000); await G(page, (m) => { const H = window.__hype; const r = H.activeRelease(H.S.game); if (r && r.due <= Date.now()) return; H.skipTime(m); }, ms); await idle(page, 40000); return `skip ${Math.round(ms / 60000)} min`; }
   if (act === 'sell') {
     return G(page, (r) => {
@@ -386,6 +402,13 @@ function invariants() {
   }
   const P = H.plannedReleases(g);
   if (P.length > H.MAX_PLANNED) bad.push('planned=' + P.length);
+  // 0.32: the energy, the time owed, the answers waiting
+  if (g.nrg) { fin(g.nrg.e, 'nrg.e', 0, 100); fin(g.nrg.at, 'nrg.at', 1e12); fin(H.nrgNow(g), 'nrgNow', 0, 100); }
+  if (g.actDebt !== undefined) fin(g.actDebt, 'actDebt', 0, 7 * 24 * 3600000);
+  if (g.quietMs !== undefined) fin(g.quietMs, 'quietMs', 0, 60 * 24 * 3600000);
+  for (const id in g.dms) { const D = g.dms[id].due; if (D && (!(D.at > 1e12) || !(D.from > 1e12) || !g.chars[id])) bad.push('dm due: ' + JSON.stringify(D)); }
+  for (const gr of g.groups || []) if (gr.due && !(gr.due.at > 1e12)) bad.push('group due: ' + JSON.stringify(gr.due));
+  for (const ch of Object.values(g.chars)) if (ch.away && !(ch.away.until > ch.away.at)) bad.push(`away(${ch.handle}): ${JSON.stringify(ch.away)}`);
   // 0.29: the stories (24 h, three live at most per character), the groups (four, forty messages at most)
   const st = g.stories || [], live = H.liveStories(g);
   if (st.length > 40) bad.push('stories=' + st.length);
@@ -406,7 +429,8 @@ function invariants() {
   for (const x of H.invOf(g)) { if (ids.has(x.id)) bad.push('inv dup ' + x.id); ids.add(x.id); if (x.sold && x.sale) bad.push('inv sold and on sale ' + x.name); }
   const b = H.S.busy; const stuck = Object.keys(b).filter((k) => b[k] && !['cand', 'save', 'news'].includes(k));
   try { const n = JSON.stringify(g).length; if (n > 6e6) bad.push('game size ' + n); } catch (e) { bad.push('not serialisable: ' + e.message); }
-  return { bad, stuck };
+  const t = Date.now(), due = Object.values(g.dms || {}).filter((cv) => cv.due && cv.due.at <= t).length + (g.groups || []).filter((gr) => gr.due && gr.due.at <= t).length; // 0.32: answers whose time came (one after the other)
+  return { bad, stuck, due };
 }
 
 (async () => {
@@ -423,7 +447,12 @@ function invariants() {
     await dismiss(page);
     await idle(page);
     const inv = await G(page, invariants);
-    if (inv.stuck.length) { await sleep(3000); const again = await G(page, invariants); if (again.stuck.length) problems.push(`#${k} (${what}) busy stuck: ${again.stuck.join(',')}`); }
+    if (inv.stuck.length) {
+      await sleep(3000);
+      let again = await G(page, invariants);
+      for (let w = 0; w < 30 && again.stuck.length && again.stuck.every((x) => ['dm', 'dms', 'groups', 'newchar'].includes(x)) && (again.due || inv.due || again.stuck.includes('newchar')); w++) { await sleep(2000); again = await G(page, invariants); } // (0.32: after a long skip, several of them answer, one after the other; a newcomer waits its turn)
+      if (again.stuck.length) problems.push(`#${k} (${what}) busy stuck: ${again.stuck.join(',')}`);
+    }
     if (inv.bad.length) problems.push(`#${k} (${what}) ${inv.bad.join(' ; ')}`);
     if (errors.length > e0) problems.push(`#${k} (${what}) page errors: ${errors.slice(e0).join(' | ').slice(0, 400)}`);
     log.push(`${k} ${what}`);

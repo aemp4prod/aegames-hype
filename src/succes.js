@@ -266,7 +266,7 @@ function achIcon(A, size = 36, cls = '') {
   const svg = A && typeof ACH_ICONS !== 'undefined' ? ACH_ICONS[A.id] : null;
   if (!svg) return A ? emoParts(A.emoji) : null;
   const src = ACH_SRC[A.id] || (ACH_SRC[A.id] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
-  return html`<img class=${'ach-ic' + (cls ? ' ' + cls : '')} src=${src} width=${size} height=${size} alt="" draggable="false" />`;
+  return html`<img class=${'ach-ic' + (cls ? ' ' + cls : '')} src=${src} width=${size} height=${size} alt="" draggable=${false} />`;
 }
 function AchBadge({ g, A }) {
   const got = achGot(g, A.id), hide = A.hidden && !got;

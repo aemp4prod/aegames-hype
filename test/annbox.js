@@ -101,7 +101,7 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
   const browser = await chromium.launch();
   const { page } = await newPage(browser, { width: 1280, height: 900 });
   await newGame(page);
-  await setHour(page, 13);
+  await setHour(page, 9); // (0.32: a video is a working day: shot from 13 h for 21 h)
   await G(page, () => { const H = window.__hype, g = H.S.game; for (const h of ['leandre.aube', 'ada.quill']) { const c = H.charByHandle(g, h); if (c) Object.assign(c, { unlocked: true, asleep: undefined }); } g.stats.energy = g.stats.maxEnergy; H.update(); });
 
   // ---------- the player's case: a post that only talks of a video ----------
@@ -126,7 +126,7 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
   await shot(page, 'box-ticked');
   check('ticked: the format its words say (Vidéo), the moment they say (tonight 21 h), or as soon as it can be made, tomorrow; the topic is the post without « ce soir à 21h » nor « ma vidéo… sort »; the time it takes, said',
     b2.checked && b2.box && b2.fmt === 'Vidéo' && b2.when === 'Comme ton post : ce soir 21 h' && b2.chips.length === 3 && /^Au plus vite \(17 h [0-5]\d\)$/.test(b2.chips[1]) && b2.chips[2] === 'Demain 18 h'
-      && b2.topic === 'Les potions du marché noir !!' && /^⏱️ 4 h de travail : tu tournes aujourd’hui 17 h pour une sortie ce soir 21 h\.$/.test(b2.note) && !b2.warn && b2.aboutN === 0 && /Ce post l’annonce/.test(b2.small) && b2.pub, b2);
+      && b2.topic === 'Les potions du marché noir !!' && /^⏱️ 8 h de travail : tu tournes aujourd’hui 13 h pour une sortie ce soir 21 h\.$/.test(b2.note) && !b2.warn && b2.aboutN === 0 && /Ce post l’annonce/.test(b2.small) && b2.pub, b2);
   await publish(page);
   const a2 = await G(page, () => {
     const H = window.__hype, g = H.S.game, p = g.posts.find((x) => x.a === 'p' && /potions du marché noir/.test(x.text)), r = g.releases.slice(-1)[0];
@@ -136,8 +136,8 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
   const pr2 = await lastPostPrompt(page, n2.pr);
   check('published: a video « Les potions du marché noir !! » out at 21 h, its post the announcement (the reactions are told), the countdown said; the box is gone from the drafts',
     a2.what === 'vidéo' && a2.topic === 'Les potions du marché noir !!' && a2.hour === 21 && a2.min === 0 && a2.post && /sort ce soir à 21h/.test(a2.said) && a2.pick === 1 && a2.state === 'scheduled'
-      && /^Compte à rebours lancé : ta vidéo « Les potions du marché noir !! » sort ce soir 21 h\. Le tournage commence aujourd’hui 17 h/.test(a2.notif) && !a2.drafts
-      && /Avec ce post, le joueur annonce une vidéo : « Les potions du marché noir !! », qui sort [^.]*à 21 h \(aujourd’hui, dans \d h\)/.test(pr2) && /certains font monter la hype, d’autres doutent/.test(pr2), { a2, line: (pr2.match(/Avec ce post[^\n]*/) || [''])[0] });
+      && /^Compte à rebours lancé : ta vidéo « Les potions du marché noir !! » sort ce soir 21 h\. Le tournage commence aujourd’hui 13 h/.test(a2.notif) && !a2.drafts
+      && /Avec ce post, le joueur annonce une vidéo : « Les potions du marché noir !! », qui sort [^.]*à 21 h \(aujourd’hui, dans \d+ h\)/.test(pr2) && /certains font monter la hype, d’autres doutent/.test(pr2), { a2, line: (pr2.match(/Avec ce post[^\n]*/) || [''])[0] });
 
   // ---------- what the player changes stays: a short, tomorrow, their own topic, the one it is about ----------
   await compose(page, 'ce que @leandre.aube cache au conseil des maisons, bientôt en short 👀');
@@ -146,7 +146,7 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
   const b3 = await boxState(page);
   const short = await G(page, () => { const H = window.__hype; return H.PF(H.S.game).shortName; });
   check('a short from its words, about the one it mentions (the only one): « @leandre.aube » picked, « Personne » offered',
-    b3.fmt.toLowerCase() === short.toLowerCase() && b3.about === '@leandre.aube' && b3.aboutN === 2 && /^Au plus vite \(15 h [0-5]\d\)$/.test(b3.when) && b3.chips[0] === b3.when && b3.topic === 'Ce que @leandre.aube cache au conseil des maisons, en short 👀', b3);
+    b3.fmt.toLowerCase() === short.toLowerCase() && b3.about === '@leandre.aube' && b3.aboutN === 2 && /^Au plus vite \(11 h [0-5]\d\)$/.test(b3.when) && b3.chips[0] === b3.when && b3.topic === 'Ce que @leandre.aube cache au conseil des maisons, en short 👀', b3);
   await page.fill('#ann-topic', 'Les secrets du conseil des maisons');
   await page.locator('.layer .ann-box .tr-chips[aria-label="Quand"] .chip-btn', { hasText: 'Demain 18 h' }).click();
   await page.fill('#compose', 'ce que @leandre.aube cache au conseil des maisons… demain en short 👀 abonnez-vous');
@@ -172,8 +172,8 @@ const lastPostPrompt = (page, n0) => G(page, (n0) => window.__prompts.slice(n0).
   await page.locator('.layer .ann-box .seg button', { hasText: /^Live$/ }).click();
   await sleep(200);
   const b4c = await boxState(page);
-  check('the moment the post says, too soon for 4 h of work: it is said (it would come out late); « Au plus vite » fits; a live starts when it is said',
-    b4.when === 'Comme ton post : dans 1 h 00' && b4.warn && /^⚠️ Il te faut 4 h de travail : annoncée dans 1 h 00, elle sortira en retard, vers 17 h( \d\d)?\.$/.test(b4.note)
+  check('the moment the post says, too soon for 8 h of work: it is said (it would come out late); « Au plus vite » fits; a live starts when it is said',
+    b4.when === 'Comme ton post : dans 1 h 00' && b4.warn && /^⚠️ Il te faut 8 h de travail : annoncée dans 1 h 00, elle sortira en retard, vers 17 h( \d\d)?\.$/.test(b4.note)
       && /^Au plus vite/.test(b4b.when) && !b4b.warn && /tu tournes/.test(b4b.note) && b4c.fmt === 'Live' && b4c.note === '🔴 Le live commence dans 1 h 00 (il dure 2 h).' && b4c.when === 'Comme ton post : dans 1 h 00' && b4c.chips.length === 3, { b4, b4b, b4c });
   await page.uncheck('.layer .ann-card input');
   await sleep(200);

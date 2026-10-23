@@ -184,7 +184,7 @@ function makeTalentOffer(g, c, o = {}) {
   const t = Date.now(), fee = talentFee(g, c);
   const same = (x) => x.brand.toLowerCase() === brand.toLowerCase() && g.chars[x.contact] && g.chars[x.contact].kind === 'brand';
   const old = A.deals.filter(same).slice(-1)[0] || (g.deals || []).filter(same).slice(-1)[0]; // (the same person writes again)
-  const contact = old ? g.chars[old.contact] : addContact(g, { name: o.contact, handle: o.handle, g: o.g, brand, role: `Partenariats · ${brand}`, emoji: cleanEmoji(o.emoji) || S0.emoji });
+  const contact = o.via || (old ? g.chars[old.contact] : addContact(g, { name: o.contact, handle: o.handle, g: o.g, brand, role: `Partenariats · ${brand}`, emoji: cleanEmoji(o.emoji) || S0.emoji })); // (0.32 o.via: the contact the agent asked)
   if (!contact) return null;
   const d = { id: uid('td'), c: c.id, brand, emoji: cleanEmoji(o.emoji) || S0.emoji, sector: S0.id, product: str(o.product, 80) || pick(S0.products), fee, fee0: fee,
     lo: niceRound(fee * 0.7), max: Math.round(fee * (1.3 + 0.03 * staffPower(g, 'agence'))), days: randi(4, 8), at: t, until: t + 2 * DAY_MS, state: 'offer', contact: contact.id, cut: T.cut };
@@ -192,10 +192,28 @@ function makeTalentOffer(g, c, o = {}) {
   trimTdeals(A);
   const pitch = str(o.text, 300) || `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On aimerait beaucoup travailler avec @${c.handle} : c’est bien toi qui t’occupes de ses contrats ? Voici notre proposition ⬇️`;
   const at = later() + 1200;
-  addIncomingDM(g, contact, pitch, at, { max: 400 });
+  if (!o.via) addIncomingDM(g, contact, pitch, at, { max: 400 }); // (asked in their messages: their own words said it)
   tdCard(g, contact, d, at + 400);
   addNotif(g, { k: 'money', c: contact.id, at, text: `${d.emoji} ${brand} veut ${firstName(c)} pour un partenariat : ${fmtMoney(g, fee)} (ta commission : ${fmtMoney(g, cutOf(T.cut, fee))}).` });
   return d;
+}
+// 0.32: the agent asks a brand they know for one of their talents: its AI may say yes, and the offer comes (the game sets
+// the price from the talent's audience, as for any offer).
+function brandOfContact(g, b) {
+  const d = (g.deals || []).filter((x) => x.contact === b.id).slice(-1)[0] || (g.agency ? g.agency.deals.filter((x) => x.contact === b.id).slice(-1)[0] : null);
+  if (d && d.brand) return d.brand;
+  const m = /^Partenariats\s*·\s*(.+)$/.exec(b.role || '');
+  return m ? str(m[1], 30) : '';
+}
+function talentAskLine(g, b) {
+  const L = talentsOn(g), brand = brandOfContact(g, b);
+  if (!L.length || !brand) return null;
+  return `- Si le joueur, agent de ${L.map((T) => '@' + g.chars[T.c].handle).join(', ')}, demande à ${b.name} un partenariat pour l’un de ses talents, ${b.name} décide en pro (${brand} colle-t-elle à ce talent, à son audience, à son univers ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre_talent","for":"handle du talent","product":"≤ 60 caractères : ce que ${brand} veut lui faire montrer"} (une seule ; le jeu fixe le prix d’après son audience, et la proposition s’affiche dans vos messages). Si c’est non, ou pas maintenant, dis-le simplement.`;
+}
+function brandOffersTalent(g, b, o) {
+  const c = charByHandle(g, normHandle(o && o.for)), brand = brandOfContact(g, b);
+  if (!c || !brand || !talentOn(g, c)) return null;
+  return makeTalentOffer(g, c, { brand, product: o.product, via: b });
 }
 // The player passes it on: their conversation gets the proposal (the talent's AI answers when the player writes).
 function askTalentDeal(g, d) {
@@ -570,7 +588,7 @@ function AgencySection({ g, now }) {
   const [name, setName] = useState(''), [emo, setEmo] = useState(AG_EMOJIS[0]), [form, setForm] = useState(false);
   const open = A ? A.deals.filter((d) => tdealOpen(d)).slice().reverse() : [], past = A ? A.deals.filter((d) => !tdealOpen(d)).slice(-4).reverse() : [];
   const M = A && A.month && A.month.k === agMonth(g, now).k ? A.month : null, why = agencyWhy(g);
-  const found = () => { const r = foundAgency(g, name, emo); if (!r.ok) { toast(r.why, 'bad'); return; } setForm(false); toast(`${emo} « ${str(name, 40)} » est née !`, 'good'); update(); };
+  const found = () => { const r = foundAgency(g, name, emo); if (!r.ok) { toast(r.why, 'bad'); return; } actTime(g, 30); setForm(false); toast(`${emo} « ${str(name, 40)} » est née !`, 'good'); update(); };
   return html`<section class="section agency">
     <div class="section-h"><h3>${agencyFounded(g) ? `${A.emoji} ${A.name}` : '🤝 Tes talents'}</h3><span>${L.length ? `${L.length}/${talentCap(g)} ${plural(L.length, 'talent', 'talents')} · ${fmtMoney(g, (A && A.earned) || 0)} de commissions` : 'agent de personne'}</span></div>
     ${!L.length && !asked.length ? html`<p class="muted">Deviens l’agent d’un perso depuis son profil : tu lui trouves des marques, tu négocies, tu prends ta commission. C’est le perso qui décide.</p>` : null}

@@ -244,7 +244,7 @@ function DevisCard({ g, dv, attach, onAttach, rid }) {
     ${total > 0 && total > cash && !dv.cut ? html`<p class="dv-miss">Il te manque ${fmtMoney(g, total - Math.max(0, cash))} : choisis un sujet moins cher, ou trouve un sponsor.</p>` : null}
     ${deals.length && onAttach ? html`<div class="field"><span class="lbl">Un sponsor déjà signé pour ce contenu ?</span><div class="tr-chips"><button type="button" class=${'chip-btn' + (!attach ? ' on' : '')} onClick=${() => onAttach('')}>Aucun</button>${deals.map((d) => html`<button type="button" key=${d.id} class=${'chip-btn' + (attach === d.id ? ' on' : '')} onClick=${() => onAttach(d.id)}>${d.emoji} ${d.brand}${dealLeft(g, d)}</button>`)}</div></div>` : null}
     ${dv.sponsor || g.stats.followers >= 800 ? html`<div class="dv-pitch">${dv.sponsor ? html`<small>💡 ${dv.sponsor.why || 'Une marque pourrait financer ça.'}</small>` : null}
-      <button type="button" class="btn btn-ghost btn-sm" disabled=${!!dv.pitched || g.stats.followers < 800} onClick=${() => { if (pitchBrand(g, dv)) update(); }}>${dv.pitched ? 'Marques démarchées' : `Démarcher une marque${dv.sponsor ? ` (${sectorWord(dv.sponsor.sector)})` : ''}${g.stats.followers < 800 ? ' · dès 800 abonnés' : ''}`}</button></div>` : null}
+      <button type="button" class="btn btn-ghost btn-sm" disabled=${!!dv.pitched || g.stats.followers < 800} onClick=${() => { if (pitchBrand(g, dv)) { actTime(g, 20); update(); } }}>${dv.pitched ? 'Marques démarchées' : `Démarcher une marque${dv.sponsor ? ` (${sectorWord(dv.sponsor.sector)})` : ''}${g.stats.followers < 800 ? ' · dès 800 abonnés' : ''}`}</button></div>` : null}
   </div>`;
 }
 // The quote step of a content announced on the network (its shoot screen): ask, then pay.
@@ -259,6 +259,7 @@ function DevisStep({ g, r, topic, plot }) {
     const st = devisStale(g, dv);
     if (st) { staleSay(st, dv); update(false); return; }
     if (!payDevis(g, dv, topic)) { toast(`Il te faut ${fmtMoney(g, devisTotal(dv))}.`, 'bad'); return; }
+    actTime(g, 15); // 0.32: ordering what the quote lists
     r.devis = { total: devisTotal(dv), items: dv.items, have: dv.have || [], topic: dv.topic, plot: dv.plot || '', at: Date.now() }; if (dv.attach) r.deal = dv.attach; dropDevis(dv); update();
   };
   const paid = () => { if (dv && !dv.paid && devisFor(o) === dv && !devisStale(g, dv) && !(devisTotal(dv) > g.career.cash)) askPayDevis(g, dv, 'Payer', pay); else pay(); }; // (0.28.1: the question first)

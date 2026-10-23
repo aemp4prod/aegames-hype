@@ -1856,6 +1856,9 @@ body.win-dragging, body.win-dragging * { cursor: grabbing !important; user-selec
 .clock-btn span { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock-btn .ic:last-child { color: var(--hot); flex: none; }
 .clock-btn .ic, .clock-btn b { flex: none; } /* 0.28.1: the clock never shrinks, however much money stands beside it */
+.clock-btn .day-n { flex: none; } /* 0.31.4: the day of the game (on a phone: in the time sheet and the profile) */
+@media (max-width: 560px) { .clock-btn .day-n { display: none; } }
+.watch-card .watch-day { margin: -2px 0 4px; font-size: 13.5px; color: var(--ink-2); text-align: center; }
 .cash-chip { min-width: 0; flex: 0 1 auto; }
 .cash-chip b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cal-chip { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); font-weight: 600; text-align: center; }
@@ -1873,6 +1876,36 @@ body.win-dragging, body.win-dragging * { cursor: grabbing !important; user-selec
 .cash-chip b { font-weight: 700; }
 .cash-chip.neg { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
 @media (max-width: 400px) { .clock-btn span { display: none; } .status-strip { gap: 6px; padding-inline: 10px; } }
+/* 0.32: the player's energy (a battery beside the clock), the minutes an action took, who is online */
+.clock-btn { position: relative; }
+.clock-bump { position: absolute; right: 6px; top: -9px; padding: 1px 6px; border-radius: 999px; background: var(--hot); color: var(--hot-ink); font: 700 10.5px/1.3 var(--f-body); font-style: normal; white-space: nowrap; pointer-events: none; animation: clock-bump 2.6s ease-out forwards; }
+@keyframes clock-bump { 0% { opacity: 0; transform: translateY(4px); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .clock-bump { animation-duration: 2.6s; animation-timing-function: steps(1, end); } }
+.fit-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; font-size: 12.5px; }
+.fit-chip b { font-weight: 700; }
+.fit-bat { position: relative; width: 20px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; padding: 1px; display: inline-flex; flex: none; color: var(--ink-2); }
+.fit-bat::after { content: ''; position: absolute; right: -4px; top: 2.5px; width: 2px; height: 4px; border-radius: 0 1px 1px 0; background: currentColor; }
+.fit-bat i, .fit-bar i { display: block; height: 100%; border-radius: 1.5px; background: var(--good); }
+.fit-chip.ok .fit-bat i, .fit-block.ok .fit-bar i { background: var(--ink-3); }
+.fit-chip.fatigue, .fit-block.fatigue .fit-head b { color: var(--warn); }
+.fit-chip.fatigue .fit-bat i, .fit-block.fatigue .fit-bar i { background: var(--warn); }
+.fit-chip.epuise, .fit-chip.bout, .fit-block.epuise .fit-head b, .fit-block.bout .fit-head b { color: var(--bad); }
+.fit-chip.epuise .fit-bat i, .fit-chip.bout .fit-bat i, .fit-block.epuise .fit-bar i, .fit-block.bout .fit-bar i { background: var(--bad); }
+.fit-chip.fatigue, .fit-chip.epuise, .fit-chip.bout { border-color: color-mix(in srgb, currentColor 45%, var(--line)); }
+.fit-chip.fatigue .fit-bat, .fit-chip.epuise .fit-bat, .fit-chip.bout .fit-bat { color: currentColor; }
+.fit-block { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); text-align: left; }
+.fit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.fit-head span { color: var(--ink-2); font-size: 13px; }
+.fit-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.fit-bar i { border-radius: 999px; }
+.fit-block small { font-size: 12.5px; line-height: 1.4; }
+.fit-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.fit-acts .btn { flex: 1 1 auto; }
+.prod-note.fit-note.tired { color: var(--warn); }
+.fit-lost { margin: 2px 0 0; }
+.on-dot { display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; background: var(--good); vertical-align: middle; box-shadow: 0 0 0 2px var(--surface); }
+.seen-tag.sent { opacity: 0.85; }
+@media (max-width: 400px) { .fit-chip { padding: 0 7px; gap: 4px; } .fit-chip b { font-size: 12px; } }
 .res-chip.low .ring { background: conic-gradient(var(--bad) calc(var(--p) * 1turn), var(--line) 0); }
 .res-chip.low b { color: var(--bad); }
 
@@ -3427,3 +3460,117 @@ div.big-stage:not(.mg-setup) { padding: 18px 16px 6px; }
 .ag-found { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .td-card .dl-head b { overflow-wrap: anywhere; }
 .td-card .dl-note.late { color: var(--bad); }
+
+/* 0.32: « Comment ça marche ? », the game told in a minute (the home screen) */
+.tuto-open { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px 12px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); text-align: left; transition: border-color 0.15s, transform 0.12s; }
+.tuto-open:hover { border-color: var(--line-strong); }
+.tuto-open:active { transform: scale(0.99); }
+.tuto-open .to-ic { flex: none; width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 26px; line-height: 1; color: var(--hot-t); background: linear-gradient(140deg, hsl(330 75% var(--tile-l)), hsl(10 75% var(--tile-l2))); }
+.tuto-open .to-txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tuto-open b { font-family: var(--f-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
+.tuto-open small { font-size: 13px; color: var(--ink-2); }
+.tuto-open .to-go { margin-left: auto; flex: none; display: grid; color: var(--hot); }
+.tuto-open .to-go .ic, .ts-arrow .ic { transform: rotate(180deg); }
+.modal-card.tuto { position: relative; max-width: 440px; padding: 0 0 18px; gap: 0; overflow-x: hidden; touch-action: pan-y; } /* (a finger sliding sideways turns the page) */
+.tuto-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px; background: color-mix(in srgb, var(--surface) 72%, transparent); }
+.tuto-x:hover { background: var(--surface); }
+.tuto-scene { flex: none; width: 100%; height: 184px; display: grid; place-items: center; padding: 34px 12px 14px; overflow: hidden; background: linear-gradient(140deg, hsl(var(--h) 75% var(--tile-l)), hsl(calc(var(--h) + 40) 75% var(--tile-l2))); }
+.tuto-scene > * { animation: tuto-pop 0.5s cubic-bezier(.2, 1.3, .4, 1); }
+.tuto-scene { user-select: none; -webkit-user-select: none; }
+.tuto-scene img { pointer-events: none; } /* (a sticker is never dragged away) */
+.tuto-bodies { display: grid; width: 100%; }
+.tuto-body { grid-area: 1 / 1; visibility: hidden; width: 100%; padding: 18px 22px 4px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.tuto-body.on { visibility: visible; }
+.tuto-body.on.fwd { animation: tuto-r 0.32s ease-out; }
+.tuto-body.on.back { animation: tuto-l 0.32s ease-out; }
+.modal-card.tuto .eyebrow { color: var(--hot-t); }
+.tuto-title { font-family: var(--f-display); font-weight: 700; font-size: 21px; line-height: 1.15; letter-spacing: -0.03em; }
+.modal-card .tuto-text { font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
+.modal-card .tuto-more { font-size: 13.5px; line-height: 1.45; color: var(--ink-3); }
+.modal-card .tuto-why { color: var(--ink); font-weight: 600; }
+.tuto-tips { display: flex; flex-direction: column; gap: 10px; width: 100%; text-align: left; }
+.tuto-tip { display: flex; gap: 12px; align-items: flex-start; }
+.tuto-tip .tt-ic { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: var(--hot-soft); color: var(--hot-t); }
+.modal-card .tuto-tip p { font-size: 14.5px; line-height: 1.45; color: var(--ink-2); padding-top: 6px; }
+.tuto .emo { width: 1em; height: 1em; vertical-align: -0.1em; margin: 0; }
+.tuto-dots { display: flex; gap: 2px; justify-content: center; margin: 12px 0 10px; }
+.tuto-dots button { width: 22px; height: 22px; padding: 0; border: 0; background: none; display: grid; place-items: center; }
+.tuto-dots button::before { content: ''; width: 8px; height: 8px; border-radius: 8px; background: var(--line-strong); transition: width 0.2s, background 0.2s; }
+.tuto-dots button.on::before { width: 20px; background: var(--hot); }
+.tuto-nav { display: flex; gap: 10px; width: 100%; padding: 0 18px; }
+.modal-card.tuto .tuto-nav .btn { width: auto; flex: 1 1 0; min-width: 0; }
+/* the scenes: what the game already shows, put together */
+.ts-tag { font: 700 10.5px/1 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: var(--surface); color: var(--ink-2); white-space: nowrap; }
+.ts-tag.hot { background: var(--hot); color: var(--hot-ink); }
+.ts-big { font-size: 34px; line-height: 1; }
+.ts-crowd { display: flex; align-items: center; gap: 10px; }
+.ts-who { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ts-who .av, .ts-pile .av, .ts-new .av { box-shadow: 0 0 0 3px var(--surface); }
+.ts-me .av { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--hot); }
+.ts-steps { display: flex; align-items: center; gap: 6px; }
+.ts-step { position: relative; width: 88px; padding: 18px 6px 10px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.ts-step i { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 22px; height: 22px; border-radius: 50%; background: var(--hot); color: var(--hot-ink); font: 800 12px/22px var(--f-display); font-style: normal; text-align: center; }
+.ts-step b { font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.ts-arrow { display: grid; color: var(--ink-2); }
+.ts-tl { position: relative; display: flex; align-items: flex-start; gap: 4px; width: 100%; max-width: 380px; }
+.ts-tl::before { content: ''; position: absolute; left: 34px; right: 34px; top: 28px; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.ts-stop { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ts-pt { height: 58px; display: grid; place-items: center; }
+.ts-pile { display: grid; grid-template-columns: repeat(2, 27px); gap: 3px; }
+.ts-new { position: relative; display: grid; }
+.ts-new i { position: absolute; top: -7px; right: -12px; font: 700 10px/1 var(--f-mono); font-style: normal; padding: 3px 5px; border-radius: 999px; background: var(--hot); color: var(--hot-ink); }
+.ts-etc { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); font-family: var(--f-display); font-weight: 800; font-size: 20px; line-height: 1; color: var(--ink-2); padding-bottom: 6px; }
+.ts-tl .ts-tag { font-family: var(--f-body); font-size: 11px; letter-spacing: 0; text-transform: none; padding: 4px 7px; }
+.ts-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 380px; }
+.ts-side { border-radius: 16px; padding: 16px 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: var(--shadow); }
+.ts-side.good { background: var(--good-soft); }
+.ts-side.bad { background: var(--bad-soft); }
+.ts-side .ts-row { display: flex; gap: 4px; font-size: 32px; line-height: 1; }
+.ts-side b { font-size: 12.5px; font-weight: 700; line-height: 1.25; text-align: center; }
+.ts-side.good b { color: var(--good); }
+.ts-side.bad b { color: var(--bad); }
+.ts-acts { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+.ts-tiles { display: flex; gap: 8px; justify-content: center; }
+.ts-tile { width: 58px; padding: 10px 2px 8px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--hot-t); }
+.ts-tile span { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+.ts-res { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.ts-res .chip { box-shadow: 0 0 0 2px var(--surface); }
+.ts-res .ts-lv { background: var(--flash); color: var(--flash-ink); }
+.ts-time { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ts-day { display: flex; align-items: center; gap: 10px; }
+.ts-day .ts-big { font-size: 30px; }
+.ts-bar { width: 132px; height: 8px; border-radius: 8px; background: linear-gradient(90deg, #FFCB2E, #F2994A 35%, #8E6CF0 70%, #2A3570); }
+.ts-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ts-pills .clock-btn, .ts-pills .fit-chip { box-shadow: var(--shadow); }
+.ts-durs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 360px; }
+.ts-durs .chip, .ts-love .ts-cal { background: var(--surface); color: var(--ink); }
+.ts-durs .chip .ic, .ts-love .ts-cal .ic { color: var(--hot-t); }
+.ts-love { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ts-hs { display: flex; align-items: flex-end; gap: 6px; }
+.ts-h { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 82px; }
+.ts-h span { line-height: 1; }
+.ts-h.s1 span { font-size: 34px; }
+.ts-h.s2 span { font-size: 46px; }
+.ts-h.s3 span { font-size: 62px; }
+.ts-h b { font-size: 11.5px; font-weight: 700; white-space: nowrap; background: var(--surface); padding: 3px 8px; border-radius: 999px; }
+.ts-dash { width: 22px; height: 0; border-top: 3px dotted color-mix(in srgb, var(--ink) 32%, transparent); margin-bottom: 34px; }
+.ts-go { position: relative; width: 190px; height: 140px; display: grid; place-items: center; }
+.ts-rocket { font-size: 84px; line-height: 1; }
+.ts-sp { position: absolute; line-height: 1; }
+.ts-sp.a { top: 2px; left: 0; font-size: 30px; }
+.ts-sp.b { top: 8px; right: -6px; font-size: 34px; }
+.ts-sp.c { bottom: 4px; left: 20px; font-size: 24px; }
+@keyframes tuto-pop { from { transform: scale(0.86); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tuto-r { from { transform: translateX(22px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+@keyframes tuto-l { from { transform: translateX(-22px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+@media (max-width: 380px) {
+  .ts-step { width: 78px; }
+  .ts-steps { gap: 3px; }
+  .ts-tile { width: 54px; }
+  .ts-tiles { gap: 5px; }
+  .ts-h { width: 74px; }
+  .ts-tl .ts-tag { font-size: 10px; padding: 3px 5px; }
+  .ts-crowd { gap: 7px; }
+  .tuto-body { padding-inline: 18px; }
+}
+@media (max-height: 640px) { .tuto-scene { height: 172px; padding-block: 30px 10px; } } /* (always clear of the cross) */

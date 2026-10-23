@@ -45,14 +45,17 @@ function visitOK(g, t = Date.now()) {
   return !liveVisit(g) && t - (g.visitAt || 0) >= VISIT_GAP / lifeK(g) && !(g.events || []).some((e) => e.player && e.state === 'scheduled' && Math.abs(e.due - t) < HR);
 }
 // Those close to the player, those they are seeing, and those with a grudge.
-const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25 || (isPsy(g, c) && psyStage(g, t) >= 2))).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8); // (0.29: and the one who cannot stay away)
+// (0.32: something just happened to the player: the worriers first; and the ones who follow the player everywhere)
+const visitFirst = (g, c, t) => (worryFresh(g, t) && temperOf(c) === 'inquiet' ? 2 : stalkVisit(g, c, t) ? 1 : 0);
+const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25 || (isPsy(g, c) && psyStage(g, t) >= 2) || stalkVisit(g, c, t))).sort((a, b) => visitFirst(g, b, t) - visitFirst(g, a, t) || Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8); // (0.29: and the one who cannot stay away)
 // The line the AI may write (an act, a refresh), when someone could come.
 function visitLine(g, t = Date.now()) {
   if (!visitOK(g, t)) return null;
   const cands = visitCands(g, t);
   if (!cands.length) return null;
-  if (!(window.__HYPE_TEST__ && window.__visitOffer) && Math.random() >= Math.min(0.85, VISIT_P * lifeK(g))) return null; // 0.19: by level
-  return `- Facultatif, rare (au plus 1, et seulement si ça vient vraiment de ce qui se passe) : un personnage principal parmi ${cands.map((c) => '@' + c.handle).join(', ')} débarque chez le joueur SANS PRÉVENIR pour lui parler en face, si quelque chose le travaille vraiment (une drague vue en public, une rumeur, une trahison, un secret, une jalousie, une dispute) ou pour une vraie bonne raison (une grande nouvelle, un service, l’envie de le voir) : {"t":"visit","by":"handle","why":"≤ 80 caractères : ce dont il ou elle veut parler (le joueur ne le lit pas)","urge":"tranquille, important ou urgent","first":"≤ 200 caractères : sa première phrase sur le pas de la porte","seen":"≤ 50 caractères : ce que le joueur voit de son humeur"} (urgent = jalousie, trahison, crise ; important = ça le ou la dérange vraiment ; tranquille = rien de grave).`;
+  const worried = worryFresh(g, t) ? cands.filter((c) => temperOf(c) === 'inquiet') : [];
+  if (!(window.__HYPE_TEST__ && window.__visitOffer) && Math.random() >= (worried.length ? 0.85 : Math.min(0.85, VISIT_P * lifeK(g)))) return null; // 0.19: by level (0.32: a worrier, after something happened)
+  return `- Facultatif, rare (au plus 1, et seulement si ça vient vraiment de ce qui se passe) : un personnage principal parmi ${cands.map((c) => '@' + c.handle).join(', ')} débarque chez le joueur SANS PRÉVENIR pour lui parler en face, si quelque chose le travaille vraiment (une drague vue en public, une rumeur, une trahison, un secret, une jalousie, une dispute) ou pour une vraie bonne raison (une grande nouvelle, un service, l’envie de le voir)${worried.length ? ` ; ${worried.map((c) => '@' + c.handle).join(' et ')}, qui s’inquiète pour tout, peut passer voir si le joueur va bien (« ${g.worry.why} »)` : ''} : {"t":"visit","by":"handle","why":"≤ 80 caractères : ce dont il ou elle veut parler (le joueur ne le lit pas)","urge":"tranquille, important ou urgent","first":"≤ 200 caractères : sa première phrase sur le pas de la porte","seen":"≤ 50 caractères : ce que le joueur voit de son humeur"} (urgent = jalousie, trahison, crise ; important = ça le ou la dérange vraiment ; tranquille = rien de grave).`;
 }
 // delay: after a refresh, the posts show first (an act holds everything until its result is revealed).
 function applyVisitLine(g, o, effects, delay = 0) {
@@ -135,7 +138,7 @@ async function visitTurn(v, text) {
   const deadly = v.psy === 'deadly';
   try {
     await aiStream(prompt, (o) => {
-      if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
       else if (o.t === 'judge' && !react) react = normReact(o.react);
@@ -219,8 +222,9 @@ function visitBadChance(g, c, urge) {
   const U = URGES[urge] || URGES.tranquille;
   let p = U.base;
   p += { tres_immature: 0.12, immature: 0.06, pose: -0.04, tres_mature: -0.1 }[c.matu] || 0;
-  p += { jaloux: 0.08, anxieux: 0.05, impulsif: 0.05, forteresse: 0.04, serein: -0.05 }[c.coeur] || 0;
-  p += { envieux: 0.05, trouble: 0.05, opportuniste: 0.02, detache: -0.08, fidele: -0.03 }[temperOf(c)] || 0;
+  p += { jaloux: 0.08, anxieux: 0.05, impulsif: 0.05, forteresse: 0.04, serein: -0.05, possessif: 0.1, fusionnel: 0.06, chaudfroid: 0.04, volage: -0.04, libre: -0.05 }[c.coeur] || 0;
+  p += { envieux: 0.05, trouble: 0.05, opportuniste: 0.02, detache: -0.08, fidele: -0.03, inquiet: 0.06 }[temperOf(c)] || 0;
+  if (t32On()) p += { colerique: 0.06, dramatique: 0.05, culpabilisant: 0.04, rancunier: 0.03, paisible: -0.06 }[clashOf(c)] || 0; // 0.32
   if (c.rel >= 70 && urge === 'tranquille') p -= 0.05;
   if (c.rel < 0) p += 0.08;
   return clamp(p, U.bad[0], U.bad[1]);

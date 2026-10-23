@@ -246,7 +246,7 @@ function SellLayer({ l, g, now, i }) {
   if (!x || x.sold) return html`<${LayerShell} i=${i} title="Vendre"><div class="empty"><b>${x && x.sold ? 'Déjà vendu' : 'Objet introuvable'}</b></div><//>`;
   const app = resaleName(g), p = Math.round(num(price, 0)), w = warmWord(warmOf(g)), boost = Math.round(boostOf(g, x) * 100); // (0.28.1: none on a recent purchase)
   const picks = [['Vendre vite', roundPrice(sug * 0.8)], ['Prix conseillé', sug], ['Prix fort', roundPrice(sug * 1.25)]];
-  const go = () => { if (listItem(g, x.id, p)) { toast(x.sale && x.sale.at < Date.now() - 1000 ? 'Prix mis à jour.' : `En vente sur ${app} : ${fmtMoney(g, p)}.`, 'good'); closeLayer(); update(); } };
+  const go = () => { if (listItem(g, x.id, p)) { actTime(g, 10); toast(x.sale && x.sale.at < Date.now() - 1000 ? 'Prix mis à jour.' : `En vente sur ${app} : ${fmtMoney(g, p)}.`, 'good'); closeLayer(); update(); } };
   return html`<${LayerShell} i=${i} title=${x.sale ? 'Ton annonce' : 'Vendre sur ' + app}><div class="lpad sell">
     <div class="sell-item"><span class="inv-emo big" aria-hidden="true">${x.emoji}</span><div><b>${x.name}</b><small>${[fromText(g, x), COND[x.cond].label, `valeur neuve ${fmtMoney(g, x.value)}`].filter(Boolean).join(' · ')}</small></div></div>
     <p class="muted">${x.cond === 'neuf' ? 'Neuf, jamais servi' : `D’occasion, ${COND[x.cond].label.toLowerCase()}`} : ça se revend autour de ${fmtMoney(g, roundPrice(fairOf(g, x)))}.${boost >= 3 ? ` Ta commu est ${w[1]} ${w[2]} : tes abonnés paient jusqu’à ${boost} % de plus ce qui vient de toi.` : ''}</p>

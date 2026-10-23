@@ -68,6 +68,17 @@ try {
   const home0 = await G(page, () => ({ panel: !!document.querySelector('.gpt-panel .gpt-btn'), btn: (document.querySelector('.gpt-btn') || {}).textContent || '', newDisabled: [...document.querySelectorAll('button')].find((b) => /Nouvelle partie/.test(b.textContent)).disabled, store: window.__hype.S.store, import: !!document.querySelector('button .ic') && /Importer une partie/.test(document.body.textContent) }));
   await shot(page, 'home-signed-out');
   check('first launch: « Continuer avec ChatGPT », no new game before signing in, games saved on this computer', home0.panel && /Continuer avec ChatGPT/.test(home0.btn) && home0.newDisabled && home0.store === 'db' && home0.import, home0);
+  // 0.32: « Comment ça marche ? » is there before signing in; its last step says why no game can be created yet
+  await page.click('.tuto-open');
+  await page.waitForSelector('.modal-card.tuto');
+  await page.click('.tuto-dots button >> nth=-1');
+  await sleep(400);
+  await shot(page, 'tuto-signed-out');
+  const tu0 = await G(page, () => ({ steps: document.querySelectorAll('.tuto-dots button').length, main: document.querySelector('.tuto-nav .btn-hot').textContent, why: (document.querySelector('.tuto-body.on .tuto-why') || {}).textContent || '' }));
+  await page.click('.tuto-nav .btn-hot');
+  await sleep(300);
+  const tu0closed = !(await page.$('.modal-card.tuto'));
+  check('« Comment ça marche ? » on the home screen before signing in: eight steps, the last one says to connect ChatGPT first, and only closes', tu0.steps === 8 && tu0.main === 'Compris !' && /connecte d’abord ChatGPT/.test(tu0.why) && tu0closed, tu0);
   // 0.27.10: no Windows title bar: Hype's own bar on the game's window (the buttons drive the real window: under Xvfb,
   // without a window manager, the window cannot enlarge, so the window's own calls are watched instead)
   const bar0 = await G(page, () => { const b = document.querySelector('.appbar'), body = document.querySelector('.app-body'), r = b && b.getBoundingClientRect(), rb = body && body.getBoundingClientRect();
@@ -114,6 +125,15 @@ try {
   await sleep(400);
   const prefs1 = JSON.parse(readFileSync(join(DATA, 'preferences.json'), 'utf8'));
   check('sign-in: connected as the account, the plan welcome shown once and remembered', /ton abonnement ChatGPT/.test(welcome.title) && /Connecté à ChatGPT/.test(welcome.panel) && /testeur@exemple\.fr/.test(welcome.panel) && prefs1.welcomed === true, { welcome, prefs1 });
+  await page.click('.tuto-open');
+  await page.waitForSelector('.modal-card.tuto');
+  await page.click('.tuto-dots button >> nth=-1');
+  await sleep(400);
+  const tu1 = await G(page, () => document.querySelector('.tuto-nav .btn-hot').textContent);
+  await page.keyboard.press('Escape');
+  await sleep(300);
+  const tu1closed = !(await page.$('.modal-card.tuto'));
+  check('signed in: the last step of « Comment ça marche ? » offers « Créer ma partie »', tu1 === 'Créer ma partie' && tu1closed, { tu1, tu1closed });
 
   // ---------- a new game, written by « ChatGPT » ----------
   await clickText(page, 'button', 'Nouvelle partie');

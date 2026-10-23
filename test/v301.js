@@ -124,33 +124,33 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
   await idle(page);
   await clear(page);
 
-  /* ---------- 2. the time it takes: a short 2 h, a video 4 h (twice « soignée »), a live its 2 h ---------- */
+  /* ---------- 2. the time it takes: a short 2 h, a video 8 h since 0.32 (twice « soignée »), a live its 2 h ---------- */
   await setHour(page, 10);
   const b1 = await G(page, () => {
     const H = window.__hype, g = H.S.game, t = Date.now();
     g.career.platform = 'youtube';
     g.releases = g.releases.filter((x) => x.state !== 'scheduled');
     const at = (h) => { const d = new Date(t + g.clockOff); d.setHours(h, 0, 0, 0); return d.getTime() - g.clockOff; };
-    const v = H.scheduleRelease(g, { what: 'vidéo', topic: 'Je teste cinq potions interdites', due: at(18) });
+    const v = H.scheduleRelease(g, { what: 'vidéo', topic: 'Je teste cinq potions interdites', due: at(19) });
     const n1 = g.notifs.slice(-1)[0].text;
     const sh = H.scheduleRelease(g, { what: 'short', topic: 'Le défi du chaudron', due: at(18), care: true });
     const lv = H.scheduleRelease(g, { what: 'live', topic: 'Questions-réponses', due: at(20) });
     const nw = H.scheduleRelease(g, { what: 'short', topic: 'Un essai, tout de suite', now: true });
     const an = H.addRelease(g, { what: 'vidéo', in: 60, topic: 'Ma vidéo annoncée trop tôt' }, null, 'nouvelle vidéo dans 1 h !');
     const n2 = g.notifs.slice(-1)[0].text;
-    const H4 = 4 * 3600000, H2 = 2 * 3600000;
+    const H8 = 8 * 3600000, H4 = 4 * 3600000, H2 = 2 * 3600000;
     const out = {
-      video: v && v.outAt === at(18) && v.due === at(18) - H4 && H.prodMs(v) === H4,
+      video: v && v.outAt === at(19) && v.due === at(19) - H8 && H.prodMs(v) === H8,
       short: sh && sh.care === 1 && sh.due === at(18) - H4 && H.prodMs(sh) === H4,
       live: lv && lv.due === at(20) && lv.outAt === at(20) + H2 && H.relAnn(lv) === at(20),
       now: nw && nw.now === 1 && Math.abs(nw.due - t) < 5000 && Math.abs(nw.outAt - t - H2) < 5000,
-      ann: an && an.ann && Math.abs(an.ann - t - 3600000) < 5000 && Math.abs(an.due - t) < 5000 && Math.abs(an.outAt - t - H4) < 5000,
-      n1: /Tournage aujourd’hui 14 h \(4 h de travail\)/.test(n1), n2: /en retard sur ton annonce/.test(n2), n1t: n1, n2t: n2,
+      ann: an && an.ann && Math.abs(an.ann - t - 3600000) < 5000 && Math.abs(an.due - t) < 5000 && Math.abs(an.outAt - t - H8) < 5000,
+      n1: /Tournage (aujourd’hui 11 h|dans 59 min) \(8 h de travail\)/.test(n1), n2: /en retard sur ton annonce/.test(n2), n1t: n1, n2t: n2,
     };
     for (const x of [sh, lv, nw]) if (x) x.state = 'dropped';
     return { out, v: v.id, an: an.id };
   });
-  check('programmée à 18 h, une vidéo se tourne à 14 h (4 h de travail), un short soigné aussi (2 h × 2) ; un live commence à son heure et dure 2 h ; « Maintenant » sort 2 h plus tard ; annoncée dans 1 h, elle sortira en retard (dit tout de suite)',
+  check('programmée à 19 h, une vidéo se tourne à 11 h (8 h de travail), un short soigné à 18 h dès 14 h (2 h × 2) ; un live commence à son heure et dure 2 h ; « Maintenant » sort 2 h plus tard ; annoncée dans 1 h, elle sortira en retard (dit tout de suite)',
     Object.entries(b1.out).every(([k, x]) => k.endsWith('t') || x === true), b1.out);
 
   // the planner: the hours too soon for what it takes are off; « soignée » doubles it
@@ -166,12 +166,12 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
   await sleep(200);
   const pl2 = await hp();
   await shot(page, 'planner-care');
-  check('le planificateur : à 10 h, une vidéo ne peut pas sortir avant 14 h (12 h grisé), soignée pas avant 18 h (l’heure choisie passe à 19 h) ; il dit quand commencer',
-    pl1.care && pl1.off.includes(12) && !pl1.off.includes(17) && pl2.off.includes(17) && pl2.off.includes(18) && !pl2.off.includes(19) && /4 h de travail/.test(pl1.note) && /8 h de travail.*tu commences (dans 59 min|aujourd’hui 11 h) pour une sortie ce soir 19 h/.test(pl2.note), { pl1, pl2 });
+  check('le planificateur : à 10 h, une vidéo ne peut pas sortir avant 18 h (17 h et 18 h grisés, l’heure choisie passe à 19 h), soignée pas avant demain ; il dit quand commencer',
+    pl1.care && pl1.off.includes(12) && pl1.off.includes(17) && pl1.off.includes(18) && !pl1.off.includes(19) && /8 h de travail.*tu commences (dans 59 min|aujourd’hui 11 h) pour une sortie ce soir 19 h/.test(pl1.note) && /16 h de travail.*tu commences demain 3 h pour une sortie demain 19 h/.test(pl2.note), { pl1, pl2 });
   await clear(page);
 
   // at its slot: the shoot setup says it; a date in the way is said before (made anyway: missed)
-  await setHour(page, 14);
+  await setHour(page, 11);
   const d1 = await G(page, (id) => {
     const H = window.__hype, g = H.S.game, r = g.releases.find((x) => x.id === id);
     const ev = H.addEvent(g, { by: 'zara.vey', what: 'Un verre au Café des Astres', kind: 'rdv', in: 120 });
@@ -198,10 +198,10 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
   }, b1);
   await sleep(2500); // (the clock's tick: the date that passed meanwhile)
   const j2 = await G(page, (id) => { const g = window.__hype.S.game, ev = g.events.find((e) => e.id === id); return { state: ev && ev.state, lapin: g.notifs.slice(-12).some((n) => /lapin|t’attendait|sans même/.test(n.text)) }; }, d1.ev);
-  check('à l’heure du tournage, l’écran dit le temps (4 h, sortie vers 18 h) ; un rendez-vous à 16 h est signalé avant (« tu rates ton rendez-vous »)',
-    /4 h de tournage et de montage/.test(note) && /sortira vers 18 h/.test(note) && /Tu as rendez-vous avec Zara à 16 h/.test(modal) && /tu rates ton rendez-vous avec Zara/.test(modal), { note, modal });
-  check('le tournage fait, l’horloge avance de 4 h (18 h) ; le rendez-vous passé pendant ce temps est un lapin ; la vidéo reste à publier',
-    h0 === 14 && j1.started && j1.jumped >= 235 && j1.jumped <= 241 && j1.hour === 18 && j1.done && j1.alive && j2.state === 'missed', { h0, j1, j2 });
+  check('à l’heure du tournage, l’écran dit le temps (8 h, sortie vers 19 h) ; un rendez-vous à 13 h est signalé avant (« tu rates ton rendez-vous »)',
+    /8 h de tournage et de montage/.test(note) && /sortira vers 19 h/.test(note) && /Tu as rendez-vous avec Zara à 13 h/.test(modal) && /tu rates ton rendez-vous avec Zara/.test(modal), { note, modal });
+  check('le tournage fait, l’horloge avance de 8 h (19 h) ; le rendez-vous passé pendant ce temps est un lapin ; la vidéo reste à publier',
+    h0 === 11 && j1.started && j1.jumped >= 475 && j1.jumped <= 481 && j1.hour === 19 && j1.done && j1.alive && j2.state === 'missed', { h0, j1, j2 });
 
   // published: the reactions know the time it took; on time, no « retard »
   const p1 = await G(page, async (id) => {
@@ -209,7 +209,7 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
     H.S.stack = []; H.S.modals = [];
     await H.publishRelease(r, 'nouvelle vidéo !', { title: r.topic });
     const pr = window.__prompts.slice(n0).find((p) => p.includes('## ACTION DU JOUEUR')) || '';
-    return { time: /Le joueur y a passé 4 h, tournage et montage compris\./.test(pr), late: /de retard sur l’heure annoncée/.test(pr), state: r.state };
+    return { time: /Le joueur y a passé 8 h, tournage et montage compris\./.test(pr), late: /de retard sur l’heure annoncée/.test(pr), state: r.state };
   }, b1.v);
   await idle(page);
   await clear(page);
@@ -227,7 +227,7 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
   }, b1.an);
   await idle(page);
   await clear(page);
-  check('publiée : les réactions savent qu’elle a pris 4 h ; annoncée trop tôt et sortie des heures après, elles le disent (pas de « promesse tenue »)',
+  check('publiée : les réactions savent qu’elle a pris 8 h ; annoncée trop tôt et sortie des heures après, elles le disent (pas de « promesse tenue »)',
     p1.time && !p1.late && p1.state === 'released' && p2.late && !p2.kept && p2.lateMs > 2.9 * 3600000, { p1, p2 });
 
   // « soignée »: +15 % of views, the reactions see it; an old planned release takes no time
@@ -244,9 +244,9 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
     H.finishShoot(old, 0.8);
     const jumped = g.clockOff - off0;
     old.state = 'dropped';
-    return { k: Math.round((b.a + b.b) / (a.a + a.b) * 1000) / 1000, tl: /un contenu SOIGNÉ/.test(tl) && /8 h/.test(tl), old: old.prod === 0 && H.prodMs(old) === 0 && jumped === 0 };
+    return { k: Math.round((b.a + b.b) / (a.a + a.b) * 1000) / 1000, tl: /un contenu SOIGNÉ/.test(tl) && /16 h/.test(tl), old: old.prod === 0 && H.prodMs(old) === 0 && jumped === 0 };
   });
-  check('soignée : +15 % de vues et les réactions le voient (8 h de travail) ; une sortie programmée avant la mise à jour ne prend pas de temps', c1.k === 1.15 && c1.tl && c1.old, c1);
+  check('soignée : +15 % de vues et les réactions le voient (16 h de travail) ; une sortie programmée avant la mise à jour ne prend pas de temps', c1.k === 1.15 && c1.tl && c1.old, c1);
 
   /* ---------- 3. a brand's contract may ask for it « soignée » ---------- */
   const k1 = await G(page, () => {
@@ -423,7 +423,7 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
     const cash = g.career.cash;
     g.career.cash = 0; // (nothing to pay them with at the shoot: they do not work on it)
     H.payCrew(g, r);
-    const unpaid = !r.team && H.prodWord(r.what, r.care, r.team) === '4 h';
+    const unpaid = !r.team && H.prodWord(r.what, r.care, r.team) === '8 h';
     g.career.cash = cash;
     r.state = 'dropped';
     // a job done for someone: 2 h (an edit), 1 h (a thumbnail)
@@ -443,8 +443,8 @@ const setHour = (page, h) => G(page, (h) => { const g = window.__hype.S.game; co
   });
   await idle(page);
   await clear(page);
-  check('l’équipe fait gagner du temps selon son niveau : une vidéo de 4 h prend 3 h 24 avec un monteur débutant, 2 h 18 avec une star du montage et un graphiste star (pas un live) ; compté dès la programmation, pas si on ne peut pas les payer au tournage',
-    t6.none === '4 h' && t6.ed0 === '3 h 24' && t6.both === '2 h 18' && t6.live === '2 h' && t6.slot === 138 && t6.unpaid, t6);
+  check('l’équipe fait gagner du temps selon son niveau : une vidéo de 8 h prend 6 h 48 avec un monteur débutant, 5 h 06 avec une star du montage et un graphiste star (pas un live) ; compté dès la programmation, pas si on ne peut pas les payer au tournage',
+    t6.none === '8 h' && t6.ed0 === '6 h 48' && t6.both === '5 h 06' && t6.live === '2 h' && t6.slot === 306 && t6.unpaid, t6);
   check('un montage fait pour un perso prend 2 h, une visite environ 2 h depuis son début', t6.jobMin >= 119 && t6.jobMin <= 121 && t6.visitMin >= 88 && t6.visitMin <= 91, t6);
 
   await browser.close();

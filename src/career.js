@@ -949,7 +949,15 @@ function applyDealLine(g, c, o) {
   const d = g.deals.find((x) => x.contact === c.id && x.state === 'offer') || g.deals.find((x) => x.contact === c.id && x.state === 'signed');
   if (!d) return;
   if (yesNo(o.walk)) {
-    if (d.state === 'offer') { d.state = 'withdrawn'; addNotif(g, { k: 'money', c: c.id, text: `${d.brand} retire son offre.` }); }
+    if (d.state === 'offer') { d.state = 'withdrawn'; addNotif(g, { k: 'money', c: c.id, text: `${d.brand} retire son offre.` }); if (d.doubt) d.doubt.walked = Date.now(); }
+    else if (doubtWalk(d)) { // 0.32: they did not believe the player's explanations (an anonymous message): the contract ends, the down payment goes back
+      d.state = 'broken';
+      d.doubt.walked = Date.now();
+      const back = refundUpfront(g, d);
+      applyRel(g, c, -8, 'n’a pas su nous rassurer', later(), 10);
+      addNotif(g, { k: 'reldown', c: c.id, text: `💔 ${d.brand} rompt votre contrat : tes explications ne les ont pas convaincus${back ? ` (tu rembourses l’acompte, ${fmtMoney(g, back)})` : ''}.` });
+      addChronicle(g, `${d.brand} a rompu son contrat avec ${g.player.name} après un message anonyme.`);
+    }
     else if (d.resold) { // 0.26: their gift on sale before the content: they break the contract (the down payment goes back)
       d.state = 'broken';
       const back = refundUpfront(g, d), billed = billSent(g, d); // 0.27.6: and what they sent is billed (it cost nothing before)
@@ -1754,7 +1762,7 @@ function dmCareerCtx(g, c) {
     const d = g.deals.filter((x) => x.contact === c.id).slice(-1)[0];
     const td = tdealByContact(g, c); // 0.31: they write about a talent of the player's
     if (td && (!d || td.at >= d.at)) { out.push(...tdealBrandCtx(g, c, td)); return out; }
-    const il = gx(c.g, 'il', 'elle', 'iel'), brand = d ? d.brand : 'une marque';
+    const il = gx(c.g, 'il', 'elle', 'iel'), brand = d ? d.brand : brandOfContact(g, c) || 'une marque'; // (0.32: a contact known for a talent's offer)
     out.push(c.joined // 0.16: work, and more
       ? `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, qui défend son budget. Avec le joueur, c’est devenu personnel ; ${il} sépare le travail du reste… plus ou moins.`
       : `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, aimable, qui défend son budget. ${cap1(il)} parle surtout business, mais reste une personne : si le joueur l’amène sur le terrain perso, ${il} réagit selon son caractère.`);
@@ -1783,8 +1791,11 @@ function dmCareerLines(g, c) {
   const out = [];
   const d = g.deals.find((x) => x.contact === c.id && x.state === 'offer') || g.deals.find((x) => x.contact === c.id && x.state === 'signed');
   const td = c.kind === 'brand' ? tdealByContact(g, c) : null; // 0.31: about a talent
-  if (td && (!d || td.at >= d.at)) return tdealBrandLines(g, c, td);
+  const ask = c.kind === 'brand' && !(td && tdealOpen(td)) ? talentAskLine(g, c) : null; // 0.32: the player asks them for a talent of theirs
+  if (td && (!d || td.at >= d.at)) return tdealBrandLines(g, c, td).concat(ask ? [ask] : []);
+  if (ask) out.push(ask);
   if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
+  if (c.kind === 'brand') out.push(...doubtLines(g, c)); // 0.32: an anonymous message about the player reached them
   if (c.kind === 'cand' && c.cand && STAFF_ROLES[c.cand.role].pay !== 'cut') out.push(`- Si ${c.name} accepte de baisser son tarif : {"t":"rate","rate":${c.cand.rate}} (entre ${Math.round(c.cand.rate * 0.8)} et ${c.cand.rate}).`);
   if (c.kind === 'staff') out.push(`- Seulement si ${c.name} démissionne pour de bon (le joueur l’a vraiment mal traité·e) : {"t":"quit"}.`);
   return out;
@@ -1793,6 +1804,7 @@ function dmCareerLines(g, c) {
 function applyDMCareerLine(g, c, o, playerText, fx) {
   if (o.t === 'deal' && c.kind === 'brand') { fx.push(() => applyDealLine(g, c, o)); return true; }
   if (o.t === 'tdeal' && c.kind === 'brand') { fx.push(() => applyTdealLine(g, c, o)); return true; } // 0.31: the offer for a talent
+  if (o.t === 'offre_talent' && c.kind === 'brand') { fx.push(() => brandOffersTalent(g, c, o)); return true; } // 0.32: asked by the agent, they make one
   if (o.t === 'rate' && c.kind === 'cand' && c.cand) { fx.push(() => { const r = Math.round(num(o.rate, c.cand.rate)); if (r < c.cand.rate) { c.cand.rate = niceRound(clamp(r, c.cand.rate * 0.8, c.cand.rate)); addNotif(g, { k: 'money', c: c.id, text: `${c.name} baisse son tarif : ${payWord(g, c.cand)}.` }); } }); return true; }
   if (o.t === 'quit' && c.kind === 'staff') { fx.push(() => { const m = g.staff.find((x) => x.c === c.id); if (m && c.rel <= 0) quitStaff(g, m, 'quit'); }); return true; }
   if (o.t === 'intel' && isMain(c)) { fx.push(() => addIntel(g, c, playerText, o)); return true; }

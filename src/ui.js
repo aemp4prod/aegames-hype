@@ -620,6 +620,7 @@ function enterGame(g, restore = {}) {
   for (const k in SCROLL) delete SCROLL[k];
   const away = t - (g.lastSeenAt || g.lastPlayedAt || t);
   if (!restore.hot) absenceGrace(g, g.lastSeenAt || g.lastPlayedAt, t); // 0.30: what came due while the game was closed: from now on
+  if (!restore.hot) nrgBack(g, g.lastSeenAt || g.lastPlayedAt, t); // 0.32: closed long enough, the player rested
   if (away > ABSENCE_MS && !restore.hot) {
     const gain = applyAbsence(g, away);
     S.catchup = { ms: away, gain };
@@ -897,6 +898,123 @@ function HostModal() {
   if (!card) return null;
   return html`<div class="modal host-modal" role="dialog" aria-modal="true" onClick=${(e) => { if (e.target === e.currentTarget) close(); }}>${card}</div>`;
 }
+
+/* ---------- 0.32: « Comment ça marche ? », the game told in a minute, from the home screen ----------
+   Eight steps a child would follow (the game is for adults, the words are for everyone): a scene made of what the game
+   already shows (its avatars, its stickers, its icons, the clock and the energy of the status strip), a title, a
+   sentence or two. Never a word on what is meant to surprise: who the characters really are is for the game to tell. */
+const tutoEmo = (e, k) => emoParts(e, 'tu' + k); // (the game's own stickers, the phone's emoji otherwise)
+const tutoNb = (t) => String(t || '').replace(/ ([:;!?»])/g, '\u00a0$1').replace(/« /g, '«\u00a0'); // (never a line that starts with « : » or « ? »)
+const TutoAv = ({ e, h, s = 40 }) => html`<${Avatar} who=${{ emoji: e, hue: h, name: '' }} size=${s} />`;
+const TUTO_CAST = [['🦊', 20], ['🎧', 200], ['🦋', 265], ['😎', 140]];
+const TUTO_STEPS = [
+  { h: 330, title: 'Tout le monde est une IA… sauf toi', text: 'Hype, c’est un réseau social version jeu. Les persos sont joués par l’IA : ils lisent tes posts, te répondent, t’écrivent… et se souviennent de toi.',
+    scene: () => html`<div class="ts-crowd">
+      ${TUTO_CAST.slice(0, 2).map(([e, h]) => html`<div class="ts-who" key=${e}><${TutoAv} e=${e} h=${h} s=${44} /><span class="ts-tag">IA</span></div>`)}
+      <div class="ts-who ts-me"><${TutoAv} e="🙂" h=${330} s=${72} /><span class="ts-tag hot">Toi</span></div>
+      ${TUTO_CAST.slice(2).map(([e, h]) => html`<div class="ts-who" key=${e}><${TutoAv} e=${e} h=${h} s=${44} /><span class="ts-tag">IA</span></div>`)}
+    </div>` },
+  { h: 265, title: 'Ta partie en 3 étapes', text: 'Choisis un monde (ou invente le tien), crée ton perso, puis choisis ton tout premier abonné.', more: 'Hype est réservé aux 18 ans et plus.',
+    scene: () => html`<div class="ts-steps">${[['✨', 'Un monde'], ['🙂', 'Ton perso'], ['⭐', '1er abonné']].map(([e, lb], k) => html`
+      ${k ? html`<span class="ts-arrow" key=${'a' + k}><${Icon} n="back" s=${18} /></span>` : null}
+      <div class="ts-step" key=${lb}><i>${k + 1}</i><span class="ts-big">${tutoEmo(e, 's' + k)}</span><b>${lb}</b></div>`)}</div>` },
+  { h: 20, title: 'Poste, discute, sors, crée', text: 'Tout ce que tu fais te rapporte des abonnés et de l’XP. Avec assez d’XP, tu montes de niveau : des gemmes pour la boutique… et un nouveau perso.',
+    scene: () => html`<div class="ts-acts">
+      <div class="ts-tiles">${[['pen', 'Poster'], ['msg', 'Écrire'], ['heart', 'Sortir'], ['studio', 'Filmer'], ['trophy', 'Quêtes']].map(([n, lb]) => html`<div class="ts-tile" key=${n}><${Icon} n=${n} s=${24} /><span>${lb}</span></div>`)}</div>
+      <div class="ts-res"><span class="chip good">+48 abonnés</span><span class="chip hot">+34 XP</span><span class="chip ts-lv">Niveau 2 !</span></div>
+    </div>` },
+  { h: 200, title: 'Les persos arrivent petit à petit', text: 'Au début, tu en rencontres une poignée. Ensuite, à chaque niveau gagné, quelqu’un de nouveau débarque : le premier arrive vite, les suivants un peu plus tard.', more: 'Et parfois, l’histoire en amène d’autres.',
+    scene: () => html`<div class="ts-tl">
+      <div class="ts-stop"><div class="ts-pt ts-pile">${TUTO_CAST.map(([e, h]) => html`<${TutoAv} key=${e} e=${e} h=${h} s=${27} />`)}</div><span class="ts-tag">Au début</span></div>
+      ${[['🐺', 230, 2], ['🌻', 45, 3], ['🐙', 300, 4]].map(([e, h, n]) => html`<div class="ts-stop" key=${n}><div class="ts-pt"><span class="ts-new"><${TutoAv} e=${e} h=${h} s=${40} /><i>+1</i></span></div><span class="ts-tag">Niveau ${n}</span></div>`)}
+      <div class="ts-stop"><div class="ts-pt"><span class="ts-etc">…</span></div><span class="ts-tag">etc.</span></div>
+    </div>` },
+  { h: 45, title: 'Des gentils… et des moins gentils', text: 'Chacun a son caractère et sa vie. Certains deviendront tes amis, ton crush ou tes fans. D’autres seront jaloux, rivaux, ou pas très sympas.', more: 'Il en arrive des deux sortes, tout au long de la partie. À toi de voir avec qui tu t’entends !',
+    scene: () => html`<div class="ts-split">
+      <div class="ts-side good"><span class="ts-row">${tutoEmo('😊🤝🥰', 'g')}</span><b>Amis · crush · fans</b></div>
+      <div class="ts-side bad"><span class="ts-row">${tutoEmo('😤🙄😈', 'b')}</span><b>Rivaux · jaloux · rageux</b></div>
+    </div>` },
+  { h: 225, title: 'Le temps passe pour de vrai', text: 'Chaque action prend un peu de temps. Ton énergie baisse dans la journée : dors pour la recharger. Les persos aussi ont leur vie : ils travaillent, dorment, et ne répondent pas toujours tout de suite.', more: 'Pressé ? Appuie sur l’horloge pour avancer le temps.',
+    scene: () => html`<div class="ts-time">
+      <div class="ts-day"><span class="ts-big">${tutoEmo('☀️', 'd')}</span><i class="ts-bar"></i><span class="ts-big">${tutoEmo('🌙', 'n')}</span></div>
+      <div class="ts-pills"><span class="clock-btn"><${Icon} n="clock" s=${15} /><b>23:40</b><span>mardi</span><${Icon} n="ffwd" s=${13} /></span><span class="fit-chip fatigue"><span class="fit-bat"><i style="width:25%"></i></span><b>25 %</b></span></div>
+      <div class="ts-durs"><span class="chip"><${Icon} n="msg" s=${14} />Message · 5 min</span><span class="chip"><${Icon} n="pen" s=${14} />Post · 15 min</span><span class="chip"><${Icon} n="clapper" s=${14} />Vidéo · des heures</span></div>
+    </div>` },
+  { h: 345, title: 'Les relations prennent du temps', text: 'Pour devenir proches, il faut se parler et se voir. Chacun son rythme : pour se mettre en couple, compte en général une à deux semaines de jeu.', more: 'Trop de rendez-vous d’un coup, ou soudain plus rien ? Ça peut surprendre.',
+    scene: () => html`<div class="ts-love">
+      <span class="chip ts-cal"><${Icon} n="calendar" s=${14} />Souvent 1 à 2 semaines de jeu</span>
+      <div class="ts-hs">
+        <div class="ts-h s1"><span>${tutoEmo('🤍', '1')}</span><b>Inconnus</b></div><i class="ts-dash"></i>
+        <div class="ts-h s2"><span>${tutoEmo('💞', '2')}</span><b>Proches</b></div><i class="ts-dash"></i>
+        <div class="ts-h s3"><span>${tutoEmo('❤️', '3')}</span><b>En couple</b></div>
+      </div>
+    </div>` },
+  { h: 300, title: 'Prêt ? C’est parti !', tips: [['save', 'Le jeu sauvegarde tout seul. Tu peux même revenir en arrière.'], ['coffee', `Les persos parlent grâce à ton abonnement ${AI_NAME}. Les cafés montrent ce qu’ils utilisent, et reviennent chaque jour.`]],
+    scene: () => html`<div class="ts-go"><span class="ts-sp a">${tutoEmo('✨', 'a')}</span><span class="ts-rocket">${tutoEmo('🚀', 'r')}</span><span class="ts-sp b">${tutoEmo('🎉', 'b')}</span><span class="ts-sp c">${tutoEmo('✨', 'c')}</span></div>` },
+];
+// The box on the home screen that opens it.
+function TutoOpen({ onOpen }) {
+  return html`<button type="button" class="tuto-open" onClick=${onOpen}>
+    <span class="to-ic" aria-hidden="true">?</span>
+    <span class="to-txt"><b>Comment ça marche ?</b><small>Le jeu expliqué en 1 minute, en images.</small></span>
+    <span class="to-go" aria-hidden="true"><${Icon} n="back" s=${20} /></span>
+  </button>`;
+}
+// canNew: a game can be created from here (else the last step says why, when there is something to do, and closes).
+function Tuto({ onClose, canNew, why = '' }) {
+  const [st, setSt] = useState({ i: 0, dir: '' });
+  const N = TUTO_STEPS.length, i = st.i, s = TUTO_STEPS[i], last = i === N - 1;
+  const go = (k) => { const j = Math.max(0, Math.min(N - 1, k)); if (j !== i) setSt({ i: j, dir: j > i ? 'fwd' : 'back' }); };
+  const main = useRef(null), swipe = useRef(null);
+  useEffect(() => { // (on the main button when it opens, and whenever the focus was lost: never taken from a dot)
+    const a = document.activeElement;
+    if (main.current && (!a || a === document.body || !a.closest('.tuto'))) main.current.focus({ preventScroll: true });
+  }, [i]);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [i]);
+  const down = (e) => { swipe.current = { x: e.clientX, y: e.clientY }; };
+  const up = (e) => { // (a finger slid sideways: the next step, or the one before)
+    const w = swipe.current;
+    swipe.current = null;
+    if (!w) return;
+    const dx = e.clientX - w.x, dy = e.clientY - w.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) go(i + (dx < 0 ? 1 : -1));
+  };
+  const start = () => { onClose(); startOnboarding(); };
+  return html`<div class="modal tuto-modal" role="dialog" aria-modal="true" aria-labelledby="tuto-t" aria-describedby="tuto-d" onClick=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div class="modal-card tuto" style=${'--h:' + s.h} onPointerDown=${down} onPointerUp=${up} onPointerCancel=${() => { swipe.current = null; }}>
+      <button type="button" class="iconbtn tuto-x" onClick=${onClose} aria-label="Fermer l’explication"><${Icon} n="x" s=${20} /></button>
+      <div class="tuto-scene" key=${'s' + i} aria-hidden="true">${s.scene()}</div>
+      <div class="tuto-bodies">${TUTO_STEPS.map((x, k) => { // (all of them in the same place, only one seen: the card keeps the height of the longest, its buttons never move)
+        const on = k === i;
+        return html`<div key=${k} class=${'tuto-body' + (on ? ' on ' + st.dir : '')} aria-hidden=${on ? undefined : 'true'}>
+          <p class="eyebrow">Comment ça marche · ${k + 1} sur ${N}</p>
+          <h2 class="tuto-title" id=${on ? 'tuto-t' : undefined}>${tutoNb(x.title)}</h2>
+          <div id=${on ? 'tuto-d' : undefined} class="stack" style="gap:8px">
+            ${x.text ? html`<p class="tuto-text">${tutoNb(x.text)}</p>` : null}
+            ${x.tips ? html`<div class="tuto-tips">${x.tips.map(([n, t]) => html`<div class="tuto-tip" key=${n}><span class="tt-ic"><${Icon} n=${n} s=${18} /></span><p>${tutoNb(t)}</p></div>`)}</div>` : null}
+            ${x.more ? html`<p class="tuto-more">${tutoNb(x.more)}</p>` : null}
+            ${k === N - 1 && !canNew && why ? html`<p class="tuto-more tuto-why">${tutoNb(why)}</p>` : null}
+          </div>
+        </div>`;
+      })}</div>
+      <div class="tuto-dots">${TUTO_STEPS.map((x, k) => html`<button type="button" key=${k} class=${k === i ? 'on' : ''} onClick=${() => go(k)} aria-label=${`Étape ${k + 1} sur ${N}\u00a0: ${x.title}`} aria-current=${k === i ? 'step' : undefined}></button>`)}</div>
+      <div class="tuto-nav">
+        ${i > 0 ? html`<button type="button" key="prev" class="btn btn-ghost" onClick=${() => go(i - 1)}>Précédent</button>` : html`<button type="button" key="later" class="btn btn-ghost" onClick=${onClose}>Plus tard</button>`}
+        ${!last ? html`<button type="button" key="next" class="btn btn-hot" ref=${main} onClick=${() => go(i + 1)}>Suivant</button>`
+          : canNew ? html`<button type="button" key="go" class="btn btn-hot" ref=${main} onClick=${start}>Créer ma partie</button>`
+          : html`<button type="button" key="ok" class="btn btn-hot" ref=${main} onClick=${onClose}>Compris !</button>`}
+      </div>
+    </div>
+  </div>`;
+}
 function Home({ now }) {
   const games = S.games;
   const full = games.length >= MAX_GAMES;
@@ -911,6 +1029,10 @@ function Home({ now }) {
   const confirmDel = () => { if (!del || Date.now() - del.at < 450) return; const id = del.s.id; setDel(null); removeGameById(id); };
   const [ren, setRen] = useState(null); // 0.27.7: { id, text }: a game being renamed
   const renOK = () => { if (!ren) return; renameGameById(ren.id, ren.text); setRen(null); };
+  const [tuto, setTuto] = useState(false); // 0.32: « Comment ça marche ? » open
+  const tutoClose = () => { setTuto(false); setTimeout(() => { const b = document.querySelector('.tuto-open'); if (b) b.focus({ preventScroll: true }); }, 0); };
+  const canNew = !blocked && hostReady();
+  const noNew = canNew ? '' : !hostReady() ? `Pour créer ta partie, connecte d’abord ${AI_NAME} sur l’accueil : c’est lui qui fait parler les personnages.` : full ? `Tu as déjà ${MAX_GAMES} parties : supprime-en une pour en créer une autre.` : '';
   return html`<div class="screen"><div class="screen-in">
     ${games.length ? html`<div class="screen-top">
       <span class="wm">hype<i></i></span>
@@ -938,6 +1060,7 @@ function Home({ now }) {
         </div>`)}</div>
         ${full ? html`<p class="muted">Tu as atteint ${MAX_GAMES} parties. Pour en créer une autre, supprime-en une avec la corbeille.</p>` : null}
         <div class="row">${canFiles() ? html`<button class="btn btn-ghost btn-sm" onClick=${importAny} disabled=${full}><${Icon} n="upload" s=${15} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost btn-sm" onClick=${openAtelier}><${Icon} n="camera" s=${15} /> Atelier photos</button>` : null}</div>
+        <${TutoOpen} onOpen=${() => setTuto(true)} />
       </section>`
       : html`<section class="hero">
         <span class="wm wm-xl">hype<i></i></span>
@@ -945,6 +1068,7 @@ function Home({ now }) {
         <p class="lede">Crée ton perso, choisis un monde et poste. Tout le monde est une IA sauf toi : on te répond, on s’abonne, on s’attache… ou on te cancel.</p>
         ${HOST ? html`<${GptPanel} />` : null}
         <div class="row"><button class="btn btn-hot" onClick=${startOnboarding} disabled=${S.store === 'pending' || S.indexError || !hostReady()}>${S.store === 'pending' ? 'Chargement…' : 'Nouvelle partie'}</button>${canFiles() ? html`<button class="btn btn-ghost" onClick=${importAny} disabled=${S.store === 'pending' || S.indexError}><${Icon} n="upload" s=${16} /> Importer une partie</button>` : null}${creatorOn() && atelierHere() ? html`<button class="btn btn-ghost" onClick=${openAtelier}><${Icon} n="camera" s=${16} /> Atelier photos</button>` : null}</div>
+        <${TutoOpen} onOpen=${() => setTuto(true)} />
       </section>
       <section class="preview" aria-label="Aperçu d’une partie">
         <div class="preview-tag"><span>Aperçu · exemple de partie</span><span>Académie Lumen</span></div>
@@ -961,6 +1085,7 @@ function Home({ now }) {
         <button class="btn btn-ghost" onClick=${() => setDel(null)}>Annuler</button>
       </div>
     </div>` : null}
+    ${tuto ? html`<${Tuto} onClose=${tutoClose} canNew=${canNew} why=${noNew} />` : null}
   </div><button type="button" class="app-version" onClick=${tapVersion} title="Le jeu est encore en développement : des choses peuvent changer ou casser.">Hype ${APP_VERSION} · ${APP_STAGE}${creatorOn() && atelierHere() ? ' · créateur' : ''}</button></div>`;
 }
 
@@ -1804,6 +1929,7 @@ function ProfileTab({ g, now }) {
       <${BioBox} g=${g} />
       <p class="muted" style="font-size:14px">${g.world.emoji} ${g.world.name} · ${P.identity}</p>
       <p class="muted play-time" style="font-size:14px">⏱️ ${s.playEst ? '≈ ' : ''}${fmtPlay(s.playMs)} de jeu${s.playEst ? ' (le temps d’avant la 0.30 est estimé)' : ''}</p>
+      <p class="muted play-day" style="font-size:14px">📅 Jour ${playDay(g, now)} de ta partie, commencée le ${playStartWord(g)}</p>
       <${PlayerSocialLinks} g=${g} now=${now} />
       <${ShipsRow} g=${g} />
       <div class="prof-stats"><span><b>${fmtN(s.followers)}</b> ${plural(s.followers, 'abonné', 'abonnés')}</span><span><b>${s.following}</b> ${plural(s.following, 'abonnement', 'abonnements')}</span><span><b>${s.posts}</b> ${plural(s.posts, 'post', 'posts')}</span>${s.cancelled ? html`<span class="chip bad">Cancel</span>` : null}${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz</span>` : null}${isShady(g, now) ? html`<span class="chip bad" title="On se méfie de tes conseils">${px(g, 'Manipulateur', 'Manipulatrice', 'Manipulateur·rice')} · encore ${fmtDur(g.shady.until - now)}</span>` : null}</div>
@@ -2437,6 +2563,7 @@ function ShootSetup({ r }) {
     ${careable ? html`<label class=${'check-card care-card' + (care ? ' on' : '')}><input type="checkbox" checked=${care} onChange=${(e) => setCare(e.target.checked)} /><span><b>✨ ${whatF(r) ? 'Vidéo soignée' : `${cap1(nounOf(r))} soigné`}</b><small>${prodWord(r.what, true, r.team)} de travail au lieu de ${prodWord(r.what, false, r.team)} : +${Math.round((CARE_K - 1) * 100)} % de vues, un peu plus de chances de buzz et de la crédibilité.</small></span></label>` : null}
     ${dl && dl.care && careable && !care ? html`<p class="date-late care-warn">✨ Le contrat de ${dl.brand} exige ${whatF(r) ? 'une vidéo soignée' : `un ${nounOf(r)} soigné`} : sans, la marque retiendra ${Math.round(CARE_CUT * 100)} % du paiement.</p>` : null}
     ${PD ? html`<p class="prod-note">⏱️ ${r.what === 'live' ? `Ton live dure ${prodWord('live')} : jusqu’à ${hourOf(t0 + PD)}.` : `${hWord(PD / 3600000)} de tournage et de montage${r.team ? ` (${teamWord(r.team)})` : ''} : ${whatF(r) ? 'elle' : 'il'} sortira vers ${hourOf(t0 + PD)}${lateBy > 30 * 60000 ? `, ${fmtDur(lateBy)} après l’heure annoncée (${hourOf(ann)})` : ''}.`}</p>` : null}
+    ${PD && g && t32On() ? html`<${NrgShootNote} g=${g} PD=${PD} />` : null}
     ${g && can.ok && devisNeeded(g, r) ? html`<${DevisStep} g=${g} r=${r} topic=${topic} plot=${plot} />` // 0.20: the quote, before the shoot (once nothing blocks it)
       : html`<button class="btn btn-hot" onClick=${launch} disabled=${!ok || !can.ok}><${Icon} n="clapper" s=${16} /> Lancer le tournage</button>${!ok ? html`<small class="muted why-off">Écris d’abord le sujet.</small>` : null}`}
   </div>`;
@@ -2448,6 +2575,7 @@ function ShootResult({ r, g, now }) {
     <span class="eyebrow">${T.label}</span>
     <div class="mg-score">${pctOf(r.played.score)} %</div>
     <span class=${'chip' + (D.real ? ' bad' : '')}>${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un flop' : 'bonus ' + fmtMult(D.mult) + (tier === 'top' && D.viral ? ' · viral assuré' : '')}</span>
+    ${r.played.tired ? html`<p class="date-late fit-lost">😴 La fatigue t’a coûté ${Math.max(1, pctOf(r.played.raw) - pctOf(r.played.score))} points (${pctOf(r.played.raw)} % sans elle).</p>` : null}
     <p>${tier === 'top' ? `${cap1(laW(r))} va cartonner.` : tier === 'mid' ? `${cap1(laW(r))} marchera moyennement.` : flopWord(r)}${tier === 'top' && D.real ? ' Tu connais vraiment ton sujet : ça se sent.' : ''}${r.series && g.series ? (tier === 'flop' ? ' Ton bonus de défi retombera à ×1.' : ` Ton bonus de défi passera à ×${fmtDec(seriesMultAt(g.series, (g.series.streak || 0) + 1))}.`) : ''}</p>
     ${r.series && tier !== 'top' ? html`<p class="date-late series-note"><${Icon} n="calendar" s=${15} /><span><b>Défi Daily Upload : pas de report possible.</b> ${tier === 'flop' ? (g.series && g.series.hard ? 'Mode hardcore : un épisode raté met fin au défi, publié ou non.' : `Publie quand même : raté, ton bonus de défi retombe à ×1. Pas publié, c’est un épisode manqué (${repWord(repTry(g, { cred: -10, pro: -5 }))}), et le défi ne pourra plus être réussi.`) : 'Publie pour valider l’épisode : ton bonus de défi continue de grimper.'}</span></p>` : null}
     ${tier !== 'top' || D.real ? html`<${MgAnswers} game=${r.game} />` : null}
@@ -3110,7 +3238,7 @@ function DMLayer({ l, g, now, i }) {
   if (!g.tipDate && isMain(c) && !c.cut && msgs.some((m) => !m.me && m.text) && !(g.events || []).some((e) => e.player)) { g.tipDate = { c: c.id, at: now }; S.tipLayer = l.key; }
   const tip = !!(g.tipDate && !g.tipDate.done && S.tipLayer === l.key);
   return html`<${LayerShell} i=${i} title=${c.name}
-    head=${html`<button class="who" onClick=${() => openChar(c.id)}><${Avatar} who=${au} size=${36} /><div><b>${c.name}</b><span>${isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)} · confiance ${trustOf(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}` : c.role}</span></div></button>`}
+    head=${html`<button class="who" onClick=${() => openChar(c.id)}><${Avatar} who=${au} size=${36} /><div><b>${c.name}${t32On() && onlineNow(g, c, now) ? html`<i class="on-dot" title="En ligne" aria-label="en ligne"></i>` : null}</b><span>${isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)} · confiance ${trustOf(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}` : c.role}</span></div></button>`}
     foot=${html`<${DMBox} c=${c} g=${g} now=${now} />`}>
     <div class="bubbles" ref=${ref}>
       <div class="dm-intro"><${Avatar} who=${au} size=${64} /><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span><span>${c.kind === 'brand' ? 'Un contact pro : parle chiffres, négocie, demande un devis.' : c.kind === 'cand' ? 'Une candidature : pose tes questions, négocie son tarif.' : 'Ce qui se dit ici reste entre vous… en principe. Une capture est vite faite.'}</span></div>
@@ -3132,6 +3260,7 @@ function DMLayer({ l, g, now, i }) {
         : html`${m.story ? html`<div key=${m.id + 's'} class=${'dm-story ' + (m.me ? 'me' : 'them')}>${m.me ? 'Tu as répondu à sa story' : 'A répondu à ta story'} : « ${m.story.text} »</div>` : null}${m.me ? html`<div key=${m.id} class=${'bubble me' + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`
           : html`<${ReactBubble} key=${m.id} m=${m} who=${c} cls=${'bubble them' + (emoOnly(m.text) ? ' jumbo' : '')}>${emoParts(m.text)}<//>`}`)}
       ${seenShown && !typing && !lost ? html`<div class="seen-tag">Vu</div>` : null}
+      ${!seenShown && !typing && !lost && convo && convo.due && last && last.me ? html`<div class="seen-tag sent">Envoyé</div>` : null}
       ${lost ? html`<div class="seen-tag lost">Non distribué</div>` : null}
       ${typing ? html`<div class="bubble them typing-b" aria-label=${c.name + ' écrit'}><${Typing} /></div>` : null}
       ${stayOn(g, now) && g.stay.c === c.id ? html`<${StayLine} g=${g} />` : null}
@@ -3698,7 +3827,7 @@ function tick() {
   if (S.phase === 'game' && g && !g.over) { // (0.29: a game that ended waits on its last screen)
     // 0.30: out of sight (another app, the window hidden), nothing is given up; back, what came due meanwhile starts again
     const hidden = document.visibilityState !== 'visible' && !(S.os || []).length;
-    if (!hidden && g.lastSeenAt && t - g.lastSeenAt > AWAY_MIN) { absenceGrace(g, g.lastSeenAt, t); g.lastSeenAt = t; update(false); }
+    if (!hidden && g.lastSeenAt && t - g.lastSeenAt > AWAY_MIN) { absenceGrace(g, g.lastSeenAt, t); nrgBack(g, g.lastSeenAt, t); g.lastSeenAt = t; update(false); } // (0.32: out of sight long enough, rested)
     if (!hidden && t - (S.lastInputAt || 0) < AUTO_IDLE_MS && S.playTickAt) g.stats.playMs = (g.stats.playMs || 0) + Math.max(0, Math.min(5000, t - S.playTickAt)); // 0.30: the time really played
     S.playTickAt = t;
     if (t - achTickAt > 4000) { achTickAt = t; tickAch(g, t); } // 0.28: the achievements read what stands
@@ -3760,6 +3889,10 @@ function tick() {
     if (!skipBusy()) for (const x of plannedReleases(g)) if (x.prodWait) { prodJump(g, x); update(); } // 0.30.1: a shoot done while the characters were writing: its time passes now
     if (!skipBusy()) for (const x of plannedReleases(g)) if (x.big && x.big.wait) { bigJump(g, x); update(); } // 0.30.1: a production's stage, the same
     if (g.timeDebt && !skipBusy() && !inMiniGame()) { const ms = g.timeDebt, why = g.timeWhy; g.timeDebt = 0; delete g.timeWhy; spendTime(g, ms, why); update(); } // 0.30.1: time spent elsewhere
+    if (g.actDebt && payActTime(g, t)) update(); // 0.32: the minutes the player's messages and posts took
+    if (tickTold(g, t)) update(); // 0.32: the hours gone by untold: the network tells them
+    if (tickReplies(g, t) || tickGroups(g, t)) update(); // 0.32: they pick up their phone
+    if (!hidden && tickNrg(g, t)) update(); // 0.32: a bed offered in the night, or when exhausted
     for (const x of plannedReleases(g)) { // 0.31.3: a feat: someone waits for the player at that hour, even behind another release (said, and it can be shot)
       if (x === rl || !x.collab || x.big || hidden) continue;
       const xc = g.chars[x.collab];
@@ -3780,7 +3913,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -3932,7 +4065,11 @@ if (window.__HYPE_TEST__) {
     ACH, ACH_BY, ACH_GROUPS, unlockAch, tickAch, achGot, achCount, ensureAch, achProgress, achKeep, myTrend, dealSignedAch, leftFor, giftCounted, noteCaught, vibeLine, osDesk, OS_KINDS, productFlop, buy, releaseDone, markViral, accusationResult, apologyResult, commitEval, cancelDate, // 0.28: the achievements, a present
     checkDeals, relLimit, fanPlanned, startShoot, paletteClock, chatScore, gameReader, validGame, shootFallback, leftWorst, orderScore, ownKeys, KEY_OWNERS, tickInvGear, devisFor, keepDevis, dropDevis, genGame, seriesEpisode, // 0.27.6
     upPctOf, upfrontOf, refundUpfront, billSent, dealClash, exclusiveBreach, trySign, dealPayNote, devisStale, staleSay, devisPrice, boughtBefore, stockLike, upShown, readUpfront, NO_UPFRONT, // 0.27.4: the down payment, negotiated
-    plannedReleases, planRoom, MAX_PLANNED, toggleReplyLike, toggleLike, levelUp, gainXP, threadLines, promptGroup, noteLike, unnoteLike, likeWord, likesSince, MSG_REACTS, setReact, reactTag, pendingReacts, tickNewChars, genNewChar, pinCtx, vagueAnnounce, vagueReleasesOut, annOf, sameRelease, annTopic, annMoments, annResolve, annWhy, VID_TALK_RE, postWhen, PF, advanceRelease, advanceChoices, trimReleases, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
+    plannedReleases, planRoom, MAX_PLANNED, playDay, playStartWord, t32On, nrgOf, nrgNow, nrgState, nrgPass, nrgBack, nrgShoot, nrgCtx, nrgLevel, NRG_LEVELS, NRG_DRAIN, nightsIn, sleepPlan, goSleep, tickNrg, ACT_MIN, actTime, payActTime, msgMin, postMin, minWord, tickTold, noteQuiet, TELL_MS, awakeTs, dispoOf, rythmeOf, asleepUntil, bizOpensAt, onlineNow, setAway, deferDM, tickReplies, answerDue, dmAnswer, groupDispo, tickGroups, answerGroupDue, groupAnswer, prod32, PROD_H, PROD_BIG, HOT_MS, DISPO_SPEED, openWatch, hourOf, alarmWord, addContact, brandOfContact, talentAskLine, brandOffersTalent, dmCareerLines, tdealByContact, // 0.32: le temps qui passe; an offer the agent asks for
+    CLASHES, CLASH_IDS, clashOf, normClash, guessClash, COEUR_EXT, COEUR_W, NOT_OPEN, drawTraits, drawCastTraits, applyPlanTraits, ensureTraits, planWords, traitsLegend, traitsAsk, newcomerTraits, traitLines, knownLine, rhythmLine, cadence, fmtDays, rosterTrait, rosterLegend, traitScale, clashOut, GRUDGE_MS, PACE_K, likesSpeed, cfHot, coolOf, COOLS, // 0.32: who they are, beyond their heart
+    isOpen, okWith, troupleOf, openLine, openOutLines, applyOpenLine, troupleFormed, worriers, worry, worryDM, worryFresh, WORRY_MS, HEART_INTIMACY, NIGHT_RE, // 0.32: open, a throuple; the worriers
+    STALK_MIN, STALK_P, stalkOf, stalkerOf, isStalker, stalkBirth, tickStalkers, stalkPlan, stalkArrives, stalkStage, spurned, stalkCore, STALK_SIGN_LINE, stalkPublicLines, stalkSign, applyStalkLine, stalkPhoto, stalkSabotage, doubtLines, doubtWalk, stalkAccuseLines, stalkAccusation, stalkUnmask, stalkVisit, STALK_PHOTO_GAP, STALK_SABO_GAP, author, // 0.32: the ones who follow the player
+     toggleReplyLike, toggleLike, levelUp, gainXP, threadLines, promptGroup, noteLike, unnoteLike, likeWord, likesSince, MSG_REACTS, setReact, reactTag, pendingReacts, tickNewChars, genNewChar, pinCtx, vagueAnnounce, vagueReleasesOut, annOf, sameRelease, annTopic, annMoments, annResolve, annWhy, VID_TALK_RE, postWhen, PF, advanceRelease, advanceChoices, trimReleases, checkReleases, postponeRelease, dropRelease, // 0.27.4: several releases planned
     openPalette, paletteKey, paletteApply, paletteOn, paletteNum, tapCash, SWATCH_ROW, checkPayout, billGear, // 0.27.4: the palette
     startPractice, PRACTICE_GAMES, paletteLines, paletteNudge, paletteVal, PALETTE_TITLES, // 0.27.6: the practice rounds (0.27.9: the palette's window)
     // 0.20: the gear, the connection, the subscriptions, the start

@@ -378,6 +378,7 @@ function buyGear(g, k, t) {
   swapItem(g, k, mkItem(t), `${gearName(g, k, t)} ${boughtWord(gearName(g, k, t))} : ${fmtMoney(g, price)}`);
   addChronicle(g, `${g.player.name} s’est offert du matos : ${gearName(g, k, t).toLowerCase()}.`);
   if (t >= 3) addTrigger(g, `Le joueur vient de s’offrir du matériel haut de gamme (${gearName(g, k, t).toLowerCase()}, ${fmtMoney(g, price)}) : certains sont impressionnés, d’autres trouvent qu’il frime.`);
+  actTime(g, 20); // 0.32: choosing, ordering, setting it up
   return true;
 }
 function buyNew(g, id) {
@@ -390,6 +391,7 @@ function buyNew(g, id) {
   addChronicle(g, `${g.player.name} a craqué pour la nouveauté du moment : ${newName(g, X)}.`);
   if (NEW_GEAR.slice(0, G.launch.n).every((y) => y.price <= X.price)) unlockAch(g, 'big-spender'); // 0.28: the dearest one out
   addTrigger(g, `Le joueur s’est offert la grosse nouveauté du moment, ${newName(g, X)} (${fmtMoney(g, X.price)}) : ça fait parler, entre admiration, jalousie et « il a trop d’argent ».`);
+  actTime(g, 20); // 0.32
   return true;
 }
 // A repair: the regular one takes a day or three; express, now, twice the price. Insured: the franchise.
@@ -407,6 +409,7 @@ function repairGear(g, k, express) {
   if (it.fixAt && !express) return false;
   const cost = repairCost(g, k, express);
   if (!pay(g, cost, `Réparation : ${itemName(g, k, it).toLowerCase()}${express ? ' (express)' : ''}`, 'repair')) { toast(`Il te faut ${fmtMoney(g, cost)}.`, 'bad'); return false; }
+  actTime(g, 15); // 0.32: the trip to the repair shop
   if (k === 'phone') { it.crack = 0; toast('Téléphone réparé.', 'good'); return true; }
   if (express) { it.broken = 0; it.fixAt = 0; toast(`${itemName(g, k, it)} réparé${k === 'cam' || k === 'light' ? 'e' : ''}.`, 'good'); }
   else { it.fixAt = Date.now() + randi(1, 3) * DAY_MS; toast(`Chez le réparateur : retour ${fmtWhen(it.fixAt)}.`); }

@@ -21,6 +21,9 @@ const TEMPERS = {
     desc: () => 'Jalouse tes succès, savoure tes chutes.' },
   trouble: { emoji: '🎭', label: ['Difficile à cerner', 'Difficile à cerner', 'Difficile à cerner'], ai: 'trouble : se rapproche du joueur quand il est au plus bas, étrangement compréhensif·ve',
     desc: () => 'Se rapproche quand tu es au plus bas… Sincère, ou pas ? Impossible à dire.' },
+  // 0.32 (« extrêmement inquiet pour tout et rien… il t'envoie plein de messages, il débarque chez toi ») : see worry()
+  inquiet: { emoji: '🥺', label: ['Inquiet', 'Inquiète', 'Inquiet·ète'], ai: 'inquiet·ète : s’inquiète pour tout et rien ; dès qu’il arrive quelque chose au joueur (un scandale, un sale commentaire, une rupture, un silence), il ou elle lui écrit une rafale de messages et peut débarquer chez lui pour vérifier qu’il va bien',
+    desc: () => 'S’inquiète pour toi au moindre souci : messages en rafale, visites surprises.' },
 };
 const TEMPER_IDS = Object.keys(TEMPERS);
 const temperOf = (c) => (c && TEMPERS[c.temper] ? c.temper : 'detache');
@@ -28,7 +31,7 @@ const temperLabel = (c) => { const L = TEMPERS[temperOf(c)].label; return gx(c.g
 const normTemper = (k) => {
   k = String(k || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   return /fid|loyal/.test(k) ? 'fidele' : /integr|moral|princip|droit/.test(k) ? 'integre' : /opportun|vent|girouette|interess/.test(k) ? 'opportuniste'
-    : /detach|indiff|zen|s'en fiche/.test(k) ? 'detache' : /envi|jalou/.test(k) ? 'envieux' : /troubl|ambig|myster|cache|cerner/.test(k) ? 'trouble' : null;
+    : /detach|indiff|zen|s'en fiche/.test(k) ? 'detache' : /envi|jalou/.test(k) ? 'envieux' : /troubl|ambig|myster|cache|cerner/.test(k) ? 'trouble' : /inqui|angoiss|mere poule|protect|souci/.test(k) ? 'inquiet' : null;
 };
 // Before the AI says it (games from before 0.9.4): a guess from their trust nature and the bond, never shown as certain.
 function guessTemper(c) {
@@ -109,6 +112,7 @@ const WAVE = {
     detache: { rel: 0, trust: 0, say: ['s’en fiche', 's’en fichent'] },
     envieux: { rel: -3, trust: -2, date: 0.25, say: ['savoure ta chute', 'savourent ta chute'] },
     trouble: { rel: 3, trust: 0, say: ['se rapproche de toi, étrangement', 'se rapprochent de toi, étrangement'] },
+    inquiet: { rel: 3, trust: 1, say: ['s’inquiète pour toi', 's’inquiètent pour toi'] },
   },
   up: { // success moves feelings, not trust (believing the player is another matter)
     fidele: { rel: 3, trust: 0, say: ['se réjouit pour toi', 'se réjouissent pour toi'] },
@@ -117,6 +121,7 @@ const WAVE = {
     detache: { rel: 0, trust: 0, say: null },
     envieux: { rel: -6, trust: 0, say: ['te jalouse', 'te jalousent'] },
     trouble: { rel: 1, trust: 0, say: null },
+    inquiet: { rel: 1, trust: 0, say: null },
   },
 };
 // Tests drive the dice; the game rolls them.
@@ -183,16 +188,18 @@ function ripple(g, dir, lv, k, t = Date.now()) {
     if (kind === 'integre' && dir === 'down') addMem(g, c, 'le scandale du joueur m’a refroidi·e');
     if (kind === 'fidele' && dir === 'down') addMem(g, c, 'je reste aux côtés du joueur malgré la tempête');
     if (kind === 'trouble' && dir === 'down') addMem(g, c, 'je me suis rapproché·e du joueur pendant sa tempête');
+    if (kind === 'inquiet' && dir === 'down') addMem(g, c, 'je me suis fait un sang d’encre pour le joueur');
   }
   const first = (c) => firstName(c);
   const names = (list) => (list.length === 1 ? first(list[0]) : list.slice(0, -1).map(first).join(', ') + ' et ' + first(list[list.length - 1]));
   const parts = TEMPER_IDS.filter((x) => said[x]).map((x) => `${names(said[x])} ${W[x].say[said[x].length > 1 ? 1 : 0]}`);
-  for (const x of TEMPER_IDS) if (said[x]) beat.push(`${said[x].map((c) => '@' + c.handle).join(' et ')} ${{ fidele: dir === 'down' ? 'le soutient' : 's’en réjouit', integre: dir === 'down' ? 'prend ses distances' : 'salue un succès mérité', opportuniste: dir === 'down' ? 'le lâche' : 'se rapproche de lui par intérêt', detache: 's’en fiche', envieux: dir === 'down' ? 'savoure sa chute' : 'le jalouse (piques, sous-entendus)', trouble: 'se rapproche de lui, étrangement' }[x]}`);
+  for (const x of TEMPER_IDS) if (said[x]) beat.push(`${said[x].map((c) => '@' + c.handle).join(' et ')} ${{ fidele: dir === 'down' ? 'le soutient' : 's’en réjouit', integre: dir === 'down' ? 'prend ses distances' : 'salue un succès mérité', opportuniste: dir === 'down' ? 'le lâche' : 'se rapproche de lui par intérêt', detache: 's’en fiche', envieux: dir === 'down' ? 'savoure sa chute' : 'le jalouse (piques, sous-entendus)', trouble: 'se rapproche de lui, étrangement', inquiet: dir === 'down' ? 's’inquiète énormément pour lui (rafale de messages privés, peut passer le voir)' : 'est soulagé·e pour lui' }[x]}`);
   const head = dir === 'down' ? (lv === -2 ? '📉 Ton scandale fait le tri' : '📉 Ta mauvaise passe se sent') : (lv === 2 ? '👑 Te voilà au sommet' : '📈 Tu as le vent en poupe');
   addNotif(g, { k: dir === 'down' ? 'standdown' : 'standup', at: later() + 800, text: parts.length ? `${head} : ${parts.join(', ')}.` : `${head} : autour de toi, personne ne bouge vraiment… pour l’instant.` });
   if (cancelled.length) addChronicle(g, `${names(cancelled)} ${cancelled.length > 1 ? 'ont' : 'a'} annulé ${cancelled.length > 1 ? 'leur' : 'son'} rendez-vous avec ${g.player.name} à cause de sa réputation.`);
   if (beat.length) addTrigger(g, `${dir === 'down' ? (lv === -2 ? 'Le joueur est en plein scandale' : 'Le joueur traverse une mauvaise passe') : (lv === 2 ? 'Le joueur est au sommet' : 'Le joueur a le vent en poupe')} : chacun réagit selon son caractère : ${beat.join(' ; ')}. Montre-le (posts, réponses, messages privés), sans en faire le seul sujet.`);
   standCareer(g, dir, lv, t);
+  if (dir === 'down') worry(g, lv === -2 ? 'il est en plein scandale' : 'il traverse une mauvaise passe', t); // 0.32: the worriers rush
   if (dir === 'up' && lv === 2) echoAtTop(g, t);
 }
 // The career's share of a wave: the team, the brands.
@@ -332,7 +339,7 @@ function temperText(g, c, full) {
 const temperBrief = (g, c) => `tempérament : ${TEMPERS[temperOf(c)].ai.split(' : ')[0]}${c.temperWhy ? ` (« ${c.temperWhy} »)` : ''}${temperHid(c)}`;
 // For the AI: characters whose temperament it has not written yet (games from before 0.9.4), a few per refresh.
 const temperAsk = (g, focus) => mains(g).filter((c) => c.temperAuto && (!focus || focus.has(c.id))).slice(0, 3);
-const TEMPER_WORLD = '   - "temper" = comment il ou elle réagit quand la réputation du joueur bouge (scandale, mauvaise passe, succès, célébrité), d’après son caractère : fidele (reste dans la tempête, heureux de ses succès), integre (un scandale le refroidit, respecte un succès mérité), opportuniste (suit le vent), detache (se fiche du buzz), envieux (jalouse ses succès, savoure ses chutes) ou trouble (se rapproche quand il est au plus bas, avec ou sans arrière-pensée) ; varie-les. "temperWhy" = comment ça se traduit chez lui ou elle et pourquoi, ≤ 90 caractères (ex : « a déjà tout perdu pour un ami : ne lâche jamais les siens »).';
+const TEMPER_WORLD = '   - "temper" = comment il ou elle réagit quand la réputation du joueur bouge (scandale, mauvaise passe, succès, célébrité), d’après son caractère : fidele (reste dans la tempête, heureux de ses succès), integre (un scandale le refroidit, respecte un succès mérité), opportuniste (suit le vent), detache (se fiche du buzz), envieux (jalouse ses succès, savoure ses chutes) ou trouble (se rapproche quand il est au plus bas, avec ou sans arrière-pensée) ou inquiet (s’inquiète pour lui au moindre souci : messages en rafale, visites) ; varie-les. "temperWhy" = comment ça se traduit chez lui ou elle et pourquoi, ≤ 90 caractères (ex : « a déjà tout perdu pour un ami : ne lâche jamais les siens »).';
 
 /* ---------- screens ---------- */
 function StandChip({ g }) {

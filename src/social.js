@@ -81,6 +81,7 @@ async function postStory(d) {
   storiesOf(g).push(s);
   trimStories(g, t);
   g.lastPlayedAt = t;
+  actTime(g, ACT_MIN.story); // 0.32: the time to make it
   S.busy.story = true;
   update(false);
   const f = startFlow(g);
@@ -94,12 +95,12 @@ async function postStory(d) {
       else if (o.t === 'q' && s.ask && qs < 4) { const tx = str(o.text, 140), by = normHandle(o.by); if (tx && by) { qs++; s.qs.push({ by, name: str(o.name, 40), text: tx, at: t + randi(2, 150) * 60000 }); } }
       else if (o.t === 'rel' && !rel) { rel = 1; const when = t + rand(60000, 300000); fx.push(() => applyRel(g, o.by, o.d, o.why, when, 6)); }
       else if (o.t === 'mem' && !mem) { mem = 1; fx.push(() => addMem(g, o.by, o.text)); }
-      else if (o.t === 'psy' && !sign) { sign = o; }
+      else if ((o.t === 'psy' || o.t === 'suivi') && !sign) { sign = o; }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'reply', use: 'story' });
   } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'story'); }
   for (const x of fx) { try { x(); } catch (err) { console.error(err); } }
-  if (sign) psySign(g, charByHandle(g, normHandle(sign.by)) || psyNow(g), sign.text, t + rand(60000, 200000));
+  if (sign) psySign(g, charByHandle(g, normHandle(sign.by)) || (sign.t === 'psy' ? psyNow(g) : null), sign.text, t + rand(60000, 200000));
   // who voted or answered saw it, of course (a little before)
   const saw = (a, when) => { const x = s.views.find((v) => v.a === a); if (x) x.at = Math.min(x.at, when); else s.views.push({ a, at: when }); };
   for (const v of s.voters || []) saw(v.a, v.at - randi(1, 5) * 60000);
@@ -225,32 +226,47 @@ async function sendGroup(id, text) {
   if (!canAfford(g, 'dm')) { budgetBlocked(); return false; }
   const t = Date.now();
   const mine = { id: uid('m'), a: 'p', text, ts: t, at: t };
+  const fresh = !!gr.mine && !gr.msgs.some((m) => m.a === 'p' && !m.sys); // (0.31.1: its very first message)
   gr.msgs.push(mine);
   trimGroup(gr);
   gr.readAt = t;
   g.lastPlayedAt = t;
+  actTime(g, msgMin(text)); // 0.32: the time it took to write
+  // 0.32: nobody there right now (asleep, busy): the group answers when the first one picks up their phone
+  const av = groupDispo(g, gr, t);
+  if (!av.now.length && av.off.length && !fresh && t32On()) {
+    if (!gr.due || av.at < gr.due.at) gr.due = { at: Math.max(t + 60000, av.at), from: gr.due ? gr.due.from : t };
+    update();
+    return true;
+  }
+  return groupAnswer(g, gr, text, mine, { fresh, off: av.off.filter((x) => x.why) }); // (asleep, gone for a while: not those who take their time)
+}
+// 0.32: the members answer (now, or when they pick up their phone: o.late, the messages they find).
+async function groupAnswer(g, gr, text, mine, o = {}) {
+  const id = gr.id, t = Date.now(), late = o.late || null;
   S.busy.groups = Object.assign({}, S.busy.groups, { [id]: true });
   update(false);
   const f = startFlow(g);
-  let at = t + rand(1800, 3500), n = 0, rel = 0, mem = 0, name = null, sign = null, ok = true;
-  const quits = [], fresh = !!gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1; // (0.31.1: its very first message)
+  let at = late ? late.at0 : t + rand(1800, 3500), n = 0, rel = 0, mem = 0, name = null, sign = null, ok = true;
+  const quits = [], fresh = !!o.fresh;
   const careerFx = []; // (0.31.2: a brand's new figure, a candidate's price, for a contact of the group; a talent's yes)
   let tdx = null;
   const fx = [];
   try {
-    await aiStream(promptGroup(g, gr, text), (o) => {
+    await aiStream(promptGroup(g, gr, text, o.off || [], late), (o) => {
       if (o.t === 'msg' && n < 5) { const c = charByHandle(g, normHandle(o.by)); if (c && addGroupMsg(g, gr, c, o.text, at)) { n++; at += 900 + str(o.text, 300).length * 18; } }
       else if (o.t === 'rel' && rel < 2) { rel++; const when = at; fx.push(() => applyRel(g, o.by, int(o.d, -6, 6, 0), o.why, when, 6)); }
       else if (o.t === 'mem' && !mem) { mem = 1; fx.push(() => addMem(g, o.by, o.text)); }
       else if (o.t === 'quit' && quits.length < (fresh ? 2 : 1)) quits.push(o);
       else if (o.t === 'name' && !name) name = str(o.text, 36);
-      else if (o.t === 'psy' && !sign) sign = o;
+      else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o;
       else if (o.t === 'partenariat' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => applyTdealAnswer(g, c, o); }
       else if (o.by && careerFx.length < 3 && o.t !== 'quit') { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && !isMain(c)) applyDMCareerLine(g, c, o, text, careerFx); }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'group' });
   } catch (e) {
-    if (e && e.code === 'refused') { gr.msgs = gr.msgs.filter((m) => m !== mine); ok = false; }
+    if (e && e.code === 'refused') { if (late) untag(g, f.id); else gr.msgs = gr.msgs.filter((m) => m !== mine); ok = false; }
+    else if (late && !n && (!e || e.code !== 'cancelled')) gr.due = Object.assign({}, late.D, { at: Date.now() + 15 * 60000 }); // (they will answer a little later)
     if (!e || e.code !== 'cancelled') reportAiError(e, null, 'dm');
   }
   for (const x of fx.concat(careerFx, tdx ? [tdx] : [])) { try { x(); } catch (err) { console.error(err); } }
@@ -263,6 +279,20 @@ async function sendGroup(id, text) {
   endFlow(f);
   update();
   return ok;
+}
+// 0.32: the group's messages sent while nobody was there, answered when the first one comes back.
+function answerGroupDue(g, gr) {
+  const D = gr.due;
+  if (!D || groupBusy(gr.id)) return false;
+  delete gr.due;
+  let k = gr.msgs.length;
+  while (k > 0 && gr.msgs[k - 1].a === 'p' && !gr.msgs[k - 1].sys) k--;
+  const mine = gr.msgs.slice(k).filter((m) => m.a === 'p' && m.text);
+  if (!mine.length) return false;
+  const last = mine[mine.length - 1], due = Math.max(D.at, last.at + 60000);
+  const at0 = Date.now() - due < 10 * 60000 ? Date.now() + Math.round(rand(1800, 3500)) : due; // (just now: as anyone would; after a skip, when it was)
+  const off = groupDispo(g, gr, due).off.filter((x) => x.why); // (asleep, or gone for a while: not those who just took their time)
+  return groupAnswer(g, gr, mine.map((m) => m.text).join('\n'), last, { off, late: { from: mine[0].at, at0, list: mine, D } });
 }
 function quitGroup(g, gr, c, why, at) {
   if (!gr || !c || !gr.members.includes(c.id)) return false;
@@ -278,13 +308,16 @@ function leaveGroup(g, gr) {
   if (first) addTrigger(g, `Le joueur a quitté le groupe « ${gr.name} » (${first}) : ceux qui y sont en parlent, vexés ou soulagés.`);
   update();
 }
-function promptGroup(g, gr, text) {
+// off (0.32): the members away right now; late: the player's messages they find when they pick up their phone.
+function promptGroup(g, gr, text, off = [], late = null) {
   const ms = groupMembers(g, gr), focus = new Set(ms.map((c) => c.id));
+  const nNew = late && late.list && late.list.length ? late.list.length : 1, hist = gr.msgs.slice(-13 - nNew, -nNew);
   const L = [RULES_PRIVATE, '', ctxText(g, { kind: 'private', focus, feed: 3 }), '',
     `## LE GROUPE DE DISCUSSION « ${gr.name} » (le joueur et ${ms.map((c) => '@' + c.handle).join(', ')})`,
-    'Ce qui s’y dit reste entre eux.', `Derniers messages (du plus ancien au plus récent${gr.msgs.slice(-14, -1).some((m) => m.rx) ? ' ; [le joueur a réagi : 😂] = un emoji que le joueur a posé sur ce message, sans rien écrire' : ''}) :`,
-    ...gr.msgs.slice(-14, -1).map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : m.sys === 'made' ? 'le joueur a créé le groupe' : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}${reactTag(m)}`)), // (0.31.3: the player's emoji on it)
-    'Nouveau message du joueur :', `« ${noJson(text)} »`];
+    'Ce qui s’y dit reste entre eux.', `Derniers messages (du plus ancien au plus récent${hist.some((m) => m.rx) ? ' ; [le joueur a réagi : 😂] = un emoji que le joueur a posé sur ce message, sans rien écrire' : ''}) :`,
+    ...hist.map((m) => (m.sys ? `(${m.sys === 'quit' ? `@${author(g, m.a).handle} a quitté le groupe` : m.sys === 'made' ? 'le joueur a créé le groupe' : `le groupe s’appelle maintenant « ${m.text} »`})` : `${m.a === 'p' ? g.player.name + ' (le joueur)' : '@' + author(g, m.a).handle} : ${(m.a === 'p' ? noJson(m.text) : m.text).slice(0, 200)}${reactTag(m)}`)), // (0.31.3: the player's emoji on it)
+    ...(late && late.list ? [`Messages du joueur que personne n’avait encore lus (personne n’était dispo) ; ils les découvrent maintenant, ${fmtDur(Math.max(60000, late.at0 - late.from))} après le premier :`, ...late.list.map((m) => `[${hourOf(m.at)}] « ${noJson(m.text).slice(0, 300)} »`)] : ['Nouveau message du joueur :', `« ${noJson(text)} »`]),
+    groupAwayLine(off)].filter((x) => x !== null);
   if (gr.mine && gr.msgs.filter((m) => m.a === 'p').length <= 1) L.push(`Le joueur vient de créer ce groupe et d’y ajouter ${ms.map((c) => '@' + c.handle).join(', ')} : c’est son premier message. Chacun réagit à sa façon, selon sa relation avec le joueur et avec les autres membres (content d’en être, surpris, gêné de se retrouver avec quelqu’un en particulier). Un membre qui ne veut vraiment pas en être (un·e ex, un rival, quelqu’un avec qui ça coince) peut le quitter tout de suite, avec ou sans un mot avant : {"t":"quit","by":"handle","why":"≤ 60 caractères"} (2 au plus).`); // 0.31.1
   for (const c of ms) if (isPsy(g, c) && psyNow(g)) L.push(`(Secret du jeu : @${c.handle} est le psychopathe de la partie ; dans le groupe, ${gx(c.g, 'il', 'elle', 'iel')} reste crédible, à peine trop intense avec le joueur.)`);
   const pros = ms.filter((c) => !isMain(c)); // 0.31.2: the contacts in it (a brand, a candidate, the team, a fan): who they are, what is on with the player

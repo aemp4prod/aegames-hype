@@ -187,7 +187,7 @@ function DonsBlock({ g, p }) {
     <div class="dons-h"><b>💝 ${fmtMoney(g, v.donTotal)} de dons</b><span>${fmtMoney(g, v.donNet)} pour toi</span></div>
     ${(v.dons || []).map((d, k) => html`<div class="don" key=${k}><span class="don-amt">${fmtMoney(g, d.amount)}</span><span><b>@${d.by}</b> ${d.text}</span></div>`)}
     ${v.donRest && (v.dons || []).length ? html`<small class="muted">et ${fmtMoney(g, v.donRest)} d’autres dons</small>` : null}
-    ${v.thanked ? html`<small class="muted">Merci envoyé ✓</small>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (thankDonors(g, p)) update(); }}>🙏 Remercier tout le monde</button>`}
+    ${v.thanked ? html`<small class="muted">Merci envoyé ✓</small>` : html`<button class="btn btn-ghost btn-sm" onClick=${() => { if (thankDonors(g, p)) { actTime(g, 10); update(); } }}>🙏 Remercier tout le monde</button>`}
   </div>`;
 }
 
@@ -321,6 +321,6 @@ function MembBlock({ g }) {
     <div class="tr-chips">${MEMB_PRICES.map((p) => html`<button type="button" key=${p} class=${'chip-btn' + (E.price === p ? ' on' : '')} onClick=${() => set({ price: p })}>${fmtDec(p)} € par mois</button>`)}</div>
     <div class="tr-chips">${MEMB_PERKS.map(([k, label, note]) => html`<button type="button" key=${k} class=${'chip-btn' + (E.perks.includes(k) ? ' on' : '')} disabled=${k === 'badge'} onClick=${() => set({ perks: E.perks.includes(k) ? E.perks.filter((x) => x !== k) : E.perks.concat([k]) })}>${label}${k === 'badge' ? ' (toujours inclus)' : note ? ` (${note})` : ''}</button>`)}</div>
     ${on && m.members && E.price > m.price ? html`<small class="muted memb-warn">Une hausse fait partir environ un membre sur cinq.</small>` : null}
-    <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => { if (openMemb(g, E.price, E.perks)) { setEd(null); update(); } }}>${on ? 'Enregistrer' : `Ouvrir les ${membName(g)}`}</button>${ed && on ? html`<button class="btn btn-ghost btn-sm" onClick=${() => setEd(null)}>Annuler</button>` : null}</div>
+    <div class="row"><button class="btn btn-hot btn-sm" onClick=${() => { if (openMemb(g, E.price, E.perks)) { actTime(g, 20); setEd(null); update(); } }}>${on ? 'Enregistrer' : `Ouvrir les ${membName(g)}`}</button>${ed && on ? html`<button class="btn btn-ghost btn-sm" onClick=${() => setEd(null)}>Annuler</button>` : null}</div>
   </div>`;
 }

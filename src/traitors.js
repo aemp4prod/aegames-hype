@@ -17,7 +17,7 @@ const TRAIT_MAX = 2; // at once
 const traitorsOf = (g) => g.traitors || (g.traitors = []);
 const traitOf = (g, c) => (g && c ? (g.traitors || []).find((T) => T.c === c.id && !T.done) || null : null);
 function maybeTraitor(g, c, t = Date.now(), o = {}) {
-  if (!g || !c || !isMain(c) || c.fixed || isPsy(g, c) || traitOf(g, c) || c.cut || c.jailed) return null;
+  if (!g || !c || !isMain(c) || c.fixed || isPsy(g, c) || isStalker(g, c) || traitOf(g, c) || c.cut || c.jailed) return null;
   if (traitorsOf(g).filter((T) => !T.done).length >= TRAIT_MAX) return null;
   const T0 = window.__HYPE_TEST__ ? window.__traitPick : null; // (the tests: { handle, kind })
   if (window.__HYPE_TEST__ && window.__traitNone) return null;
@@ -122,6 +122,7 @@ function traitBetray(g, T, t = Date.now()) {
     addTrigger(g, `@${c.handle}, qui se disait l’ami·e du joueur, le trahit${how === 'secret' ? ' en balançant un de ses secrets' : how === 'capture' ? ' en publiant ses messages privés' : ' en racontant partout du mal de lui'} et passe dans le camp de ses ennemis : choc, moqueries, « on t’avait prévenu ».`, c.id);
   }
   T.how = how;
+  worry(g, T.kind === 'seduction' ? `${c.name} l’a trahi` : `${c.name}, son ami, l’a trahi`, t); // 0.32: the worriers rush
   addMem(g, c, T.kind === 'seduction' ? 'j’ai trahi le joueur : tout était calculé' : 'j’ai trahi le joueur, mon soi-disant ami');
   addChronicle(g, `${c.name} a trahi ${g.player.name} (${T.kind === 'seduction' ? 'tout était calculé' : 'un faux ami'}).`);
   return how;

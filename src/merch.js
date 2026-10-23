@@ -1008,7 +1008,7 @@ function ShopCard({ g, p, now }) {
       ${p.state === 'live' && !p.preco ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { pauseItem(g, p); update(); }}>Mettre en pause</button>` : null}
       ${p.state === 'paused' && !p.preco ? html`<button class="btn btn-ghost btn-sm" onClick=${() => { resumeItem(g, p); update(); }}>Remettre en vente</button>` : null}
       ${p.mode === 'stock' && p.state !== 'making' && !p.restockAt && !(p.limited && !p.launchAt) ? html`<span class="mp-restock"><select class="input" value=${qty} onChange=${(e) => setQty(+e.target.value)} aria-label=${'Quantité du réassort de ' + itemTitle(p)}>${qtysOf(p.k).map((q) => html`<option key=${q} value=${q}>${nfFull.format(q)} pièces</option>`)}</select>
-        <button class="btn btn-ghost btn-sm" onClick=${() => { const why = restockWhy(g, p, qty); if (why) { toast(why, 'bad'); return; } if (restock(g, p, qty)) { toast(`Réassort commandé : ${nfFull.format(qty)} × ${itemTitle(p)}.`, 'good'); update(); } }}>Réassort · ${fmtMoney(g, Math.round(qty * unitCost(p)))}</button></span>` : null}
+        <button class="btn btn-ghost btn-sm" onClick=${() => { const why = restockWhy(g, p, qty); if (why) { toast(why, 'bad'); return; } if (restock(g, p, qty)) { actTime(g, 15); toast(`Réassort commandé : ${nfFull.format(qty)} × ${itemTitle(p)}.`, 'good'); update(); } }}>Réassort · ${fmtMoney(g, Math.round(qty * unitCost(p)))}</button></span>` : null}
       ${!p.preco ? html`<button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Retirer ${itemTitle(p)} ?`, text: retireText(p), ok: 'Retirer', danger: true, run: () => { retireItem(g, p); update(); } })}>Retirer</button>` : null}
     </div>` : null}
   </div>`;
@@ -1025,7 +1025,7 @@ function NewItemForm({ g, now, pre, done }) {
   const days = (M.book ? BOOK_BY[F.by].days : 0) + (M.line ? M.devDays : 0) + (mode === 'stock' ? ORIGINS[F.origin].days[0] : 0);
   const pals = mains(g).filter((c) => collabOK(g, c));
   const pick = (k) => set({ k, price: '', mode: MERCH[k].line && F.mode === 'pod' ? 'stock' : F.mode, qty: qtysOf(k).includes(F.qty) ? F.qty : qtysOf(k)[1] || qtysOf(k)[0] });
-  const make = () => { const r = prepItem(g, Object.assign({}, o, { name: F.name, pitch: F.pitch, by: F.by, asso: F.asso, credit: F.credit })); if (!r.ok) { toast(r.why, 'bad'); return; } toast(r.p.state === 'making' ? `${itemTitle(r.p)} : en fabrication, ${agr(r.p, 'prêt', 'prête', 'prêts')} ${fmtWhen(r.p.readyAt)}.` : `${itemTitle(r.p)} ${agr(r.p, 'est prêt : lance-le', 'est prête : lance-la', 'sont prêts : lance-les')} avec un post.`, 'good'); done(); update(); };
+  const make = () => { const r = prepItem(g, Object.assign({}, o, { name: F.name, pitch: F.pitch, by: F.by, asso: F.asso, credit: F.credit })); if (!r.ok) { toast(r.why, 'bad'); return; } actTime(g, 30); toast(r.p.state === 'making' ? `${itemTitle(r.p)} : en fabrication, ${agr(r.p, 'prêt', 'prête', 'prêts')} ${fmtWhen(r.p.readyAt)}.` : `${itemTitle(r.p)} ${agr(r.p, 'est prêt : lance-le', 'est prête : lance-la', 'sont prêts : lance-les')} avec un post.`, 'good'); done(); update(); };
   return html`<div class="shop-new">
     ${MERCH_TIERS.slice(0, 5).map(([n, label]) => html`<div class="sn-tier" key=${n}><span class="lbl">${label}${g.stats.followers < n ? html` <span class="muted">· à ${nfFull.format(n)} abonnés</span>` : ''}</span>
       <div class="tr-chips">${shopTierKeys(n).map((k) => html`<button type="button" key=${k} class=${'chip-btn' + (F.k === k ? ' on' : '')} disabled=${!tierOpen(g, k)} onClick=${() => pick(k)}>${MERCH[k].emoji} ${MERCH[k].label}</button>`)}</div></div>`)}
@@ -1168,7 +1168,7 @@ function ShopExtras({ g, now, pick }) {
           ${sd && clashIn(g, EVENT_H * 3600000, sd).length ? html`<p class="date-late care-warn">⏰ Pendant la séance : ${clashIn(g, EVENT_H * 3600000, sd).join(' ; ')}.</p>` : null}
           <div class="tr-chips">${sdays.map(([t, lb]) => html`<button type="button" key=${t} class=${'chip-btn' + (sd === t ? ' on' : '')} onClick=${() => setSd(t)}>${lb}</button>`)}</div>
           <input class="input" maxlength="40" value=${place} placeholder="Où ? ex : la grande librairie du centre" onInput=${(e) => setPlace(e.target.value)} aria-label="Où" />
-          <button class="btn btn-ghost btn-sm" disabled=${!sd} onClick=${() => { if (planSigning(g, book, sd, place)) { setSd(null); update(); } else toast(`Il faut ${fmtMoney(g, SIGNING_COST)} pour la salle et le déplacement.`, 'bad'); }}>Organiser · ${fmtMoney(g, SIGNING_COST)}</button>`
+          <button class="btn btn-ghost btn-sm" disabled=${!sd} onClick=${() => { if (planSigning(g, book, sd, place)) { actTime(g, 15); setSd(null); update(); } else toast(`Il faut ${fmtMoney(g, SIGNING_COST)} pour la salle et le déplacement.`, 'bad'); }}>Organiser · ${fmtMoney(g, SIGNING_COST)}</button>`
         : html`<p class="muted">${g.stats.followers < MERCH.livre.tier ? `À ${nfFull.format(MERCH.livre.tier)} abonnés, ton livre.` : 'Une fois ton livre en vente.'}</p>`}
     </section>
     <section class="sx"><h4>🛍️ Pop-up store</h4>
@@ -1180,7 +1180,7 @@ function ShopExtras({ g, now, pick }) {
           ${pd && clashIn(g, EVENT_H * 3600000, pd).length ? html`<p class="date-late care-warn">⏰ Pendant l’ouverture : ${clashIn(g, EVENT_H * 3600000, pd).join(' ; ')}.</p>` : null}
           <input class="input" maxlength="40" value=${city} placeholder="Quelle ville ?" onInput=${(e) => setCity(e.target.value)} aria-label="Ville" />
           <div class="tr-chips">${pdays.map(([t, lb]) => html`<button type="button" key=${t} class=${'chip-btn' + (pd === t ? ' on' : '')} onClick=${() => setPd(t)}>${lb}</button>`)}</div>
-          <button class="btn btn-ghost btn-sm" disabled=${!pd || str(city, 40).length < 2} onClick=${() => { if (planPopup(g, city, pd)) { setPd(null); update(); } else toast(`Il faut ${fmtMoney(g, POPUP.cost)} pour le pop-up.`, 'bad'); }}>Ouvrir · ${fmtMoney(g, POPUP.cost)}</button>`}
+          <button class="btn btn-ghost btn-sm" disabled=${!pd || str(city, 40).length < 2} onClick=${() => { if (planPopup(g, city, pd)) { actTime(g, 20); setPd(null); update(); } else toast(`Il faut ${fmtMoney(g, POPUP.cost)} pour le pop-up.`, 'bad'); }}>Ouvrir · ${fmtMoney(g, POPUP.cost)}</button>`}
     </section>
     <section class="sx"><h4>📅 Les grandes saisons</h4><p class="muted">Halloween (fin octobre), le Black Friday (${bf.getDate()} novembre) et Noël (tout décembre jusqu’au 24) : tes ventes grimpent.</p></section>
   </div>`;

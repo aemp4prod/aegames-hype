@@ -84,6 +84,7 @@ function momentLine() {
   const wd = d.toLocaleDateString('fr-FR', { weekday: 'long' });
   return `Moment : ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${part} (${h} h ${String(d.getMinutes()).padStart(2, '0')}). Les posts collent au moment.`
     + (h < 6 ? ` En pleine nuit, « demain » veut dire pour tout le monde la journée qui commence après la nuit (${wd}) : dans "day", c’est 0 ; et dans les messages, on nomme plutôt le jour (« ${wd} à 15 h ») que de dire « demain ».` : '') // 0.30
+    + (h >= 1 && h < 6 ? ' À cette heure-ci, la plupart des gens dorment : seuls les couche-tard, les insomniaques et ceux qui ont une raison postent ou écrivent.' : '') // 0.32
     + (m ? ` Période : ${calWord(m)} (${m.E.mood}) : ça se sent un peu sur le réseau.` : '') + (holidays(d) ? ' Ce sont les vacances scolaires.' : '');
 }
 // A few regulars of the public: the most recently active and some others, so it is not always the same three.
@@ -153,15 +154,18 @@ function ctxText(g, o = {}) {
   if (isReal(g)) L.push(...newsLines());
   const ms = mains(g), others = ms.filter((c) => c !== about);
   L.push('', '## PERSONNAGES PRINCIPAUX (@handle — nom · rôle · personnalité · voix)');
-  const roster = [], matus = new Set();
+  const roster = [], matus = new Set(), shown = [];
   for (const c of others) {
     if (!inFocus(c)) { roster.push(K.roster === 'brief' ? `@${c.handle} (${c.name}, ${str(c.role, 40)}${c.jailed ? ', arrêté·e' : ''})` : `@${c.handle} (${c.name}, ${c.role}${c.age ? ', ' + c.age + ' ans' : ''}${c.jailed ? ', arrêté·e : ne poste plus' : ''})`); continue; }
     const lk = faceLook(g, c), ag = ageText(c, true);
     if (c.age) matus.add(MATU[c.matu] ? c.matu : 'pose');
-    L.push(`@${c.handle} — ${c.name} · ${c.role} · ${c.personality} · voix : ${c.voice}${ag ? ' · ' + ag : ''}${lk ? ' · physique : ' + lk : ''}${roleTag(c)}`); // (0.29: their role)
+    L.push(`@${c.handle} — ${c.name} · ${c.role} · ${c.personality} · voix : ${c.voice}${ag ? ' · ' + ag : ''}${lk ? ' · physique : ' + lk : ''}${rosterTrait(c)}${roleTag(c)}`); // (0.29: their role; 0.32: their way of fighting)
+    shown.push(c);
   }
   if (about && about.age) matus.add(MATU[about.matu] ? about.matu : 'pose'); // (their sheet is in the task)
   if (matus.size) L.push('Maturité (selon l’âge, sur chaque fiche) : ' + MATU_IDS.filter((m) => matus.has(m)).map((m) => MATU[m].ai).join(' ; ') + '.');
+  const clashLg = rosterLegend(shown); // 0.32
+  if (clashLg) L.push(clashLg);
   if (roster.length) L.push((K.roster === 'brief' ? (about ? 'Les autres : ' : 'Les personnages : ') : 'En retrait cette fois (parlent peu) : ') + roster.join(' ; '));
   const withMedias = o.medias == null ? K.medias : o.medias;
   const md = withMedias ? medias(g) : [];
@@ -172,6 +176,8 @@ function ctxText(g, o = {}) {
   const stay = stayCtx(g, about); // 0.25.3: a night together, the morning still under way
   if (stay) L.push(stay);
   L.push(`Niveau ${s.level} · ${fmtPlain(s.followers)} abonnés · ${repCtx(s)}`);
+  const fit = nrgCtx(g, now); // 0.32: tired, and it may show
+  if (fit) L.push(fit);
   L.push(...careerCtx(g, now));
   if (s.cancelled) L.push('ATTENTION : le joueur est « cancel » : une bonne partie de la communauté se méfie et le fait sentir.');
   if (playerBadBuzz(g, now)) L.push('Le joueur est EN PLEIN BAD BUZZ : sa fausse preuve vient d’être démasquée, le réseau se moque de lui et ne croit plus rien de ce qu’il publie.');
@@ -369,12 +375,12 @@ function promptWorld(spec, persona, ages = null) {
     '', FORMAT,
     'Lignes à produire, dans cet ordre :',
     '1) Une ligne : {"t":"world","name":"nom du monde","in":"le nom précédé de sa préposition, ex : à l’Académie Lumen, sur la Station Orion","emoji":"🌙","tagline":"accroche ≤ 80 caractères","description":"2 à 3 phrases : le cadre, les enjeux, les tensions du moment","tone":"comment on écrit sur ce réseau, ≤ 120 caractères"}',
-    '2) Dix lignes de personnages : {"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f","age":21,"role":"≤ 40 caractères","bio":"bio de profil ≤ 110 caractères","personality":"≤ 160 caractères : caractère, ce qu’il ou elle veut, son regard sur le joueur","voice":"≤ 90 caractères : sa façon d’écrire (un style, pas un tic répété)","followers":12000,"rel":-10,"garde":2,"mefiance":"…","temper":"…","temperWhy":"…","coeur":"…","ami":"…","proches":["…"],"ennemis":["…"],"secret":"…","hook":"…","hello":"…"}',
+    '2) Dix lignes de personnages : {"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f","age":21,"role":"≤ 40 caractères","bio":"bio de profil ≤ 110 caractères","personality":"≤ 160 caractères : caractère, ce qu’il ou elle veut, son regard sur le joueur","voice":"≤ 90 caractères : sa façon d’écrire (un style, pas un tic répété)","followers":12000,"rel":-10,"garde":2,"mefiance":"…","temper":"…","temperWhy":"…","coeur":"…","conflit":"…","ami":"…","proches":["…"],"ennemis":["…"],"secret":"…","hook":"…","hello":"…"}',
     '   - "g" vaut "f", "m" ou "x". "rel" = relation de départ avec le joueur, de -30 à 30. "followers" cohérent avec son statut dans le monde. "secret" = ce qu’il ou elle cache (un mensonge, une triche, une relation cachée, un passé gênant…), ≤ 100 caractères : le joueur ne le saura pas.',
     '   - "garde" = à quel point il ou elle donne difficilement sa confiance : 1 (facilement), 2 (prudent·e), 3 (très méfiant·e) ; varie-les. "mefiance" = pourquoi, ≤ 60 caractères (ex : « s’est fait trahir par son ancien manager », « croit en tout le monde »).',
     ages ? agesAsk(ages) : null,
     TEMPER_WORLD,
-    COEUR_WORLD,
+    ages && ages[0] && ages[0].coeur ? traitsAsk(ages) : COEUR_WORLD, // 0.32: drawn by the game
     '   - "proches" et "ennemis" = jusqu’à deux handles parmi ces dix personnages : ceux dont il ou elle est très proche, et ceux qu’il ou elle ne supporte pas (des amitiés, des rivalités, des embrouilles : le monde vit aussi entre eux).',
     facesAsk(STYLE_OF_PRESET(spec.id)) ? '   - Ajoute à chacun "face":"identifiant" : son visage, parmi les visages listés plus bas.' : null,
     '   - Les 5 premiers sont là dès le début : au moins un allié potentiel, un rival, une star locale et un personnage imprévisible. Pour eux seulement : "hook" = pourquoi il ou elle aurait envie de suivre le joueur, à la première personne, ≤ 80 caractères ; "hello" = son premier message privé au joueur s’il ou elle devient son premier abonné, dans sa voix, ≤ 140 caractères, finit par une question.',
@@ -662,7 +668,8 @@ function initiativeLine(g, c) {
   return `${often[0].toUpperCase() + often.slice(1)} (pas à chaque message, et seulement si ça vient naturellement), ${first} prend l’initiative et propose quelque chose : ${ideas}, avec un moment précis et la ligne "invite". ${sx ? `En amour : des rapprochements sensuels selon son cœur et leur histoire (voir INTIMITÉ), ${first} peut aussi en avoir envie et le dire ; si le joueur devient cru, ${first} reste dans la suggestion (jamais explicite) et peut proposer de se voir.` : `En amour, tout reste pudique : si le joueur devient explicite, ${first} recentre avec tendresse ou humour.`}`; // 0.30
 }
 // confide (0.18): a secret of the player they are being told in this very message.
-function promptDM(g, c, history, text, trig = [], advice = false, confide = null, paid = false) {
+// late (0.32): the messages they find when they pick up their phone ({ from, at, why, list: [{ at, text }] }).
+function promptDM(g, c, history, text, trig = [], advice = false, confide = null, paid = false, late = null) {
   text = noJson(text); // (0.28.1)
   const main = isMain(c);
   advice = advice && main;
@@ -733,8 +740,12 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
   const ini = main ? initiativeLine(g, c) : null;
   const meetHere = talksMeet(history, text) || WHEN_RE.test(text) || MAKE_RE.test(text);
   const intelHere = INTEL_RE.test(text) || text.length > 160 || namedIn(g, text, c).length > 0;
-  L.push('Nouveau message du joueur :', `« ${text} »`, ...(advice ? adviceAsk(g, c) : []), '', '## TA MISSION',
+  const lateList = late && Array.isArray(late.list) && late.list.length ? late.list : null; // 0.32: read late, all at once
+  if (lateList) L.push(`Messages du joueur que ${c.name} n’avait pas encore lus (${late.why === 'dormait' ? `${il} dormait` : late.why ? `${il} n’était pas dispo : ${late.why}` : `${il} n’était pas sur son téléphone`}) ; ${il} les lit maintenant, ${fmtDur(Math.max(60000, (late.at || Date.now()) - late.from))} après le premier :`, ...lateList.map((m) => `[${dayLabel(m.at)}, ${hourOf(m.at)}] « ${noJson(m.text).slice(0, 400)} »`));
+  else L.push('Nouveau message du joueur :', `« ${text} »`);
+  L.push(...(advice ? adviceAsk(g, c) : []), '', '## TA MISSION',
     `Écris la réponse privée de ${c.name} : plus personnelle qu’en public, fidèle à sa voix, à sa mémoire et à sa relation avec le joueur (confidences, plans, questions, piques ou froideur selon le cas). Réagis vraiment à ce que dit le joueur, sur son ton : une blague appelle un rire, une vanne ou un sourire, pas un recadrage.`,
+    lateList ? `${c.name} reprend son téléphone et répond à tout d’un coup, en une fois : ${il} peut s’excuser du délai ou pas, selon qui ${il} est (sans inventer d’autre raison que la sienne).` : null,
     ini,
     '', FORMAT, 'Lignes à produire :',
     main && needsJudge(c, g) ? JUDGE_LINE(firstName(c)) : null,
@@ -758,6 +769,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     date ? `- Seulement si ${c.name} annule clairement ce rendez-vous dans cet échange (dispute, bad buzz, plus envie de voir le joueur) : {"t":"cancel","why":"≤ 70 caractères"}. Jamais pour un retard, une hésitation, une taquinerie ou une confusion sur l’heure ou le jour.` : null,
     main && (intelHere || traitOf(g, c)) ? INTEL_LINE(c) : null, // (0.30: a traitor keeps everything)
     ...(main ? traitOutLines(g, c) : []),
+    ...(main ? openOutLines(g, c) : []), // 0.32: open: another love, a throuple
     canJoin(c) ? `- Facultatif, seulement si c’est vraiment le cas : si l’échange devient personnel (${c.name} se confie, flirte, a envie de voir le joueur en dehors du travail, ou une vraie complicité naît), ajoute {"t":"perso","why":"≤ 60 caractères"} : la relation n’est plus seulement pro (son travail ne change pas).` : null,
     ...dmCareerLines(g, c),
     ...(main && (openJob(g, c.id) || jobTalk(history, text)) ? JOB_LINE(g, c) : []), // 0.23: a service, its files
@@ -766,6 +778,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     ...dil.lines,
     ...(story.length ? STORY_LINES(ids) : []),
     '- Facultatif, si quelque chose d’important se dit (secret, alliance, dispute, rendez-vous…) : {"t":"memo","text":"une phrase qui le résume"}',
+    t32On() ? DISPO_LINE(c) : null, // 0.32: they may step away
     main ? psyOutLine(g, c) : null);
   return L.filter((x) => x !== null).join('\n');
 }
@@ -805,7 +818,7 @@ const MIX_LINE = (g, ev) => {
   const c = g.chars[ev.c], il = gx(c.g, 'il', 'elle', 'iel');
   return `- Facultatif, pour un petit coup de pression (la seule exception à l’agenda) : @${c.handle} peut s’emmêler les pinceaux sur son rendez-vous avec le joueur (« ${str(ev.what, 80)} », ${dueText(ev.due)}) : ${il} croit que c’est déjà passé, ou plus tôt, ou un autre jour, et l’écrit au joueur en privé (une ligne "dm" de ${c.name}), à sa manière. Ce n’est qu’une erreur de sa part : le rendez-vous tient toujours (pas de ligne rel ni mem pour ça), et si le joueur le relève, ${il} s’excuse et rectifie.`;
 };
-function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch = capBatch(g), sb = null, mix = null) {
+function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch = capBatch(g), sb = null, mix = null, busy = '') {
   const s = g.stats;
   const fame = s.followers > 100000 ? 'très connu·e : on parle souvent de lui ou d’elle'
     : s.followers > 2000 ? 'assez connu·e : on parle parfois de lui ou d’elle'
@@ -817,7 +830,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
   const noTemper = temperAsk(g, focus); // 0.9.4: games from before temperaments
   const cl = refreshCareerLines(g);
   const L = [RULES, '', ctxText(g, { feed: M.feed + 2, chron: M.chron + 2, crowd: M.crowd, focus, triggers: trig }), ...cl.ctx, '', '## TA MISSION',
-    (skip ? `Le temps passe en accéléré : ${fmtDur(absentMs)} viennent de s’écouler (${winText(absentMs)}) pendant que le joueur était occupé. Raconte ce qui s’est passé sur le réseau pendant ce temps, jusqu’à maintenant et pas au-delà.`
+    (skip ? `Le temps passe en accéléré : ${fmtDur(absentMs)} viennent de s’écouler (${winText(absentMs)}) pendant que le joueur ${busy || 'était occupé'}. Raconte ce qui s’est passé sur le réseau pendant ce temps, jusqu’à maintenant et pas au-delà.`
       : absentMs ? `Le joueur revient après ${fmtDur(absentMs)} d’absence (${winText(absentMs)}). Raconte ce qui s’est passé sur le réseau pendant ce temps, jusqu’à maintenant et pas au-delà.` : 'Le joueur actualise son fil : montre ce qui se passe maintenant sur le réseau.')
       + (absentMs && activeEvents(g).some((e) => e.player && e.due > Date.now()) ? ' Les rendez-vous de l’agenda encore à venir n’ont pas eu lieu pendant ce temps.' : ''),
     `La vie du monde continue : les personnages postent sur leur vie, se répondent, se clashent, réagissent aux événements récents ; quelques figurants passent. Tout ne tourne pas autour du joueur ni du drame du moment : au moins la moitié des posts parlent d’autre chose (leur vie, leurs projets, leurs délires, d’autres histoires entre eux), et personne ne réclame au joueur la même chose post après post. Un média ne poste que s’il s’est vraiment passé quelque chose de nouveau, pas pour résumer. Fais avancer les intrigues${g.world.chaos === 2 ? ' et glisse au moins un rebondissement' : ''}. Utilise parfois un #hashtag propre au monde. Le joueur est ${fame}.${trig.length ? ' Si une section « À JOUER CETTE FOIS » existe, intègre-la.' : ''}`,
@@ -874,7 +887,7 @@ function promptIdeas(g, target, targetReply, quest) {
 // 0.17: a newcomer's age: mostly young; now and then someone older, while the cast has fewer than two.
 function newcomerAge(g) {
   const age = mains(g, false).filter(isOlder).length < 2 && Math.random() < 0.1 ? randi(35, 68) : drawYoungAge();
-  return { age, matu: drawMatu(age) };
+  return Object.assign({ age, matu: drawMatu(age) }, drawOn() ? drawTraits(1, mains(g, false))[0] : {}); // 0.32: their heart and traits too
 }
 function promptNewChar(g, plan = null, why = '') {
   const taken = [g.player.handle, ...g.order.map((id) => g.chars[id].handle)].map((h) => '@' + h).join(', ');
@@ -884,9 +897,11 @@ function promptNewChar(g, plan = null, why = '') {
       : `Le joueur vient d’atteindre le niveau ${g.stats.level}. Un nouveau personnage débarque dans le monde et apporte une nouvelle intrigue (rival, allié inattendu, mystère, star venue d’ailleurs…).`,
     toxLv(g) >= 2 ? 'Le joueur a une réputation toxique : le nouveau venu y est attiré (un créateur troll, un fan toxique qui veut devenir proche, un manager louche, quelqu’un qui veut profiter de son buzz…). Toxique dans ses manières, jamais haineux.' : null,
     plan ? `Il ou elle a ${plan.age} ans, et sa maturité : ${MATU[plan.matu].ai}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité.` : null,
+    plan && plan.coeur ? newcomerTraits(plan) : null, // 0.32
+    plan && plan.stalk ? stalkBirth(plan.stalk) : null, // 0.32: someone who follows the player, in secret
     `Son handle doit être différent de : ${taken}.`, freeFaces ? '' : null, freeFaces, freeFaces ? 'Ajoute "face":"identifiant" à la ligne du personnage.' : null, '', FORMAT, 'Deux lignes :',
     `Son emoji ${AVATAR_ASK()}.`,
-    `{"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f",${plan ? `"age":${plan.age},` : ''}"role":"≤ 40 caractères","bio":"≤ 110 caractères","personality":"≤ 160 caractères","voice":"≤ 90 caractères","followers":12000,"rel":0,` + '"garde":2,"mefiance":"≤ 60 caractères : pourquoi il ou elle donne sa confiance facilement ou non","temper":"opportuniste","temperWhy":"≤ 90 caractères : comment ça se traduit chez lui ou elle","coeur":"prudent","ami":"handle d’un personnage déjà là"} ("garde" de 1, facilement, à 3, très méfiant·e ; "temper" = comment il ou elle réagit quand la réputation du joueur bouge, parmi fidele, integre, opportuniste, detache, envieux, trouble ; "coeur" = comment il ou elle vit l’amour, parmi serein, prudent, anxieux, impulsif, jaloux, forteresse, inaccessible ; "ami" = son ou sa confident·e)',
+    `{"t":"char","name":"Prénom Nom","handle":"pseudo","emoji":"😎","g":"f",${plan ? `"age":${plan.age},` : ''}"role":"≤ 40 caractères","bio":"≤ 110 caractères","personality":"≤ 160 caractères","voice":"≤ 90 caractères","followers":12000,"rel":0,` + `"garde":2,"mefiance":"≤ 60 caractères : pourquoi il ou elle donne sa confiance facilement ou non","temper":"opportuniste","temperWhy":"≤ 90 caractères : comment ça se traduit chez lui ou elle","coeur":"${plan && plan.coeur ? plan.coeur : 'prudent'}","conflit":"${plan && plan.clash ? plan.clash : 'paisible'}","ami":"handle d’un personnage déjà là"} ("garde" de 1, facilement, à 3, très méfiant·e ; "temper" = comment il ou elle réagit quand la réputation du joueur bouge, parmi fidele, integre, opportuniste, detache, envieux, trouble, inquiet ; ${plan && plan.coeur ? '"coeur" et "conflit" : ceux imposés plus haut' : '"coeur" = comment il ou elle vit l’amour, parmi serein, prudent, anxieux, impulsif, jaloux, possessif, fusionnel, chaudfroid, volage, libre, forteresse, inaccessible ; "conflit" = comment il ou elle vit une dispute, parmi colerique, paisible, rancunier, boudeur, culpabilisant, dramatique'} ; "ami" = son ou sa confident·e)`,
     '{"t":"post","by":"son handle","text":"son premier post sur le réseau, ≤ 220 caractères"}'].filter((x) => x !== null).join('\n');
 }
 
@@ -1093,7 +1108,7 @@ async function createWorld() {
   update(false);
   let mainsN = 0;
   let err = null;
-  const ages = drawCastAges(10); // 0.17: who is how old, and how mature, decided before the AI writes them
+  const ages = drawOn() ? drawCastTraits(drawCastAges(10)) : drawCastAges(10); // 0.17: who is how old, and how mature, decided before the AI writes them (0.32: and their heart and traits)
   try {
     await aiStream(promptWorld(spec, persona, ages), (o) => {
       if (S.ob !== ob || ob.game !== g) return;
@@ -1132,6 +1147,7 @@ async function createWorld() {
   if (mainsN >= 3) ensureRoles(g, true); // 0.29: the roles the AI forgot come from their sheets (and the psychopath is drawn below)
   assignFaces(g);
   ensureHearts(g); // 0.11: a heart for everyone the AI forgot, and at least one real challenge among the first five
+  ensureTraits(g); // 0.32: and a way of fighting
   initTies(g); // 0.13: who is close to whom among them
   if (mainsN >= 3) drawPsy(g); // 0.29: in secret, among those who are there (the first follower too)
   if (S.ob !== ob || ob.game !== g || ob.step !== 'creating') return; // cancelled meanwhile
@@ -1354,6 +1370,7 @@ async function runAct(kind, text, target, targetReply, extra = {}) {
   }
   if (ok) finishAct(ctx); // commits on ctx.g even if the player left meanwhile: leaveGame saves it after abortFlows()
   if (ok && ctx.pfp) pfpPosted(ctx.g, ctx.post); // 0.25.1
+  if (ok) actTime(ctx.g, kind === 'reply' ? msgMin(text) : postMin({ video: vid, photo, proofs: callout && (cited.length || fake || caps.length) })); // 0.32: the time it took to write
   S.busy.act = null;
   endFlow(f);
   if (ctx.partialErr) reportAiError(ctx.partialErr, 'Réaction incomplète.');
@@ -1736,6 +1753,7 @@ function timeLine(g, r, t = Date.now()) {
   else out.push(`Le joueur y a passé ${prodWord(r.what, r.care, r.team)}, tournage et montage compris${r.team ? ` (${teamWord(r.team).replace('ton', 'son').replace('ta ', 'sa ')})` : ''}${r.care && careOK(r.what) ? ' : un contenu SOIGNÉ, et ça se voit (le rythme, la qualité de l’image et du son, les détails) : des gens le remarquent' : ''}.`);
   const late = r.now ? 0 : t - (r.ann && r.ann < relAnn(r) ? r.ann : relAnn(r));
   if (late > 30 * 60000 && r.what !== 'live') out.push(`Il sort avec ${fmtDur(late)} de retard sur l’heure annoncée : certains l’ont remarqué (un ou deux le chambrent), la plupart sont juste contents qu’il soit là.`);
+  if (r.played && r.played.tired >= 0.1) out.push(`Le joueur l’a fait ${r.played.tired >= 0.25 ? 'épuisé' : 'fatigué'} : ça se sent un peu (moins de rythme, quelques ratés), et un ou deux le remarquent.`); // 0.32
   return out.join(' ');
 }
 function releaseDone(ctx) {
@@ -1963,9 +1981,15 @@ async function sendDM(charId, text, opts = {}) {
       g.stats.dms++;
       g.lastPlayedAt = t;
       if (quiet !== 'pending' && quiet !== 'bloque' && quiet !== 'cut') { convo.seenAt = t + randi(2, 25) * 60000; addNotif(g, { k: 'seen', c: c.id, at: convo.seenAt, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` }); }
+      actTime(g, msgMin(text)); // 0.32: written all the same
       update();
       return true;
     }
+  }
+  // 0.32: not on their phone right now: the message waits for them, and they answer when they pick it up
+  if (!gift && !advice && !confide && !opts.story && !opts.now) {
+    const av = dispoOf(g, c, t, convo);
+    if (!av.now) { deferDM(g, c, convo, text, av, t); return true; }
   }
   const daring = !!c.dare;
   const history = convo.msgs.filter((m) => (m.text || m.sys === 'invite') && m.sys !== 'advice').slice(-intensityOf(g).mem.dm);
@@ -1993,10 +2017,19 @@ async function sendDM(charId, text, opts = {}) {
     h.stats.dms = Math.max(0, h.stats.dms - 1);
     if (gift) { h.career.cash += gift.price; ledger(h, `Cadeau non offert : ${gift.what}`, gift.price, 'in'); }
   };
+  actTime(g, msgMin(text)); // 0.32: the time it took to write
+  delete convo.due; // (0.32: they answer now: what was waiting for them is in the conversation they read)
+  return dmAnswer(g, c, convo, { f, prompt, t, text, mine, gift, advice, confide, history, invBefore, trig, daring });
+}
+// 0.32: their answer, now or when they pick up their phone (A.late: the messages they find, A.at0 when they read them):
+// the stream, what it does, and the conversation freed again.
+async function dmAnswer(g, c, convo, A) {
+  const { f, prompt, t, text, mine, gift, advice, confide, history, invBefore, trig, daring } = A;
   S.busy.dms = Object.assign({}, S.busy.dms, { [c.id]: true });
   S.busy.dm = c.id;
   update(false);
-  let at = t + (coolNow(c) && c.cool.k === 'panique' ? rand(COOLS.panique.slow[0], COOLS.panique.slow[1]) : rand(1600, 3200)), msgs = 0, got = false, ok = true, seen = false, faded = false;
+  let at = A.at0 || t + (coolNow(c) && c.cool.k === 'panique' ? rand(COOLS.panique.slow[0], COOLS.panique.slow[1]) : rand(1600, 3200)), msgs = 0, got = false, ok = true, seen = false, faded = false;
+  const at0 = at;
   const fx = { judge: null, rel: null, mem: null, vibe: null, quest: null, prog: null, memo: null, clue: null, plan: null, trust: null, advice: null, confide: null, cancel: null, invite: null, noinv: null, choice: null };
   const careerFx = []; // a brand's new figure, a candidate's price, what the player let slip (kept as intel)
   let lastMsg = null, relD = null, relSk = null;
@@ -2021,12 +2054,14 @@ async function sendDM(charId, text, opts = {}) {
       else if (o.t === 'mem' && !fx.mem) fx.mem = () => addMem(g, c, o.text);
       else if (o.t === 'gift' && !fx.gift && isMain(c) && giftTalk(text, history)) { const when = at; fx.gift = () => { const x = receiveGift(g, c, o, when); if (x) convo.msgs.push({ id: uid('m'), sys: 'gift', me: false, text: '🎁 ' + x.name, gift: x.id, ts: when, at: when }); }; } // 0.26
       else if (o.t === 'vibe' && !fx.vibe && !daring) { const when = at + 800; fx.vibe = () => vibeLine(g, c, o, when); } // a dare decides by itself
+      else if (o.t === 'dispo' && !fx.dispo) { const when = at + 400; fx.dispo = () => setAway(g, c, o, when); } // 0.32: they step away (their AI's word)
       else if (o.t === 'judge' && !fx.judge && isMain(c)) fx.judge = normReact(o.react);
       else if (o.t === 'quest' && !fx.quest && o.done !== false) fx.quest = () => completeStoryQuest(g, o.id);
       else if (o.t === 'questprog' && !fx.prog) fx.prog = () => setQuestProg(g, o.id, o.pct, o.step);
       else if (o.t === 'memo' && !fx.memo) fx.memo = () => addChronicle(g, o.text, [c.id]); // 0.22.2: said in private
       else if (o.t === 'clue' && !fx.clue) { const when = at + 1200; fx.clue = () => addClue(g, c, o.text, when); }
-      else if (o.t === 'psy' && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag
+      else if ((o.t === 'psy' || o.t === 'suivi') && !fx.psy) { const when = at + 1500, tx = o.text; fx.psy = () => psySign(g, c, tx, when); } // 0.29: a red flag (0.32: or a sign of one who follows the player)
+      else if ((o.t === 'ouvert' || o.t === 'trouple') && !fx.open && isMain(c)) { const oo = o; fx.open = () => applyOpenLine(g, c, oo); } // 0.32: open, a throuple
       else if (o.t === 'plan' && !fx.plan) { const m = lastMsg; fx.plan = () => ((o.collab === true || o.collab === 'true' || COLLAB_RE.test(o.what || '')) && isMain(c) && planCollab(g, c, o)) || addEvent(g, Object.assign({}, o, { by: c.handle }), { dm: c.id, m }); } // (0.29.1: a feat agreed goes in the Studio)
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
       else if (o.t === 'agent' && !fx.agent && isMain(c)) fx.agent = () => applyAgentLine(g, c, o); // 0.31: the player as their agent
@@ -2055,8 +2090,8 @@ async function sendDM(charId, text, opts = {}) {
     const code = e && e.code;
     if (code === 'refused' || !got) {
       untag(g, f.id);
-      c.dmSent = Math.max(0, c.dmSent - 1);
-      g.stats.dms = Math.max(0, g.stats.dms - 1);
+      if (A.late) { if (code !== 'refused') convo.due = Object.assign({}, A.late, { at: Date.now() + 15 * 60000 }); } // (0.32: they will answer a little later)
+      else { c.dmSent = Math.max(0, c.dmSent - 1); g.stats.dms = Math.max(0, g.stats.dms - 1); }
       ok = false;
       if (code !== 'cancelled') reportAiError(e, null, 'dm');
     } else if (code !== 'cancelled') reportAiError(e, 'Message incomplet.');
@@ -2068,7 +2103,8 @@ async function sendDM(charId, text, opts = {}) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      if (A.late && msgs && at0 < Date.now() - 60000) addNotif(g, { k: 'dm', c: c.id, at: Date.now(), text: `💬 ${c.name} t’a répondu.` }); // 0.32: an answer from while the time went by (no toast of its own)
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
       if (isMain(c) && msgs && !fx.plan && !fx.noinv) dmDateFallback(g, c, text, saidNow.join(' '), invBefore, !!fx.invite, at);
@@ -2089,6 +2125,29 @@ async function sendDM(charId, text, opts = {}) {
     update();
   }
   return ok;
+}
+
+// 0.32: they pick up their phone: the messages the player sent meanwhile, answered at once (one call for all of them).
+function answerDue(g, c) {
+  const convo = g.dms[c.id], D = convo && convo.due;
+  if (!D || dmBusy(c.id)) return false;
+  delete convo.due;
+  const cl = coolNow(c);
+  if (c.cut || (cl && COOLS[cl.k] && COOLS[cl.k].silent)) return false; // (silent by now: nothing comes)
+  const msgs = convo.msgs;
+  let k = msgs.length;
+  while (k > 0 && msgs[k - 1].me && !msgs[k - 1].sys) k--;
+  const mine = msgs.slice(k).filter((m) => m.me && m.text);
+  if (!mine.length) return false;
+  const history = msgs.slice(0, k).filter((m) => (m.text || m.sys === 'invite') && m.sys !== 'advice').slice(-intensityOf(g).mem.dm);
+  const last = mine[mine.length - 1], due = Math.max(D.at, last.at + 60000);
+  const at0 = Date.now() - due < 10 * 60000 ? Date.now() + Math.round(rand(1600, 3200)) : due; // (their time came just now: they answer as anyone would, typing; after a skip, when it was)
+  const text = mine.map((m) => m.text).join('\n');
+  const trig = activeTriggers(g, c.id), invBefore = isMain(c) ? openInvite(g, c) : null;
+  const prompt = promptDM(g, c, history, text, trig, false, null, false, { from: mine[0].at, at: at0, why: D.why || '', list: mine.map((m) => ({ at: m.at, text: m.text })) });
+  const f = startFlow(g);
+  f.undo = (h) => { untag(h, f.id); const hc = h.dms[c.id]; if (hc) hc.due = Object.assign({}, D, { at: Date.now() + 60000 }); }; // (saved meanwhile: they answer once the game is back)
+  return dmAnswer(g, c, convo, { f, prompt, t: last.at, text, mine: last, gift: null, advice: false, confide: null, history, invBefore, trig, daring: !!c.dare, late: D, at0 });
 }
 
 // 0.30: « Décliner » on their invitation: the player's words, then their own answer (the AI's), never a canned line that an
@@ -2154,7 +2213,7 @@ async function refreshFeed(absentMs = 0, opts = {}) {
   const sb = !selfBuzzOK(g, t) ? null : (window.__HYPE_TEST__ && window.__sbOffer) || (arc && arc.kind === 'drama' ? 'drama' : Math.random() < 0.25 * lifeK(g) ? 'free' : null);
   const batch = capBatch(g), capped = new Set();
   const mix = mixPick(g, t); // 0.22.1: now and then, someone gets the day or the hour of a date wrong
-  const prompt = promptRefresh(g, absentMs, trig, !!opts.skip, arc, batch, sb, mix);
+  const prompt = promptRefresh(g, absentMs, trig, !!opts.skip, arc, batch, sb, mix, opts.busy || '');
   const f = startFlow(g);
   const fresh = [], slots = [], effects = [], lastOf = {}, plans = [];
   const dmAt = {}, invBy = new Set(); // when each character's DM shows; who asked the player out (0.9.4)
@@ -2163,7 +2222,7 @@ async function refreshFeed(absentMs = 0, opts = {}) {
   try {
     await aiStream(prompt, (o) => {
       if (o.t === 'post' && slots.length < intensityOf(g).refresh.max + 4) {
-        let pat = at, ts = absentMs ? t - Math.round(rand(0.05, 0.95) * absentMs) : at;
+        let pat = at, ts = absentMs ? awakeTs(t, absentMs) : at; // (0.32: told for a stretch of time, out of the dead of the night when it can)
         const lat = absentMs ? 0 : int(o.later, 0, 8, 0);
         if (lat && laters < 2) { pat = Date.now() + lat * 60000 + rand(0, 20000); ts = pat; laters++; }
         const p = decoratePost(g, addAmbientPost(g, o, pat, ts, { cool: !absentMs }), o); // (0.29: a fanfiction, a critic video)
@@ -2177,9 +2236,10 @@ async function refreshFeed(absentMs = 0, opts = {}) {
       } else if (o.t === 'file' && files < 6) { // 0.23: the files for an order, sent now
         const fc = charByHandle(g, normHandle(o.by));
         if (fc && addJobFile(g, fc, o, at + 1500)) files++;
-      } else if (o.t === 'dm' && (dms < (absentMs ? intensityOf(g).refresh.absentDms : intensityOf(g).refresh.dms) || dilemmaAsker(g, o.by))) {
+      } else if (o.t === 'dm' && (dms < (absentMs ? intensityOf(g).refresh.absentDms : intensityOf(g).refresh.dms) || dilemmaAsker(g, o.by) || worryDM(g, o.by))) { // (0.32: a worrier's burst)
         const ask = dilemmaAsker(g, o.by), when = Date.now() + rand(5000, 14000); // 0.18: a friend asking for a spot always gets through
-        if (addIncomingDM(g, o.by, o.text, when, { unsolicited: !ask })) { if (!ask) dms++; dmAt[normHandle(o.by)] = when; effects.push(() => dmInviteFallback(g, o.by, o.text, when, invBy)); }
+        const wc = worryFresh(g) ? charByHandle(g, normHandle(o.by)) : null, burst = !!(wc && temperOf(wc) === 'inquiet');
+        if (addIncomingDM(g, o.by, o.text, when + (burst ? dms * 20000 : 0), { unsolicited: !ask, burst })) { if (!ask) dms++; dmAt[normHandle(o.by)] = when; effects.push(() => dmInviteFallback(g, o.by, o.text, when, invBy)); }
       } else if (o.t === 'invite' && invBy.size < 2) {
         const h = normHandle(o.by);
         if (!invBy.has(h)) { invBy.add(h); effects.push(() => addInvite(g, h, o, (dmAt[h] || later()) + 400)); }
@@ -2226,7 +2286,8 @@ async function refreshFeed(absentMs = 0, opts = {}) {
 // until: where to go (a release, a date), read again when the jump really happens: the characters may still be
 // writing (their reactions to an announcement take a while), and the jump then waits for them instead of refusing.
 const skipBusy = () => !!(S.busy.act || S.busy.dm || S.busy.refresh || S.busy.mg || S.busy.ev || S.busy.visit || S.busy.job);
-async function skipTime(ms, until) {
+// opts.how (0.32): 'sleep' (« Dormir »: the night slept), 'nap'; otherwise the accelerator (its night slept, if any).
+async function skipTime(ms, until, opts = {}) {
   const g = S.game;
   if (!g) return;
   if (skipBusy()) {
@@ -2247,19 +2308,26 @@ async function skipTime(ms, until) {
   if (stops.length) ms = Math.min(ms, Math.min(...stops) - Date.now() + 1000); // never past an announced release or a date
   ms = Math.max(1000, Math.round(ms));
   const brief = ms < SKIP_QUIET; // a few minutes at most: the clock jumps, nothing to tell (no AI call)
-  if (ms >= 3600000) autoSave(g, `Avant d’avancer de ${fmtDur(ms)}`);
-  jumpClock(g, ms);
-  toast(ms < 60000 ? 'Quelques secondes plus tard…' : `${fmtDur(ms)} plus tard…`, 'flash');
+  const how = opts.how === 'sleep' || opts.how === 'nap' ? opts.how : 'skip';
+  if (ms >= 3600000) autoSave(g, how === 'sleep' ? 'Avant ta nuit' : how === 'nap' ? 'Avant ta sieste' : `Avant d’avancer de ${fmtDur(ms)}`);
+  jumpClock(g, ms, how);
+  const fs = nrgState(g);
+  toast(how === 'sleep' ? `☀️ Debout ! Il est ${hourOf(Date.now())} · énergie ${fs.pct} %${opts.alarm ? ` (ton réveil a sonné : ${alarmWord(g, opts.alarm)})` : ''}.` : how === 'nap' ? `😴 Une petite sieste… Il est ${hourOf(Date.now())} · énergie ${fs.pct} %.` : ms < 60000 ? 'Quelques secondes plus tard…' : `${fmtDur(ms)} plus tard…`, 'flash');
   if (brief) g.lastPlayedAt = Date.now();
   update();
-  if (!brief) { if (canAfford(g, 'skip')) await refreshFeed(ms, { skip: true }); else { g.lastPlayedAt = Date.now(); toast('Le temps a passé, mais ton budget IA du jour est épuisé : pas de récit cette fois.', 'flash'); } }
+  if (!brief) { if (canAfford(g, 'skip')) await refreshFeed(ms, { skip: true, busy: how === 'sleep' ? 'dormait' : how === 'nap' ? 'faisait une sieste' : '' }); else { g.lastPlayedAt = Date.now(); toast('Le temps a passé, mais ton budget IA du jour est épuisé : pas de récit cette fois.', 'flash'); } }
 }
 // The clock moves on by ms: timers run out, countdowns get closer, what fell in that time happens (no AI call).
-function jumpClock(g, ms) {
+// how (0.32): what the player did meanwhile, for their energy ('skip': the accelerator, its night slept; 'sleep',
+// 'night', 'nap', 'work', 'date', 'awake', 'act': writing, a few minutes at a time); and the hours the network has not
+// told yet (writing, shooting, an evening out: told once there are enough of them).
+function jumpClock(g, ms, how = 'skip') {
+  nrgPass(g, ms, how); // (before the clock moves: its « now » is when the time starts)
   shiftTime(g, ms);
   g.stats.skipped = (g.stats.skipped || 0) + ms;
   g.clockOff = (g.clockOff || 0) + ms; // the clock moves on: a live « ce soir 21 h » stays at 21 h
-  applyAbsence(g, ms, true);
+  if (how !== 'act') applyAbsence(g, ms, true); // (a few minutes of writing: no « en accéléré » for them)
+  noteQuiet(g, ms, how);
   if (g.low) syncLow(g, Date.now());
   checkFakes(g);
   tickQuests(g, Date.now());
@@ -2287,10 +2355,11 @@ const DATE_H = 3;
    from when it started), the opening of a signing or a pop-up store (half a day, when it starts with the game open). The
    clock moves on once nobody is writing (never during a stream), and says so. */
 const JOB_H = { montage: 2, miniature: 1 }, VISIT_H = 2, EVENT_H = 4;
-function spendTime(g, ms, label) {
+function spendTime(g, ms, label, how) {
   if (!g || !(ms >= 60000)) return 0;
-  if (skipBusy()) { g.timeDebt = (g.timeDebt || 0) + ms; g.timeWhy = label || g.timeWhy || ''; return 0; }
-  jumpClock(g, ms);
+  if (skipBusy()) { g.timeDebt = (g.timeDebt || 0) + ms; g.timeWhy = label || g.timeWhy || ''; if (how) g.timeHow = how; return 0; }
+  jumpClock(g, ms, how || g.timeHow || 'awake'); // (0.32: a job is work, a visit or an event the day going on)
+  delete g.timeHow;
   g.lastPlayedAt = Date.now();
   toast(`⏱️ ${label ? label + ' : ' : ''}${hWord(ms / 3600000)} plus tard… Il est ${hourOf(Date.now())}.`, 'flash');
   return ms;
@@ -2340,7 +2409,7 @@ function eveningJump(g, ev) {
   let ms = Math.round(start + DATE_H * 3600000 - t);
   if (ev.cut) { const x = (ev.clash || [])[0]; ms = x ? Math.min(ms, x.at - t - 5 * 60000) : 0; } // (cut short: only until what they left for)
   if (ms < 10 * 60000) return 0;
-  jumpClock(g, ms);
+  jumpClock(g, ms, 'date');
   g.lastPlayedAt = Date.now();
   toast(`🌙 La soirée passe… il est ${hourOf(Date.now())}.`, 'flash');
   return ms;
@@ -2358,7 +2427,7 @@ function nightTogether(g, c, ev) {
   let ms = untilMorning();
   const rl = activeRelease(g), stops = [rl, ...activeEvents(g).filter((e) => e.player && e !== ev)].filter((x) => x && x.due > Date.now()).map((x) => x.due);
   if (stops.length) ms = Math.min(ms, Math.min(...stops) - Date.now() - 60000); // (a release or a date in the night: the morning comes for it)
-  if (ms >= 3600000 && !skipBusy()) { autoSave(g, `Avant ta nuit avec ${firstName(c)}`); jumpClock(g, ms); g.lastPlayedAt = Date.now(); toast('🌙 La nuit passe…', 'flash'); }
+  if (ms >= 3600000 && !skipBusy()) { autoSave(g, `Avant ta nuit avec ${firstName(c)}`); jumpClock(g, ms, 'night'); g.lastPlayedAt = Date.now(); toast('🌙 La nuit passe…', 'flash'); } // (0.32: a night slept)
   const t = Date.now(), M = ev.morning, first = firstName(c);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push({ id: uid('m'), sys: 'morning', ev: ev.id, where: M.where, text: M.text, ts: t, at: t });
@@ -2466,11 +2535,15 @@ function shootFallback(g, r) {
   if (D.real) return null;
   const editor = (r.crew || []).includes('monteur'), recent = Array.isArray(g.mgRecent) ? g.mgRecent : [];
   const pool = (ROUNDS_FOR[r.what] || ROUNDS_FOR.vidéo).filter((k) => ROUND_MAKERS[k] && !(editor && k === 'montage'));
-  const fresh = pool.filter((k) => k !== recent[1]);
-  const k = pick(fresh.length ? fresh : pool) || 'memoire';
-  if (!r.practice) g.mgRecent = [k].concat(recent.slice(1)).slice(0, 3); // (what was played, not what the AI was asked)
+  const seen = Array.isArray(r.mgSeen) ? r.mgSeen : [], notLast = pool.filter((k) => k !== recent[1]);
+  const fresh = notLast.filter((k) => !seen.includes(k)); // (0.32: nor one this shoot already drew, its save loaded again)
+  const k = pick(fresh.length ? fresh : notLast.length ? notLast : pool) || 'memoire';
+  if (!r.practice) { g.mgRecent = [k].concat(recent.slice(1)).slice(0, 3); r.mgSeen = triedWith(seen, k); } // (what was played, not what the AI was asked)
   return Object.assign(ROUND_MAKERS[k](r, D), { fallback: true });
 }
+// 0.32: the mini-games a shoot drew, in order (each once, the last one last): a retry of it from the save taken just
+// before (« Avant le tournage ») draws one it has not drawn yet.
+const triedWith = (list, k) => (Array.isArray(list) ? list : []).filter((x) => x !== k).concat(k);
 // Without the AI, the shoot is the production itself: put its steps back in order.
 const prodGame = (r) => ({ kind: 'ordre', title: 'Le tournage', intro: `Remets les étapes de ${laW(r)} « ${str(r.topic, 60)} » dans le bon ordre.`, items: (PROD_STEPS[r.what] || PROD_STEPS.vidéo).map((text) => ({ text })) });
 const MG_NAMES = { tri: 'trier', ordre: 'remettre dans l’ordre', quiz: 'quiz', vf: 'vrai ou faux', intrus: 'trouve l’intrus', montage: 'montage au rythme', memoire: 'mémoire', chat: 'modérer le chat', mixage: 'mixage', cadrage: 'recadrage' };
@@ -2498,11 +2571,22 @@ function startShoot(r) {
    shoot, half as likely when played in the two before. The game picks the format: left to choose, the AI wrote a quiz
    most of the time. « Cauchemar » stays the real-knowledge quiz (its very idea). */
 const MG_KINDS_AI = ['tri', 'ordre', 'quiz', 'vf', 'intrus'];
+/* 0.32: the save taken before the shoot is taken before its draw: loaded again, the same odds came back, the mini-game
+   just left included (1 chance in 6, 1 in 4 for a video with an editor). That save now knows what was drawn: a retry
+   never gives a mini-game this shoot already gave, until all of them have passed (then any but the one just left). */
+/* 0.32 too (his wish, 23 October: « le recadrage vertical, je l'ai quasi jamais », « très souvent les mini-jeux de
+   questions »): the skill rounds count double. Five of the eight were written games (62 % of the shorts, 71 % of the
+   videos); with the rule above, a short is now half and half (16.7 % each skill round, 10 % each written game), a video
+   61 % written (19.4 % the cut and the memory). */
+const SKILL_W = 2;
 function shootWeights(g, r) {
   const editor = (r.crew || []).includes('monteur'); // the editor does the cutting: no rhythm round for the player
   const pool = MG_KINDS_AI.concat((ROUNDS_FOR[r.what] || ROUNDS_FOR.vidéo).filter((k) => !(editor && k === 'montage')));
   const recent = Array.isArray(g.mgRecent) ? g.mgRecent : [];
-  return pool.map((k) => [k, k === recent[0] ? 0 : recent.slice(1, 3).includes(k) ? 0.5 : 1]);
+  const seen = Array.isArray(r.mgSeen) ? r.mgSeen.filter((k) => pool.includes(k)) : [];
+  const base = (k) => (MG_KINDS_AI.includes(k) ? 1 : SKILL_W);
+  const ws = pool.map((k) => [k, seen.includes(k) || k === recent[0] ? 0 : base(k) * (recent.slice(1, 3).includes(k) ? 0.5 : 1)]);
+  return ws.some((w) => w[1] > 0) ? ws : pool.map((k) => [k, k === seen[seen.length - 1] ? 0 : base(k)]);
 }
 function pickShootKind(g, r) {
   if (S.mgForce) return S.mgForce; // tests (« ai »: the AI picks its format)
@@ -2516,10 +2600,14 @@ function pickShootKind(g, r) {
 const genShoot = (r) => {
   const g = S.game;
   if (!g || !r || r.game || S.busy.mg) return null;
-  autoSave(g, `Avant le tournage de ${ta(r)}`);
+  const snap = snapshotOf(g); // the save: the game before the shoot (0.32: written once its mini-game is drawn, it knows which)
   if (!r.prodAt || r.prodDone) { r.prodAt = Date.now(); delete r.prodDone; } // 0.30.1: the time it takes counts from here
   payCrew(g, r); // the team paid per release gets to work (once per release)
   const kind = pickShootKind(g, r);
+  const tried = kind !== 'ai' && !diffOf(r.diff).real ? triedWith(r.mgSeen, kind) : null, x = tried && (snap.releases || []).find((y) => y.id === r.id);
+  if (x) x.mgSeen = tried; // (a retry from that save draws another one; imposed ahead, it stays imposed there)
+  autoSave(g, `Avant le tournage de ${ta(r)}`, snap);
+  if (tried) r.mgSeen = tried;
   if (kind !== 'ai') g.mgRecent = [kind].concat(Array.isArray(g.mgRecent) ? g.mgRecent : []).slice(0, 3);
   if (ROUND_MAKERS[kind]) {
     r.game = ROUND_MAKERS[kind](r, diffOf(r.diff));
@@ -2655,7 +2743,13 @@ function finishShoot(r, score) {
   if (r.big) { bigFinish(S.game, r, score); update(); return; } // 0.30.1: a stage of a production (its time, the next one)
   score = clamp(num(score, 0), 0, 1);
   r.tries = (r.tries || 0) + 1;
+  // 0.32: shot tired (at the start, or by the end of its hours of work), it loses some of it (a date: their AI sees it)
+  const tired = S.game && !(r.player && (S.game.events || []).includes(r)) ? nrgShoot(S.game, prodMs(r)).malus : 0;
+  const raw = score;
+  if (tired) score = clamp(Math.round(score * (1 - tired) * 1000) / 1000, 0, 1);
   r.played = { score, tier: tierOf(score), at: Date.now(), kind: r.game ? r.game.kind : '', diff: r.game && r.game.diff ? r.game.diff : r.diff };
+  if (tired) Object.assign(r.played, { tired, raw });
+  delete r.mgSeen; // (0.32: played: a shoot made again later starts its draws anew)
   afterShoot(S.game, r); // 0.14: the team does its part (the edit, the thumbnail)
   if (r.player && S.game && (S.game.events || []).includes(r)) prepEnd(S.game, r); // 0.28.1: a date: its end is written while the score shows
   else if (S.game) prodJump(S.game, r); // 0.30.1: a release: the time it takes passes, it comes out at the end
@@ -3084,7 +3178,7 @@ async function loadIdeas(target, targetReply, quest) {
   endFlow(f);
   update(false);
 }
-async function genNewChar(m, why = '', owed = false) {
+async function genNewChar(m, why = '', owed = false, opts = {}) {
   const g = S.game;
   if (!g || S.busy.newchar) return;
   S.busy.newchar = true;
@@ -3092,9 +3186,10 @@ async function genNewChar(m, why = '', owed = false) {
   const f = startFlow(g);
   let c = null, post = null, failed = false;
   const plan = newcomerAge(g); // 0.17
+  if (opts.stalk) stalkPlan(g, opts.stalk, plan); // 0.32: someone who has followed the player for a long time
   try {
     await aiStream(promptNewChar(g, plan, why), (o) => {
-      if (o.t === 'char' && !c) { c = addCharFromAI(g, o, { unlocked: true, kind: 'main', rename: true, age: plan }); if (c) { assignFace(g, c, o.face ? String(o.face) : undefined); if (!COEURS[c.coeur]) c.coeur = guessCoeur(c); c.dates = 0; initTies(g); newcomerRoll(g, c); } } // (0.30: maybe not who they seem)
+      if (o.t === 'char' && !c) { c = addCharFromAI(g, o, { unlocked: true, kind: 'main', rename: true, age: plan }); if (c) { assignFace(g, c, o.face ? String(o.face) : undefined); if (!COEURS[c.coeur]) c.coeur = guessCoeur(c); c.dates = 0; initTies(g); if (opts.stalk) stalkArrives(g, c, opts.stalk); else newcomerRoll(g, c); } } // (0.30: maybe not who they seem; 0.32: or someone who follows the player)
       else if (o.t === 'post' && c && !post) post = o;
     }, { signal: f.ctl.signal, src: f.id, kind: 'newchar' });
   } catch (e) {
@@ -3109,7 +3204,7 @@ async function genNewChar(m, why = '', owed = false) {
     if (m) m.charId = c.id;
     if (owed) { g.castOwed = Math.max(0, (g.castOwed || 0) - 1); g.castFails = 0; }
   } else if (owed) g.castFails = (g.castFails || 0) + 1; // (tried again a little later: tickNewChars)
-  else if (!failed) toast('Personne n’est venu… Réessaie.', 'bad');
+  else if (!failed && !opts.stalk) toast('Personne n’est venu… Réessaie.', 'bad');
   S.busy.newchar = false;
   endFlow(f);
   update();

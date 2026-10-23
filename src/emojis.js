@@ -22,7 +22,7 @@ function emoParts(text, kb = 'e') {
   while ((m = EMO_RE.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const e = EMO_BY[m[1]];
-    out.push(html`<img key=${kb + k++} class="emo" src=${emoSrc(e)} alt=${m[0]} title=${e.n} draggable="false" />`);
+    out.push(html`<img key=${kb + k++} class="emo" src=${emoSrc(e)} alt=${m[0]} title=${e.n} draggable=${false} />`);
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -101,7 +101,7 @@ function useEmoji(key, ref, getVal, setVal, max = 280) {
       <button type="button" class="iconbtn" onClick=${toggle} aria-label="Fermer les emojis"><${Icon} n="x" s=${16} /></button>
     </div>
     ${found ? null : html`<div class="emo-cats" role="tablist">${EMO_CATS.filter(([id]) => id !== 'recents' || rec.length).map(([id, label]) => html`<button key=${id} type="button" role="tab" aria-selected=${cat === id ? 'true' : 'false'} class=${'emo-cat' + (cat === id ? ' on' : '')} onMouseDown=${(ev) => ev.preventDefault()} onClick=${() => setSt({ q: '', cat: id })}>${label}</button>`)}</div>`}
-    ${list.length ? html`<div class="emo-grid">${list.map((e) => html`<button key=${e.id} type="button" class="emo-cell" title=${e.n} aria-label=${e.n} onMouseDown=${(ev) => ev.preventDefault()} onClick=${() => insert(e)}><img src=${emoSrc(e)} alt="" draggable="false" /></button>`)}</div>`
+    ${list.length ? html`<div class="emo-grid">${list.map((e) => html`<button key=${e.id} type="button" class="emo-cell" title=${e.n} aria-label=${e.n} onMouseDown=${(ev) => ev.preventDefault()} onClick=${() => insert(e)}><img src=${emoSrc(e)} alt="" draggable=${false} /></button>`)}</div>`
       : html`<p class="muted emo-none">Aucun emoji pour « ${st.q.trim()} ».</p>`}
   </div>`;
   return { btn, panel };

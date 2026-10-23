@@ -531,7 +531,7 @@ async function studioSteps(page, thumb) {
   await clickText(page, '.tab', 'Fil');
   await sleep(300);
   await clickFab(page);
-  await page.fill('#compose', 'ma vidéo sur les magouilles de @leandre.aube sort dans 5h. je vais tout prouver.');
+  await page.fill('#compose', 'ma vidéo sur les magouilles de @leandre.aube sort dans 9h. je vais tout prouver.');
   await page.check('.layer .ann-card input'); // 0.31.2: the player ticks « Faire une vidéo à partir de ce post » (the moment its words say, about Léandre)
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
@@ -540,7 +540,7 @@ async function studioSteps(page, thumb) {
   const rel0 = await G(page, () => { const g = window.__hype.S.game; const r = g.releases.slice(-1)[0]; return r && { state: r.state, left: Math.round((r.due - Date.now()) / 60000), c: r.c, topic: r.topic }; });
   check('announced video: a countdown starts', !!rel0 && rel0.state === 'scheduled' && rel0.left >= 58 && rel0.left <= 60 && !!rel0.c, rel0);
   await shot(page, 'release-countdown');
-  const t0 = await G(page, () => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 5h/.test(x.text)); return { ts: p.ts, energyAt: g.stats.energyAt, n: g.posts.length }; });
+  const t0 = await G(page, () => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 9h/.test(x.text)); return { ts: p.ts, energyAt: g.stats.energyAt, n: g.posts.length }; });
   await noToasts(page);
   await page.click('.status-strip .clock-btn'); // 0.15: on a phone, the clock is the watch's only button
   await page.waitForSelector('.modal svg.watch');
@@ -550,7 +550,7 @@ async function studioSteps(page, thumb) {
   await clickText(page, '.modal .btn-hot', 'Avancer de 15 min');
   await sleep(800);
   await idle();
-  const t1 = await G(page, (a) => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 5h/.test(x.text)); const r = g.releases.slice(-1)[0]; return { moved: Math.round((a.ts - p.ts) / 60000), energyAt: g.stats.energyAt === a.energyAt, n: g.posts.length - a.n, left: Math.round((r.due - Date.now()) / 60000), narrated: window.__prompts.slice(-1)[0].includes('Le temps passe en accéléré') }; }, t0);
+  const t1 = await G(page, (a) => { const g = window.__hype.S.game; const p = g.posts.find((x) => /sort dans 9h/.test(x.text)); const r = g.releases.slice(-1)[0]; return { moved: Math.round((a.ts - p.ts) / 60000), energyAt: g.stats.energyAt === a.energyAt, n: g.posts.length - a.n, left: Math.round((r.due - Date.now()) / 60000), narrated: window.__prompts.slice(-1)[0].includes('Le temps passe en accéléré') }; }, t0);
   check('time accelerator: 15 min later, the network moved on, coffees untouched', t1.moved === 15 && t1.energyAt && t1.n >= 3 && t1.left >= 43 && t1.left <= 45 && t1.narrated, t1);
   await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 15000 });
@@ -670,12 +670,14 @@ async function studioSteps(page, thumb) {
   await G(page, () => { document.querySelector('.layer .reply-row .evt-chip').scrollIntoView({ block: 'center' }); });
   await sleep(300);
   await shot(page, 'event-under-reply');
+  // (0.32: the player's next video takes a working day: his live comes later in the night, still to come after it)
+  await G(page, () => { const H = window.__hype, g = H.S.game, l = H.charByHandle(g, 'leandre.aube'), ev = H.activeEvents(g).find((e) => e.c === l.id); if (ev) { ev.due += 6 * 3600000; l.badBuzz.until = Math.max(l.badBuzz.until, ev.due + 90 * 60000 + 60000); } });
   await back(page);
 
   // ---------- a second video while he is down: aced (≥ 80 %), Léandre is buried ----------
   await G(page, () => { const g = window.__hype.S.game; g.stats.energy = g.stats.maxEnergy; window.__hype.update(); });
   await clickFab(page);
-  await page.fill('#compose', 'ma deuxième vidéo sur @leandre.aube sort dans 5h. cette fois j’ai les comptes du trésorier.');
+  await page.fill('#compose', 'ma deuxième vidéo sur @leandre.aube sort dans 9h. cette fois j’ai les comptes du trésorier.');
   await page.check('.layer .ann-card input');
   await clickText(page, '.layer-head button', 'Publier');
   await page.waitForSelector('.release-card', { timeout: 20000 });
@@ -1141,7 +1143,7 @@ async function studioSteps(page, thumb) {
   const nm = await G(page, () => { const r = window.__hype.activeRelease(window.__hype.S.game); const pr = window.__prompts.filter((x) => x.includes('LE MINI-JEU DU TOURNAGE')).slice(-1)[0] || ''; return { kind: r.game.kind, diff: r.played.diff, prompt: pr.includes('NIVEAU CAUCHEMAR, LE PLUS DUR DU JEU : un "quiz" de 6 questions de connaisseur à 4 choix sur ce dont parle le live') && pr.includes('pose de VRAIES questions dessus') && pr.includes('Uniquement des faits dont tu es certain') && !pr.includes('- "intrus" :') && pr.includes('"kind":"quiz"'), chip: document.querySelector('.mg-result .chip').textContent, answers: !!document.querySelector('.mg-result .mg-fix') }; });
   check('Cauchemar, the very last level: real expert questions on the real subject (×6, viral for sure), the answers shown after', nmSetup.levels === 'Facile,Moyen,Difficile,Expert,Légendaire,Mythique,Cauchemar' && nmSetup.hint && /nightmare/.test(nmSetup.last) && /vraies questions de connaisseur/.test(nmIntro) && nm.kind === 'quiz' && nm.diff === 'cauchemar' && nm.prompt && /×6/.test(nm.chip) && /viral assuré/.test(nm.chip) && nm.answers, { nmSetup, nmIntro, nm });
   const kinds = await G(page, () => { const H = window.__hype, S = H.S, g = S.game, r = H.activeRelease(g), seen = {}; const f = S.mgForce; S.mgForce = null; r.diff = 'moyen'; for (let i = 0; i < 400; i++) { g.mgRecent = [i % 2 ? 'montage' : 'memoire']; const k = H.pickShootKind(g, r); const key = k + (k === g.mgRecent[0] ? '!' : ''); seen[key] = (seen[key] || 0) + 1; } r.diff = 'cauchemar'; const real = Array.from({ length: 50 }, () => H.pickShootKind(g, r)).every((k) => k === 'quiz'); S.mgForce = f; return { seen, real, what: r.what }; });
-  check('shoots vary: every game of the format alike, the AI’s five and the skill rounds (0.27.3; never the same twice in a row; the chat of a live too), the real quiz at Cauchemar', kinds.real && ['tri', 'ordre', 'quiz', 'vf', 'intrus', 'chat'].every((k) => kinds.seen[k] > 30) && kinds.seen.montage > 12 && kinds.seen.memoire > 12 && !kinds.seen.ai && !Object.keys(kinds.seen).some((k) => k.endsWith('!')), kinds);
+  check('shoots vary: the AI’s five and the skill rounds (0.27.3; 0.32: the skill rounds count double; never the same twice in a row; the chat of a live too), the real quiz at Cauchemar', kinds.real && ['tri', 'ordre', 'quiz', 'vf', 'intrus'].every((k) => kinds.seen[k] > 20) && kinds.seen.chat > 50 && kinds.seen.montage > 20 && kinds.seen.memoire > 20 && !kinds.seen.ai && !Object.keys(kinds.seen).some((k) => k.endsWith('!')), kinds);
   await idle();
   await back(page);
 

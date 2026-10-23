@@ -87,7 +87,7 @@ function endTrain(g, t = Date.now()) {
 
 /* ---------- on screen ---------- */
 function MinoFace({ size = 48 }) {
-  return html`<img class="mino" src=${MINO_SRC} width=${size} height=${size} alt="Le Minotaure, contrôleur du train" draggable="false" />`;
+  return html`<img class="mino" src=${MINO_SRC} width=${size} height=${size} alt="Le Minotaure, contrôleur du train" draggable=${false} />`;
 }
 function TrainLevels({ lvl }) {
   return html`<div class="train-lvls" aria-label=${`Niveau ${lvl} sur ${TRAIN_TOP}`}>${Array.from({ length: TRAIN_TOP }, (_, k) => html`<i key=${k} class=${k < lvl ? 'on' : ''}></i>`)}</div>`;

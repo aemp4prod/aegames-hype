@@ -217,7 +217,7 @@ function applyRoleLine(g, o, effects) {
     effects.push(() => psySign(g, c, text, at));
     return true;
   }
-  return false;
+  return applyStalkLine(g, o, effects); // 0.32: the ones who follow the player
 }
 
 /* =========================================================
@@ -239,7 +239,7 @@ function psyNow(g) {
 function drawPsy(g, t = Date.now()) {
   if (!g || g.psy) return g ? g.psy : null;
   if (window.__HYPE_TEST__ && window.__psyNone) return null;
-  const pool = mains(g).filter((c) => !c.jailed);
+  const pool = mains(g).filter((c) => !c.jailed && !isStalker(g, c));
   if (!pool.length) return null;
   const want = window.__HYPE_TEST__ && window.__psyPick ? charByHandle(g, window.__psyPick) : null;
   const c = want && pool.includes(want) ? want : pick(pool);
@@ -258,7 +258,7 @@ function psyStage(g, t = Date.now()) {
 // A red flag the player could notice: noted in their file on them (a clue to cite), counted.
 function psySign(g, c, text, at) {
   const P = g && g.psy;
-  if (!P || P.out || !c || c.id !== P.c) return null;
+  if (!P || P.out || !c || c.id !== P.c) return stalkSign(g, c, text, at); // (0.32: or a sign of one who follows the player)
   text = str(text, 130);
   if (text.length < 4) return null;
   P.signs = (P.signs || 0) + 1;
@@ -302,14 +302,14 @@ function psyCore(g, c) {
 }
 const PSY_SIGN_LINE = '- Facultatif (au plus 1) : si tu glisses un détail inquiétant (naturellement, jamais souligné ni expliqué), ajoute {"t":"psy","text":"≤ 90 caractères : ce que le joueur a pu remarquer, factuel (ex : « connaît le nom de ta sœur alors que tu ne l’as jamais dit »)"}.';
 // Their private messages.
-function psyDMCtx(g, c) { return psyNow(g) && isPsy(g, c) ? psyCore(g, c) : []; }
-const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? PSY_SIGN_LINE : null);
+function psyDMCtx(g, c) { return psyNow(g) && isPsy(g, c) ? psyCore(g, c) : stalkCore(g, c); } // (0.32: or one who follows the player)
+const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? PSY_SIGN_LINE : isStalker(g, c) ? STALK_SIGN_LINE : null);
 // The refreshes and the reactions: the secret, in a line (their public face, their DMs written there).
 function psyPublicLines(g) {
   const c = psyNow(g), st = c ? psyStage(g) : -1;
-  if (!c || st < 1) return [];
+  if (!c || st < 1) return stalkPublicLines(g); // (0.32: the ones who follow the player)
   const first = firstName(c);
-  return [`- SECRET DU JEU (toi seul le sais : aucun personnage ne le sait ni ne le soupçonne, personne n’en parle) : @${c.handle} est le psychopathe de cette partie, obsédé·e par le joueur. En public, ${first} reste crédible ; dans ses messages privés au joueur (lignes dm), ${PSY_STAGES[st]}. Facultatif, rarement : un détail un peu trop intense de ${first} en public (un like à la seconde sur chaque post du joueur, une réponse qui en sait trop, une photo prise près de chez lui) ; si tu en glisses un, ajoute {"t":"psy","by":"${c.handle}","text":"≤ 90 caractères : ce que le joueur a pu remarquer"}.`];
+  return stalkPublicLines(g).concat([`- SECRET DU JEU (toi seul le sais : aucun personnage ne le sait ni ne le soupçonne, personne n’en parle) : @${c.handle} est le psychopathe de cette partie, obsédé·e par le joueur. En public, ${first} reste crédible ; dans ses messages privés au joueur (lignes dm), ${PSY_STAGES[st]}. Facultatif, rarement : un détail un peu trop intense de ${first} en public (un like à la seconde sur chaque post du joueur, une réponse qui en sait trop, une photo prise près de chez lui) ; si tu en glisses un, ajoute {"t":"psy","by":"${c.handle}","text":"≤ 90 caractères : ce que le joueur a pu remarquer"}.`]);
 }
 
 /* ---------- an evening with them, a visit of theirs ---------- */
@@ -319,7 +319,7 @@ const psyDeadlyDate = (g, ev) => { const c = g.chars[ev.c]; return isPsy(g, c) &
 const PSY_ESCAPE = (first, il, home) => `Le joueur peut encore s’en sortir : s’il se méfie vraiment et agit (${home ? 'mettre ' + first + ' dehors et fermer à clé, s’enfermer dans une pièce, appeler quelqu’un, s’enfuir par l’escalier' : 's’enfuir, inventer une excuse crédible et partir pour de bon, appeler quelqu’un, refuser ce qu’' + il + ' lui sert, ne pas entrer dans la pièce fermée'}), il s’échappe de justesse : ajoute alors {"t":"escape","text":"≤ 160 caractères : comment il s’en sort"}. Une simple gêne ou un « je vais y aller » poli ne suffit pas : ${first} le retient, avec douceur.`;
 const PSY_FIN = (first) => `{"t":"fin","text":"≤ 200 caractères : la dernière image, pudique (une lumière qui s’éteint, une porte qui se referme, une playlist qui continue), sans rien de gore, à la deuxième personne"}`;
 function psyTalkCtx(g, ev, c) {
-  if (!psyNow(g) || !isPsy(g, c)) return [];
+  if (!psyNow(g) || !isPsy(g, c)) return stalkCore(g, c); // (0.32: or one who follows the player)
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = psyCore(g, c);
   if (ev.psy === 'deadly') {
@@ -334,7 +334,7 @@ function psyTalkCtx(g, ev, c) {
 }
 // The lines they may add tonight. last: the end of the evening (their last words).
 function psyTalkOut(g, ev, c, last) {
-  if (!psyNow(g) || !isPsy(g, c)) return [];
+  if (!psyNow(g) || !isPsy(g, c)) return isStalker(g, c) ? [STALK_SIGN_LINE] : [];
   const L = [PSY_SIGN_LINE];
   if (ev.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut).');
@@ -353,7 +353,7 @@ function psyEndLines(g, ev) {
 // A visit: at night, once they are ready, opening the door may be the last thing the player does.
 const psyDeadlyVisit = (g, c, at) => isPsy(g, c) && psyStage(g) >= 3 && nightAt(at);
 function psyVisitCtx(g, v, c) {
-  if (!psyNow(g) || !isPsy(g, c)) return [];
+  if (!psyNow(g) || !isPsy(g, c)) return stalkCore(g, c).concat(stalkerOf(g, c) && nightAt(v.at) ? [`${firstName(c)} « passait dans le coin », tard : un peu trop de hasard, un regard qui en sait trop sur la maison du joueur ; inoffensif ce soir.`] : []);
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const L = psyCore(g, c);
   if (v.psy === 'deadly') L.push(`## CETTE NUIT, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
@@ -363,7 +363,7 @@ function psyVisitCtx(g, v, c) {
   return L;
 }
 function psyVisitOut(g, v, c, last) {
-  if (!psyNow(g) || !isPsy(g, c)) return [];
+  if (!psyNow(g) || !isPsy(g, c)) return isStalker(g, c) ? [STALK_SIGN_LINE] : [];
   const L = [PSY_SIGN_LINE];
   if (v.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut). Alors, pas de ligne leave.');
@@ -417,6 +417,8 @@ function psyAccuseLines(g, c, text, clues) {
   if (isPsy(g, c) && psyNow(g)) {
     return [`La vérité, que personne ne sait : @${c.handle} est réellement dangereux·se, le psychopathe de cette partie, obsédé·e par le joueur. Si l’accusation parle de ce danger (obsession, harcèlement, menaces, comportement inquiétant, psychopathe) et s’appuie sur des indices précis, elle touche juste : credibility 8 à 10 et exposed = true. Les réactions : le choc, des gens qui avaient remarqué des choses, la police qui s’en mêle, les médias qui s’emparent de l’affaire ; @${c.handle} nie avec un calme glaçant.`];
   }
+  const sl = stalkAccuseLines(g, c); // 0.32: one who follows the player: the truth, whatever the words
+  if (sl) return sl;
   if (PSY_TALK.test(said)) return [`La vérité : @${c.handle} n’est PAS dangereux·se. L’accuser d’être un psychopathe, un harceleur ou un danger public, c’est de la diffamation grave : credibility 0 à 2, sauf preuves accablantes (il n’y en a pas). @${c.handle} est choqué·e et parle de porter plainte.`];
   return [];
 }
@@ -434,6 +436,8 @@ function psyAccusation(ctx) {
     }
     return false;
   }
+  const sa = stalkAccusation(g, c, cred, said, cited); // 0.32: one who follows the player: unmasked, or a call-out as any other (never defamation)
+  if (sa) return sa === 'unmasked';
   if (PSY_TALK.test(said) && cred < 4) { // calling someone else a danger
     const at = later() + 1600, il = gx(c.g, 'il', 'elle', 'iel');
     const dr = repMove(g, { cred: -8, kind: -6 }, `tu as traité ${c.name} de danger public sans preuve`);

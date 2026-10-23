@@ -242,7 +242,7 @@ async function newGame(page, identity) {
     const H = window.__hype, g = H.S.game;
     H.S.stack = [];
     g.releases = [];
-    H.scheduleRelease(g, { what: 'vidéo', topic: 'la potion du lundi', due: Date.now() + 7 * 3600000 }); // (0.30.1: its shoot in 3 h, 4 h of work)
+    H.scheduleRelease(g, { what: 'vidéo', topic: 'la potion du lundi', due: Date.now() + 11 * 3600000 }); // (0.32: its shoot in 3 h, 8 h of work)
     H.scheduleRelease(g, { what: 'short', topic: 'un sort express', due: Date.now() + 6 * 3600000 });
     H.goTab('feed'); H.update();
   });

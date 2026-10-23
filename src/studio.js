@@ -14,7 +14,8 @@ const adWord = (k, w = 'Pubs') => { const p = Math.round((k - 1) * 100); return 
 function StatusStrip({ g, now }) {
   const ck = fmtGameClock(now), d = ck.d, m = calMoment(d), c = g.career;
   return html`<div class="status-strip">
-    <button class="clock-btn" onClick=${openWatch} aria-label=${`Il est ${ck.time}, ${ck.day}. Avancer le temps`} title="Avancer le temps"><${Icon} n="clock" s=${15} /><b>${ck.time}</b><span>${ck.day}</span><${Icon} n="ffwd" s=${13} /></button>
+    <button class="clock-btn" onClick=${openWatch} aria-label=${`Il est ${ck.time}, ${ck.day}, jour ${playDay(g, now)} de ta partie. Avancer le temps`} title="Avancer le temps"><${Icon} n="clock" s=${15} /><b>${ck.time}</b><span>${ck.day}</span><span class="day-n">· jour ${playDay(g, now)}</span><${Icon} n="ffwd" s=${13} />${S.clockBump && now - S.clockBump.at < 2600 ? html`<i class="clock-bump" key=${S.clockBump.at} aria-hidden="true">+${minWord(S.clockBump.ms)}</i>` : null}</button>
+    ${t32On() ? html`<${NrgChip} g=${g} now=${now} />` : null}
     ${standLv(g) ? html`<${StandChip} g=${g} />` : m ? html`<span class="cal-chip" title=${cap1(m.E.mood)}>${m.E.emoji} ${cap1(calWord(m))}</span>`
       : html`<span class="cal-chip quiet" title=${cap1(SEASON_WORD(d))}>${seasonEmoji(d)} ${adWord(adSeason(d))}</span>`}
     <button class=${'cash-chip' + (c.cash < 0 ? ' neg' : '')} onClick=${() => { goTab('studio'); tapCash(); }} aria-label=${'Ton argent : ' + fmtMoney(g, c.cash) + '. Ouvrir le studio'}><span aria-hidden="true">💶</span><b>${fmtMoneyShort(g, c.cash)}</b></button>
@@ -88,6 +89,8 @@ function WatchCard({ g, close }) {
   }
   return html`<div class="modal-card watch-card">
     <span class="eyebrow">Accélérateur de temps</span>
+    <p class="watch-day">📅 Jour ${playDay(g, t0)} de ta partie · ${fmtGameClock(t0).day}, ${fmtGameClock(t0).time}</p>
+    ${t32On() ? html`<${NrgBlock} g=${g} close=${close} />` : null}
     <div class="watch-days" aria-label="Jours">
       <button type="button" class="iconbtn" onClick=${() => set(mins - 1440)} disabled=${mins <= 1440} aria-label="Un jour de moins">−</button>
       <span><b>${Math.floor(mins / 1440)}</b> ${plural(Math.floor(mins / 1440), 'jour', 'jours')}</span>
@@ -706,7 +709,7 @@ function StudioTab({ g, now }) {
 }
 // 0.27.6: an exclusive contract elsewhere no longer forbids signing: the player is told what it will cost, then decides.
 function trySign(g, d) {
-  const go = (o) => { if (signDeal(g, d, o)) { if (d.state !== 'scammed') toast(`Contrat signé avec ${d.brand}.`, 'good'); update(); } };
+  const go = (o) => { if (signDeal(g, d, o)) { actTime(g, 20); if (d.state !== 'scammed') toast(`Contrat signé avec ${d.brand}.`, 'good'); update(); } };
   const x = dealClash(g, d);
   if (!x) return go();
   askConfirm({ title: `Signer malgré l’exclusivité ${x.brand} ?`, text: `Ton contrat avec ${x.brand} t’interdit ce secteur pendant 30 jours. ${x.state === 'signed' ? `${x.brand} rompra le contrat : tu rembourses l’acompte et ce qu’ils t’ont envoyé, plus une pénalité.` : `${x.brand} te facturera une pénalité.`} Et ta réputation pro en prendra un coup.`, ok: 'Signer quand même', danger: true, run: () => go({ force: true }) });
@@ -882,7 +885,7 @@ function RecruitLayer({ g, now, i }) {
         <p>${c.cand.pitch}</p>
         <div class="row"><span class="chip">${payWord(g, c.cand)}</span><span class="chip good">${R.fx(c.cand.tier + 1)}</span></div>
         <div class="row">
-          <button class="btn btn-hot btn-sm" disabled=${!!cur} onClick=${() => { if (hireStaff(g, c)) { toast(`${firstName(c)} rejoint ton équipe !`, 'good'); update(); closeLayer(); } }}>Engager</button>
+          <button class="btn btn-hot btn-sm" disabled=${!!cur} onClick=${() => { if (hireStaff(g, c)) { actTime(g, 30); toast(`${firstName(c)} rejoint ton équipe !`, 'good'); update(); closeLayer(); } }}>Engager</button>
           <button class="btn btn-ghost btn-sm" onClick=${() => openDM(c.id)}><${Icon} n="msg" s=${14} /> Discuter</button>
         </div>
       </div>
@@ -961,6 +964,7 @@ function SeriesLayer({ l, g, i }) {
       if (!r) { lock.current = false; return; }
       if (dv) { payDevis(g, dv, theme.trim()); dropDevis(dv); }
       if (now) { closeLayer(); update(); startShoot(r); return; } // 0.30: straight to the shoot
+      actTime(g, 15); // 0.32: planning it takes a quarter of an hour
       toast(`${cap1(noun(what))} programmé${what === 'vidéo' ? 'e' : ''} ${fmtWhen(due)}.`, 'good'); closeLayer();
       const fc = feat && g.chars[feat];
       if (fc && askFeat(g, r, fc)) { S.drafts.dm[fc.id] = featText(g, r); openDM(fc.id); } // 0.29.1: the proposal, ready to send
@@ -968,7 +972,7 @@ function SeriesLayer({ l, g, i }) {
       return;
     }
     lock.current = true;
-    if (startSeries(g, { what, days, hour, min: 0, theme: theme.trim(), diff, hard, devis: paid })) { if (dv) { payDevis(g, dv, `défi « ${theme.trim()} »`); dropDevis(dv); } closeLayer(); goTab('feed'); update(); }
+    if (startSeries(g, { what, days, hour, min: 0, theme: theme.trim(), diff, hard, devis: paid })) { actTime(g, 20); if (dv) { payDevis(g, dv, `défi « ${theme.trim()} »`); dropDevis(dv); } closeLayer(); goTab('feed'); update(); }
     else lock.current = false;
   };
   const launch = () => {

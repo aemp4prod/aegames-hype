@@ -101,6 +101,7 @@ function passedOverChance(c) {
   let p = 0.4 + 0.15 * Math.min(3, (c.passedOver || 1) - 1);
   p += { envieux: 0.2, opportuniste: 0.1, trouble: 0.1, fidele: -0.15, detache: -0.2 }[temperOf(c)] || 0;
   p += { tres_immature: 0.08, immature: 0.04, tres_mature: -0.06 }[c.matu] || 0;
+  if (t32On()) p += { rancunier: 0.1, boudeur: 0.06, dramatique: 0.06, culpabilisant: 0.06, paisible: -0.12 }[clashOf(c)] || 0; // 0.32
   return clamp(p, 0.1, 0.9);
 }
 // quiet: nobody was told (the time ran out): it stings less.

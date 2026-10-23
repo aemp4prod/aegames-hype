@@ -9,7 +9,10 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.31.3 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.32.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+
+Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
+0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
 
 ## Dans le jeu
 
@@ -38,7 +41,12 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   à un message reçu** (❤️ 😂 😮 😢 😡 👍 🔥 : un bouton au survol sur ordi, un appui long ou un double-tap pour ❤️ sur
   téléphone), en privé comme dans un groupe : le perso la voit, et peut t’en parler même si tu n’as rien écrit. Tes
   **likes** (un post, un commentaire, une photo, un diaporama) et tes **commentaires épinglés** se voient aussi : la
-  personne le sait, en privé comme sous le post.
+  personne le sait, en privé comme sous le post. Depuis la 0.32, **les persos ont leur vie** : la nuit ils dorment, la
+  journée ils bossent, sortent ou mettent un moment à reprendre leur téléphone. Ton message les attend (« Envoyé »), et
+  ils répondent à tout d’un coup quand ils le voient ; une conversation lancée reste fluide, et leur IA peut décider de
+  décrocher (« je file au taf, je te réponds ce soir »). Les impulsifs, les jaloux, les fans et ceux pour qui c’est dans
+  leur nature restent très dispos, les marques répondent aux heures de bureau, et un point vert dit qui est en ligne. Les
+  groupes aussi attendent que quelqu’un soit là.
 - **Les rendez-vous** : le premier avec quelqu’un est un mini-jeu écrit d’après où vous en êtes (vos messages, vos
   échanges publics, une dispute, un bad buzz) ; **les suivants se jouent pour de vrai** : une conversation de cinq
   échanges où tu réponds avec tes mots, jugée d’après qui tu as été avec ce perso en privé et en public (taquin en
@@ -82,6 +90,21 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   empire tout : silence, colère, blocage, ou il t’affiche en public. Les impulsifs adorent la vitesse, et leur flamme
   retombe aussi vite. **Brûler les étapes** reste possible (un rendez-vous dès le troisième message, une déclaration
   surprise) : le perso te met au défi, et seules des réponses convaincantes le font craquer.
+- **Depuis la 0.32, plus de caractères** : cinq cœurs de plus, **fusionnel** (veut être en couple tout de suite,
+  sincère), **chaud-froid** (adorable un jour, distant le lendemain), **volage** (flirte avec tout le monde, rien
+  d’exclusif), **possessif** (veut savoir où tu es et avec qui ; toxique, jamais violent) et **libre** (que des
+  aventures d’un soir, jamais de couple : demandé trop tôt, il esquive). Chacun a aussi sa façon de vivre une dispute
+  (colérique, paisible, rancunier, boudeur, culpabilisant, dramatique), environ un sur cinq a un trait poussé à
+  l’extrême (extrêmement jaloux, impulsif, anxieux, colérique…), et certains sont **ouverts** : si tu leur dis
+  franchement que tu vois quelqu’un d’autre, ça leur va ; si l’autre leur plaît aussi, un **trouple** est possible (il
+  faut le oui des deux) ; un mensonge passe toujours mal. **L’inquiet** te bombarde de messages et peut débarquer chez
+  toi dès qu’il t’arrive quelque chose. Le jeu tire tout ça avant que l’IA écrive le perso, pour varier les parties.
+  Et **les relations prennent leur temps** : chaque étape trois fois plus qu’avant (environ une semaine pour se mettre
+  en couple avec un cœur serein, deux avec un prudent), sans avoir à écrire plus : un message par jour et deux
+  rendez-vous par semaine suffisent ; les persos savent depuis combien de temps vous vous parlez et connaissent votre
+  rythme (bien plus que la normale, c’est intense au début, puis ils s’y habituent ; d’un coup moins qu’à votre
+  habitude, ils le remarquent). À partir de 10 000
+  abonnés, des gens qui te suivent depuis longtemps peuvent entrer dans ta vie, pour le meilleur… ou non.
 - **Les grandes étapes** : avant de vous mettre en couple, une épreuve (son bad buzz à traverser avec ton soutien
   public, une rumeur sur toi, une photo volée à expliquer, un rival, son meilleur ami à conquérir, un départ où il
   faut garder le lien, son secret) : réussie, vous êtes ensemble ; ratée, ce sera pour plus tard. Avant le mariage, un
@@ -235,8 +258,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   Depuis la 0.30, **« ⚡ Maintenant »** (à la place du jour) tourne tout de suite et sort dès que c’est prêt, sans
   annonce : personne ne l’attend, personne n’est déçu si tu y renonces. Une sortie dont l’heure est passée pendant que
   le jeu était fermé garde son délai à partir de ton retour, et se décale une fois sans pénalité.
-  Depuis la 0.30.1, **faire une sortie prend du temps** : 2 h pour un short, 4 h pour une vidéo ou un clip, 3 h pour un
-  podcast, tournage et montage compris, et un live dure ses 2 h. Une fois le tournage fait, l’horloge avance d’autant
+  Depuis la 0.30.1, **faire une sortie prend du temps**, et depuis la 0.32 à un rythme humain : une journée de travail
+  (8 h) pour une vidéo, 6 h pour un clip, 4 h pour un podcast, 2 h pour un short, tournage et montage compris, et un live
+  dure ses 2 h (les grosses productions gardent leurs étapes). Une fois le tournage fait, l’horloge avance d’autant
   et ça sort à la fin. L’heure programmée est celle de la sortie (d’un live : son début) : le tournage commence donc
   avant, et le planificateur grise les heures trop proches ; commencé en retard, ça sort en retard (le public le
   remarque). Avant de tourner, un rendez-vous ou une autre sortie dans ce créneau est signalé : tu peux tourner quand
@@ -345,8 +369,9 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
 - **Agent et agence d’influence** (0.31) : depuis le profil d’un perso qui a au moins 1 000 abonnés, tu proposes de
   devenir son agent, avec ta commission (10, 15 ou 20 %) et, ou non, l’exclusivité ; son IA accepte, refuse ou négocie.
   Les marques t’écrivent alors pour lui (environ 10 € les 1 000 abonnés pour un post sponsorisé, selon la saison et ta
-  réputation d’agent) : tu négocies dans leurs messages, ton talent dit oui ou non dans les vôtres, puis publie son post
-  quand ça l’arrange ; la marque paie et tu touches ta commission. Un retard fait baisser ta réputation d’agent, un post
+  réputation d’agent), et depuis la 0.32 tu peux aussi demander un partenariat pour ton talent à une marque que tu
+  connais (son IA décide, et si c’est oui, la proposition arrive dans vos messages) : tu négocies dans leurs messages, ton
+  talent dit oui ou non dans les vôtres, puis publie son post quand ça l’arrange ; la marque paie et tu touches ta commission. Un retard fait baisser ta réputation d’agent, un post
   jamais livré encore plus. Un talent peut signer dans ton dos (avec l’exclusivité, ta commission se réclame), te quitter,
   ou être courtisé par une agence rivale. Avec deux talents, ton agence (2 000 €) en accueille jusqu’à six, attire plus de
   marques, qui paient un peu mieux, et peut engager un agent (Studio → Recruter).
@@ -400,7 +425,12 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   sujet (trier, remettre dans l’ordre, quiz, vrai ou faux, trouve l’intrus) et les épreuves du format (la coupe au
   rythme, la mémoire, plus le recadrage pour un short, le chat pour un live, le mixage pour un podcast), soit 1 chance
   sur 8, et 1 sur 7 pour une vidéo ou un clip ; jamais le même deux fois de suite (une de moins avec un monteur dans
-  l’équipe : pas de coupe au rythme pour toi). Cauchemar reste le quiz de vraies questions. Depuis la 0.27.4, chaque
+  l’équipe : pas de coupe au rythme pour toi). Depuis la 0.32, **les épreuves d’adresse comptent double** : un short,
+  un live ou un podcast sur deux tombe sur une épreuve (1 chance sur 6 chacune, 1 sur 10 pour chaque jeu écrit), et
+  pour une vidéo ou un clip, la coupe au rythme et la mémoire ont 1 chance sur 5 chacune. Et **retenter un tournage**
+  depuis sa sauvegarde « Avant le tournage » te donne un mini-jeu que ce tournage ne t’a pas encore donné (une fois
+  qu’ils sont tous passés, n’importe lequel sauf celui que tu viens de quitter), pareil pour la préparation d’une grosse
+  production. Cauchemar reste le quiz de vraies questions. Depuis la 0.27.4, chaque
   réponse a **2 secondes de plus**, quelle que soit la difficulté (chaque élément à trier, chaque question, chaque
   série, chaque image à retrouver, chaque message du chat, chaque coupe). Depuis la 0.27.5, le chrono des jeux écrits
   par l’IA suit **la longueur de ce qu’il y a à lire** (le texte et ses réponses, à un rythme de lecture qui monte avec
@@ -461,6 +491,17 @@ ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une
   monde entier quand un post devient viral (avec « Traduire »). C’est l’IA qui décide quand ça arrive.
 - **Ta bio** (0.29) : « Ajouter une bio » ou le crayon de ton profil, à tout moment ; les persos lisent la nouvelle.
 - **L’heure du jeu** : une date et une heure visibles, une montre pour avancer le temps de 5 minutes à une semaine.
+  Depuis la 0.32, **chaque action prend du temps** : un message privé, de groupe ou un commentaire 5 min (10 s’il est
+  long), un post 15 min (20 avec une photo, 30 pour un diaporama ou une accusation avec preuves), une story 10 min, les
+  actions du studio et de la boutique 15 à 30 min ; lire, liker et réagir ne coûtent rien. L’horloge avance toute seule
+  (« +5 min »), et après quelques heures passées à écrire, tourner ou en rendez-vous, le réseau raconte ce qui s’est passé
+  pendant ce temps. **Ton énergie** (la batterie à côté de l’horloge) baisse au fil de la journée, plus vite quand tu
+  travailles : après environ 14 h debout, tes tournages sont moins bons (le jeu le dit avant de tourner) et les persos
+  peuvent le remarquer. **« Dormir »** dans la montre : jusqu’à 8 h le soir et la nuit (ton réveil sonne avant un
+  rendez-vous ou un tournage), une sieste en journée ; à partir de 1 h du matin, le jeu te propose d’aller dormir, sans
+  jamais t’y forcer. Avancer le temps à travers la nuit, c’est dormir aussi, et fermer le jeu longtemps te repose. Le jeu
+  dit aussi **le jour de ta partie** (« jour 12 ») : à côté de l’horloge sur ordi, dans la montre et dans ton profil,
+  avec le jour où ta partie a commencé (le temps avancé compte).
 - **Les cafés** : ton budget IA du jour, réglable à chaque partie (Découverte, Léger, Normal, Intensif, Marathon, Sans
   limite), avec ce que chaque palier représente en posts et en messages, et lequel choisir selon ton abonnement (avec
   ChatGPT Plus : Intensif ou Marathon). Le jeu mesure ce que chaque réponse consomme vraiment et se met en pause avant de
@@ -547,7 +588,10 @@ src/                le jeu : core.js, ai.js, career.js (la carrière : argent,
                     les agents, les marques qui reviennent), commu.js (ta commu, les questions des abonnés, les
                     habitués, les dons en live, les adhésions), merch.js (« Ta boutique »), agency.js (l’agent et
                     l’agence d’influence), roles.js (les rôles de
-                    chaque partie : le critique, Rebecca Silver, le psychopathe), social.js (le réseau qui vit :
+                    chaque partie : le critique, Rebecca Silver, le psychopathe), temps.js (0.32 : l’énergie, le temps
+                    que prend chaque action, la vie des persos), traits.js (0.32 : le caractère en
+                    conflit, les traits extrêmes, les persos ouverts et le trouple, l’inquiet, la notion du temps),
+                    stalkers.js (0.32 : ceux qui suivent le joueur de trop près, à partir de 10 000 abonnés), social.js (le réseau qui vit :
                     stories, groupes, la mère, les fans, les faux comptes, les petits faits du quotidien), studio.js (ses
                     écrans), montage.js (le
                     montage, la miniature et le dessin, après le tournage), photos.js

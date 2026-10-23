@@ -113,14 +113,18 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     S.mgForce = f;
     return out;
   });
-  const even = (d, n) => Object.values(d.share).every((x) => Math.abs(x - 100 / n) < 2.2);
-  check('at the shoot of a video, Mythique or Facile alike: the 7 mini-games about 14 % each (sort, order, quiz, true or false, odd one out, the cut on the beat, the memory; 0.27.4: no more grading), never the same twice in a row',
-    dist.video.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && even(dist.video, 7) && even(dist.videoEasy, 7) && dist.video.twice === 0, { video: dist.video, easy: dist.videoEasy });
-  check('each format its own skill round, the same chance for all: the reframing for a short, the chat for a live, the mix for a podcast; a clip has the seven of a video',
-    /cadrage/.test(dist.short.kinds) && !/chat|mixage|etalonnage/.test(dist.short.kinds) && even(dist.short, 8) && /chat/.test(dist.live.kinds) && even(dist.live, 8)
-      && /mixage/.test(dist.podcast.kinds) && even(dist.podcast, 8) && dist.clip.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && even(dist.clip, 7), { short: dist.short, live: dist.live, podcast: dist.podcast, clip: dist.clip });
-  check('with an editor in the team: no cut on the beat for the player, the 6 others alike (about 17 %); « Cauchemar » stays the real quiz',
-    dist.editor.kinds === 'intrus,memoire,ordre,quiz,tri,vf' && even(dist.editor, 6) && dist.nightmare, { editor: dist.editor, nightmare: dist.nightmare });
+  // 0.32: the skill rounds count double (with « never the same twice in a row »: a short half and half). Each kind near
+  // its share: the AI's five (written) one share, the skill rounds another.
+  const WRITTEN = ['tri', 'ordre', 'quiz', 'vf', 'intrus'];
+  const near = (d, written, skill) => Object.entries(d.share).every(([k, x]) => Math.abs(x - (WRITTEN.includes(k) ? written : skill)) < 2.2);
+  const writtenShare = (d) => Math.round(WRITTEN.reduce((a, k) => a + (d.share[k] || 0), 0));
+  check('at the shoot of a video, Mythique or Facile alike: 7 mini-games (sort, order, quiz, true or false, odd one out, the cut on the beat, the memory; 0.27.4: no more grading); 0.32: the cut and the memory count double, about 19 % each, the written ones about 12 % (61 % in all); never the same twice in a row',
+    dist.video.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && near(dist.video, 12.2, 19.4) && near(dist.videoEasy, 12.2, 19.4) && dist.video.twice === 0 && Math.abs(writtenShare(dist.video) - 61) <= 3, { video: dist.video, easy: dist.videoEasy });
+  check('each format its own skill round: the reframing for a short, the chat for a live, the mix for a podcast, half the shoots a skill round (about 17 % each, the written ones 10 %); a clip has the seven of a video',
+    /cadrage/.test(dist.short.kinds) && !/chat|mixage|etalonnage/.test(dist.short.kinds) && near(dist.short, 10.1, 16.6) && Math.abs(writtenShare(dist.short) - 50) <= 3 && /chat/.test(dist.live.kinds) && near(dist.live, 10.1, 16.6)
+      && /mixage/.test(dist.podcast.kinds) && near(dist.podcast, 10.1, 16.6) && dist.clip.kinds === 'intrus,memoire,montage,ordre,quiz,tri,vf' && near(dist.clip, 12.2, 19.4), { short: dist.short, live: dist.live, podcast: dist.podcast, clip: dist.clip });
+  check('with an editor in the team: no cut on the beat for the player, the memory about 23 %, the five written ones about 15 % each; « Cauchemar » stays the real quiz',
+    dist.editor.kinds === 'intrus,memoire,ordre,quiz,tri,vf' && near(dist.editor, 15.4, 23.1) && dist.nightmare, { editor: dist.editor, nightmare: dist.nightmare });
 
   // ---------- the format is imposed on the AI ----------
   const pr = await G(page, () => {
@@ -144,6 +148,83 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     await G(page, () => { const H = window.__hype; H.S.stack = []; H.update(); });
     await page.waitForSelector('.layer .mg-intro', { state: 'detached', timeout: 5000 }).catch(() => {});
   }
+
+  // ---------- 0.32: a retry from the save taken before the shoot draws another mini-game ----------
+  // (the save was taken before the draw: loaded again, the same odds came back, the game just left included)
+  // the newest « Avant le tournage » (or « Avant la préparation ») save, once written after `after`
+  const lastAt = (page) => G(page, () => Math.max(0, ...(window.__hype.S.game.saves || []).map((s) => s.at)));
+  const lastShootSave = (page, id, after) => G(page, async ([x, after]) => {
+    const H = window.__hype, g = H.S.game, mine = () => (g.saves || []).filter((s) => s.at > after && /Avant le tournage|Avant la préparation/.test(s.label));
+    for (let k = 0; k < 80 && !mine().length; k++) await new Promise((ok) => setTimeout(ok, 100));
+    const meta = mine().sort((a, b) => b.at - a.at)[0];
+    const body = meta ? await H.Store.read(`g_${g.id}_save_${meta.slot}`) : null;
+    const rr = body ? body.game.releases.find((y) => y.id === x) : null;
+    return meta && rr ? { slot: meta.slot, seen: rr.mgSeen || null, prepSeen: rr.big ? rr.big.prepSeen || null : null, recent: body.game.mgRecent, next: body.game.mgNext || null, game: rr.game, started: !!rr.prodAt, crew: rr.crew || null } : null;
+  }, [id, after]);
+  const reload = async (page, slot, id) => {
+    await G(page, (s) => window.__hype.loadSave(s), slot);
+    await page.waitForFunction((x) => { const H = window.__hype, g = H.S.game, r = g && g.releases.find((y) => y.id === x); return r && !r.game && !H.S.busy.mg && !H.S.busy.save; }, id, { timeout: 15000 });
+    await G(page, () => { const H = window.__hype; H.S.stack = []; H.S.modals.length = 0; H.update(); });
+  };
+  const retryId = await G(page, () => {
+    const H = window.__hype, g = H.S.game;
+    for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped';
+    g.career.platform = 'tiktok';
+    window.__hypeEasyGear = true;
+    const r = H.scheduleRelease(g, { what: 'short', topic: 'les potions de Lumen', due: Date.now() + 60000 });
+    window.__hypeEasyGear = false;
+    r.due = Date.now() - 1000; r.diff = 'mythique'; r.devis = { total: 0, items: [], topic: r.topic, at: Date.now() };
+    g.mgRecent = ['vf', 'quiz', 'tri']; delete g.mgNext;
+    H.S.mgForce = null;
+    return r.id;
+  });
+  const tries = [];
+  for (let i = 0; i < 9; i++) {
+    const after = await lastAt(page);
+    const kind = await G(page, (x) => { const H = window.__hype, g = H.S.game, r = g.releases.find((y) => y.id === x); H.genShoot(r); return g.mgRecent[0]; }, retryId);
+    const sv = await lastShootSave(page, retryId, after);
+    tries.push({ kind, sv });
+    if (!sv) break;
+    await reload(page, sv.slot, retryId);
+  }
+  const ks = tries.map((t) => t.kind), first7 = ks.slice(0, 7);
+  check('0.32: a shoot retried from its save (« Avant le tournage ») never draws a mini-game it already drew: a short, 7 tries in a row, 7 different ones (never the last shoot’s), then any but the one just left',
+    tries.length === 9 && new Set(first7).size === 7 && !first7.includes('vf') && ks[7] !== ks[6] && ks[8] !== ks[7], ks);
+  check('the save is the game before the draw (its recent shoots, no game, nothing paid), plus what the draw gave: the list of what this shoot drew, the last one last',
+    tries.every((t, i) => t.sv && t.sv.game === null && !t.sv.started && t.sv.crew === null && JSON.stringify(t.sv.recent) === '["vf","quiz","tri"]' && t.sv.seen && t.sv.seen[t.sv.seen.length - 1] === t.kind && (i > 6 || t.sv.seen.length === i + 1)), tries.map((t) => t.sv && { seen: t.sv.seen, recent: t.sv.recent }));
+  // imposed ahead: imposed again on a retry
+  const after0 = await lastAt(page);
+  await G(page, (x) => { const H = window.__hype, g = H.S.game, r = g.releases.find((y) => y.id === x); g.mgNext = 'cadrage'; H.genShoot(r); }, retryId);
+  const imp = await lastShootSave(page, retryId, after0);
+  const imp1 = await G(page, (x) => { const g = window.__hype.S.game, r = g.releases.find((y) => y.id === x); return { kind: r.game && r.game.kind, next: g.mgNext || null }; }, retryId);
+  await reload(page, imp.slot, retryId);
+  const imp2 = await G(page, (x) => { const H = window.__hype, g = H.S.game, r = g.releases.find((y) => y.id === x); const before = g.mgNext || null; H.genShoot(r); return { before, kind: r.game && r.game.kind, next: g.mgNext || null }; }, retryId);
+  check('a mini-game imposed ahead stays imposed on a retry from that save (then used up)', imp1.kind === 'cadrage' && !imp1.next && imp && imp.next === 'cadrage' && imp2.before === 'cadrage' && imp2.kind === 'cadrage' && !imp2.next, { imp1, save: imp && imp.next, imp2 });
+  // played: a shoot made again later starts its draws anew
+  const fin = await G(page, (x) => { const H = window.__hype, g = H.S.game, r = g.releases.find((y) => y.id === x); const had = (r.mgSeen || []).length; H.finishShoot(r, 0.8); return { had, after: r.mgSeen || null, played: !!r.played }; }, retryId);
+  check('once played, the shoot forgets what it drew (a shoot made again later draws as any other)', fin.had >= 1 && fin.after === null && fin.played, fin);
+  // the preparation of a production: the same
+  const prepId = await G(page, () => {
+    const H = window.__hype, g = H.S.game, t = Date.now();
+    for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped';
+    const r = { id: 'rlprep' + t, what: 'vidéo', noun: '', topic: 'Le grand bal masqué', plot: '', post: null, at: t, due: t - 1000, outAt: t + 86400000, state: 'scheduled', delays: 0, tries: 0, c: null, game: null, played: null, said: '', diff: 'moyen', planned: true,
+      big: { size: 2, stage: 0, slots: [t - 1000, t + 5 * 3600000, t + 24 * 3600000], k: 2, scores: [], cast: [], deals: [], hitches: [], at: t } };
+    g.releases.push(r); g.mgLast = 'quiz';
+    return r.id;
+  });
+  const preps = [];
+  for (let i = 0; i < 6; i++) {
+    const after = await lastAt(page);
+    const kind = await G(page, (x) => { const H = window.__hype, g = H.S.game, r = g.releases.find((y) => y.id === x); H.genBigStage(r); return (r.big.prepSeen || []).slice(-1)[0]; }, prepId);
+    const sv = await lastShootSave(page, prepId, after);
+    preps.push({ kind, seen: sv && sv.prepSeen });
+    if (!sv) break;
+    await reload(page, sv.slot, prepId);
+  }
+  const pk = preps.map((p) => p.kind);
+  check('the preparation of a production too: retried from its save (« Avant la préparation »), 5 tries, 5 different games (never the last one played), then any but the one just left',
+    preps.length === 6 && new Set(pk.slice(0, 5)).size === 5 && !pk.slice(0, 5).includes('quiz') && pk[5] !== pk[4] && preps.every((p) => p.seen && p.seen[p.seen.length - 1] === p.kind), preps);
+  await G(page, () => { const H = window.__hype; H.S.mgForce = null; H.S.stack = []; H.update(); });
 
   await browser.close();
   console.log('\nERRORS', errors.length ? errors.join('\n') : 'none');

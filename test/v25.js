@@ -110,7 +110,7 @@ const played = (page, id) => G(page, (x) => { const r = window.__hype.S.game.rel
     const seen = {};
     for (const w of ['live', 'short', 'podcast', 'vidéo']) {
       const r = { what: w, diff: 'moyen', crew: [] };
-      for (let i = 0; i < 400; i++) { g.mgRecent = []; const k = H.pickShootKind(g, r); seen[w + ':' + k] = (seen[w + ':' + k] || 0) + 1; } // (0.27.3: every game of the format alike)
+      for (let i = 0; i < 400; i++) { g.mgRecent = []; const k = H.pickShootKind(g, r); seen[w + ':' + k] = (seen[w + ':' + k] || 0) + 1; } // (0.27.3: every game of the format; 0.32: the skill rounds count double)
     }
     const edits = {};
     for (const [w, shotK] of [['vidéo', 'quiz'], ['vidéo', 'montage'], ['short', 'cadrage'], ['podcast', 'quiz'], ['clip', 'montage']]) {

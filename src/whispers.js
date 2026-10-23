@@ -79,8 +79,8 @@ function foesNotice(g, c, how = 'close', at = later()) {
 
 /* ---------- what is said about the player, passed from one to the next ---------- */
 // The chattiest pass it on; the loyal keep it to themselves.
-const TALKS = { trouble: 0.7, envieux: 0.65, opportuniste: 0.6, detache: 0.4, integre: 0.3, fidele: 0.25 };
-const talks = (c) => TALKS[temperOf(c)] || 0.4;
+const TALKS = { trouble: 0.7, envieux: 0.65, opportuniste: 0.6, inquiet: 0.5, detache: 0.4, integre: 0.3, fidele: 0.25 };
+const talks = (c) => Math.min(0.85, (TALKS[temperOf(c)] || 0.4) + ((t32On() && { dramatique: 0.15, paisible: -0.1 }[clashOf(c)]) || 0)); // (0.32: the dramatic talk more)
 // text: about the player, in the third person (« pose des lapins »); about: a character it concerns (it may reach them).
 // love (0.22.2): the character the player has something with, that whoever hears it learns of; soon: told within hours.
 function addWhisper(g, from, text, o = {}) {
@@ -230,7 +230,8 @@ function seenNeed(o, k) {
   let n = SEEN_NEED[k] || 3;
   if (k === 'drague' || k === 'present') {
     if (PARTNER.includes(o.vibe)) n *= 0.7;
-    n *= { jaloux: 0.6, anxieux: 0.8, forteresse: 0.8, serein: 1.3, inaccessible: 1.4 }[o.coeur] || 1;
+    n *= { jaloux: 0.6, anxieux: 0.8, forteresse: 0.8, serein: 1.3, inaccessible: 1.4, possessif: 0.5, fusionnel: 0.7, volage: 1.8, libre: 2.2 }[o.coeur] || 1;
+    if (isOpen(o)) n *= 1.8; // 0.32: open: it hardly bothers them
   }
   return n;
 }
@@ -246,6 +247,7 @@ function seenCheck(g, o, s, x, t = Date.now()) {
     ignore: ['le joueur commente chez tout le monde sauf chez moi', `@${o.handle}, proche du joueur, remarque qu’il commente partout sauf sous son dernier post : ${il} réagit à sa façon (une taquinerie, une petite vexation, ou rien).`],
   }[s.k];
   if (!T || (s.k !== 'ignore' && !x)) return false;
+  if ((s.k === 'drague' || s.k === 'present') && okWith(g, o, x)) return false; // 0.32: open, and fine with that one
   s.told = t;
   s.n = 0;
   addMem(g, o, T[0]);

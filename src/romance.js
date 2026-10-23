@@ -11,14 +11,20 @@
    ========================================================= */
 const sensual = (g) => !(g && g.opts && g.opts.romance === 'pudique');
 // How far and how soon each heart goes: hours in the step (flirt, couple…), a couple counting half as much again.
+// (0.32: twice as long for those who take their time (slow), as the steps themselves: a real sense of time.)
 const HEART_INTIMACY = {
   impulsif: { soon: 0, ready: 0, word: 'va très vite, sensuel·le dès le flirt et prêt·e à finir la nuit ensemble dès un premier rendez-vous chez l’un ou l’autre' },
+  libre: { soon: 0, ready: 0, word: 'ne cherche que ça : une nuit ensemble, sans rien promettre pour la suite' },
+  volage: { soon: 0, ready: 6, word: 'va vite, léger·e et joueur·se, sans rien promettre' },
   jaloux: { soon: 6, ready: 24, word: 'va vite, intense et exclusif·ve' },
-  serein: { soon: 24, ready: 72, word: 'se laisse aller quand ça se passe bien, après quelques jours' },
-  anxieux: { soon: 48, ready: 96, word: 'en a envie mais a besoin d’être rassuré·e d’abord (la confiance compte plus que le temps)' },
-  prudent: { soon: 72, ready: 144, word: 'y arrive plus tard, avec du temps et de la confiance' },
-  inaccessible: { soon: 72, ready: 144, word: 'fait comme un·e prudent·e, une fois le joueur vraiment remarqué' },
-  forteresse: { soon: 144, ready: 288, word: 'y arrive très tard, mais à fond une fois conquis·e' },
+  possessif: { soon: 6, ready: 24, word: 'va vite, intense, et veut l’exclusivité' },
+  fusionnel: { soon: 6, ready: 24, word: 'va vite et intensément, et veut que ce soit sérieux' },
+  chaudfroid: { soon: 48, ready: 96, word: 'selon les jours : brûlant·e un soir, distant·e le lendemain' },
+  serein: { soon: 24, ready: 72, slow: true, word: 'se laisse aller quand ça se passe bien, après quelques jours' },
+  anxieux: { soon: 48, ready: 96, slow: true, word: 'en a envie mais a besoin d’être rassuré·e d’abord (la confiance compte plus que le temps)' },
+  prudent: { soon: 72, ready: 144, slow: true, word: 'y arrive plus tard, avec du temps et de la confiance' },
+  inaccessible: { soon: 72, ready: 144, slow: true, word: 'fait comme un·e prudent·e, une fois le joueur vraiment remarqué' },
+  forteresse: { soon: 144, ready: 288, slow: true, word: 'y arrive très tard, mais à fond une fois conquis·e' },
 };
 // Where they are with the player, in words (their heart, the time in this step, their trust): a guide, they decide.
 function intimacyLv(g, c, t = Date.now()) {
@@ -26,7 +32,8 @@ function intimacyLv(g, c, t = Date.now()) {
   const H = HEART_INTIMACY[c.coeur] || HEART_INTIMACY.serein;
   const since = c.pace && c.pace.at ? Math.max(0, (t - c.pace.at) / 3600000) : 0;
   const tr = trustOf(c), h = since * (PARTNER.includes(c.vibe) ? 1.5 : 1) + (tr >= 60 ? 24 : tr >= 40 ? 8 : 0) + (c.intimate ? 48 : 0);
-  return h >= H.ready ? 2 : h >= H.soon ? 1 : 0;
+  const k = H.slow && t32On() ? 2 : 1;
+  return h >= H.ready * k ? 2 : h >= H.soon * k ? 1 : 0;
 }
 function intimacyLine(g, c, t = Date.now()) {
   if (!sensual(g) || !c || !LOVE_ACTIVE.includes(c.vibe)) return null;
@@ -34,12 +41,12 @@ function intimacyLine(g, c, t = Date.now()) {
   const now = [`pas encore : baisers, câlins, tendresse ; une main qui s’aventure trop loin, ${il} la reprend gentiment (« pas encore… »), sans fermer la porte`,
     `ça commence : caresses, massages, une tenue plus légère, le lit pour se blottir ; ${il} peut le proposer`,
     `prêt·e : ça peut aller jusqu’au bout si le moment s’y prête (la scène coupe alors), et ${il} peut en prendre l’initiative`][intimacyLv(g, c, t)];
-  return `Intimité avec ${first} (cœur ${c.coeur || 'serein'}, qui ${H.word}) : ${now}. Un repère, pas une règle : ${first} décide selon le moment, son envie et la soirée.${c.intimate ? ` Ils ont déjà partagé des moments intimes (coupés à l’écran) : ${il} peut y faire allusion avec complicité, sans jamais les raconter.` : ''}`;
+  return `Intimité avec ${first} (cœur ${heartWord(c.coeur || 'serein')}, qui ${H.word}) : ${now}. Un repère, pas une règle : ${first} décide selon le moment, son envie et la soirée.${c.intimate ? ` Ils ont déjà partagé des moments intimes (coupés à l’écran) : ${il} peut y faire allusion avec complicité, sans jamais les raconter.` : ''}`;
 }
 const INTIMACY_BLOCK = ['## INTIMITÉ (mode sensuel, entre adultes : le joueur a 18 ans ou plus et l’a choisi)',
   '- Entre adultes qui le veulent, les rapprochements sont permis et peuvent être sensuels : désir dit franchement, baisers appuyés, caresses (même audacieuses, racontées par les sensations : frissons, souffle, mains qui s’attardent), massages, tenue légère, nuisette ou sous-vêtements évoqués sans détail cru, commencer à se déshabiller, se retrouver au lit, dormir ensemble.',
   '- Jamais explicite : ni description crue du corps nu, ni des actes sexuels. Dès que ça devient du sexe (préliminaires compris), la scène coupe.',
-  '- Le rythme dépend du cœur de chacun et de leur histoire : l’impulsif va vite, même en flirt ; le jaloux aussi ; le serein après quelques jours ; l’anxieux quand il se sent rassuré ; le prudent plus tard ; la forteresse très tard, mais à fond une fois conquise.',
+  '- Le rythme dépend du cœur de chacun et de leur histoire : l’impulsif et le libre vont vite, même en flirt (le libre sans rien promettre) ; le volage aussi, léger ; le jaloux, le possessif et le fusionnel vite et intensément ; le chaud-froid selon les jours ; le serein après quelques jours ; l’anxieux quand il se sent rassuré ; le prudent plus tard ; la forteresse très tard, mais à fond une fois conquise.',
   '- Le personnage peut aussi proposer lui-même (rester dormir, un massage, venir se blottir, une tenue qu’il décrit pour taquiner), pas à chaque message.',
   '- Consentement des deux côtés : le personnage décide. S’il n’est pas prêt, il le dit à sa façon, avec tendresse ou humour, sans fermer la porte (« pas ce soir, mais… ») : jamais un mur, jamais une leçon. Si le joueur insiste lourdement après un non, ça refroidit.',
   '- Ce qui a été coupé peut revenir en allusions entre eux (un clin d’œil, une taquinerie, « on recommence quand tu veux », une gêne mignonne), jamais raconté ; en public, au plus un sous-entendu que seuls eux comprennent.'].join('\n');

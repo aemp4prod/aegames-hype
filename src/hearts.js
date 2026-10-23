@@ -13,22 +13,36 @@
    Nothing is announced and nothing is graded on screen: it shows in their face, their answers, their silences.
    ========================================================= */
 const HR = 3600000;
+/* 0.32: five more hearts (his wishes: « plus d'archétypes », « le possessif », « un qui veut que des coups d'un soir »),
+   and a human pace (« une vraie notion du temps »: a couple in a week was too fast): PACE_K below. fast: going fast is
+   what they like (every step); fastTo: up to that step only; steps: a step's weight of their own (a couple, for the
+   ones who do not want one). */
 const COEURS = {
   serein: { pace: 24, up: 1, down: 1, ai: 'serein·e en amour : se laisse aller quand ça se passe bien, sans précipitation' },
   prudent: { pace: 48, up: 0.75, down: 1.2, ai: 'prudent·e en amour : a besoin de temps, se méfie de ce qui va trop vite' },
   anxieux: { pace: 36, up: 0.9, down: 1.1, ai: 'anxieux·se en amour : s’attache, mais panique quand ça s’emballe' },
-  impulsif: { pace: 6, up: 1.4, down: 1.3, ai: 'impulsif·ve en amour : craque vite, adore l’intensité… et se lasse aussi vite' },
-  jaloux: { pace: 12, up: 1.15, down: 1.15, ai: 'jaloux·se en amour : s’attache vite, possessif·ve, ne supporte pas de partager' },
+  impulsif: { pace: 6, up: 1.4, down: 1.3, fast: true, ai: 'impulsif·ve en amour : craque vite, adore l’intensité… et se lasse aussi vite' },
+  jaloux: { pace: 12, up: 1.15, down: 1.15, fast: true, ai: 'jaloux·se en amour : s’attache vite, ne supporte pas de partager, voit des rivaux partout' },
   forteresse: { pace: 96, up: 0.4, down: 1.6, defi: true, ai: 'une forteresse : hyper méfiant·e, très dur·e à convaincre, teste tout ; une fois conquis·e, c’est pour de bon' },
   inaccessible: { pace: 48, up: 0.6, down: 1.2, defi: true, ai: 'inaccessible : ignore les inconnus, ne répond qu’à qui a su se faire remarquer' },
+  fusionnel: { pace: 6, up: 1.4, down: 1.2, fast: true, ai: 'fusionnel·le en amour : veut être en couple tout de suite et tout partager ; dit vite « je t’aime », veut officialiser, écrit beaucoup, fait déjà des projets ; sincère, jamais manipulateur·rice ; si le joueur ralentit ou prend ses distances, il ou elle s’inquiète et se sent rejeté·e (« on est quoi, nous deux ? »), sans jamais se venger' },
+  chaudfroid: { pace: 36, up: 1.1, down: 1.2, ai: 'chaud-froid en amour : souffle le chaud et le froid ; adorable et très présent·e un jour, distant·e le lendemain ; fait courir le joueur, sans toujours le faire exprès' },
+  volage: { pace: 24, up: 1.2, down: 1, fastTo: 'flirt', steps: { flirt: 0.25, couple: 4 }, ai: 'volage en amour : flirte avec tout le monde, adore séduire, ne veut rien d’exclusif ; sincère sur le moment, mais l’idée d’un couple le ou la fait fuir (« pas besoin de mettre une étiquette ») ; ne se cache pas de voir d’autres gens' },
+  possessif: { pace: 12, up: 1.2, down: 1.3, fast: true, ai: 'possessif·ve en amour : veut que le joueur soit à lui ou à elle ; demande où il est et avec qui, lui demande de supprimer un post ou d’arrêter de parler à quelqu’un, boude ou s’agace quand il voit du monde sans lui ; toxique, jamais violent·e' },
+  libre: { pace: 24, up: 1.2, down: 1, fastTo: 'flirt', steps: { flirt: 0.2, couple: 10 }, ai: 'libre en amour : ne veut que des aventures d’un soir, jamais de couple ; drôle, direct·e, assume ses envies ; si le joueur veut plus (un couple, des projets), il ou elle se défile, gentiment ou sèchement ; une aventure peut se répéter sans devenir sérieuse' },
 };
+const PACE_K = 3; // 0.32: every step takes three times as long as before (a serene one: about a week to a couple, a cautious one two)
 const COEUR_IDS = Object.keys(COEURS);
+// 0.32: the hot-and-cold: warm spells and cold ones, about a day and a half each (to the extreme: shorter, and colder)
+const cfHot = (c, t = Date.now()) => { const span = (c.extreme === 'coeur' ? 20 : 34) * HR, off = (hashStr((c.handle || '') + '#cf') % 24) * HR; return Math.floor((t + clockOff() + off) / span) % 2 === 0; };
 const heartOf = (c) => COEURS[c && c.coeur] || COEURS.serein;
 const isDefi = (c) => !!heartOf(c).defi;
 const normCoeur = (k) => {
   k = String(k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return /forter|bunker|imprenable|glace/.test(k) ? 'forteresse' : /inaccess|hautain|distant|star/.test(k) ? 'inaccessible'
-    : /impuls|passion|fougu|coup de foudre/.test(k) ? 'impulsif' : /jalou|possess/.test(k) ? 'jaloux' : /anxi|panique|angoiss|stress/.test(k) ? 'anxieux'
+    : /fusion|pot de colle|en couple tout de suite/.test(k) ? 'fusionnel' : /chaud.?froid|souffle le chaud/.test(k) ? 'chaudfroid' : /volage|papillon|seducteur|seductrice|dragueu/.test(k) ? 'volage'
+      : /libre|sans attache|coup d.un soir|aventure|libertin/.test(k) ? 'libre' : /possess|control/.test(k) ? 'possessif'
+      : /impuls|passion|fougu|coup de foudre/.test(k) ? 'impulsif' : /jalou/.test(k) ? 'jaloux' : /anxi|panique|angoiss|stress/.test(k) ? 'anxieux'
       : /prud|mefi|reserv|lent/.test(k) ? 'prudent' : /serein|seren|calme|zen|pose|normal/.test(k) ? 'serein' : null;
 };
 // From the AI line that creates them: their heart, and their closest friend (a handle, found once everybody exists).
@@ -80,7 +94,8 @@ function heartScale(c, d) {
   return v > 0 ? Math.max(1, Math.round(v)) : Math.min(-1, Math.round(v));
 }
 // And trust (see trustMult).
-const heartTrust = (c) => (c && c.coeur === 'forteresse' ? 0.5 : c && c.coeur === 'prudent' ? 0.85 : c && c.coeur === 'inaccessible' ? (c.noticed ? 0.8 : 0.4) : c && c.coeur === 'impulsif' ? 1.1 : 1);
+const heartTrust = (c) => (c && c.coeur === 'forteresse' ? 0.5 : c && c.coeur === 'prudent' ? 0.85 : c && c.coeur === 'inaccessible' ? (c.noticed ? 0.8 : 0.4) : c && c.coeur === 'impulsif' ? 1.1
+  : c && c.coeur === 'fusionnel' ? 1.2 : c && c.coeur === 'possessif' ? 0.9 : c && c.coeur === 'chaudfroid' ? 0.85 : 1);
 // Someone out of reach notices the player: enough followers, a viral post, their friend on the player's side, a bond.
 function noticed(g, c, t = Date.now()) {
   if (!c || c.coeur !== 'inaccessible' || c.noticed) return true;
@@ -104,7 +119,7 @@ function quietDM(g, c, convo, t = Date.now()) {
   return null;
 }
 // For the AI that writes the world.
-const COEUR_WORLD = '   - "coeur" = comment il ou elle vit l’amour : serein (se laisse aller sans précipitation), prudent (a besoin de temps), anxieux (panique quand ça s’emballe), impulsif (craque vite, se lasse vite), jaloux (possessif), forteresse (hyper méfiant·e, très dur·e à convaincre) ou inaccessible (une star qui ignore les inconnus) ; varie-les, et parmi les 5 premiers mets au moins un vrai défi (forteresse ou inaccessible). Ça se devine à sa bio et à sa personnalité, sans le dire en toutes lettres. "ami" = le handle de son ou sa confident·e parmi ces dix personnages.';
+const COEUR_WORLD = '   - "coeur" = comment il ou elle vit l’amour : serein (se laisse aller sans précipitation), prudent (a besoin de temps), anxieux (panique quand ça s’emballe), impulsif (craque vite, se lasse vite), jaloux (voit des rivaux partout), possessif (veut le joueur pour lui ou elle), fusionnel (veut être en couple tout de suite), chaudfroid (souffle le chaud et le froid), volage (flirte avec tout le monde, rien d’exclusif), libre (que des aventures d’un soir), forteresse (hyper méfiant·e, très dur·e à convaincre) ou inaccessible (une star qui ignore les inconnus) ; varie-les, et parmi les 5 premiers mets au moins un vrai défi (forteresse ou inaccessible). Ça se devine à sa bio et à sa personnalité, sans le dire en toutes lettres. "ami" = le handle de son ou sa confident·e parmi ces dix personnages.';
 
 /* ---------- the pace: how fast is too fast, for this heart ---------- */
 const LOVE_STEPS = ['crush', 'flirt', 'couple', 'fiancailles', 'mariage'];
@@ -112,10 +127,11 @@ const LOVE_ACTIVE = ['crush', 'flirt', 'couple', 'fiancailles', 'mariage'];
 const STEP_W = { flirt: 0.75, couple: 1.5, fiancailles: 4, mariage: 3 }; // a crush is a feeling, not a step: no pace for it
 const loveRank = (v) => LOVE_STEPS.indexOf(v);
 const paceFrom = (c) => (c.pace && c.pace.at) || c.firstTalk || c.unlockedAt || 0;
-const paceNeed = (c, v) => heartOf(c).pace * (STEP_W[v] || 0) * HR;
+const paceNeed = (c, v) => { const H = heartOf(c); return H.pace * (STEP_W[v] || 0) * ((H.steps && H.steps[v]) || 1) * (t32On() ? PACE_K : 1) * HR; }; // (the suites written before keep their pace)
 const nextLove = (c) => { const k = loveRank(c.vibe); return k < 0 ? 'flirt' : LOVE_STEPS[k + 1] || null; };
-const likesSpeed = (c) => c.coeur === 'impulsif' || c.coeur === 'jaloux';
-function tooFast(c, v, t = Date.now()) { return !!(STEP_W[v] && !likesSpeed(c) && t - paceFrom(c) < paceNeed(c, v)); }
+// (0.32: by heart; the volage and the free ones like it fast up to a flirt, not further)
+const likesSpeed = (c, v) => { const H = heartOf(c); return !!(H.fast || (H.fastTo && (v == null || loveRank(v) <= loveRank(H.fastTo)))); };
+function tooFast(c, v, t = Date.now()) { return !!(STEP_W[v] && !likesSpeed(c, v) && t - paceFrom(c) < paceNeed(c, v)); }
 // Called by applyVibe before a step up the ladder: 'ok' (it happens) or 'block' (it does not, and something starts).
 function paceCheck(g, c, v, t = Date.now()) {
   if (!LOVE_STEPS.includes(v) || loveRank(v) <= loveRank(c.vibe)) return 'ok';
@@ -123,7 +139,7 @@ function paceCheck(g, c, v, t = Date.now()) {
   if (c.dareWon && t - c.dareWon < 6 * HR) return 'ok'; // won over by a daring move (or a gesture at the right time)
   if (!STEP_W[v]) return 'ok';
   if (t - paceFrom(c) >= paceNeed(c, v)) return 'ok';
-  if (likesSpeed(c)) { applyRel(g, c, 3, 'adore que ça aille vite', later() + 1200, 5); return 'ok'; }
+  if (likesSpeed(c, v)) { applyRel(g, c, 3, 'adore que ça aille vite', later() + 1200, 5); return 'ok'; }
   startCool(g, c, coolOf(c) || 'frein', 'tout va trop vite');
   unlockAch(g, 'too-fast'); // 0.28: turned down for going too fast
   return 'block';
@@ -139,12 +155,13 @@ const COOLS = {
   ghost: { ms: 60 * HR, insist: 3, silent: true },
   colere: { ms: 24 * HR, insist: 2, judge: true, ai: (f, il, lui, cl) => (cl && cl.ai ? `${f} est en colère contre le joueur (${cl.ai}) : ${il} le lui fait sentir (froid, sec, des reproches) et attend des explications ou des excuses sincères ; c’est ${lui} qui juge si ça suffit.` : `${f} est en colère : le joueur insiste alors qu’${il} avait posé ses limites. ${cap1(il)} le dit franchement, sèchement.`) }, // (0.31: judged, its reason told)
   bloque: { ms: 72 * HR, insist: 99, silent: true },
+  esquive: { ms: 36 * HR, insist: 3, judge: true, ai: (f, il) => `${f} esquive : ${il} ne veut pas de couple, pas d’étiquette. ${cap1(il)} reste joueur·se et complice, mais refuse d’aller plus loin (ni déclaration acceptée, ni couple).` }, // 0.32: the volage, the free
 };
-const COOL_MEM = { frein: 'ça va un peu vite avec le joueur, j’ai besoin de temps', panique: 'tout va trop vite avec le joueur, ça me fait peur', louche: 'je me demande si le joueur est sincère : tout va bizarrement vite', ghost: 'j’ai besoin de prendre du recul avec le joueur', colere: 'le joueur ne respecte pas mes limites', bloque: 'j’ai bloqué le joueur, il insistait trop' };
+const COOL_MEM = { esquive: 'le joueur veut une relation sérieuse : moi, je ne veux pas d’étiquette', frein: 'ça va un peu vite avec le joueur, j’ai besoin de temps', panique: 'tout va trop vite avec le joueur, ça me fait peur', louche: 'je me demande si le joueur est sincère : tout va bizarrement vite', ghost: 'j’ai besoin de prendre du recul avec le joueur', colere: 'le joueur ne respecte pas mes limites', bloque: 'j’ai bloqué le joueur, il insistait trop' };
 // 0.28.1: the same, as the player reads it on their sheet (« Ce que … retient de toi »): to them, with their own pronoun
-const COOL_SHOWN = { frein: () => 'Ça va un peu vite avec toi : besoin de temps', panique: () => 'Tout va trop vite avec toi, ça fait peur', louche: () => 'Se demande si tu es sincère : tout va bizarrement vite', ghost: () => 'Besoin de prendre du recul avec toi', colere: () => 'Tu ne respectes pas ses limites', bloque: (g) => `T’a bloqué${px(g, '', 'e', '·e')} : tu insistais trop` };
+const COOL_SHOWN = { esquive: () => 'Ne veut pas d’étiquette entre vous', frein: () => 'Ça va un peu vite avec toi : besoin de temps', panique: () => 'Tout va trop vite avec toi, ça fait peur', louche: () => 'Se demande si tu es sincère : tout va bizarrement vite', ghost: () => 'Besoin de prendre du recul avec toi', colere: () => 'Tu ne respectes pas ses limites', bloque: (g) => `T’a bloqué${px(g, '', 'e', '·e')} : tu insistais trop` };
 // By heart (the impulsive just laugh a refusal off).
-const coolOf = (c) => ({ serein: 'frein', anxieux: 'panique', prudent: 'louche', forteresse: 'louche', inaccessible: 'ghost', jaloux: 'frein' })[c.coeur] || null;
+const coolOf = (c) => ({ serein: 'frein', anxieux: 'panique', prudent: 'louche', forteresse: 'louche', inaccessible: 'ghost', jaloux: 'frein', chaudfroid: 'ghost', volage: 'esquive', libre: 'esquive' })[c.coeur] || null;
 const coolNow = (c, t = Date.now()) => (c && c.cool && t < c.cool.until ? c.cool : null);
 function startCool(g, c, k, why, aiWhy) {
   const C = COOLS[k];
@@ -209,7 +226,9 @@ function bumpInsist(g, c, n = 1) {
 function escalate(g, c) {
   const k0 = c.cool ? c.cool.k : null, tp = temperOf(c), il = gx(c.g, 'il', 'elle', 'iel'), t = later();
   if (k0 === 'colere' || k0 === 'ghost') { applyRel(g, c, -6, 'tu as insisté', t + 800, 8); startCool(g, c, 'bloque', 'tu as insisté'); return; }
-  const out = tp === 'envieux' || tp === 'opportuniste' || c.coeur === 'jaloux' ? 'affiche' : tp === 'fidele' || tp === 'trouble' || c.coeur === 'anxieux' ? 'ghost' : 'colere';
+  const old = tp === 'envieux' || tp === 'opportuniste' || c.coeur === 'jaloux' || c.coeur === 'possessif' ? 'affiche' : tp === 'fidele' || tp === 'trouble' || tp === 'inquiet' || c.coeur === 'anxieux' ? 'ghost' : 'colere';
+  const co = t32On() ? clashOut(c) : null; // 0.32: their way of fighting: the dramatic make a scene in public, the sulkers go quiet, the peaceful step back
+  const out = co === 'frein' ? 'ghost' : co === 'affiche' || old === 'affiche' ? 'affiche' : co || old;
   if (out === 'affiche') {
     applyRel(g, c, -10, 'tu as insisté lourdement', t + 800, 12);
     repMove(g, { kind: -10, image: -4 }, `${firstName(c)} t’a ${px(g, 'affiché', 'affichée', 'affiché·e')} : tu as insisté lourdement`);
@@ -232,7 +251,7 @@ function confide(g, c, k) {
   if (k === 'louche' && r < detectiveChance(f)) startInquiry(g, c, f);
   else if (r < 0.65) addWhisper(g, f, { louche: `va bizarrement vite avec @${c.handle} (du love bombing ?)`, panique: `fait peur à @${c.handle} à force d’aller trop vite`, ghost: `met @${c.handle} mal à l’aise` }[k] || `va trop vite avec @${c.handle}`, { tone: 'bad', seed: 'pace' }); // 0.13: and it travels
 }
-const detectiveChance = (f) => 0.3 + (['integre', 'trouble'].includes(temperOf(f)) ? 0.15 : 0) + (['prudent', 'forteresse'].includes(f.coeur) ? 0.1 : 0);
+const detectiveChance = (f) => 0.3 + (['integre', 'trouble'].includes(temperOf(f)) ? 0.15 : 0) + (['prudent', 'forteresse'].includes(f.coeur) ? 0.1 : f.coeur === 'possessif' ? 0.2 : 0);
 function startInquiry(g, c, f) {
   const t = Date.now();
   if ((g.inquiries || []).some((x) => x.state === 'open' && x.c === c.id)) return;
@@ -328,7 +347,7 @@ function moveGap(g, c, move) {
   if (move === 'fianc') return rk >= 2 ? 0 : 3; // together already: that is a proposal, and a date decides it
   return 0;
 }
-const DARE_EXTRA = { forteresse: 2, prudent: 1, inaccessible: 1, anxieux: 1, impulsif: -1 };
+const DARE_EXTRA = { forteresse: 2, prudent: 1, inaccessible: 1, anxieux: 1, impulsif: -1, fusionnel: -1, possessif: -1, chaudfroid: 1 };
 const MOVE_SAY = { rdv: 'lui propose déjà un rendez-vous', decl: 'lui déclare déjà ses sentiments', couple: 'lui propose déjà de se mettre ensemble', fianc: 'lui parle déjà de se marier' };
 function startDare(g, c, move, gap) {
   const need = clamp(gap + (DARE_EXTRA[c.coeur] || 0), 1, 4);
@@ -360,7 +379,7 @@ function heartBeforeDM(g, c, text) {
 function coupleAsked(g, c, t = Date.now()) {
   if (!c || !isMain(c) || PARTNER.includes(c.vibe) || !vibeOK(c, 'couple') || openTrial(g, c)) return null;
   if ((c.trialsWon || []).includes('couple') || (c.dareWon && t - c.dareWon < 6 * HR)) return null; // (nothing to pass first)
-  if (coolNow(c, t) || (!likesSpeed(c) && t - paceFrom(c) < paceNeed(c, 'couple'))) return null; // (too soon: their pace answers)
+  if (coolNow(c, t) || (!likesSpeed(c, 'couple') && t - paceFrom(c) < paceNeed(c, 'couple'))) return null; // (too soon: their pace answers)
   return startTrial(g, c, 'couple');
 }
 // After it: their reaction (the AI's judge line, capped by the game) decides a dare, or clears their doubts.
@@ -445,10 +464,12 @@ function heartLines(g, c, t = Date.now(), withDare = true) {
   if (!c || !isMain(c)) return [];
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), lui = gx(c.g, 'lui', 'elle', 'iel');
   const L = [`Côté cœur, ${first} est ${heartOf(c).ai} (le joueur ne le sait pas : ça se voit à sa façon de répondre).`];
+  if (c.coeur === 'chaudfroid') L.push(cfHot(c, t) ? `En ce moment, ${first} est dans une phase chaude : très présent·e, tendre, charmeur·se.` : `En ce moment, ${first} est dans une phase froide : distant·e, répond court et tard, sans forcément dire pourquoi.`);
+  if (t32On()) L.push(...traitLines(g, c, t)); // 0.32: their way of fighting, a trait to the extreme, open, and the time between them
   const cl = coolNow(c, t), next = nextLove(c);
   if (cl && COOLS[cl.k].ai) L.push(COOLS[cl.k].ai(first, il, lui, cl));
   else if (!cl && !c.dare && next && (ROMANCE.includes(c.vibe) || c.rel >= 20)) {
-    if (likesSpeed(c)) L.push(`${first} adore quand ça va vite.`);
+    if (likesSpeed(c, next)) L.push(`${first} adore quand ça va vite.`);
     else if (tooFast(c, next, t)) L.push(`Rythme : passer à « ${VIBES[next].label.toLowerCase()} » maintenant serait trop rapide pour ${lui} (ils se connaissent depuis ${fmtDur(t - paceFrom(c))}) : si le joueur pousse dans ce sens, ${first} ${{ frein: 'freine', panique: 'panique', louche: 'trouve ça louche', ghost: 'prend ses distances' }[coolOf(c)] || 'freine'}.`);
   }
   if (!cl && c.coolPast && t - c.coolPast.at < 24 * HR) L.push(`${first} sort d’une période où ${il} avait pris ses distances avec le joueur (${c.coolPast.how === 'passed' ? 'rassuré·e depuis' : 'ça se réchauffe doucement'}).`);
@@ -556,7 +577,7 @@ function dateExigence(g, ev, t = Date.now()) {
   if (coolNow(c, t)) weigh.push(['🧊 Un froid entre vous', 'un froid entre eux']);
   if (liveRumor(g)) weigh.push(['🗣️ Une rumeur court sur toi', 'une rumeur court sur le joueur']);
   if (inBadBuzz(c, t)) weigh.push(['🔥 Son bad buzz pèse', `le bad buzz de ${first} pèse`]);
-  const other = mk === 'love' ? mains(g).find((o) => o !== c && LOVE_ACTIVE.includes(o.vibe) && knowsOf(c, o)) : null; // 0.22.2: if they know of it
+  const other = mk === 'love' ? mains(g).find((o) => o !== c && LOVE_ACTIVE.includes(o.vibe) && knowsOf(c, o) && !okWith(g, c, o)) : null; // 0.22.2: if they know of it (0.32: open, and fine with it: no weight)
   if (other) weigh.push([`💔 Il y a ${firstName(other)} dans ta vie`, `il y a ${firstName(other)} dans la vie du joueur`]);
   k += Math.min(2, weigh.length);
   for (const [you, them] of weigh.slice(0, 2)) say(you, them);
@@ -661,7 +682,7 @@ async function openTalk(ev) {
   let sign = null;
   try {
     await aiStream(promptTalk(g, ev, null), (o) => {
-      if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'expect' && !T.expect) T.expect = str(o.text, 120);
       else if (o.t === 'scene' && !T.scene) T.scene = str(o.text, 300);
       else if (o.t === 'say' && T.lines.length < 2) { const x = str(o.text, 260); if (x) T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); }
@@ -706,7 +727,7 @@ async function talkTurn(ev, text, geste) {
     await aiStream(prompt, (o) => {
       if (o.t === 'fade' && fadeOK(g, c, ev)) fade = true;
       else if ((o.t === 'apres' || (o.t === 'say' && fade)) && !after) { const x = str(o.text, 260); if (x) after = { who: 'c', text: x, seen: str(o.seen, 70) }; } // 0.31: a little later, they speak again
-      else if (o.t === 'psy' && !sign) sign = o.text; // 0.29: a red flag; tonight, a way out, or the end
+      else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29: a red flag; tonight, a way out, or the end
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && deadly && fin == null) fin = str(o.text, 260);
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26
@@ -771,7 +792,7 @@ async function lastWord(ev, text) {
   try {
     await aiStream(prompt, (o) => {
       if (o.t === 'stay') stay = true;
-      else if (o.t === 'psy' && !sign) sign = o.text; // 0.29
+      else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o.text; // 0.29
       else if (o.t === 'escape' && deadly && esc == null) esc = str(o.text, 200);
       else if (o.t === 'fin' && fin == null) fin = str(o.text, 260);
       else if (o.t === 'gift' && !gift && giftTalk(text, T.lines.slice(-6))) gift = o; // 0.26

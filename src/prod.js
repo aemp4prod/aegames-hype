@@ -60,13 +60,13 @@ const bigTodo = (r) => !!(r && (r.big ? r.big.stage < 3 : !r.played)); // still 
 const bigHours = (h, k, team) => Math.max(1, k === 2 && team ? h * (team.k || 1) - (team.min || 0) / 60 : h);
 function bigWork(r, k) {
   const B = r.big, P = BIG_PLAN[B.size][clamp(k, 0, 2)];
-  return bigHours(P.w * (PROD_H[r.what] || 4) / 4, k, r.team) + ((B.more && B.more[k]) || 0);
+  return bigHours(P.w * (PROD_BIG[r.what] || 4) / 4, k, r.team) + ((B.more && B.more[k]) || 0);
 }
 const bigTotal = (r) => [0, 1, 2].reduce((n, k) => n + bigWork(r, k), 0);
 // When each stage starts for a production starting on day `day` (0: today), when it is all done, and when it comes out
 // (the hour chosen, on the day of the last stage). ok: the first stage is still to come and it fits.
 function bigPlan(g, o, t = Date.now()) {
-  const size = o.size === 3 ? 3 : 2, P = BIG_PLAN[size], f = (PROD_H[o.what] || 4) / 4, team = teamOf(g, o.what);
+  const size = o.size === 3 ? 3 : 2, P = BIG_PLAN[size], f = (PROD_BIG[o.what] || 4) / 4, team = teamOf(g, o.what);
   const works = P.map((s, k) => bigHours(s.w * f, k, team));
   const slots = P.map((s) => dayDue(o.day + s.d, s.h, t));
   for (let k = 1; k < 3; k++) slots[k] = Math.max(slots[k], slots[k - 1] + works[k - 1] * 3600000); // (right after the one before)
@@ -132,9 +132,15 @@ const genBigStage = (r) => {
   const B = r.big;
   B.at0 = Date.now(); // (its time counts from here)
   if (B.stage === 1) { if (!B.shotSaid) { B.shotSaid = 1; castTold(g, r); } return genShoot(r); }
-  autoSave(g, `Avant la préparation de ta production`);
+  const snap = snapshotOf(g); // (0.32: written once its mini-game is drawn, as a shoot's: a retry from it draws one this preparation has not had)
   payCrew(g, r); // the team is paid for the whole production (every day of it)
-  const kind = S.mgForce || pick(MG_KINDS_AI.filter((x) => x !== g.mgLast).concat(['memoire']));
+  const pool = MG_KINDS_AI.filter((x) => x !== g.mgLast).concat(['memoire']), seen = Array.isArray(B.prepSeen) ? B.prepSeen : [];
+  const fresh = pool.filter((k) => !seen.includes(k));
+  const kind = S.mgForce || pick(fresh.length ? fresh : pool.filter((k) => k !== seen[seen.length - 1]));
+  const tried = triedWith(seen, kind), x = (snap.releases || []).find((y) => y.id === r.id);
+  if (x && x.big) x.big.prepSeen = tried;
+  autoSave(g, `Avant la préparation de ta production`, snap);
+  B.prepSeen = tried;
   if (ROUND_MAKERS[kind]) { r.game = Object.assign(ROUND_MAKERS[kind](r, diffOf(r.diff)), { diff: r.diff }); g.mgLast = kind; update(); return null; }
   const force = MG_KINDS_AI.includes(kind) ? kind : null;
   return genGame(r, () => promptMiniGame(g, r, force), () => bigPrepGame(r), 'La préparation', force);
@@ -154,10 +160,13 @@ function bigFinish(g, r, score) {
   const B = r && r.big;
   if (!g || !B || B.stage > 1 || r.state !== 'scheduled') return;
   score = clamp(num(score, 0), 0, 1);
+  const tired = nrgShoot(g, bigWork(r, B.stage) * 3600000).malus; // 0.32: a stage made tired loses some of it
+  if (tired) score = clamp(Math.round(score * (1 - tired) * 1000) / 1000, 0, 1);
   r.tries = (r.tries || 0) + 1;
   const k = B.stage;
   B.scores[k] = score;
   B.lastGame = r.game ? { kind: r.game.kind, items: r.game.items, edit: r.game.edit } : null;
+  if (k === 0) delete B.prepSeen; else delete r.mgSeen; // (0.32: played: the draws of that stage start anew)
   if (k === 0) {
     B.prep = score;
     B.last = { k, score, bonus: Math.round((score - 0.5) * BIG_PREP * 100) / 100, at: Date.now() };
@@ -187,7 +196,7 @@ function bigJump(g, r) {
   if (typeof skipBusy === 'function' && skipBusy()) return 0; // (the characters are still writing: once they are done)
   const ms = B.wait, k = B.waitK || 0;
   delete B.wait; delete B.waitK;
-  jumpClock(g, ms);
+  jumpClock(g, ms, 'work'); // (0.32: a working day)
   g.lastPlayedAt = Date.now();
   toast(`⏱️ ${hWord(ms / 3600000)} ${BIG_STAGES[k].de} plus tard… Il est ${hourOf(Date.now())}.`, 'flash');
   return ms;

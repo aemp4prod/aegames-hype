@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.31.3';
+const APP_VERSION = '0.32.0';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -564,6 +564,14 @@ function estimatePlay(g) {
   for (let k = 1; k < ts.length; k++) { const d = ts[k] - ts[k - 1]; if (d <= 20 * 60000) ms += d; }
   return Math.round(ms);
 }
+// 0.31.4: the day of the game the player is on (the first is day 1), on the game's own clock: the time skipped counts,
+// the days away too. (createdAt keeps its real time; the clock started at 0.)
+function playDay(g, t = Date.now()) {
+  if (!g || !g.createdAt) return 1;
+  const a = new Date(g.createdAt), b = new Date(t + (g.clockOff || 0));
+  return Math.max(1, Math.round((new Date(b.getFullYear(), b.getMonth(), b.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000) + 1);
+}
+const playStartWord = (g) => { const d = new Date((g && g.createdAt) || Date.now()); return `${d.getDate() === 1 ? '1er' : d.getDate()} ${MONTHS[d.getMonth()]}`; };
 // « 2 h 15 min », « 45 min », « moins d’une minute »
 function fmtPlay(ms) {
   const m = Math.floor((ms || 0) / 60000), h = Math.floor(m / 60);
@@ -597,6 +605,7 @@ function migrate(g) {
   dedupeCollabs(g); // 0.30.2: a feat confirmed several times in the messages had been planned each time
   if (!g.fix312) { g.fix312 = 1; vagueReleasesOut(g); } // 0.31.2: a release launched by « un jour, une vidéo sortira… »
   if (!g.fix31) { g.fix31 = 1; unblockFix31(g); } // 0.31: a partner who blocked the player for two messages while angry
+  if (!g.fix32) { g.fix32 = 1; prod32(g); } // 0.32: a video takes a working day now: the releases planned before keep their hour out
   if (!Array.isArray(g.events)) g.events = [];
   if (!Array.isArray(g.saves)) g.saves = [];
   if (!Array.isArray(g.arcs)) g.arcs = [];
@@ -615,6 +624,7 @@ function migrate(g) {
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves
   ensureAch(g); // 0.29: the achievements' marks under their names of now
   ensureHearts(g); // v0.11: how each one loves, and at least one real challenge from the start
+  ensureTraits(g); // 0.32: their way of fighting (guessed for the games of before), nobody extreme or open overnight
   initTies(g); // v0.13: who is close to whom among them, what is said about the player
   if (!g.pendingCast) ensureRoles(g); // 0.29: the critic and Rebecca Silver (asked to the next refreshes first), the psychopath
   return g;
@@ -770,6 +780,9 @@ function addCharFromAI(g, o, { unlocked, kind, rename, age }) {
     initHeart(c, o); // 0.11: how they love (and how fast), and their closest friend
     initHeartTies(c, o); // 0.13: the cast they are close to, or cannot stand
     initAge(c, age || (num(o.age, 0) >= 18 ? { age: Math.min(70, num(o.age, 0)) } : null)); // 0.17
+    const cl = normClash(o.conflit); // 0.32: their way of fighting (the AI's word, or the one the game drew)
+    if (cl) c.clash = cl;
+    if (age) applyPlanTraits(c, age);
   }
   g.chars[id] = c;
   g.order.push(id);
@@ -1394,11 +1407,13 @@ const MAX_DELAYS = 3;
 const postponePlan = (n) => { const pen = [5, 10, 15][clamp(n, 1, 3) - 1]; return { cred: -pen * 2.8, image: -pen * 0.8 }; };
 const DROP_PLAN = { cred: -35, image: -10 };
 const RELEASE_GRACE = 60 * 60 * 1000; // a release left undone this long after its time is given up, with a penalty
-/* 0.30.1: the time it takes. A short is 2 h of work, a video or a clip 4 h, a podcast 3 h (twice as much « soignée »), a
-   live its 2 h on air: the clock moves on after the shoot, and it comes out at the end. The time announced is when it
-   comes out (a live: when it starts): the shoot starts that long before (r.due, the slot the game calls out), and a
-   shoot started late comes out late. r.outAt: when it comes out; r.prod === 0: planned before 0.30.1 (no time taken). */
-const PROD_H = { short: 2, vidéo: 4, clip: 4, podcast: 3, live: 2 };
+/* 0.30.1: the time it takes. A short is 2 h of work, a live its 2 h on air (0.32, a human pace: a video a working day,
+   8 h, a clip 6 h, a podcast 4 h; twice as much « soignée »): the clock moves on after the shoot, and it comes out at
+   the end. The time announced is when it comes out (a live: when it starts): the shoot starts that long before (r.due,
+   the slot the game calls out), and a shoot started late comes out late. r.outAt: when it comes out; r.prod === 0:
+   planned before 0.30.1 (no time taken). */
+const PROD_H = { short: 2, vidéo: 8, clip: 6, podcast: 4, live: 2 };
+const PROD_BIG = { short: 2, vidéo: 4, clip: 4, podcast: 3, live: 2 }; // (a big production: its stages kept their hours)
 const CARE_K = 1.15; // a « soignée » release: +15 % of views (and a little more buzz, some credibility; brands pay more)
 const careOK = (what) => what !== 'live'; // (a live lasts what it lasts)
 /* The team saves time, by level: an editor 15 to 30 % of it (what they edit), a graphic designer 10 to 30 min (the
@@ -1460,7 +1475,7 @@ function prodJump(g, r) {
   delete r.prodWait;
   const t = Date.now(), ms = Math.round((r.prodAt || t) + D - t);
   if (ms < 60000) return 0;
-  jumpClock(g, ms);
+  jumpClock(g, ms, 'work');
   g.lastPlayedAt = Date.now();
   toast(`⏱️ ${fmtDur(ms)} ${r.what === 'live' ? 'de live' : 'de tournage et de montage'} plus tard… Il est ${hourOf(Date.now())}.`, 'flash');
   return ms;
@@ -2385,7 +2400,7 @@ function applyRel(g, handle, d, why, at, cap = 15) {
   if (!c || !c.unlocked || !DM_KINDS.includes(c.kind)) return;
   let delta = int(d, -cap, cap, 0);
   if (!delta) return;
-  if (isMain(c)) delta = heartScale(c, delta); // 0.11: a fortress gives little and takes a lot, the impulsive swing
+  if (isMain(c)) delta = traitScale(c, heartScale(c, delta), why); // 0.11: a fortress gives little and takes a lot, the impulsive swing (0.32: and their way of fighting)
   if (delta > 0 && isMain(c) && closeToFoe(g, c)) delta = Math.max(1, Math.round(delta * 0.6)); // 0.15: wary of whoever is close to someone they cannot stand
   if (delta > 0) delta = Math.max(1, sround(delta * (1 + skillFx(g, 'relGain')))); // 0.24: charisma (its levels and tiers)
   else delta = -Math.max(1, sround(-delta * (1 - skillFx(g, 'relLoss'))));
@@ -2427,8 +2442,10 @@ function applyVibe(g, by, v, why, at, force) {
   if (!force && paceCheck(g, c, v) === 'block') return false; // 0.11: too fast for their heart: they slow down, panic, wonder…
   if (!force && trialCheck(g, c, v) === 'trial') return false; // 0.12: a trial first (their bad buzz, a rival, a secret…)
   if (c.vibe === 'ex' && PARTNER.includes(v)) unlockAch(g, 'ex-comeback', at); // 0.28: back with an ex
+  const broke = PARTNER.includes(c.vibe) && (v === 'ex' || v === 'complique');
   c.vibe = v;
   notePace(c, v);
+  if (broke) worry(g, v === 'ex' ? `sa rupture avec ${c.name}` : `ça va mal avec ${c.name}`); // 0.32: the worriers rush
   if (c.vibeGoal === v) c.vibeGoal = null;
   const reason = str(why, 80);
   addNotif(g, { k: 'vibe', c: c.id, at: at || later(), text: `${c.name} et toi : ${V.emoji} ${V.label}${reason ? ' · ' + reason : ''}` });
@@ -2458,13 +2475,20 @@ function officialize(g, c, v, at) {
   foesNotice(g, c, 'public', t); // 0.15: and whoever cannot stand them takes it badly
   for (const o of mains(g)) {
     if (o === c || !o.unlocked) continue;
-    if (PARTNER.includes(o.vibe)) { // the player was already with someone else
+    if (PARTNER.includes(o.vibe) && okWith(g, o, c)) { // 0.32: open, and they knew (or the three of them are together)
+      addMem(g, o, `le joueur s’affiche aussi avec ${c.name} : je le savais, ça me va`);
+      addTrigger(g, `@${o.handle}, ouvert·e au polyamour, savait pour le joueur et @${c.handle} : ${gx(o.g, 'il', 'elle', 'iel')} le prend bien (complice, taquin·e), malgré ce que le réseau en dit.`, o.id);
+    } else if (PARTNER.includes(o.vibe) && isOpen(o)) { // open, but nobody told them: it hurts, without ending it
+      applyRel(g, o, -10, `aurait aimé être ${gx(o.g, 'prévenu', 'prévenue', 'prévenu·e')} pour ${first}`, t + 2500, 12);
+      addMem(g, o, `le joueur s’affiche avec ${c.name} sans m’avoir rien dit : ce n’est pas l’autre qui me dérange, c’est le mensonge`);
+      addTrigger(g, `@${o.handle}, ouvert·e au polyamour, découvre que le joueur s’affiche avec @${c.handle} sans lui en avoir parlé : ce n’est pas l’autre qui le ou la blesse, c’est de ne pas avoir été ${gx(o.g, 'prévenu', 'prévenue', 'prévenu·e')}. ${cap1(gx(o.g, 'il', 'elle', 'iel'))} veut en parler.`, o.id);
+    } else if (PARTNER.includes(o.vibe)) { // the player was already with someone else
       noteCaught(g, t); // 0.28: caught: the discipline of a charmer starts again
       applyRel(g, o, -20, `te découvre avec ${first}`, t + 2500, 25);
       addMem(g, o, `le joueur m’a ${gx(o.g, 'trompé', 'trompée', 'trompé·e')} avec ${c.name}`);
       addTrigger(g, `@${o.handle} découvre que le joueur, avec qui ${gx(o.g, 'il', 'elle', 'iel')} était ${VIBES[o.vibe].ai}, s’affiche maintenant avec @${c.handle} : trahison, et tout le réseau le voit.`, o.id);
       applyVibe(g, o, o.rel < 20 ? 'ex' : 'complique', `${gx(o.g, 'trompé', 'trompée', 'trompé·e')} avec ${first}`, t + 3500);
-    } else if (o.vibe === 'crush' || o.vibe === 'flirt') {
+    } else if ((o.vibe === 'crush' || o.vibe === 'flirt') && !isOpen(o)) {
       applyRel(g, o, -6, `${gx(o.g, 'jaloux', 'jalouse', 'jaloux·se')} de toi et ${first}`, t + 2000, 10);
     }
   }
@@ -3029,7 +3053,7 @@ function addIncomingDM(g, by, text, at, opts = {}) {
   if (opts.unsolicited) {
     let waiting = 0;
     for (let k = convo.msgs.length - 1; k >= 0 && !convo.msgs[k].me; k--) if (!convo.msgs[k].sys) waiting++;
-    if (waiting >= 2) return false;
+    if (waiting >= (opts.burst ? 4 : 2)) return false; // (0.32: a worrier's burst, a few more)
   }
   convo.msgs.push(tag({ id: uid('m'), me: false, text, ts: at, at }));
   addNotif(g, { k: 'dm', c: c.id, at, text: `${c.name} t’a écrit : « ${text.slice(0, 70)}${text.length > 70 ? '…' : ''} »` });
@@ -3368,20 +3392,21 @@ function snapshotOf(g) {
   }
   return snap;
 }
-async function writeSave(g, slot, label) {
+// snap: the game as it was a moment ago (0.32: before a shoot, written once its mini-game is drawn: the save knows which).
+async function writeSave(g, slot, label, snap) {
   const meta = { slot, at: Date.now(), label: label || saveLabel(g), lvl: g.stats.level, fol: g.stats.followers, auto: AUTO_SLOTS.includes(slot) };
-  const body = { v: 1, meta, game: snapshotOf(g) }, off0 = g.clockOff || 0;
+  const body = { v: 1, meta, game: snap || snapshotOf(g) }, off0 = g.clockOff || 0;
   await Store.write(`g_${g.id}_save_${slot}`, body);
   meta.at -= (g.clockOff || 0) - off0; // 0.28.1: the clock jumped while it was written (« Avant d’avancer de 7 jours »): 7 days older
   g.saves = (g.saves || []).filter((x) => x.slot !== slot).concat(meta); // 0.14: listed only once it is really there
 }
 // Before a risky action (a call-out, a release, a date, a long skip): the player can take it back.
-function autoSave(g, why) {
+function autoSave(g, why, snap) {
   if (!g || S.game !== g || !g.ready) return;
   const used = g.saves || [];
   const at = (k) => (used.find((x) => x.slot === k) || {}).at || 0;
   const slot = AUTO_SLOTS.find((k) => !used.some((x) => x.slot === k)) || AUTO_SLOTS.slice().sort((a, b) => at(a) - at(b))[0];
-  writeSave(g, slot, why).catch((e) => console.warn('auto save', e && (e.code || e.message)));
+  writeSave(g, slot, why, snap).catch((e) => console.warn('auto save', e && (e.code || e.message)));
 }
 
 function summarize(g) {

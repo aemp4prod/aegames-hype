@@ -274,7 +274,7 @@ async function studioSteps(page, thumb) {
 
   // ---------- a sponsored release, without the legal mention: the editor works, the law catches it ----------
   await clickText(page, '.tab', 'Fil');
-  const dealWhat = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = Math.max(g.career.cash, 2000); /* the editor is paid at the shoot: money there, whatever the timers on a busy machine */ const d = g.deals.find((x) => x.state === 'signed'); d.what = 'vidéo'; H.scheduleRelease(g, { what: d.what, topic: 'je teste la potion au citron', due: Date.now() + 5 * 3600000 }); H.update(); return d.what; }); // a video: the editor works on it (0.30.1: less than 4 h with them, its shoot in an hour or two)
+  const dealWhat = await G(page, () => { const H = window.__hype, g = H.S.game; g.career.cash = Math.max(g.career.cash, 2000); /* the editor is paid at the shoot: money there, whatever the timers on a busy machine */ const d = g.deals.find((x) => x.state === 'signed'); d.what = 'vidéo'; H.scheduleRelease(g, { what: d.what, topic: 'je teste la potion au citron', due: Date.now() + 9 * 3600000 }); H.update(); return d.what; }); // a video: the editor works on it (0.32: less than 8 h with them, its shoot in two or three hours)
   await clickText(page, '.release-card button', 'Avancer jusqu');
   await page.waitForSelector('.release-card.due', { timeout: 10000 });
   const cash0 = await G(page, () => window.__hype.S.game.career.cash);

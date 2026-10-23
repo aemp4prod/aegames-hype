@@ -165,7 +165,7 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
     for (const x of g.releases) if (x.state === 'scheduled') x.state = 'dropped';
     window.__hypeEasyGear = true;
     const a = H.scheduleRelease(g, { what: 'vidéo', topic: 'la grande dictée de Lumen', due: t + 26 * HR });
-    const b = H.scheduleRelease(g, { what: 'vidéo', topic: 'mes potions ratées', due: t + 6 * HR }); // (0.30.1: its shoot in 2 h, 4 h of work)
+    const b = H.scheduleRelease(g, { what: 'vidéo', topic: 'mes potions ratées', due: t + 10 * HR }); // (0.32: its shoot in 2 h, 8 h of work)
     const c = H.scheduleRelease(g, { what: 'short', topic: 'un sort en 30 secondes', due: t + 5 * HR });
     window.__hypeEasyGear = false;
     H.update();
@@ -192,15 +192,15 @@ const lastLedger = (page) => G(page, () => { const L = window.__hype.S.game.care
   await page.waitForSelector('.layer .move-opts');
   const opts = await page.$$eval('.layer .move-opts .chip-btn', (els) => els.map((e) => e.textContent));
   await shot(page, 'move-sooner');
-  await page.locator('.layer .move-opts .chip-btn', { hasText: /^Dans 5 h$/ }).click(); // (0.30.1: never sooner than the 4 h it takes: out in 5 h, its shoot in 1 h)
+  await page.locator('.layer .move-opts .chip-btn', { hasText: /^Dans 9 h$/ }).click(); // (0.32: never sooner than the 8 h it takes: out in 9 h, its shoot in 1 h)
   await sleep(600);
   const r1 = await G(page, () => {
     const H = window.__hype, g = H.S.game, s = g.stats, r = H.activeRelease(g);
     return { first: r.topic, left: Math.round((r.due - Date.now()) / 60000), rep: s.reputation, fol: s.followers, log: (s.repLog || []).length, layer: H.S.stack.length,
       notif: (g.notifs.filter((x) => x.k === 'release').slice(-1)[0] || {}).text || '', trig: (g.triggers || []).slice(-1)[0] ? g.triggers.slice(-1)[0].text : '' };
   });
-  check('« Plus tôt » on the release of tomorrow: the times before it (right away, soon, the hours of the planner), never sooner than it takes to make; « Dans 5 h » brings it to the front, with no cost at all (reputation, followers), and the public is told',
-    /^Tout de suite \(sortie vers \d+ h/.test(opts[0]) && opts.includes('Dans 5 h') && !opts.includes('Dans 1 h') && opts.length >= 6 && r1.first === 'la grande dictée de Lumen' && r1.left >= 58 && r1.left <= 60
+  check('« Plus tôt » on the release of tomorrow: the times before it (right away, soon, the hours of the planner), never sooner than it takes to make; « Dans 9 h » brings it to the front, with no cost at all (reputation, followers), and the public is told',
+    /^Tout de suite \(sortie vers \d+ h/.test(opts[0]) && opts.includes('Dans 9 h') && !opts.includes('Dans 1 h') && opts.length >= 6 && r1.first === 'la grande dictée de Lumen' && r1.left >= 58 && r1.left <= 60
     && r1.rep === st0.rep && r1.fol === st0.fol && r1.log === st0.log && r1.layer === 0 && /⏩ Ta vidéo « la grande dictée de Lumen » sort plus tôt/.test(r1.notif) && /avance la sortie/.test(r1.trig), { opts, r1, st0 });
   const r2 = await G(page, () => {
     const H = window.__hype, g = H.S.game, r = H.activeRelease(g), t = Date.now();
