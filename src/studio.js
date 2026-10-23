@@ -668,12 +668,9 @@ function StudioTab({ g, now }) {
     <${AgencySection} g=${g} now=${now} />
     <section class="section">
       <div class="section-h"><h3>Ton équipe</h3><span>${g.staff.length ? `${g.staff.length} ${plural(g.staff.length, 'personne', 'personnes')}` : 'personne pour l’instant'}</span></div>
-      ${g.staff.map((m) => { const p = g.chars[m.c]; if (!p) return null; const R = STAFF_ROLES[m.role]; return html`<div class="staff-row" key=${m.id}>
-        <${Avatar} who=${author(g, 'c:' + p.id)} size=${44} onClick=${() => openDM(p.id)} />
-        <div class="mid"><b>${p.name}</b><span>${R.emoji} ${roleName(m.role, p.g)} · ${tierName(m.tier, p.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ` · pas ${gx(p.g, 'payé', 'payée', 'payé·e')} !` : ''}</span><small>${R.fx(m.tier + 1)}</small></div>
-        <div class="acts"><button class="btn btn-ghost btn-sm" onClick=${() => openDM(p.id)} aria-label=${'Écrire à ' + firstName(p)} title=${'Écrire à ' + firstName(p)}><${Icon} n="msg" s=${14} /></button><button class="linkbtn quiet" onClick=${() => askConfirm({ title: `Te séparer de ${firstName(p)} ?`, text: 'Ça risque de mal passer.', ok: 'Se séparer', danger: true, run: () => { quitStaff(g, m, 'fired'); update(); } })}>Se séparer</button></div>
-      </div>`; })}
+      ${g.staff.map((m) => html`<${TeamRow} key=${m.id} g=${g} m=${m} now=${now} />`)}
       <button class="btn btn-hot btn-sm" onClick=${() => openLayer({ t: 'recruit' })}><${Icon} n="userplus" s=${15} /> Recruter</button>
+      ${t33On() ? html`<small class="muted">Tu peux aussi proposer un boulot à quelqu’un du réseau, depuis son profil.</small>` : null}
     </section>
     <section class="section">
       <div class="section-h"><h3>Programme</h3><span>${plan.length ? `${plan.length} ${plural(plan.length, 'sortie prévue', 'sorties prévues')}${seriesOn(g) ? ' · défi en cours' : ''}` : seriesOn(g) ? 'défi en cours' : 'rien de prévu'}</span></div>
@@ -749,6 +746,7 @@ function DealCard({ g, d, now, inDM }) {
       ${hasStaff(g, 'agent') && d.fee ? html`<li>Ton agent prend ${hasStaff(g, 'agent').rate} % de commission.</li>` : null}
     </ul>
     <${DealExtra} g=${g} d=${d} />
+    ${d.state === 'signed' ? html`<${DealGuest} g=${g} d=${d} now=${now} />` : null}
     ${d.state === 'offer' ? html`<div class="row">
       <button class="btn btn-hot btn-sm" onClick=${() => trySign(g, d)}>${d.costs ? `Signer et payer ${fmtMoney(g, d.costs)}` : d.brief ? 'Télécharger et signer' : 'Signer'}</button>
       <button class="btn btn-ghost btn-sm" onClick=${nego}>${inDM ? 'Négocier' : 'Négocier en message'}</button>

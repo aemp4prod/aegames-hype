@@ -5,6 +5,30 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.0 — 23 octobre 2026 (build 33000)
+
+**Ton équipe vit et progresse, tu peux faire travailler n’importe quel perso, partager tes contenus sponsorisés, et il y a toujours plus gros que toi sur le réseau.**
+
+### ✨ Nouveautés
+
+- **💼 Fais travailler les persos** : sur le profil d’un perso, « Proposer un boulot » : faire ta miniature, monter ta vidéo, écrire ton script, gérer ta commu, ta presse, tes contrats… Une fois (pour ta prochaine sortie) ou en continu, et tu fixes le prix (ou c’est un service entre vous). Tu peux aussi simplement lui en parler en message. Son IA décide selon sa situation : son emploi du temps, l’argent, votre relation, si c’est son truc. Quelqu’un en plein bad buzz peut être content qu’on lui donne du boulot. Le perso reste lui-même, avec un boulot en plus, et il progresse en travaillant avec toi comme le reste de ton équipe.
+- **📈 Ton équipe progresse** : débutant, confirmé, expert, puis star du métier. Ton monteur, ton graphiste et ton scénariste progressent à chaque sortie sur laquelle ils travaillent (deux par jour au plus), les autres à chaque jour passé dans ton équipe. Il faut 6 étapes pour passer confirmé, 12 de plus pour expert, puis 20 pour star : ça prend des semaines. Le Studio te montre où chacun en est.
+- **⭐ La fidélité** : une star du métier que tu gardes continue de progresser, jusqu’à +10 points sur chacun de ses bonus. Un graphiste star passe de +28 % à +38 % de vues, par exemple.
+- **💸 Les augmentations** : à chaque niveau passé, le membre de ton équipe te demande une augmentation en message privé. Tu acceptes ou tu refuses depuis le Studio, ou tu négocies avec lui en message. Une demande restée sans réponse cinq jours compte comme un refus, et un refus, il s’en souvient.
+- **🧰 Le matériel** : chaque membre de ton équipe a besoin de matériel pour son métier (PC de montage, tablette graphique, téléphone pro…), en version Basique, Bon ou Pro. Plus il progresse, plus il en veut du bon. Sans le matériel qu’il faut, il travaille moins bien et il le vit mal. Quand tu changes son matériel, l’ancien est revendu.
+- **😊 Le moral** : chaque membre a un moral, avec ses raisons, affichés dans le Studio. Il baisse avec un salaire en retard, un matériel pas à la hauteur, trop de boulot dans la semaine, une augmentation refusée, ton bad buzz ou ton cancel. Il remonte avec un salaire juste, du bon matériel et une prime (le bouton « 🎁 Prime »). Mécontent, il travaille moins bien et te le dit. À bout, c’est son IA qui décide s’il démissionne.
+- **🎣 Le débauchage** : quand quelqu’un de ton équipe devient expert ou star, des créateurs plus gros que toi peuvent essayer de te le piquer. Il vient t’en parler : tu t’alignes sur l’offre, tu négocies, ou tu le laisses partir. Il décide.
+- **🤝 Un contenu sponsorisé à plusieurs** : sur un partenariat signé, « Inviter quelqu’un ». La marque décide d’abord si elle veut de cette personne. Ensuite tu fixes sa part, et l’invité décide à son tour (il peut négocier). Vous tournez ensemble, vos deux publics voient la vidéo, et tu lui verses sa part à la sortie. Un bon moyen de donner un coup de boost à un ami.
+- **💰 Invité dans l’opé d’un plus gros** : un créateur plus gros que toi peut t’inviter dans sa vidéo sponsorisée et te payer. L’invitation te dit la marque et ce que tu touches, et son public découvre le tien.
+- **🌟 Les têtes d’affiche** : des créateurs déjà installés, à un demi-million, un million, deux millions d’abonnés… jusqu’à 10 millions pour le plus gros, arrivent sur le réseau à mesure que tu grandis. Il y en a toujours quelques-uns au-dessus de toi, et tant que tu es petit, ils ne répondent pas à n’importe qui. Tout en haut, en fin de partie, tu peux finir par les dépasser. Dans une partie déjà commencée, ils arrivent petit à petit.
+- **📊 Tout le monde grandit** : les abonnés des persos montent aussi au fil des jours, moins vite pour ceux qui se font discrets. Un bad buzz les fait baisser.
+
+### 🛠️ Corrigé
+
+- **🤝 Les partenariats que tu demandes toi-même aboutissent** : quand tu demandais à une marque un partenariat pour toi, en message ou dans un groupe, elle pouvait te dire oui, mais rien ne se passait, et elle finissait par répéter « je reviens vers vous ». Désormais, elle décide tout de suite : si c’est oui, sa proposition arrive dans vos messages (au prix qui correspond à ton audience), et tu la signes ou tu la négocies comme les autres. Une marque qui t’avait promis de revenir vers toi revient avec sa réponse.
+- **🎭 Un talent qui veut d’abord essayer revient vers toi** : quand un de tes talents voulait d’abord tester le produit ou le jeu avant de dire oui, le partenariat restait « en cours » jusqu’à expirer. Désormais, il te dit quand il te donnera sa réponse, et il revient de lui-même avec sa décision.
+- **👥 Ton équipe d’avant** : elle garde son niveau, elle est équipée comme son niveau le demande, et elle est de bonne humeur. À toi de la garder.
+
 ## 0.32.1 — 23 octobre 2026 (build 32001)
 
 **Les partenariats te répondent tout de suite, un rendez-vous chez quelqu’un reste entre vous, et le programme partenaire ne te refuse plus pour un vieux bad buzz.**

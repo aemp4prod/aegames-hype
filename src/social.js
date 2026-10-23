@@ -261,6 +261,7 @@ async function groupAnswer(g, gr, text, mine, o = {}) {
       else if (o.t === 'name' && !name) name = str(o.text, 36);
       else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o;
       else if (o.t === 'partenariat' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => applyTdealAnswer(g, c, o); }
+      else if (o.t === 'plus_tard' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => tdealLater(g, c, o); } // 0.33
       else if (o.by && careerFx.length < 3 && o.t !== 'quit') { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && !isMain(c)) applyDMCareerLine(g, c, o, text, careerFx); }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'group' });
@@ -334,7 +335,8 @@ function promptGroup(g, gr, text, off = [], late = null) {
     '- Facultatif, rare : {"t":"name","text":"≤ 30 caractères"} si quelqu’un renomme le groupe ; {"t":"quit","by":"handle","why":"≤ 60 caractères"} si quelqu’un le quitte, vexé.',
     psyNow(g) && ms.includes(psyNow(g)) ? '- Facultatif (au plus 1) : {"t":"psy","by":"handle","text":"≤ 90 caractères : ce que le joueur a pu remarquer"} si le psychopathe laisse un détail inquiétant.' : null,
     ...pros.flatMap((c) => dmCareerLines(g, c).filter((x) => !x.includes('"t":"quit"')).map((x) => `${x} (Dans le groupe, ajoute "by":"${c.handle}" à cette ligne.)`)), // 0.31.2
-    ...ms.filter((c) => isMain(c) && tdealAsking(g, c)).map((c) => { const d = tdealAsking(g, c); return `- Quand @${c.handle} a décidé pour le partenariat ${d.brand} que le joueur, son agent, lui a transmis : {"t":"partenariat","by":"${c.handle}","ok":true,"why":"≤ 60 caractères"} (ok:false s’${gx(c.g, 'il', 'elle', 'iel')} refuse). Rien s’${gx(c.g, 'il', 'elle', 'iel')} hésite encore.`; }));
+    t32On() && pros.some((c) => c.kind === 'brand') ? BRAND_NOW_GROUP(pros.filter((c) => c.kind === 'brand')) : null, // 0.33: the brands decide now
+    ...ms.filter((c) => isMain(c) && tdealAsking(g, c)).map((c) => { const d = tdealAsking(g, c); return `- Quand @${c.handle} a décidé pour le partenariat ${d.brand} que le joueur, son agent, lui a transmis : {"t":"partenariat","by":"${c.handle}","ok":true,"why":"≤ 60 caractères"} (ok:false s’${gx(c.g, 'il', 'elle', 'iel')} refuse). ${TDEAL_LATER(gx(c.g, 'il', 'elle', 'iel'), c.handle)}`; }));
   return L.filter((x) => x !== null).join('\n');
 }
 // A group without the player: a friend sends a screenshot of it.

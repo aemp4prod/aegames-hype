@@ -1991,6 +1991,35 @@ svg.watch:active { cursor: grabbing; }
 .staff-row .mid span { font-size: 13px; color: var(--ink-2); }
 .staff-row .mid small { font-size: 12.5px; color: var(--good); }
 .staff-row .acts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* 0.33: the team lives (a level that grows, a mood, gear, a raise asked, an offer elsewhere) */
+.staff-row + .staff-row { margin-top: 14px; }
+.staff-row .mid .st-tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--ink-3); background: var(--surface-2); border-radius: 999px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
+.st-prog { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.st-prog .meter { flex: 0 0 90px; }
+.st-prog em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+.staff-row .mid .st-mood { font-size: 12.5px; color: var(--ink-2); }
+.staff-row .mid .st-mood.good { color: var(--good); }
+.staff-row .mid .st-mood.bad { color: var(--bad); }
+.staff-row .mid .st-gear { font-size: 12.5px; color: var(--ink-2); }
+.st-gear b.bad { color: var(--bad); font-weight: 600; }
+.st-ask { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: var(--hot-soft); }
+.staff-row .mid .st-ask > span { font-size: 13px; color: var(--ink); }
+.st-ask.poach { background: var(--surface-2); }
+.st-ask .row { gap: 8px; flex-wrap: wrap; align-items: center; }
+.sg-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.sg-opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+.sg-opt.is-need { border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); }
+.st-gear .linkbtn { margin-left: 6px; }
+.sg-opt.have { opacity: .65; }
+.sg-opt .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sg-opt small { color: var(--ink-3); font-size: 12.5px; }
+.hire-pay { gap: 8px; align-items: center; }
+.hire-pay input { width: 120px; }
+.prof-job { align-self: flex-start; }
+.dl-guest { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
+.dl-guest.ok { background: color-mix(in srgb, var(--good) 10%, var(--surface-2)); }
+.dl-guest .row { gap: 8px; flex-wrap: wrap; align-items: center; }
+.inv-pub { font-size: 13px; font-weight: 600; color: var(--good); }
 .chan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .chan-cell { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; text-align: left; font-size: 12px; color: var(--ink-3); }
 .chan-cell b { color: var(--ink); }

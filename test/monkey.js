@@ -33,12 +33,12 @@ async function newPage(browser, viewport = { width: 390, height: 844 }) {
   await ctx.addInitScript(MOCK);
   await ctx.addInitScript((on) => {
     if (!on) return;
-    window.__t32 = true; window.__drawTraits = true; window.__stalkPlan = { doux: 3600000, hater: 7200000 };
+    window.__t32 = true; window.__t33 = true; window.__drawTraits = true; window.__stalkPlan = { doux: 3600000, hater: 7200000 }; // (0.33: the team that lives, the têtes d’affiche)
     window.__mockOnce = [ // (the newcomers they are: names of their own, the usual one being taken by then)
       { has: 'Pas méchant·e : maladroit·e', lines: [{ t: 'char', name: 'Noé Lazare', handle: 'noe.lazare', emoji: '🌻', g: 'm', role: 'Apprenti herboriste', bio: 'des plantes et du thé', personality: 'doux, attentionné', voice: 'douce', followers: 800, rel: 12 }, { t: 'post', by: 'noe.lazare', text: 'première infusion de la saison 🍵' }] },
       { has: 'l’admiration peut tourner à la rancœur', lines: [{ t: 'char', name: 'Inès Morel', handle: 'ines.morel', emoji: '📷', g: 'f', role: 'Photographe', bio: 'je capture ce que vous ne voyez pas', personality: 'intense, passionnée', voice: 'sèche', followers: 2400, rel: 5 }, { t: 'post', by: 'ines.morel', text: 'lumière parfaite ce matin.' }] },
     ];
-  }, process.env.T32 !== '0'); // 0.32: le temps qui passe, the hearts and traits the game draws, the ones who follow the player past 10 000 followers (T32=0: as before)
+  }, process.env.T32 !== '0'); // 0.32: le temps qui passe, the hearts and traits the game draws, the ones who follow the player past 10 000 followers (T32=0: as before; 0.33 with it)
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`[error] ${m.text()}`); });
   page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));

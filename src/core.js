@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.32.1';
+const APP_VERSION = '0.33.0';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -620,6 +620,7 @@ function migrate(g) {
   budgetOf(g);
   migrateCareer(g); // v0.7
   if (!g.fix321) { g.fix321 = 1; reviewProgram321(g); } // 0.32.1: a partner program refused for a bad buzz already over
+  migrateTeam(g); // 0.33: the team of before, equipped as its level asks, in a good mood
   migrateGear(g); // 0.20
   migrateTrust(g); // v0.9
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves
@@ -1425,7 +1426,8 @@ function teamOf(g, what, paid) {
   const on = (role) => { const m = hasStaff(g, role); return m && STAFF_ROLES[role].fmts.includes(what) && (!paid || paid.includes(role)) ? m : null; };
   const ed = on('monteur'), th = on('miniature');
   if (!ed && !th) return null;
-  return { k: ed ? 1 - ED_SAVE[clamp(ed.tier || 0, 0, 3)] : 1, min: th ? TH_SAVE[clamp(th.tier || 0, 0, 3)] : 0 };
+  const lv = (m) => clamp(memberLevel(g, m) - 1, 0, 3); // (0.33: their level as it works today: the gear, the mood)
+  return { k: ed ? 1 - ED_SAVE[lv(ed)] : 1, min: th ? TH_SAVE[lv(th)] : 0 };
 }
 const prodH = (what, care, team) => Math.max(0.5, (PROD_H[what] || 4) * (care && careOK(what) ? 2 : 1) * (team && team.k ? team.k : 1) - (team && team.min ? team.min / 60 : 0));
 const prodMs = (r) => (!r || r.prod === 0 || r.big ? 0 : prodH(r.what, r.care, r.team) * 3600000); // (a big production: the time of its stages, bigWork)
@@ -2112,11 +2114,13 @@ function addInvite(g, by, o, at = later()) {
   if (old) { if (Math.abs(old.due - due) < 3600000) return null; old.state = 'replaced'; }
   if (!g.invites) g.invites = [];
   const iv = { id: uid('iv'), c: c.id, what: cap1(what), due, at: t, state: 'open', ev: null, collab: !!o.collab || COLLAB_RE.test(what) }; // 0.14: a video to make together
+  const pub = affOn() ? invitePub(g, o) : null; // 0.33: their sponsored operation, the player paid
+  if (pub) { iv.pub = pub; iv.collab = true; g.hostAt = t; }
   g.invites.push(iv);
   if (g.invites.length > 12) g.invites = g.invites.filter((x, k, all) => x.state === 'open' || k >= all.length - 12);
   const convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
   convo.msgs.push({ id: uid('m'), sys: 'invite', inv: iv.id, me: false, title: iv.what, text: '', ts: at, at });
-  addNotif(g, { k: 'dm', c: c.id, at, text: iv.collab ? `🎬 ${c.name} te propose de tourner ensemble ${fmtWhen(due)} : « ${str(iv.what, 60)} »` : `📅 ${c.name} te propose de vous voir ${fmtWhen(due)} : « ${str(iv.what, 60)} »` });
+  addNotif(g, { k: 'dm', c: c.id, at, text: iv.pub ? `💰 ${c.name} t’invite dans son opé ${iv.pub.brand}${iv.pub.fee > 0 ? ` (${fmtMoney(g, iv.pub.fee)} pour toi)` : ''}, ${fmtWhen(due)} : « ${str(iv.what, 60)} »` : iv.collab ? `🎬 ${c.name} te propose de tourner ensemble ${fmtWhen(due)} : « ${str(iv.what, 60)} »` : `📅 ${c.name} te propose de vous voir ${fmtWhen(due)} : « ${str(iv.what, 60)} »` });
   bumpLive(at + 1500); // the screen refreshes when the card arrives (the clock ticks every second)
   return iv;
 }
@@ -2174,7 +2178,7 @@ function acceptInvite(g, iv, quiet) {
   const c = g.chars[iv.c];
   if (!c) return null;
   if (iv.due < Date.now() + 5 * 60000) { iv.state = 'expired'; return null; }
-  if (iv.collab) { const r = acceptCollab(g, iv, c, quiet); if (r) return r; } // 0.14: a video to make together goes in the Studio
+  if (iv.collab) { const r = acceptCollab(g, iv, c, quiet); if (r) { if (iv.pub && !r.hostOp) Object.assign(r, { hostOp: { c: c.id, brand: iv.pub.brand, fee: iv.pub.fee }, feat: { c: c.id, ok: true, at: Date.now() } }); return r; } } // 0.14: a video to make together goes in the Studio (0.33: their operation, paid)
   const ev = addEvent(g, { by: c.handle, kind: 'rdv', what: iv.what, due: iv.due }, { dm: c.id });
   if (!ev) return null;
   iv.state = 'accepted';

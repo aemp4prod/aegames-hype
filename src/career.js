@@ -810,6 +810,7 @@ function makeOffer(g, o = {}) {
   const via = o.via || (o.pitched ? 'pitch' : 'direct'), ag = hasStaff(g, 'agent'); // 0.20: who brought it
   const tk = (banned || shady) && toxLv(g) ? toxFeeK(g) / standMult(g, 'fee') : (banned ? 2 : 1); // 0.30: what a shady brand pays a toxic name (×1,5 → ×3, whatever the scandals)
   let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady && !toxLv(g) ? 1.5 : 1) * tk * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1) * (bg ? 0.8 * bg.big.k : 1); // (0.30.1: its views)
+  if (num(o.feeAsk, 0) > 0) fee = clamp(num(o.feeAsk, 0), fee * 0.6, fee * 1.4); // 0.33: asked in messages: the price they agreed on, if it is fair for the player's audience
   // 0.21: some brands offer their gear instead (half of the small ones that sell gear, a quarter of the others)
   const gift = o.gift && GEAR[o.gift.kind] ? { kind: o.gift.kind, t: clamp(int(o.gift.t, 0, 3, 0), 0, 3), value: GEAR[o.gift.kind].prices[clamp(int(o.gift.t, 0, 3, 0), 0, 3)] }
     : !banned && !shady && o.gift !== false && o.scam === undefined && !easyGear() && GIFT_GEAR[S0.id] && Math.random() < (fee < 60 ? 0.5 : 0.25) ? pickGift(g, S0.id, fee) : null; // (not in the suites before 0.21, nor when a test asks for a scam)
@@ -845,7 +846,7 @@ function makeOffer(g, o = {}) {
   const obvious = deal.scam === 'frais' || deal.scam === 'brief';
   const pitch = (obvious && sc.pitch) || str(o.text, 300) || (sc && sc.pitch) || (bg ? `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On a entendu parler de ta production « ${str(bg.topic, 60)} » : on aimerait beaucoup y être, avec ${deal.product}. Je t’envoie notre proposition ⬇️` : `Salut ${firstName(g.player)} ! Je gère les partenariats de ${brand}. On adore ce que tu fais : on aimerait te confier ${deal.product}. Je t’envoie notre proposition ⬇️`);
   const at = later() + 1200;
-  addIncomingDM(g, contact, pitch, at, { max: 400 });
+  if (!o.asked) addIncomingDM(g, contact, pitch, at, { max: 400 }); // (0.33: asked in its messages, its own words said it)
   dmCard(g, contact, { sys: 'deal', deal: deal.id }, at + 400);
   addNotif(g, { k: 'money', c: contact.id, at, text: `${deal.emoji} ${brand} te propose un partenariat${deal.fee ? ` : ${fmtMoney(g, deal.fee)}` : deal.gift ? ` : ${giftName(g, deal.gift)} offert` : deal.costs ? '' : ` : payé en produits (≈ ${fmtMoney(g, deal.value)}), pas en argent`}.` });
   const agc = ag && g.chars[ag.c];
@@ -854,6 +855,29 @@ function makeOffer(g, o = {}) {
   return deal;
 }
 const dealOf = (g, id) => g.deals.find((d) => d.id === id) || null;
+// 0.33: the player asks a brand they know for a partnership of their own (in its messages, or in a group): its AI decides
+// now. Yes: the offer comes as any offer does (the price from the player's audience, kept near what they agreed on when it
+// is fair; then the card, « Négocier »), never a scam nor a hidden ad (the player came to them); no: said simply. Before,
+// it had no way to make one, and waited for « le feu vert » forever.
+function ownAskWhy(g, b) { // ('' : it can)
+  const brand = b && b.kind === 'brand' ? brandOfContact(g, b) : '';
+  if (!brand) return 'brand';
+  if (brandBurnt(g, brand)) return 'burnt';
+  if (g.stats.followers < 800) return 'small';
+  if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return 'open';
+  if (openDeals(g).filter((d) => d.state === 'offer').length >= 2) return 'full';
+  return '';
+}
+function ownAskLine(g, b) {
+  if (ownAskWhy(g, b)) return null;
+  const brand = brandOfContact(g, b), fm = PF(g).fmts;
+  return `- Si le joueur demande à ${b.name} un NOUVEAU partenariat pour lui-même (un contenu sponsorisé par ${brand}, même avec un autre créateur dedans), ${b.name} décide en pro, dans ce message même (${brand} colle-t-elle à sa chaîne et à son audience ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre","what":"${fm.join('|')}","product":"≤ 60 caractères : ce que ${brand} veut y montrer (et avec qui, si quelqu’un d’autre en est)","fee":0} ("fee" : le montant dont vous avez convenu, 0 si vous n’en avez pas parlé ; le jeu le garde s’il est raisonnable pour son audience, et la proposition s’affiche dans vos messages, à négocier comme les autres). Si c’est non, dis-le simplement : jamais « je reviens vers vous » ni « on attend le feu vert ».`;
+}
+function brandOffersPlayer(g, b, o) {
+  if (!b || ownAskWhy(g, b)) return null;
+  const brand = brandOfContact(g, b), old = g.deals.filter((d) => d.brand.toLowerCase() === brand.toLowerCase()).slice(-1)[0];
+  return makeOffer(g, { brand, contactId: b.id, what: o && o.what, product: o && o.product, feeAsk: num(o && o.fee, 0), sector: old && old.sector, emoji: old && old.emoji, asked: true, pitched: true, legit: true, shady: false, gift: false, care: false });
+}
 // 0.20: the old contracts go, but never one still open or with something still to happen (a payment, a recall, the critic…)
 const dealPending = (d) => DEAL_OPEN.includes(d.state) || d.state === 'waiting' || !!(d.unpaidAt || d.recallAt || d.flopAt || d.imageAt || d.expose || d.lostAt || d.check || (d.clause && d.clause.kind === 'penal' && !d.clause.paid && Date.now() - (d.signedAt || 0) < 180 * DAY_MS));
 function trimDeals(g, max = 24) {
@@ -1129,23 +1153,25 @@ function sanction(g, d) {
 }
 
 /* ---------- the team: people the player hires (and pays) ---------- */
+// 0.33: a power as it works today (a level, the gear, the mood, the loyalty), for what is shown by level.
+const pIx = (p) => clamp(Math.round(num(p, 1)) - 1, 0, 3);
 const STAFF_ROLES = {
   monteur: { emoji: '🎬', m: 'Monteur vidéo', f: 'Monteuse vidéo', x: 'Monteur·se vidéo', pay: 'video', rates: [50, 150, 350, 900], fmts: ['vidéo', 'short', 'clip'],
-    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, un format court tiré de chaque vidéo longue, et tes contenus prêts plus vite.', fx: (p) => `+${8 * p} % de temps au tournage · +${8 * p} % de vues · un format court en bonus · prêts ${Math.round(ED_SAVE[clamp(p - 1, 0, 3)] * 100)} % plus vite` },
+    desc: 'Monte tes contenus : plus de temps pour tes tournages, un rendu plus pro, un format court tiré de chaque vidéo longue, et tes contenus prêts plus vite.', fx: (p) => `+${Math.round(8 * p)} % de temps au tournage · +${Math.round(8 * p)} % de vues · un format court en bonus · prêts ${Math.round(ED_SAVE[pIx(p)] * 100)} % plus vite` },
   miniature: { emoji: '🖼️', m: 'Graphiste', f: 'Graphiste', x: 'Graphiste', pay: 'video', rates: [20, 60, 150, 400], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
-    desc: 'Tes miniatures et tes visuels donnent envie de cliquer, et te font gagner du temps.', fx: (p) => `+${7 * p} % de vues sur chaque sortie · ${TH_SAVE[clamp(p - 1, 0, 3)]} min de gagnées sur chaque sortie` },
+    desc: 'Tes miniatures et tes visuels donnent envie de cliquer, et te font gagner du temps.', fx: (p) => `+${Math.round(7 * p)} % de vues sur chaque sortie · ${TH_SAVE[pIx(p)]} min de gagnées sur chaque sortie` },
   scenariste: { emoji: '✍️', m: 'Scénariste', f: 'Scénariste', x: 'Scénariste', pay: 'video', rates: [60, 180, 450, 1100], fmts: ['vidéo', 'short', 'clip', 'podcast', 'live'],
-    desc: 'Prépare le fond de tes contenus : des indices pendant tes tournages.', fx: (p) => `${p} ${plural(p, 'indice', 'indices')} par tournage · +${4 * p} % de temps` },
+    desc: 'Prépare le fond de tes contenus : des indices pendant tes tournages.', fx: (p) => `${pIx(p) + 1} ${plural(pIx(p) + 1, 'indice', 'indices')} par tournage · +${Math.round(4 * p)} % de temps` },
   cm: { emoji: '💬', m: 'Community manager', f: 'Community manager', x: 'Community manager', pay: 'week', rates: [120, 300, 650, 1400],
-    desc: 'Gère tes commentaires : moins de casse quand ça tourne mal, et les rumeurs repérées plus tôt.', fx: (p) => `−${12 * p} % d’abonnés perdus quand ça tourne mal · rumeurs moins fortes` },
+    desc: 'Gère tes commentaires : moins de casse quand ça tourne mal, et les rumeurs repérées plus tôt.', fx: (p) => `−${Math.round(12 * p)} % d’abonnés perdus quand ça tourne mal · rumeurs moins fortes` },
   agent: { emoji: '🤝', m: 'Agent', f: 'Agente', x: 'Agent·e', pay: 'cut', rates: [10, 15, 18, 20],
-    desc: 'Te trouve des marques, négocie pour toi et lit les offres avant toi (les arnaques aussi), contre une commission sur chaque contrat. Plus son niveau est haut, plus les contrats qu’il ou elle sait gérer sont gros.', fx: (p) => `offres plus fréquentes · +${5 * p} % sur les contrats · contrats jusqu’à ${p >= 4 ? 'toutes tailles' : fmtPlain(AGENT_CEIL[p - 1]) + ' €'}` },
+    desc: 'Te trouve des marques, négocie pour toi et lit les offres avant toi (les arnaques aussi), contre une commission sur chaque contrat. Plus son niveau est haut, plus les contrats qu’il ou elle sait gérer sont gros.', fx: (p) => `offres plus fréquentes · +${Math.round(5 * p)} % sur les contrats · contrats jusqu’à ${pIx(p) >= 3 ? 'toutes tailles' : fmtPlain(AGENT_CEIL[pIx(p)]) + ' €'}` },
   rp: { emoji: '📣', m: 'Attaché de presse', f: 'Attachée de presse', x: 'Attaché·e de presse', pay: 'week', rates: [200, 500, 1100, 2500],
-    desc: 'Les médias parlent de toi : tes sorties mieux couvertes, tes bad buzz plus courts.', fx: (p) => `+${4 * p} % de vues · bad buzz −${15 * p} %` },
+    desc: 'Les médias parlent de toi : tes sorties mieux couvertes, tes bad buzz plus courts.', fx: (p) => `+${Math.round(4 * p)} % de vues · bad buzz −${Math.round(15 * p)} %` },
   agence: { emoji: '🏢', m: 'Agent de ton agence', f: 'Agente de ton agence', x: 'Agent·e de ton agence', pay: 'week', rates: [250, 600, 1300, 2800], // 0.31: only once the agency exists
-    desc: 'Travaille pour ton agence d’influence : trouve plus de marques pour tes talents, négocie mieux, et te laisse prendre plus de talents.', fx: (p) => `+${15 * p} % d’offres pour tes talents · +${4 * p} % sur leurs contrats · +${p} ${plural(p, 'talent', 'talents')}` },
+    desc: 'Travaille pour ton agence d’influence : trouve plus de marques pour tes talents, négocie mieux, et te laisse prendre plus de talents.', fx: (p) => `+${Math.round(15 * p)} % d’offres pour tes talents · +${Math.round(4 * p)} % sur leurs contrats · +${pIx(p) + 1} ${plural(pIx(p) + 1, 'talent', 'talents')}` },
   avocat: { emoji: '⚖️', m: 'Avocat', f: 'Avocate', x: 'Avocat·e', pay: 'case', rates: [300, 800, 2000, 5000],
-    desc: 'Mises en demeure contre les rumeurs et la diffamation, défense en cas d’amende.', fx: (p) => `${Math.min(95, 45 + 15 * p)} % de chances de faire retirer une rumeur · amendes −${20 * p} %` },
+    desc: 'Mises en demeure contre les rumeurs et la diffamation, défense en cas d’amende.', fx: (p) => `${Math.min(95, Math.round(45 + 15 * p))} % de chances de faire retirer une rumeur · amendes −${Math.min(95, Math.round(20 * p))} %` },
 };
 const STAFF_TIERS = [
   { m: 'Débutant', f: 'Débutante', x: 'Débutant·e', years: [1, 2] },
@@ -1156,7 +1182,7 @@ const STAFF_TIERS = [
 const roleName = (role, gd) => { const R = STAFF_ROLES[role]; return R ? gx(gd, R.m, R.f, R.x) : role; };
 const tierName = (tier, gd) => { const T = STAFF_TIERS[tier] || STAFF_TIERS[0]; return gx(gd, T.m, T.f, T.x); };
 const hasStaff = (g, role) => (g.staff || []).find((m) => m.role === role && g.chars[m.c]) || null;
-const staffPower = (g, role) => { const m = hasStaff(g, role); return m && !(STAFF_ROLES[role].pay === 'week' && m.unpaid) ? m.tier + 1 : 0; };
+const staffPower = (g, role) => memberPower(g, hasStaff(g, role)); // 0.33: their level, their gear, their mood, their loyalty (equipe.js)
 const payWord = (g, m) => { const R = STAFF_ROLES[m.role]; return R.pay === 'cut' ? `${m.rate} % des contrats` : R.pay === 'week' ? `${fmtMoney(g, m.rate)} / semaine` : R.pay === 'case' ? `${fmtMoney(g, m.rate)} par dossier` : `${fmtMoney(g, m.rate)} par sortie`; };
 // What the team adds (crew: the per-release roles really paid for this release).
 function staffMult(g, what, fmt, crew) {
@@ -1180,9 +1206,10 @@ function payCrew(g, r) {
   for (const m of g.staff) {
     const R = STAFF_ROLES[m.role];
     if (!R || R.pay !== 'video' || !R.fmts.includes(r.what)) continue;
+    if (m.once && m.doneR && m.doneR !== r.id) continue; // 0.33: someone of the cast, for one release: that one is theirs
     const c = g.chars[m.c];
     const days = r.big ? r.big.size : 1; // 0.30.1: a big production pays its team for every day of it
-    if (pay(g, m.rate * days, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}${days > 1 ? ` (${days} jours)` : ''}`, 'staff')) crew.push(m.role);
+    if (pay(g, m.rate * days, `${roleName(m.role, c && c.g)} · ${wordCut(r.topic, 30)}${days > 1 ? ` (${days} jours)` : ''}`, 'staff')) { crew.push(m.role); staffWorked(g, m); if (m.once) m.doneR = r.id; } // (0.33: a release worked on, a step)
     else missed.push(c ? firstName(c) : roleName(m.role));
   }
   r.crew = crew;
@@ -1210,8 +1237,9 @@ function quitStaff(g, m, why) {
   const c = g.chars[m.c];
   g.staff = g.staff.filter((x) => x !== m);
   if (!c) return;
+  if (m.main) { mainJobEnd(g, c, m, why); return; } // 0.33: someone of the cast keeps their life, and who they are
   c.kind = 'ex';
-  c.role = `Ex-${roleName(m.role, c.g).toLowerCase()}`;
+  c.role = why === 'poached' && m.poach ? `${roleName(m.role, c.g)} chez ${m.poach.from}` : `Ex-${roleName(m.role, c.g).toLowerCase()}`;
   if (why === 'unpaid') {
     c.rel = clamp(c.rel - 30, -100, 100);
     addMem(g, c, `le joueur ne m’a pas ${gx(c.g, 'payé : je suis parti', 'payée : je suis partie', 'payé·e : je suis parti·e')}`);
@@ -1227,8 +1255,12 @@ function quitStaff(g, m, why) {
     c.rel = clamp(c.rel - 10, -100, 100);
     addIncomingDM(g, c, `${gx(c.g, 'Désolé', 'Désolée', 'Désolé·e')}, je ne veux pas être ${gx(c.g, 'associé', 'associée', 'associé·e')} à tout ça. Je préfère arrêter là.`, later() + 1000, { max: 300 });
     addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne : ${gx(c.g, 'il', 'elle', 'iel')} ne veut pas être ${gx(c.g, 'associé', 'associée', 'associé·e')} à ton scandale.` });
+  } else if (why === 'poached') { // 0.33: a better offer elsewhere
+    c.rel = clamp(c.rel - 5, -100, 100);
+    addMem(g, c, `j’ai quitté le joueur pour ${m.poach ? m.poach.from : 'un autre créateur'}`);
+    addNotif(g, { k: 'reldown', c: c.id, text: `🎣 ${c.name} part chez ${m.poach ? m.poach.from : 'quelqu’un d’autre'}${m.poach ? ` (${rateWord(g, m.role, m.poach.rate)})` : ''}.` });
   } else addNotif(g, { k: 'money', c: c.id, text: `${c.name} démissionne.` });
-  addChronicle(g, `${c.name} ne travaille plus pour ${g.player.name}${why === 'unpaid' ? ` (pas ${gx(c.g, 'payé', 'payée', 'payé·e')})` : ''}.`);
+  addChronicle(g, `${c.name} ne travaille plus pour ${g.player.name}${why === 'unpaid' ? ` (pas ${gx(c.g, 'payé', 'payée', 'payé·e')})` : why === 'poached' && m.poach ? ` (parti${gx(c.g, '', 'e', '·e')} chez ${m.poach.from})` : ''}.`);
 }
 function hireStaff(g, c) {
   const o = c && c.cand;
@@ -1237,14 +1269,14 @@ function hireStaff(g, c) {
   if (hasStaff(g, o.role)) { toast(`Tu as déjà ${gx(c.g, 'un', 'une', 'un·e')} ${roleName(o.role, c.g).toLowerCase()} : sépare-toi d’abord de la personne actuelle.`, 'bad'); return false; }
   if (R.pay === 'week' && !pay(g, o.rate, `Première semaine de ${firstName(c)}`, 'staff')) { toast(`Il te faut ${fmtMoney(g, o.rate)} pour payer sa première semaine.`, 'bad'); return false; }
   const t = Date.now();
-  g.staff.push({ id: uid('st'), c: c.id, role: o.role, tier: o.tier, rate: o.rate, since: t, next: t + 7 * DAY_MS, unpaid: 0 });
+  g.staff.push({ id: uid('st'), c: c.id, role: o.role, tier: o.tier, rate: o.rate, since: t, next: t + 7 * DAY_MS, unpaid: 0, xp: 0, loy: 0, mood: MOOD0, gear: t33On() ? 0 : GEAR_NEED[clamp(o.tier, 0, 3)], day: gameDay(t) }); // (0.33: their gear, the player gives it)
   c.kind = 'staff';
   c.role = `${roleName(o.role, c.g)} de @${g.player.handle}`;
   c.rel = Math.max(c.rel, 20);
   for (const x of Object.values(g.chars)) if (x.kind === 'cand' && x.cand && x.cand.role === o.role && x !== c) x.kind = x.joined ? 'main' : 'gone'; // the others are told no (one who joined the cast stays in the player's life)
   g.cands = null;
   addIncomingDM(g, c, pick(['Trop bien ! Je commence quand tu veux 🔥', 'Merci pour ta confiance, tu vas pas le regretter.', 'Deal ! Envoie-moi tout ce que t’as, je m’y mets.']), later() + 1500, { max: 300 });
-  addNotif(g, { k: 'money', c: c.id, text: `${c.name} rejoint ton équipe (${roleName(o.role, c.g).toLowerCase()}, ${payWord(g, g.staff[g.staff.length - 1])}).` });
+  addNotif(g, { k: 'money', c: c.id, text: `${c.name} rejoint ton équipe (${roleName(o.role, c.g).toLowerCase()}, ${payWord(g, g.staff[g.staff.length - 1])}).${t33On() ? ` Pense à l’équiper : il ${gx(c.g, 'lui', 'lui', 'lui')} faut ${NEED_WORD[GEAR_NEED[clamp(o.tier, 0, 3)]]}.` : ''}` });
   addChronicle(g, `${g.player.name} a engagé ${c.name} comme ${roleName(o.role, c.g).toLowerCase()}.`);
   return true;
 }
@@ -1593,7 +1625,7 @@ function maybeOffer(g, t) {
 function tickCareer(g, t = Date.now()) {
   if (!g || !g.career) return false;
   let ch = false;
-  for (const fn of [checkPayout, billGear, tickGear, checkProgram, payroll, checkDeals, tickScams, checkAppeals, tickCommu, tickMemb, tickMerch, tickJobs, tickResale, tickRumors, refreshTrends, maybeOffer, tickBig, tickAgency]) { // (0.31: the talents, their brands) // (0.30.1: a big production's views, climbing) // 0.20: the bills after the payout, the scams; 0.21: the reviews; 0.22: the members, the merch
+  for (const fn of [checkPayout, billGear, tickGear, checkProgram, payroll, tickTeam, checkDeals, tickScams, checkAppeals, tickCommu, tickMemb, tickMerch, tickJobs, tickResale, tickRumors, refreshTrends, maybeOffer, tickBig, tickAgency]) { // (0.31: the talents, their brands) // (0.30.1: a big production's views, climbing) // 0.20: the bills after the payout, the scams; 0.21: the reviews; 0.22: the members, the merch
     try { if (fn(g, t)) ch = true; } catch (e) { console.error(e); }
   }
   if (g.series && g.series.bonusOffer && g.series.state !== 'on') g.series.bonusOffer = false;
@@ -1604,7 +1636,7 @@ function tickCareer(g, t = Date.now()) {
 function careerCtx(g, now = Date.now()) {
   const c = g.career, pf = platformOf(g), out = [];
   out.push(`Sa carrière : ${pfName(g, pf)} (niche ${nicheOf(g).label.toLowerCase()}), ${fmtMoney(g, c.cash)} en banque, ${monetized(g) ? 'monétisé·e' : 'pas encore monétisé·e'}.`);
-  const team = g.staff.map((m) => g.chars[m.c] && `@${g.chars[m.c].handle} (${roleName(m.role, g.chars[m.c].g).toLowerCase()})`).filter(Boolean);
+  const team = g.staff.map((m) => { const x = g.chars[m.c]; return x && `@${x.handle} (${roleName(m.role, x.g).toLowerCase()}, ${tierName(m.tier, x.g).toLowerCase()}${m.once ? ', pour une sortie' : ''}${t33On() ? `, moral ${moodLabel(m, x.g)[1].toLowerCase()}` : ''})`; }).filter(Boolean); // (0.33: their level, their mood)
   if (team.length) out.push(`Son équipe : ${team.join(', ')}.`);
   const sd = signedDeals(g);
   if (sd.length) out.push(`Sponsors en cours : ${sd.map((d) => `${d.brand} (${d.product}, à livrer ${fmtWhen(d.due, now)})`).join(' ; ')}.`);
@@ -1655,6 +1687,8 @@ function refreshCareerLines(g, t = Date.now()) {
   if (out.some((x) => x === FAN_LINE || (typeof x === 'string' && x.includes('{"t":"sponsor"')))) { const L = firstsLine(g, 'une personne nouvelle (le contact d’une marque, un abonné)'); if (L) out.push('- ' + L); const L2 = lastsLine(g); if (L2) out.push('- ' + L2); } // 0.28.1 (0.30: the family names too)
   out.push(...bigRefreshLines(g, t)); // 0.30.1: a big production
   out.push(...agencyRefreshLines(g, t)); // 0.31: the talents' sponsored posts, their brands
+  out.push(...teamRefreshLines(g, t)); // 0.33: the team: poached, at the end of their rope, an answer due
+  out.push(...afficheRefreshLines(g, t)); // 0.33: a bigger creator's operation, the player invited
   if (activeTrends(g, t).length < 4) out.push(`- Facultatif : une nouvelle tendance sur ${pfName(g, platformOf(g))} qui colle à ce monde : {"t":"trend","kind":"${trendKindsFor(platformOf(g)).join('" ou "')}","name":"≤ 40 caractères (un son inventé, un #défi ou un sujet)","emoji":"🎵"}.`);
   return { ctx, lines: out };
 }
@@ -1676,7 +1710,7 @@ function applyCareerLine(g, o, effects, lastOf = {}) {
     case 'fan': effects.push(() => fanMessage(g, o)); return true; // 0.21
     case 'arrivee': effects.push(() => { if (arrivalOK(g)) { g.arrival = { why: str(o.why, 100), at: Date.now() }; g.lastArrival = Date.now(); } }); return true; // 0.30: created right after
     case 'trend': effects.push(() => { const k = TREND_KINDS[o.kind] ? o.kind : trendKindsFor(platformOf(g))[0]; makeTrend(g, k, o); }); return true;
-    default: return applyAgencyLine(g, o, effects); // 0.31: an offer for a talent, a betrayal, a rival agency
+    default: return applyAgencyLine(g, o, effects) || applyTeamLine(g, o, effects); // 0.31: an offer for a talent, a betrayal, a rival agency (0.33: the team)
   }
 }
 
@@ -1792,7 +1826,7 @@ function dmCareerCtx(g, c) {
       ? `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, qui défend son budget. Avec le joueur, c’est devenu personnel ; ${il} sépare le travail du reste… plus ou moins.`
       : `${c.name} est chargé·e des partenariats chez ${brand} : une vraie pro, aimable, qui défend son budget. ${cap1(il)} parle surtout business, mais reste une personne : si le joueur l’amène sur le terrain perso, ${il} réagit selon son caractère.`);
     if (d && d.state === 'offer') out.push(`Son offre actuelle : ${dealSummary(g, d)}. Elle peut monter jusqu’à ${fmtMoney(g, dealBounds(d).cap)} au grand maximum si le joueur argumente bien (ses vues, sa niche, son audience, la qualité) ; s’il est exigeant sans raison, désagréable, ou s’il demande plus que ce maximum, elle refuse ou retire l’offre. Si le joueur envoie un devis ou un budget détaillé, elle répond sur les chiffres, poste par poste. Tout se négocie : le prix, la mention « Collaboration commerciale », l’exclusivité, le délai, le format, l’acompte (la part versée à la signature : elle accepte, propose moins ou refuse, selon le contrat et son budget).${d.shady ? ' Elle tient à ce qu’il n’y ait pas de mention « Collaboration commerciale », et paie plus pour ça (c’est illégal : elle le sait, n’en parle jamais d’elle-même, et minimise si le joueur pose la question ; s’il veut la mention, elle peut l’accepter en payant moins).' : ''}${d.banned ? ` Le produit fait partie de ce que la loi interdit aux influenceurs de promouvoir (${d.banned}) : elle n’en parle jamais d’elle-même et minimise si le joueur s’en inquiète.` : ''}`);
-    else if (d && d.state === 'signed') out.push(`Le contrat est signé : ${dealSummary(g, d)}, à livrer ${fmtWhen(d.due)}. Elle suit ça de près. Un avenant reste possible si les deux sont d’accord (le prix, la mention, plus de délai, un acompte plus gros).${d.shady ? ' (Sans mention : c’est illégal, elle le sait, n’en parle jamais d’elle-même et minimise si le joueur pose la question.)' : ''}`);
+    else if (d && d.state === 'signed') { out.push(`Le contrat est signé : ${dealSummary(g, d)}, à livrer ${fmtWhen(d.due)}. Elle suit ça de près. Un avenant reste possible si les deux sont d’accord (le prix, la mention, plus de délai, un acompte plus gros).${d.shady ? ' (Sans mention : c’est illégal, elle le sait, n’en parle jamais d’elle-même et minimise si le joueur pose la question.)' : ''}`); if (d.guest) out.push(...brandGuestCtx(g, d)); } // (0.33: someone the player wants to bring in)
     // 0.25.2: only a contract that is over says so (since 0.20 this line followed every open offer too: brands thought
     // the negotiation closed)
     else if (d && d.state === 'waiting') out.push(`Le contrat est signé : ${dealSummary(g, d)} ; ${d.gift ? 'le matos' : 'le kit'} doit arriver.`);
@@ -1805,11 +1839,13 @@ function dmCareerCtx(g, c) {
   } else if (c.kind === 'cand' && c.cand) {
     out.push(`${c.name} postule pour devenir ${roleName(c.cand.role, c.g).toLowerCase()} du joueur : ${tierName(c.cand.tier, c.g).toLowerCase()}, ${c.cand.years} ans d’expérience (${c.cand.pitch}). Tarif demandé : ${payWord(g, c.cand)}. ${gx(c.g, 'Il', 'Elle', 'Iel')} veut le poste, répond aux questions sur son travail, et peut baisser un peu son prix si on négocie bien (pas plus de 20 %).`);
   } else if (c.kind === 'staff') {
-    const m = g.staff.find((x) => x.c === c.id);
-    if (m) out.push(`${c.name} travaille pour le joueur : ${roleName(m.role, c.g).toLowerCase()} (${tierName(m.tier, c.g).toLowerCase()}), ${payWord(g, m)}, depuis ${fmtDur(Date.now() - m.since)}${m.unpaid ? ', et attend d’être payé·e' : ''}. Franc·he, donne son avis de pro sur les contenus du joueur, a son caractère, peut demander une augmentation, et peut démissionner si on le ou la traite mal.`);
+    const m = memberOf(g, c);
+    if (m) out.push(...teamDMCtx(g, c, m)); // 0.33: their level, their mood and why, their gear, a raise, an offer elsewhere
     const offers = m && m.role === 'agent' ? g.deals.filter((d) => d.state === 'offer' || d.state === 'signed') : [];
     if (offers.length) out.push(`Ce que ${c.name} pense des offres en cours (son avis de pro, à son niveau) : ${offers.map((d) => `${d.brand} (${d.flagged ? (d.scam || d.banned || d.shady ? AGENT_WARN[d.scam || (d.banned ? 'banned' : 'shady')](d) : 'le piège qui l’inquiétait a sauté du contrat : plus rien à redire') : d.via === 'agent' ? `c’est ${gx(c.g, 'lui', 'elle', 'iel')} qui l’a trouvée, ${gx(c.g, 'il', 'elle', 'iel')} y croit` : 'rien remarqué de spécial'})`).join(' ; ')}.`); // 0.20: what the agent saw
   } else if (c.kind === 'ex') out.push(`${c.name} a travaillé pour le joueur (${c.role}) et ne travaille plus pour lui.`);
+  if (c.kind !== 'staff') { const tm = memberOf(g, c); if (tm) out.push(...teamDMCtx(g, c, tm)); else if (isMain(c)) out.push(...hireCtx(g, c)); } // 0.33: someone of the cast, with a job (or offered one)
+  if (isMain(c)) out.push(...guestDMCtx(g, c), ...starCtx(g, c)); // 0.33: invited into a sponsored content of the player's; a tête d’affiche
   return out;
 }
 function dmCareerLines(g, c) {
@@ -1819,10 +1855,13 @@ function dmCareerLines(g, c) {
   const ask = c.kind === 'brand' && !(td && tdealOpen(td)) ? talentAskLine(g, c) : null; // 0.32: the player asks them for a talent of theirs
   if (td && (!d || td.at >= d.at)) return tdealBrandLines(g, c, td).concat(ask ? [ask] : []);
   if (ask) out.push(ask);
+  if (c.kind === 'brand' && !d) { const own = ownAskLine(g, c); if (own) out.push(own); } // 0.33: a partnership of the player's own, asked in its messages
   if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
   if (c.kind === 'brand') out.push(...doubtLines(g, c)); // 0.32: an anonymous message about the player reached them
+  if (c.kind === 'brand' && g.deals.some((x) => x.contact === c.id && guestWait(x))) out.push(BRAND_GUEST_LINE(c)); // 0.33: someone brought in, or not
+  if (isMain(c) && guestAsking(g, c)) out.push(GUEST_LINE(g, c)); // 0.33: in the player's sponsored content, or not
   if (c.kind === 'cand' && c.cand && STAFF_ROLES[c.cand.role].pay !== 'cut') out.push(`- Si ${c.name} accepte de baisser son tarif : {"t":"rate","rate":${c.cand.rate}} (entre ${Math.round(c.cand.rate * 0.8)} et ${c.cand.rate}).`);
-  if (c.kind === 'staff') out.push(`- Seulement si ${c.name} démissionne pour de bon (le joueur l’a vraiment mal traité·e) : {"t":"quit"}.`);
+  { const tm = memberOf(g, c); if (tm) out.push(...teamDMLines(g, c, tm)); } // 0.33: a raise, an offer elsewhere, the end of it
   return out;
 }
 // The lines of a DM that touch the career (and what the player let slip, kept as intel).
@@ -1830,8 +1869,14 @@ function applyDMCareerLine(g, c, o, playerText, fx) {
   if (o.t === 'deal' && c.kind === 'brand') { fx.push(() => applyDealLine(g, c, o)); return true; }
   if (o.t === 'tdeal' && c.kind === 'brand') { fx.push(() => applyTdealLine(g, c, o)); return true; } // 0.31: the offer for a talent
   if (o.t === 'offre_talent' && c.kind === 'brand') { fx.push(() => brandOffersTalent(g, c, o)); return true; } // 0.32: asked by the agent, they make one
+  if (o.t === 'offre' && c.kind === 'brand') { fx.push(() => brandOffersPlayer(g, c, o)); return true; } // 0.33: asked by the player, for themselves
   if (o.t === 'rate' && c.kind === 'cand' && c.cand) { fx.push(() => { const r = Math.round(num(o.rate, c.cand.rate)); if (r < c.cand.rate) { c.cand.rate = niceRound(clamp(r, c.cand.rate * 0.8, c.cand.rate)); addNotif(g, { k: 'money', c: c.id, text: `${c.name} baisse son tarif : ${payWord(g, c.cand)}.` }); } }); return true; }
-  if (o.t === 'quit' && c.kind === 'staff') { fx.push(() => { const m = g.staff.find((x) => x.c === c.id); if (m && c.rel <= 0) quitStaff(g, m, 'quit'); }); return true; }
+  if (o.t === 'quit' && memberOf(g, c)) { fx.push(() => { const m = memberOf(g, c); if (quitOK(c, m)) quitStaff(g, m, 'quit'); }); return true; } // (0.33: or at the end of their rope)
+  if (o.t === 'salaire' && memberOf(g, c)) { fx.push(() => applySalaryLine(g, c, o)); return true; } // 0.33: a raise asked, agreed or refused
+  if (o.t === 'debauche_fin' && memberOf(g, c)) { fx.push(() => applyPoachEnd(g, c, o)); return true; } // 0.33: they stay, or they go
+  if (o.t === 'boulot' && isMain(c)) { fx.push(() => applyHireLine(g, c, o)); return true; } // 0.33: a job, taken or not
+  if (o.t === 'invite_marque' && c.kind === 'brand') { fx.push(() => applyBrandGuest(g, c, o)); return true; } // 0.33: the brand, on the player's guest
+  if (o.t === 'feat_pub' && isMain(c)) { fx.push(() => applyGuestAnswer(g, c, o)); return true; } // 0.33: the guest's answer
   if (o.t === 'intel' && isMain(c)) { fx.push(() => addIntel(g, c, playerText, o)); return true; }
   if (o.t === 'shady' && c.kind === 'brand') { fx.push(() => applyShady(g, c)); return true; } // 0.18: far more money, no mention
   return false;
@@ -1879,6 +1924,9 @@ function releaseCareer(ctx) {
   const tr = form.trend ? g.trends.find((x) => x.id === form.trend) : null;
   if (tr) post.video.trend = { name: tr.name, kind: tr.kind, emoji: tr.emoji, heat: Math.round(trendHeat(tr) * 100) / 100 };
   if (form.collab && g.chars[form.collab]) { post.video.collab = form.collab; collabDone(g, g.chars[form.collab], v.tier, vs); }
+  for (const m of (g.staff || []).slice()) if (m.once && m.doneR === r.id) quitStaff(g, m, 'done'); // 0.33: a job for this release only, done
+  payGuest(g, r); // 0.33: the share promised to the guest of a sponsored content
+  payHost(g, r); // 0.33: invited into someone's operation: paid
   // the editor cuts a short-form clip out of every long video
   if (r.what === 'vidéo' && crew.includes('monteur') && PF(g).fmts.includes('short')) {
     const sv = Math.round(vs * (0.5 + 0.2 * staffPower(g, 'monteur')) * rand(0.7, 1.3));

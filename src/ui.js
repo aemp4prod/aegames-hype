@@ -336,7 +336,7 @@ function raiseLayer(l) { const k = S.stack.indexOf(l); if (k >= 0 && k < S.stack
 // Closes the windows that match, open or put aside.
 function dropLayers(fn) { S.stack = S.stack.filter((l) => !fn(l)); S.dock = S.dock.filter((l) => !fn(l)); for (const l of (S.os || []).filter(fn)) { l.os.quiet = true; osClose(l); } } // (0.27.9: out of the game too)
 const layerOpen = (fn) => S.stack.some(fn) || S.dock.some(fn) || (S.os || []).some(fn);
-const WIN_EMOJI = { feat: '🤝', ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
+const WIN_EMOJI = { hire: '💼', stgear: '🧰', dealguest: '🤝', feat: '🤝', ach: '🏆', compose: '✏️', dm: '💬', group: '👥', storynew: '📸', minigame: '🎬', series: '📅', shop: '🛍️', merch: '🛍️', gear: '🛒', inv: '📦', sell: '🏷️', resale: '♻️', job: '🧰', thread: '🧵', char: '👤', npc: '👤', tag: '#️⃣', settings: '⚙️', palette: '🎨', practice: '🎮', move: '⏩', later: '🗓️', datelog: '📔', skill: '💪', recruit: '🤝', insta: '📸', tiktok: '🎵' };
 /* ---------- 0.27.10: the PC app's own window wears Hype's bar too, instead of the system's title bar: the logo, the
    world being played, reduce, enlarge (or back to its size), close. The bar moves the window (a double click enlarges
    it, as with any window); the game lives under it, in « .app-body », and its windows count their place from there. -- */
@@ -371,7 +371,7 @@ function viewBox() {
    own bar), moved anywhere, a second screen too, resized by its edges. It is the same game: this page fills the window's
    document (its styles copied) and draws the window in it, and it loads nothing and runs nothing of its own. A date, a
    shoot, a mini-game stay in the game (they hold it, and own the keys). ---------- */
-const OS_KINDS = ['dm', 'group', 'newgroup', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach']; // (0.27.10: all but the mini-games)
+const OS_KINDS = ['dm', 'group', 'newgroup', 'thread', 'char', 'npc', 'compose', 'series', 'inv', 'resale', 'sell', 'gear', 'settings', 'palette', 'recruit', 'shop', 'tag', 'skill', 'datelog', 'move', 'later', 'feat', 'agent', 'insta', 'tiktok', 'ach', 'hire', 'stgear', 'dealguest']; // (0.27.10: all but the mini-games)
 // The PC app, which can open real windows (the page of the tests keeps its windows inside the game).
 function osDesk() { return !!(HOST && HOST.winCtl && typeof window !== 'undefined' && typeof window.open === 'function'); }
 const osWinOK = (l) => !!(l && OS_KINDS.includes(l.t) && osDesk());
@@ -2476,7 +2476,7 @@ function ShootPlay({ r, now, outcomes, icon, onScore }) {
   const D = diffOf(game.diff || r.diff);
   const g = S.game, crew = !r.player && r.crew ? r.crew : []; // a release's team (an editor, a scriptwriter) helps the shoot
   const total = mgClock(kind, game.items, D, (g && crew.length ? staffMult(g, 'time', r.what, crew) : 1) * (g && !r.player ? gearTime(g) : 1)); // 0.20: the prompter; 0.27.5: by what there is to read
-  const hints = g && crew.includes('scenariste') ? staffPower(g, 'scenariste') : 0;
+  const hints = g && crew.includes('scenariste') ? staffLevel(g, 'scenariste') : 0; // (0.33: by their level today)
   if (phase === 'intro') {
     return html`<div class="mg-intro">
       <span class="eyebrow">${D.real && kind === 'quiz' ? 'Questions d’expert' : MG_LABEL[kind]}</span>
@@ -2796,6 +2796,9 @@ function Layer(props) {
   if (t === 'minigame') return html`<${MiniGameLayer} ...${props} />`;
   if (t === 'settings') return html`<${SettingsLayer} ...${props} />`;
   if (t === 'recruit') return html`<${RecruitLayer} ...${props} />`;
+  if (t === 'hire') return html`<${HireLayer} ...${props} />`; // 0.33: a job for someone of the cast
+  if (t === 'dealguest') return html`<${DealGuestLayer} ...${props} />`; // 0.33: someone in a sponsored content
+  if (t === 'stgear') return html`<${StaffGearLayer} ...${props} />`; // 0.33: the gear of the team
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
   if (t === 'feat') return html`<${FeatLayer} ...${props} />`; // 0.29.1: a feat for a release
@@ -3012,6 +3015,7 @@ function CharLayer({ l, g, now, i }) {
       <div class="prof-stats"><span><b>${fmtN(c.followers)}</b> ${plural(c.followers, 'abonné', 'abonnés')}</span>${main ? html`<span>Relation : <b>${relShown(c)}</b> (${fmtRel(c.rel)})</span>` : null}</div>
       ${main ? html`<${RelMeter} rel=${c.rel} />` : null}
       ${main ? html`<${SocialLinks} g=${g} c=${c} now=${now} />` : null}
+      ${t33On() && hireOK(g, c) ? html`<button class="btn btn-ghost btn-sm prof-job" onClick=${() => openLayer({ t: 'hire', id: c.id })}>💼 Proposer un boulot</button>` : null}
     </div>
     ${main ? html`<${TrustSection} g=${g} c=${c} now=${now} />` : null}
     ${main ? html`<${TemperSection} c=${c} />` : null}
@@ -3042,11 +3046,10 @@ function CharLayer({ l, g, now, i }) {
       <button class="btn btn-ghost btn-sm" onClick=${() => openLayer({ t: 'datelog', c: c.id })}><${Icon} n="book" s=${15} /> Les relire</button>
     </section>` : null}
     <${CharFile} c=${c} g=${g} now=${now} />` : null}
-    ${c.kind === 'staff' ? (() => { const m = g.staff.find((x) => x.c === c.id); return m ? html`<section class="section">
-      <div class="section-h"><h3>Son contrat</h3><span>depuis ${fmtDur(now - m.since)}</span></div>
-      <p>${STAFF_ROLES[m.role].emoji} ${roleName(m.role, c.g)} · ${tierName(m.tier, c.g).toLowerCase()} · ${payWord(g, m)}${m.unpaid ? ' · attend son salaire !' : ''}</p>
-      <small class="muted">${STAFF_ROLES[m.role].fx(m.tier + 1)}</small>
-    </section>` : null; })() : null}
+    ${(() => { const m = memberOf(g, c); return m ? html`<section class="section">
+      <div class="section-h"><h3>${m.main ? 'Son boulot pour toi' : 'Son contrat'}</h3><span>depuis ${fmtDur(now - m.since)}</span></div>
+      <${TeamRow} g=${g} m=${m} now=${now} inProfile=${true} />
+    </section>` : null; })()}
     ${c.kind === 'brand' ? g.deals.filter((x) => x.contact === c.id).slice(-2).reverse().map((x) => html`<div class="section" key=${x.id}><${DealCard} g=${g} d=${x} now=${now} /></div>`) : null}
     ${c.kind !== 'media' ? html`<${PhotoTools} g=${g} k=${c.id} />` : null}
     ${posts.length ? posts.map((p) => html`<${PostRow} key=${p.id} g=${g} p=${p} now=${now} />`) : html`<div class="empty"><span>Pas encore de posts.</span></div>`}
@@ -3294,6 +3297,7 @@ function InviteCard({ g, m, now }) {
   return html`<div class=${'dm-card ' + cls}>
     <span class="evt-kind">${label}</span>
     <b>${iv.what}</b>
+    ${iv.pub ? html`<p class="inv-pub">💰 Son opé sponsorisée ${iv.pub.brand} : ${iv.pub.fee > 0 ? `${fmtMoney(g, iv.pub.fee)} pour toi` : 'sans cachet pour toi'}</p>` : null}
     <p>${cap1(iv.due <= now ? fmtPast(iv.due, now) : fmtWhen(iv.due, now))}${cc ? ` · tu as déjà un rendez-vous avec ${firstName(cc)} à ce moment-là` : ''}</p>
     ${foe ? html`<p class="collab-foe">💔 ${firstName(foe)} ne supporte pas ${firstName(c)} : ça risque de mal passer.</p>` : null}
     ${open ? html`<div class="inv-acts"><button class="btn btn-hot btn-sm" onClick=${accept}><${Icon} n="calendar" s=${14} /> Accepter</button><button class="btn btn-ghost btn-sm" onClick=${() => { declineByButton(g, iv); update(); }}>Décliner</button></div>` : null}
@@ -3892,6 +3896,7 @@ function tick() {
     if (g.actDebt && payActTime(g, t)) update(); // 0.32: the minutes the player's messages and posts took
     if (tickTold(g, t)) update(); // 0.32: the hours gone by untold: the network tells them
     if (tickReplies(g, t) || tickGroups(g, t)) update(); // 0.32: they pick up their phone
+    if (!hidden && tickFollow(g, t)) update(); // 0.33: a talent comes back with the answer they promised
     if (!hidden && tickNrg(g, t)) update(); // 0.32: a bed offered in the night, or when exhausted
     for (const x of plannedReleases(g)) { // 0.31.3: a feat: someone waits for the player at that hour, even behind another release (said, and it can be shot)
       if (x === rl || !x.collab || x.big || hidden) continue;
@@ -3913,7 +3918,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -4040,6 +4045,12 @@ if (window.__HYPE_TEST__) {
     isMain, canJoin, joinCast, jobLine, JOIN_REL, candidates, // 0.16: anyone can join the cast
     dateExigence, FAMOUS, meetPlace, // 0.16: the exigence of a date played for real (0.32.1: where it is)
     progRefusal, reviewProgram321, // 0.32.1: why a partner program says no; a refusal of before looked at again
+    t33On, STAFF_STEPS, LOY_MAX, STAFF_GEAR, GEAR_NEED, memberOf, memberPower, memberLevel, staffLevel, staffWorked, staffGrow, raiseWant, acceptRaise, refuseRaise, applySalaryLine, buyStaffGear, gearPrice, giveBonus, bonusOf, // 0.33: the team
+    moodParts, moodTarget, moodWhy, moodLabel, teamDay, tickTeam, teamRefreshLines, applyTeamLine, applyPoachLine, matchPoach, applyPoachEnd, poachFallback, teamDMCtx, teamDMLines, quitOK,
+    HIRE_RE, normRole, hireRoles, hireOK, hireText, hireCtx, hireLine, applyHireLine, mainJobEnd, migrateTeam, workLoad, gearGap, applyDMCareerLine, dmCareerLines, tdealAsking,
+    tdealLater, tickFollow, ownAskWhy, ownAskLine, brandOffersPlayer, BRAND_NOW_LINE, BRAND_NOW_GROUP, TDEAL_LATER, // 0.33: partnerships that do not stall
+    affOn, LADDER_MIN, LADDER_TOP, LADDER_K, ladderGap, tickLadder, BIG_BRIEF, bigArrives, starCtx, dayGrowth, tickGrowth, // 0.33: always someone above
+    askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,
     // 0.17: ages and maturity, the people who see, the train of the hyyype
     MATU, drawCastAges, drawMatu, initAge, isOlder, ageText, newcomerAge,
     noteSeen, seenCheck, seenCtx, seenNeed, seenNow, witnessAct, ignoredFriends,

@@ -759,7 +759,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     c.secret && !c.secretOut && !c.secretTold ? CLUE_LINE(false) : null,
     canConfide(c) ? CONFIDE_LINE(c) : null,
     main && (meetHere || inv || date) ? PLAN_DM(c) : null,
-    main && (meetHere || ini || inv) ? INVITE_DM(c) : null,
+    main && (meetHere || ini || inv) ? INVITE_DM(c) + (affOn() && c.followers > g.stats.followers ? HOST_PUB(g) : '') : null, // (0.33: an operation of theirs, the player paid)
     main && featAsked(g, c) ? FEAT_LINE(c) : null, // 0.29.1
     ...(main ? agentDMLines(g, c) : []), // 0.31: yes or no to the agent, to a brand, or the end of it
     main && castAsked(g, c) ? CAST_LINE(c) : null, // 0.30.1: in the production, or not
@@ -772,6 +772,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     ...(main ? openOutLines(g, c) : []), // 0.32: open: another love, a throuple
     canJoin(c) ? `- Facultatif, seulement si c’est vraiment le cas : si l’échange devient personnel (${c.name} se confie, flirte, a envie de voir le joueur en dehors du travail, ou une vraie complicité naît), ajoute {"t":"perso","why":"≤ 60 caractères"} : la relation n’est plus seulement pro (son travail ne change pas).` : null,
     ...dmCareerLines(g, c),
+    main && t33On() && hireOK(g, c) && (c.hireAsk || HIRE_RE.test(text)) ? hireLine(g, c) : null, // 0.33: a job for them, offered by the player
     ...(main && (openJob(g, c.id) || jobTalk(history, text)) ? JOB_LINE(g, c) : []), // 0.23: a service, its files
     buyTalk(text) && !paid ? BUY_LINE(g, c) : null, // 0.24: something bought, charged for real (0.28.1: not a present already paid)
     main && giftTalk(text, history) ? GIFT_LINE(g, c) : null, // 0.26: a present for the player, to the inventory
@@ -845,7 +846,7 @@ function promptRefresh(g, absentMs, trig = [], skip = false, arc = null, batch =
     merchTagLine(g), // 0.30.2
     `- Facultatif (au plus ${absentMs ? intensityOf(g).refresh.absentDms : intensityOf(g).refresh.dms}) : {"t":"dm","by":"handle","text":"≤ 200 caractères"} si un personnage a une raison d’écrire au joueur en privé`,
     mix && g.chars[mix.c] ? MIX_LINE(g, mix) : null,
-    INVITE_LINE(intensityOf(g).life.often),
+    INVITE_LINE(intensityOf(g).life.often) + (affOn() ? HOST_PUB(g) : ''), // (0.33: a bigger one's operation, the player paid)
     ...jobFilesWanted(g).map((j) => `- Facultatif : si @${g.chars[j.c].handle} envoie maintenant au joueur ses fichiers pour sa commande (« ${str(j.what, 60)} »), une ligne par fichier : {"t":"file","by":"${g.chars[j.c].handle}","name":"nom_du_fichier.mp4"} (des noms réalistes ; avec, si tu veux, une ligne "dm" de sa part).`), // 0.23
     '- Facultatif (au plus 2) : {"t":"rel","by":"handle","d":-3,"why":"≤ 70 caractères"} si un personnage change d’avis sur le joueur (d de -8 à 8)',
     '- Facultatif (au plus 2) : {"t":"tie","a":"handle","b":"handle","d":-6,"why":"≤ 60 caractères"} quand deux personnages se rapprochent ou se brouillent dans ce que tu écris (d de -12 à 12).',
@@ -890,11 +891,12 @@ function newcomerAge(g) {
   const age = mains(g, false).filter(isOlder).length < 2 && Math.random() < 0.1 ? randi(35, 68) : drawYoungAge();
   return Object.assign({ age, matu: drawMatu(age) }, drawOn() ? drawTraits(1, mains(g, false))[0] : {}); // 0.32: their heart and traits too
 }
-function promptNewChar(g, plan = null, why = '') {
+function promptNewChar(g, plan = null, why = '', big = 0) {
   const taken = [g.player.handle, ...g.order.map((id) => g.chars[id].handle)].map((h) => '@' + h).join(', ');
   const freeFaces = g.portraits === false ? null : facesAsk(STYLE_OF(g), new Set(Object.values(g.faces || {})));
   return [RULES, '', ctxText(g, { kind: 'light', focus: new Set() }), '', '## TA MISSION',
-    why ? `L’histoire amène quelqu’un de nouveau dans la vie du joueur : « ${str(why, 100)} ». Un nouveau personnage débarque donc dans le monde et apporte une nouvelle intrigue.` // 0.30: the story brings them
+    big ? BIG_BRIEF(g, big) // 0.33: a tête d’affiche, far above the player
+      : why ? `L’histoire amène quelqu’un de nouveau dans la vie du joueur : « ${str(why, 100)} ». Un nouveau personnage débarque donc dans le monde et apporte une nouvelle intrigue.` // 0.30: the story brings them
       : `Le joueur vient d’atteindre le niveau ${g.stats.level}. Un nouveau personnage débarque dans le monde et apporte une nouvelle intrigue (rival, allié inattendu, mystère, star venue d’ailleurs…).`,
     toxLv(g) >= 2 ? 'Le joueur a une réputation toxique : le nouveau venu y est attiré (un créateur troll, un fan toxique qui veut devenir proche, un manager louche, quelqu’un qui veut profiter de son buzz…). Toxique dans ses manières, jamais haineux.' : null,
     plan ? `Il ou elle a ${plan.age} ans, et sa maturité : ${MATU[plan.matu].ai}. Rôle, bio, personnalité et voix collent à cet âge et à cette maturité.` : null,
@@ -2067,6 +2069,7 @@ async function dmAnswer(g, c, convo, A) {
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
       else if (o.t === 'agent' && !fx.agent && isMain(c)) fx.agent = () => applyAgentLine(g, c, o); // 0.31: the player as their agent
       else if (o.t === 'partenariat' && !fx.tdeal && isMain(c)) fx.tdeal = () => applyTdealAnswer(g, c, o); // 0.31: a brand their agent found
+      else if (o.t === 'plus_tard' && !fx.tdeal && isMain(c)) fx.tdeal = () => tdealLater(g, c, o); // 0.33: they want to try it first, and say for when
       else if (o.t === 'casting' && !fx.cast && isMain(c)) fx.cast = () => applyCastLine(g, c, o); // 0.30.1: in the production, or not
       else if (o.t === 'imprevu' && !fx.hitch && isMain(c) && castOn(g, c)) { const o2 = Object.assign({}, o, { by: c.handle }); fx.hitch = () => applyHitch(g, o2); } // 0.30.1: unable to come after all
       else if (o.t === 'trust' && !fx.trust && isMain(c)) { const when = at + 400; fx.trust = () => applyTrust(g, c, int(o.d, -15, 8, 0), o.why, when); }
@@ -2516,6 +2519,7 @@ function promptMiniGame(g, r, force) {
     r.said ? `Son annonce : « ${r.said.slice(0, 200)} »` : null,
     r.plot ? `Ce qui se passe dedans, raconté par le joueur : « ${r.plot} ». Le mini-jeu porte sur CE contenu-là.` : null,
     r.collab && g.chars[r.collab] ? `Tourné en feat avec @${g.chars[r.collab].handle} (${g.chars[r.collab].name}, ${g.chars[r.collab].role || 'du réseau'}) : ${firstName(g.chars[r.collab])} est dans ${laW(r)} avec le joueur, le mini-jeu peut s’en servir.` : null, // 0.29.1
+    r.hostOp ? `C’est l’opé sponsorisée de ${g.chars[r.hostOp.c] ? '@' + g.chars[r.hostOp.c].handle : 'son hôte'} pour ${r.hostOp.brand} : le joueur y est invité, et payé.` : r.dealGuest && dealOf(g, r.dealGuest) ? `Un contenu sponsorisé par ${dealOf(g, r.dealGuest).brand} (${dealOf(g, r.dealGuest).product}), tourné avec l’invité·e.` : null, // 0.33
     words.length ? 'Ce qu’il disait juste avant (ses mots, pour comprendre ce qu’il veut montrer) :\n' + words.join('\n') : null,
     clues.length ? `Indices qu’il a vraiment remarqués sur ${c.name} (de bons éléments possibles, s’ils collent au sujet) : ${clues.join(' ; ')}` : null,
     prep ? null : `Avant la sortie, il passe un mini-jeu EN RAPPORT DIRECT avec ce sujet : sa réussite décidera si ${laW(r)} marche.`,
@@ -3191,8 +3195,8 @@ async function genNewChar(m, why = '', owed = false, opts = {}) {
   const plan = newcomerAge(g); // 0.17
   if (opts.stalk) stalkPlan(g, opts.stalk, plan); // 0.32: someone who has followed the player for a long time
   try {
-    await aiStream(promptNewChar(g, plan, why), (o) => {
-      if (o.t === 'char' && !c) { c = addCharFromAI(g, o, { unlocked: true, kind: 'main', rename: true, age: plan }); if (c) { assignFace(g, c, o.face ? String(o.face) : undefined); if (!COEURS[c.coeur]) c.coeur = guessCoeur(c); c.dates = 0; initTies(g); if (opts.stalk) stalkArrives(g, c, opts.stalk); else newcomerRoll(g, c); } } // (0.30: maybe not who they seem; 0.32: or someone who follows the player)
+    await aiStream(promptNewChar(g, plan, why, opts.big), (o) => {
+      if (o.t === 'char' && !c) { c = addCharFromAI(g, o, { unlocked: true, kind: 'main', rename: true, age: plan }); if (c) { assignFace(g, c, o.face ? String(o.face) : undefined); if (!COEURS[c.coeur]) c.coeur = guessCoeur(c); c.dates = 0; initTies(g); if (opts.big) bigArrives(g, c, opts.big); if (opts.stalk) stalkArrives(g, c, opts.stalk); else newcomerRoll(g, c); } } // (0.30: maybe not who they seem; 0.32: or someone who follows the player; 0.33: a tête d’affiche)
       else if (o.t === 'post' && c && !post) post = o;
     }, { signal: f.ctl.signal, src: f.id, kind: 'newchar' });
   } catch (e) {
@@ -3200,14 +3204,15 @@ async function genNewChar(m, why = '', owed = false, opts = {}) {
     if (e && e.code === 'refused' && c) { delete g.chars[c.id]; if (g.faces) delete g.faces[c.id]; g.order = g.order.filter((x) => x !== c.id); c = null; }
     reportAiError(e, null, 'newchar');
   }
+  if (opts.big && !c) bigMissed(g); // 0.33: tried again later
   if (c) {
-    addNotif(g, { k: 'new', c: c.id, text: `${c.name} débarque dans ton monde` });
+    addNotif(g, { k: 'new', c: c.id, text: opts.big ? `⭐ ${c.name}, ${fmtN(c.followers)} abonnés : une tête d’affiche du réseau` : `${c.name} débarque dans ton monde` });
     addChronicle(g, `${c.name} (@${c.handle}) vient d’arriver dans le monde.`);
     if (post) addAmbientPost(g, Object.assign({}, post, { by: c.handle }), Date.now() + 1500);
     if (m) m.charId = c.id;
     if (owed) { g.castOwed = Math.max(0, (g.castOwed || 0) - 1); g.castFails = 0; }
   } else if (owed) g.castFails = (g.castFails || 0) + 1; // (tried again a little later: tickNewChars)
-  else if (!failed && !opts.stalk) toast('Personne n’est venu… Réessaie.', 'bad');
+  else if (!failed && !opts.stalk && !opts.big) toast('Personne n’est venu… Réessaie.', 'bad');
   S.busy.newchar = false;
   endFlow(f);
   update();

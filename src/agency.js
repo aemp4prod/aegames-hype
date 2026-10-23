@@ -37,12 +37,36 @@ const talentOf = (g, c) => (g && g.agency && c ? g.agency.talents.find((T) => T.
 const talentOn = (g, c) => { const T = talentOf(g, c); return T && T.state === 'on' ? T : null; };
 const talentsOn = (g) => (g && g.agency ? g.agency.talents.filter((T) => T.state === 'on' && g.chars[T.c]) : []);
 const agencyFounded = (g) => !!(g && g.agency && g.agency.foundedAt);
-const talentCap = (g) => (agencyFounded(g) ? TALENT_MAX_AG + staffPower(g, 'agence') : TALENT_MAX);
+const talentCap = (g) => (agencyFounded(g) ? TALENT_MAX_AG + staffLevel(g, 'agence') : TALENT_MAX); // (0.33: by its level today, the loyalty aside)
 const tdealOf = (g, id) => (g && g.agency ? g.agency.deals.find((d) => d.id === id) || null : null);
 const tdealOpen = (d) => !!d && TDEAL_OPEN.includes(d.state);
 const tdealByContact = (g, c) => (g && g.agency && c ? g.agency.deals.filter((d) => d.contact === c.id).slice(-1)[0] || null : null);
 const tdealAsking = (g, c) => (g && g.agency && c ? g.agency.deals.find((d) => d.c === c.id && d.state === 'ask') || null : null);
 const cutOf = (cut, fee) => Math.round((num(fee, 0) * num(cut, 15)) / 100);
+// 0.33: a talent who wants to think it over (try the product, the game…) says for when, and comes back with the answer
+// by themselves (before, nothing brought them back: the offer stayed « en cours » until it expired).
+const TDEAL_LATER = (il, by = '') => `S’${il} veut d’abord réfléchir ou essayer (le produit, le jeu…) : {"t":"plus_tard",${by ? `"by":"${by}",` : ''}"h":4,"why":"≤ 50 caractères : ce qu’${il} veut faire avant"} (h : dans combien d’heures ${il} revient avec sa réponse, de 1 à 48) : ${il} reviendra de ${il === 'elle' ? 'elle' : 'lui'}-même vers le joueur.`;
+function tdealLater(g, c, o, t = Date.now()) {
+  const d = tdealAsking(g, c);
+  if (!d) return false;
+  const h = clamp(num(o && o.h, 4), 1, 48);
+  Object.assign(d, { followAt: t + Math.round(h * 3600000), followWhy: str(o && o.why, 60), followed: 0 });
+  d.until = Math.max(d.until, d.followAt + 12 * 3600000); // (the offer waits for the answer)
+  return true;
+}
+// The time came: they come back (a word for the next refresh, which the game starts if it can).
+function tickFollow(g, t = Date.now()) {
+  const A = g && g.agency;
+  if (!A || !A.deals.length || clockBusy() || S.busy.newchar || inMiniGame() || S.publishing || S.catchup) return false;
+  const d = A.deals.find((x) => x.state === 'ask' && x.followAt && t >= x.followAt && !x.followed);
+  if (!d) return false;
+  d.followed = t;
+  const c = g.chars[d.c];
+  if (!c || !talentOn(g, c)) return true;
+  addTrigger(g, `@${c.handle} revient vers le joueur, son agent, comme ${gx(c.g, 'il', 'elle', 'iel')} l’avait dit${d.followWhy ? ` (${d.followWhy})` : ''} : sa décision pour le partenariat ${d.brand}, dans un message privé.`, c.id);
+  if (canAfford(g, 'refresh')) refreshFeed(0, { auto: true }); // (no cafés left: at the next refresh, or when the player writes)
+  return true;
+}
 const agRepWord = (r) => (r >= 80 ? 'les marques se l’arrachent' : r >= 60 ? 'les marques lui font confiance' : r >= 40 ? 'les marques le jugent sur pièces' : r >= 20 ? 'les marques se méfient' : 'les marques l’évitent');
 function agRep(g, d) {
   const A = agencyOf(g), v0 = A.rep;
@@ -208,7 +232,7 @@ function brandOfContact(g, b) {
 function talentAskLine(g, b) {
   const L = talentsOn(g), brand = brandOfContact(g, b);
   if (!L.length || !brand) return null;
-  return `- Si le joueur, agent de ${L.map((T) => '@' + g.chars[T.c].handle).join(', ')}, demande à ${b.name} un partenariat pour l’un de ses talents, ${b.name} décide en pro (${brand} colle-t-elle à ce talent, à son audience, à son univers ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre_talent","for":"handle du talent","product":"≤ 60 caractères : ce que ${brand} veut lui faire montrer"} (une seule ; le jeu fixe le prix d’après son audience, et la proposition s’affiche dans vos messages). Si c’est non, ou pas maintenant, dis-le simplement.`;
+  return `- Si le joueur, agent de ${L.map((T) => '@' + g.chars[T.c].handle).join(', ')}, demande à ${b.name} un partenariat pour l’un de ses talents, ${b.name} décide en pro (${brand} colle-t-elle à ce talent, à son audience, à son univers ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre_talent","for":"handle du talent","product":"≤ 60 caractères : ce que ${brand} veut lui faire montrer"} (une seule ; le jeu fixe le prix d’après son audience, et la proposition s’affiche dans vos messages). Si c’est non, dis-le simplement. ${b.name} décide dans ce message même : jamais « je reviens vers vous » (0.33 : personne ne revenait jamais).`;
 }
 function brandOffersTalent(g, b, o) {
   const c = charByHandle(g, normHandle(o && o.for)), brand = brandOfContact(g, b);
@@ -451,7 +475,7 @@ function agentDMCtx(g, c) {
   }
   out.push(`Le joueur est l’AGENT de ${first} depuis ${fmtDur(Date.now() - (T.since || T.at))} (${T.cut} %${T.excl ? ', en exclusivité' : ''}) : il lui trouve ses partenariats et négocie pour ${gx(c.g, 'lui', 'elle', 'iel')}${agencyFounded(g) ? `, dans son agence « ${A.name} »` : ''}.`);
   for (const d of A.deals.filter((x) => x.c === c.id && tdealOpen(x))) {
-    if (d.state === 'ask') out.push(`Le joueur, son agent, lui transmet une proposition de partenariat : ${d.brand} voudrait un post sponsorisé avec ${d.product}, ${fmtMoney(g, d.fee)} (sa part : ${fmtMoney(g, d.fee - cutOf(d.cut, d.fee))}), à publier sous ${d.days} jours. ${first} décide selon son univers et ses valeurs (cette marque lui ressemble-t-elle ?), l’argent, son image et votre relation.`);
+    if (d.state === 'ask') out.push(`Le joueur, son agent, lui transmet une proposition de partenariat : ${d.brand} voudrait un post sponsorisé avec ${d.product}, ${fmtMoney(g, d.fee)} (sa part : ${fmtMoney(g, d.fee - cutOf(d.cut, d.fee))}), à publier sous ${d.days} jours. ${first} décide selon son univers et ses valeurs (cette marque lui ressemble-t-elle ?), l’argent, son image et votre relation.${d.followAt && Date.now() >= d.followAt ? ` ${cap1(il)} avait dit qu’${il} revenait avec sa réponse${d.followWhy ? ` (${d.followWhy})` : ''} : c’est le moment, ${il} décide.` : d.followAt ? ` ${cap1(il)} a dit qu’${il} donnerait sa réponse ${fmtWhen(d.followAt)}${d.followWhy ? ` (${d.followWhy})` : ''}.` : ''}`);
     else if (d.state === 'signed') out.push(`Partenariat signé avec ${d.brand} : ${first} doit publier son post sponsorisé (${d.product}) avant ${fmtWhen(d.due)}.`);
     else if (d.state === 'late') out.push(`Partenariat ${d.brand} EN RETARD : la marque attend toujours le post de ${first}, son agent ${gx(c.g, 'le', 'la', 'le')} relance.`);
   }
@@ -467,7 +491,7 @@ function agentDMLines(g, c) {
   if (T.state === 'asked') out.push(`- Quand ${first} a décidé pour l’agent : {"t":"agent","ok":true,"cut":${T.cut},"why":"≤ 60 caractères"} (ok:false s’${il} refuse ; "cut" : la commission acceptée, de 10 à 20, si ${il} l’a négociée). Pas de ligne agent s’${il} hésite encore.`);
   else {
     const d = tdealAsking(g, c);
-    if (d) out.push(`- Quand ${first} a décidé pour le partenariat ${d.brand} : {"t":"partenariat","ok":true,"why":"≤ 60 caractères"} (ok:false s’${il} refuse). Rien s’${il} hésite encore.`);
+    if (d) out.push(`- Quand ${first} a décidé pour le partenariat ${d.brand} : {"t":"partenariat","ok":true,"why":"≤ 60 caractères"} (ok:false s’${il} refuse). ${TDEAL_LATER(il)}`);
     out.push(T.poach ? `- Si ${first} décide de rester avec le joueur malgré l’agence ${T.poach.agence} : {"t":"agent","reste":true} ; s’${il} part : {"t":"agent","fin":true,"why":"≤ 60 caractères"}.`
       : `- Seulement si ${first} décide de ne plus avoir le joueur comme agent (déçu·e, une dispute, une autre agence) : {"t":"agent","fin":true,"why":"≤ 60 caractères"}.`);
   }
@@ -495,6 +519,11 @@ function agencyRefreshLines(g, t = Date.now()) {
     const il = gx(c.g, 'il', 'elle', 'iel');
     out.push(`- @${c.handle} (dont le joueur est l’agent) a un post sponsorisé à publier pour ${d.brand} (${d.product}) ${d.state === 'late' ? `: EN RETARD, son agent ${gx(c.g, 'le', 'la', 'le')} relance ; publie-le maintenant, sauf si @${c.handle} décide de lâcher la marque` : `avant ${fmtWhen(d.due)} : publie-le dans cette actualisation si ${il} est du genre à ne pas traîner`}. Ce post, dans sa voix, avec #partenariat ou « collaboration commerciale », porte "deal":"${d.id}".`);
   }
+  for (const d of A.deals.filter((x) => x.state === 'ask' && x.followed).slice(0, 2)) { // 0.33: they said they would come back with their answer
+    const c = g.chars[d.c];
+    if (!c || !talentOn(g, c)) continue;
+    out.push(`- OBLIGATOIRE : @${c.handle} revient vers le joueur, son agent, avec sa décision pour le partenariat ${d.brand} (${d.product}, ${fmtMoney(g, d.fee)}${d.followWhy ? ` ; ${gx(c.g, 'il', 'elle', 'iel')} voulait d’abord : ${d.followWhy}` : ''}) : un message privé de @${c.handle} au joueur ("dm"), puis {"t":"partenariat","by":"${c.handle}","ok":true,"why":"≤ 60 caractères"} (ok:false s’${gx(c.g, 'il', 'elle', 'iel')} refuse).`);
+  }
   if (!L.length) return out;
   const hs = L.map((T) => '@' + g.chars[T.c].handle).join(', ');
   if (A.deals.filter((d) => d.state === 'offer' || d.state === 'ask').length < 3 && Math.random() < 0.35) out.push(`- Facultatif, rarement : une marque fictive de ce monde veut un talent du joueur (${hs}) et passe par lui, son agent : {"t":"offre_talent","for":"handle du talent","brand":"nom inventé","emoji":"🥤","sector":"${SECTORS.map((s) => s.id).join(', ')}","product":"≤ 60 caractères","text":"≤ 200 caractères : son premier message à l’agent"}.`);
@@ -506,6 +535,7 @@ function agencyRefreshLines(g, t = Date.now()) {
 // The career lines of a refresh about the agency.
 function applyAgencyLine(g, o, effects) {
   if (o.t === 'offre_talent') { effects.push(() => { const c = charByHandle(g, normHandle(o.for)); if (c) makeTalentOffer(g, c, o); }); return true; }
+  if (o.t === 'partenariat') { effects.push(() => { const c = charByHandle(g, normHandle(o.by)); if (c) applyTdealAnswer(g, c, o); }); return true; } // 0.33: the answer they came back with
   if (o.t === 'dans_le_dos') { effects.push(() => { const c = charByHandle(g, normHandle(o.by)); if (c) applyBehindBack(g, c, o.brand); }); return true; }
   if (o.t === 'rivale') { effects.push(() => { const c = charByHandle(g, normHandle(o.for)); if (c) applyRival(g, c, o.agence, o.why); }); return true; }
   return false;

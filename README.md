@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.32.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.0 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -223,8 +223,10 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   le contrat suit ce que vous décidez ; à toi de repérer les pièges ; par défaut, un cachet se paie 30 % à la signature
   dès 500 €, le reste à la publication ; depuis la 0.27.4, l’acompte négocié est inscrit au contrat, et une hausse
   acceptée sur un contrat signé est versée tout de suite ; les petites marques paient souvent en produits, pas en
-  argent : c’est écrit sur l’offre, sur le contrat et à la livraison depuis la 0.22.3), une équipe à recruter
-  (monteuse, graphiste, scénariste, community manager, agent, attachée de presse, avocate) et le défi **Daily Upload**
+  argent : c’est écrit sur l’offre, sur le contrat et à la livraison depuis la 0.22.3 ; depuis la 0.33, une marque à qui
+  tu demandes un partenariat pour toi décide tout de suite, et sa proposition arrive dans vos messages), une équipe à recruter
+  (monteuse, graphiste, scénariste, community manager, agent, attachée de presse, avocate), qui vit et progresse depuis la
+  0.33 (voir « Ton équipe »), et le défi **Daily Upload**
   (pas de report possible pendant un défi : le jeu le dit à la place du bouton « Repousser »).
   Depuis la 0.27.4, tu peux **programmer jusqu’à 6 sorties d’avance**, même pendant un défi : la plus proche passe en
   premier, les autres attendent leur tour dans le Programme du Studio, et chacune peut **sortir plus tôt** (maintenant,
@@ -377,7 +379,32 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   talent dit oui ou non dans les vôtres, puis publie son post quand ça l’arrange ; la marque paie et tu touches ta commission. Un retard fait baisser ta réputation d’agent, un post
   jamais livré encore plus. Un talent peut signer dans ton dos (avec l’exclusivité, ta commission se réclame), te quitter,
   ou être courtisé par une agence rivale. Avec deux talents, ton agence (2 000 €) en accueille jusqu’à six, attire plus de
-  marques, qui paient un peu mieux, et peut engager un agent (Studio → Recruter).
+  marques, qui paient un peu mieux, et peut engager un agent (Studio → Recruter). Depuis la 0.33, un talent qui veut
+  d’abord essayer le produit te dit quand il te répondra, et revient de lui-même avec sa décision.
+- **Ton équipe** (0.33) : chacun progresse avec toi, de débutant à confirmé, expert, puis star du métier. Le monteur, le
+  graphiste et le scénariste progressent à chaque sortie sur laquelle ils travaillent (deux par jour au plus), les autres
+  à chaque jour dans l’équipe : 6 étapes pour passer confirmé, 12 pour expert, 20 pour star. Une star que tu gardes
+  continue de grandir : jusqu’à +10 points sur chacun de ses bonus (un graphiste star, +28 % → +38 % de vues). À chaque
+  niveau, il te demande une augmentation en privé (accepter ou refuser dans le Studio, ou négocier en message ; sans
+  réponse cinq jours, c’est un refus). Il lui faut du matériel pour son métier, Basique, Bon ou Pro, d’autant meilleur
+  qu’il progresse (l’ancien est revendu). Son moral, affiché avec ses raisons, baisse avec un salaire en retard, un
+  matériel pas à la hauteur, trop de boulot, une augmentation refusée, ton bad buzz ou ton cancel, et remonte avec un
+  salaire juste, du bon matériel ou une prime : mécontent, il travaille moins bien et te le dit ; à bout, son IA peut
+  le faire démissionner. Expert ou star, des créateurs plus gros peuvent essayer de te le piquer : tu t’alignes, tu
+  négocies, ou tu le laisses partir.
+- **Faire travailler les persos** (0.33) : depuis le profil d’un perso, « Proposer un boulot » (une miniature, un
+  montage, un script, ta commu, ta presse, tes contrats…), une fois pour ta prochaine sortie ou en continu, au prix que
+  tu fixes (ou en service), ou simplement en lui en parlant en message. Son IA décide selon sa situation (quelqu’un en
+  plein bad buzz peut être content d’avoir du boulot). Il reste lui-même, avec un boulot en plus, et progresse comme le
+  reste de l’équipe.
+- **Un contenu sponsorisé à plusieurs** (0.33) : sur un partenariat signé, « Inviter quelqu’un » : la marque décide si
+  elle veut de cette personne, tu fixes sa part, l’invité décide (et peut négocier). Vous tournez ensemble, vos deux
+  publics voient la vidéo, et tu lui verses sa part à la sortie. Dans l’autre sens, un créateur plus gros que toi peut
+  t’inviter dans sa vidéo sponsorisée et te payer : l’invitation dit la marque et la somme.
+- **Les têtes d’affiche** (0.33) : des créateurs déjà installés (un demi-million, un million, deux… jusqu’à 10 millions
+  d’abonnés pour le plus gros) arrivent à mesure que tu grandis : il y en a toujours quelques-uns au-dessus de toi, et
+  tant que tu es petit, ils ne répondent pas à n’importe qui. En fin de partie, tu peux les dépasser. Les abonnés de tous
+  les persos grandissent aussi au fil des jours (moins pour ceux qui se font discrets, et un bad buzz les fait baisser).
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro
@@ -594,7 +621,10 @@ src/                le jeu : core.js, ai.js, career.js (la carrière : argent,
                     chaque partie : le critique, Rebecca Silver, le psychopathe), temps.js (0.32 : l’énergie, le temps
                     que prend chaque action, la vie des persos), traits.js (0.32 : le caractère en
                     conflit, les traits extrêmes, les persos ouverts et le trouple, l’inquiet, la notion du temps),
-                    stalkers.js (0.32 : ceux qui suivent le joueur de trop près, à partir de 10 000 abonnés), social.js (le réseau qui vit :
+                    stalkers.js (0.32 : ceux qui suivent le joueur de trop près, à partir de 10 000 abonnés), equipe.js
+                    (0.33 : l’équipe qui progresse, son matériel, son moral, les augmentations, le débauchage, les persos
+                    à qui on donne du boulot), affiche.js (0.33 : les têtes d’affiche, la croissance des persos, le contenu
+                    sponsorisé à plusieurs), social.js (le réseau qui vit :
                     stories, groupes, la mère, les fans, les faux comptes, les petits faits du quotidien), studio.js (ses
                     écrans), montage.js (le
                     montage, la miniature et le dessin, après le tournage), photos.js
