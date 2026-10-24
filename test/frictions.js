@@ -40,7 +40,7 @@ async function dm(page, id, text) {
   const n0 = await G(page, () => window.__prompts.length);
   await G(page, (a) => window.__hype.sendDM(a.id, a.text), { id, text });
   await idle(page);
-  return G(page, (n) => window.__prompts.length - n, n0);
+  return G(page, (n) => window.__prompts.slice(n).filter((p) => p.includes('Écris la réponse privée de')).length, n0); // (their answer only: a newcomer arriving meanwhile is not it)
 }
 async function post(page, text, kindness) {
   await G(page, (k) => { window.__mockKindness = k; }, kindness);

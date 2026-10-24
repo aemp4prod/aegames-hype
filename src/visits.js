@@ -47,7 +47,7 @@ function visitOK(g, t = Date.now()) {
 // Those close to the player, those they are seeing, and those with a grudge.
 // (0.32: something just happened to the player: the worriers first; and the ones who follow the player everywhere)
 const visitFirst = (g, c, t) => (worryFresh(g, t) && temperOf(c) === 'inquiet' ? 2 : stalkVisit(g, c, t) ? 1 : 0);
-const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25 || (isPsy(g, c) && psyStage(g, t) >= 2) || stalkVisit(g, c, t))).sort((a, b) => visitFirst(g, b, t) - visitFirst(g, a, t) || Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8); // (0.29: and the one who cannot stay away)
+const visitCands = (g, t = Date.now()) => mains(g).filter((c) => canVisit(g, c, t) && !hunted(g, c) && (c.rel >= 15 || LOVE_ACTIVE.includes(c.vibe) || c.rel <= -25 || (isPsy(g, c) && psyStage(g, t) >= 2) || stalkVisit(g, c, t))).sort((a, b) => visitFirst(g, b, t) - visitFirst(g, a, t) || Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 8); // (0.29: and the one who cannot stay away)
 // The line the AI may write (an act, a refresh), when someone could come.
 function visitLine(g, t = Date.now()) {
   if (!visitOK(g, t)) return null;
@@ -73,7 +73,8 @@ function addVisit(g, o, at = later()) {
   g.visitAt = t;
   c.visitAt = t;
   touch(c);
-  if (psyDeadlyVisit(g, c, at)) v.psy = 'deadly'; // 0.29: at night, once they are ready: opening may be the last thing
+  if (hunted(g, c)) Object.assign(v, { hunt: 1, door: 'shut' }); // 0.33.4: the one who hunts the player: the door stays shut
+  else if (psyDeadlyVisit(g, c, at)) v.psy = 'deadly'; // 0.29: at night, once they are ready: opening may be the last thing
   queueModalFor(g, { t: 'visit', vid: v.id, at });
   autoSave(g, `Avant la visite de ${firstName(c)}`); // (0.29: at the door, before the player opens)
   return v;
@@ -92,6 +93,7 @@ function promptVisit(g, v, said) {
     `@${c.handle} (${c.name}) a débarqué chez le joueur sans prévenir. Ce qui l’amène (le joueur ne l’a pas lu : il le découvre en parlant) : « ${v.why} » — ${U.ai}.`,
     `Fiche de ${first} : ${ficheText(g, c)}.`,
     c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${c.mem.map((m) => m.t).join(' ; ')}` : null,
+    ...sawLines(g, c), // 0.33.3
     ...heartLines(g, c, Date.now(), false),
     ...secretDMLines(g, c, null),
     ...psyVisitCtx(g, v, c), // 0.29: the secret of the game, when it is theirs
@@ -194,6 +196,7 @@ function endVisit(g, v) {
   v.state = 'done';
   v.endAt = Date.now();
   if (!c) return v;
+  if (v.hunt && !v.attack) return huntVisitEnd(g, v, c); // 0.33.4: talked through the door, or the police called
   const U = URGES[v.urge] || URGES.tranquille, score = visitScore(v);
   const mood = MOODS[v.mood] ? v.mood : moodFrom(score), M = MOODS[mood];
   v.mood = mood;
@@ -329,7 +332,7 @@ function VisitCard({ g, v, close }) {
   const night = nightAt(v.at); // 0.29: at night, one does not open just like that
   const atk = !!(v.attack && !v.attack.done && !g.over); // 0.33.1: they strike
   return html`<div class=${'modal-card visit-card' + (atk ? ' atk-on' : '')}>
-    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">Visite surprise</span><b>${c.name} débarque chez toi</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
+    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">${v.hunt ? 'On frappe à ta porte' : 'Visite surprise'}</span><b>${v.hunt && v.door !== 'open' ? `${c.name}, derrière ta porte` : c.name + ' débarque chez toi'}</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
     <div class="visit-lines" ref=${box}>
       ${v.lines.map((x, j) => (x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${emoParts(x.text)}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
@@ -338,16 +341,17 @@ function VisitCard({ g, v, close }) {
       ${busy ? html`<div class="bubble them typing-b" aria-label=${first + ' répond'}><${Typing} /></div>` : null}
     </div>
     ${atk ? html`<${AttackView} g=${g} H=${v} />` : over ? html`<div class="visit-foot visit-over">
-      <p>${v.fled ? 'La porte est fermée. Tu restes là, le dos contre elle, à écouter.' : MOODS[v.mood] ? `${first} s’en va, ${MOODS[v.mood].word(c)}.` : `${first} s’en va.`}</p>
-      <button class="btn btn-hot" onClick=${() => { endVisit(g, v); close(); update(); }}>${v.fled ? 'Fermer à double tour' : 'Raccompagner ' + first}</button>
+      <p>${v.police ? 'La police est repartie. Tu restes là, le dos contre la porte, à écouter.' : v.fled ? 'La porte est fermée. Tu restes là, le dos contre elle, à écouter.' : v.hunt && v.door !== 'open' ? `Des pas qui s’éloignent. Ou pas. Tu n’ouvres pas.` : MOODS[v.mood] ? `${first} s’en va, ${MOODS[v.mood].word(c)}.` : `${first} s’en va.`}</p>
+      <button class="btn btn-hot" onClick=${() => { endVisit(g, v); close(); update(); }}>${v.fled || v.police || (v.hunt && v.door !== 'open') ? 'Fermer à double tour' : 'Raccompagner ' + first}</button>
     </div>` : html`<div class="visit-foot">
       <div class="reply-box">
-        <textarea ref=${ref} rows="1" maxlength=${VISIT_MAX} placeholder=${'Ta réponse à ' + first + '…'} value=${val} disabled=${busy}
+        <textarea ref=${ref} rows="1" maxlength=${VISIT_MAX} placeholder=${v.hunt && v.door !== 'open' ? 'Lui répondre à travers la porte…' : 'Ta réponse à ' + first + '…'} value=${val} disabled=${busy}
           onInput=${(e) => { setVal(e.target.value); autosize(e.target); }}
           onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
         <button class="send" onClick=${send} disabled=${busy || !val.trim() || broke} aria-label="Répondre"><${Icon} n="send" s=${16} /> Répondre</button>
       </div>
-      ${v.state === 'knock' && !busy ? html`<button class="btn btn-ghost btn-sm visit-no" onClick=${() => { refuseVisit(g, v); close(); update(); }}>${night ? 'Ne pas ouvrir' : 'Pas maintenant'}</button>` : null}
+      <${DoorActs} g=${g} v=${v} />
+      ${v.state === 'knock' && !busy ? html`<button class="btn btn-ghost btn-sm visit-no" onClick=${() => { if (v.hunt) huntShut(g, v); else refuseVisit(g, v); close(); update(); }}>${v.hunt ? 'Ne pas répondre' : night ? 'Ne pas ouvrir' : 'Pas maintenant'}</button>` : null}
       ${broke && !busy ? html`<small class="muted visit-broke">Ton budget IA est épuisé : vous ne pourrez pas parler cette fois. <button class="linkbtn" onClick=${() => { missVisit(g, v, 'budget'); close(); update(); }}>${first} repassera</button></small>` : null}
     </div>`}
   </div>`;

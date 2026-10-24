@@ -228,7 +228,8 @@ function ctxText(g, o = {}) {
     if (c.secretOut) extra.push('secret révélé au grand jour : ' + c.secretOut);
     else if (c.secretTold) extra.push('a confié son secret au joueur, qui le sait donc');
     if (c.framed) extra.push(c.framed.busted ? 'victime d’une fausse preuve du joueur, démasquée depuis' : 'sait que la « preuve » publiée par le joueur à son sujet est fausse (le public l’ignore encore)');
-    if (inFocus(c) && c.mem && c.mem.length) extra.push('se souvient : ' + c.mem.slice(-4).map((m) => m.t).join(' ; '));
+    if (inFocus(c) && c.mem && c.mem.length) extra.push('se souvient : ' + memsFor(c, 4).map((m) => m.t).join(' ; ')); // (0.33.3: what marks them, always)
+    if (c.saw && g.chars[c.saw.psy]) extra.push(`a vu @${g.chars[c.saw.psy].handle} essayer de les tuer, le joueur et ${gx(c.g, 'lui', 'elle', 'iel')}, avec un couteau : n’en doute pas, ne l’oublie pas`); // 0.33.3
     if (inFocus(c)) extra.push(...tieCtx(g, c)); // 0.13: who they are close to, what they heard about the player
     const sn = seenCtx(g, c, now); // 0.17: what they saw the player do in public lately
     if (sn) extra.push(sn);
@@ -680,6 +681,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     `Fiche de ${c.name} : ${ficheText(g, c, false)}${c.joined ? ` · ${jobLine(c)} : ${gx(c.g, 'il', 'elle', 'iel')} parle aussi de sa vie, pas seulement de travail` : ''}`,
     `Relation avec le joueur : ${fmtRel(c.rel)} (${relLabel(c.rel, c.g, c.vibe).toLowerCase()})${vt}${main && stanceText(g, c) ? ' · ' + stanceText(g, c) : ''}${main ? ' · ' + trustDMLine(c) : ''}${main ? ' · ' + temperText(g, c, true) : ''}`, ...dmCareerCtx(g, c)];
   if (c.mem && c.mem.length) L.push(`Ce que ${c.name} retient du joueur : ${c.mem.map((m) => m.t).join(' ; ')}`);
+  if (main) L.push(...sawLines(g, c)); // 0.33.3: what they lived through with the player
   const seen = main ? seenCtx(g, c) : '';
   if (seen) L.push(`${c.name} ${seen} (à ressortir ou non, selon son caractère).`); // 0.17
   if (inBadBuzz(c)) L.push(!bbByPlayer(c) ? `${c.name} est en plein bad buzz après « ${c.badBuzz.reason.slice(0, 100)} »${c.badBuzz.self ? ' (le joueur n’y est pour rien ; ce qu’il en dit compte)' : ''}.` : `${c.name} est en plein bad buzz : le joueur l’a accusé·e en public (« ${c.badBuzz.reason.slice(0, 100)} »).`);
@@ -785,7 +787,8 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     '- Facultatif, si quelque chose d’important se dit (secret, alliance, dispute, rendez-vous…) : {"t":"memo","text":"une phrase qui le résume"}',
     t32On() && c.kind !== 'brand' ? DISPO_LINE(c) : null, // 0.32: they may step away (0.32.1: never a brand, it answers right away)
     t32On() && c.kind === 'brand' ? BRAND_NOW_LINE(c) : null, // 0.32.1: and deals with it now
-    main ? psyOutLine(g, c) : null);
+    main ? psyOutLine(g, c) : null,
+    main && hunted(g, c) ? rodeLine(g, c) : null); // 0.33.4: the one who hunts the player, a move of theirs (their AI chooses its moment)
   return L.filter((x) => x !== null).join('\n');
 }
 
@@ -1977,6 +1980,7 @@ async function sendDM(charId, text, opts = {}) {
   if (isMain(c)) { // 0.11: a daring move starts a dare, pushing during a cool makes it worse; silence costs nothing
     heartBeforeDM(g, c, text);
     if (awayHome(g, t) && g.stay.c === c.id && !g.stay.gear && GEAR_RE.test(text)) g.stay.gear = t; // 0.30.1: they brought their gear
+    homeSaid(g, c, text, t); // 0.33.4: an address given (theirs know only what they saw or were told)
     const quiet = quietDM(g, c, convo, t);
     if (quiet) {
       const back = gift && quiet === 'bloque'; // 0.28.1: blocked: the present comes back (nothing reaches them)
@@ -2074,6 +2078,7 @@ async function dmAnswer(g, c, convo, A) {
       else if (o.t === 'feat' && !fx.feat && isMain(c)) fx.feat = () => applyFeatLine(g, c, o); // 0.29.1: yes or no to the player's feat
       else if (o.t === 'accompagne' && !fx.plus && isMain(c)) fx.plus = () => applyPlusLine(g, c, o); // 0.33.1: they come along to a date, or not
       else if (o.t === 'mission' && !fx.mission && isMain(c)) fx.mission = () => applyMissionLine(g, c, o); // 0.33.1: they go and see someone, or not
+      else if (o.t === 'rode' && !fx.rode && hunted(g, c)) { const ro = o, when = at + 4000; fx.rode = () => rodeDo(g, c, ro, when); } // 0.33.4: what they do once the messages are written
       else if (o.t === 'agent' && !fx.agent && isMain(c)) fx.agent = () => applyAgentLine(g, c, o); // 0.31: the player as their agent
       else if (o.t === 'partenariat' && !fx.tdeal && isMain(c)) fx.tdeal = () => applyTdealAnswer(g, c, o); // 0.31: a brand their agent found
       else if (o.t === 'plus_tard' && !fx.tdeal && isMain(c)) fx.tdeal = () => tdealLater(g, c, o); // 0.33: they want to try it first, and say for when
@@ -2114,7 +2119,7 @@ async function dmAnswer(g, c, convo, A) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.plus, fx.mission, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.plus, fx.mission, fx.rode, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (A.late && msgs && at0 < Date.now() - 60000) addNotif(g, { k: 'dm', c: c.id, at: Date.now(), text: `💬 ${c.name} t’a répondu.` }); // 0.32: an answer from while the time went by (no toast of its own)
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
@@ -2296,7 +2301,7 @@ async function refreshFeed(absentMs = 0, opts = {}) {
 // Skips ms of game time: timers run out, the countdown gets closer, and the network tells what happened meanwhile.
 // until: where to go (a release, a date), read again when the jump really happens: the characters may still be
 // writing (their reactions to an announcement take a while), and the jump then waits for them instead of refusing.
-const skipBusy = () => !!(S.busy.act || S.busy.dm || S.busy.refresh || S.busy.mg || S.busy.ev || S.busy.visit || S.busy.job);
+const skipBusy = () => !!(S.busy.act || S.busy.dm || S.busy.refresh || S.busy.mg || S.busy.ev || S.busy.visit || S.busy.job || S.busy.night);
 // opts.how (0.32): 'sleep' (« Dormir »: the night slept), 'nap'; otherwise the accelerator (its night slept, if any).
 async function skipTime(ms, until, opts = {}) {
   const g = S.game;
@@ -2320,12 +2325,18 @@ async function skipTime(ms, until, opts = {}) {
   ms = Math.max(1000, Math.round(ms));
   const brief = ms < SKIP_QUIET; // a few minutes at most: the clock jumps, nothing to tell (no AI call)
   const how = opts.how === 'sleep' || opts.how === 'nap' ? opts.how : 'skip';
+  const night = !brief && huntNow(g) ? await huntNight(g, ms) : null; // 0.33.4: the night of the one who hunts the player (their AI decides)
+  if (S.game !== g) return;
+  const knock = !!(night && night.q === 'toquer'), full = ms;
+  if (knock) ms = night.off; // (a knock wakes the player up: the night stops there)
   if (ms >= 3600000) autoSave(g, how === 'sleep' ? 'Avant ta nuit' : how === 'nap' ? 'Avant ta sieste' : `Avant d’avancer de ${fmtDur(ms)}`);
   jumpClock(g, ms, how);
+  if (knock) { g.quietMs = (g.quietMs || 0) + ms; g.quietWhy = 'dormait'; nightAfter(g, night, ms); update(); return; } // (what the night told, later)
   const fs = nrgState(g);
   toast(how === 'sleep' ? `☀️ Debout ! Il est ${hourOf(Date.now())} · énergie ${fs.pct} %${opts.alarm ? ` (ton réveil a sonné : ${alarmWord(g, opts.alarm)})` : ''}.` : how === 'nap' ? `😴 Une petite sieste… Il est ${hourOf(Date.now())} · énergie ${fs.pct} %.` : ms < 60000 ? 'Quelques secondes plus tard…' : `${fmtDur(ms)} plus tard…`, 'flash');
   if (brief) g.lastPlayedAt = Date.now();
   update();
+  if (night) nightAfter(g, night, full); // 0.33.4: a note under the door, a message in the night, someone close gone after
   if (!brief) { if (canAfford(g, 'skip')) await refreshFeed(ms, { skip: true, busy: how === 'sleep' ? 'dormait' : how === 'nap' ? 'faisait une sieste' : '' }); else { g.lastPlayedAt = Date.now(); toast('Le temps a passé, mais ton budget IA du jour est épuisé : pas de récit cette fois.', 'flash'); } }
 }
 // The clock moves on by ms: timers run out, countdowns get closer, what fell in that time happens (no AI call).
@@ -2351,6 +2362,7 @@ function jumpClock(g, ms, how = 'skip') {
   tickDilemmas(g, Date.now());
   tickVisits(g, Date.now());
   tickMissions(g, Date.now()); // 0.33.1: the ones sent went meanwhile
+  tickPolice(g, Date.now()); // 0.33.4: the investigation went on meanwhile
   tickRoles(g, Date.now()); // 0.29: the psychopath's clock, the roles of an old game
   tickSocial(g, Date.now()); // 0.29: a fake account taken down, or that fooled fans meanwhile
 }
@@ -2983,7 +2995,7 @@ function promptDateEnd(g, ev) {
     '## TÂCHE : LA FIN DU RENDEZ-VOUS',
     `Le joueur et @${c.handle} (${c.name}) viennent de passer leur rendez-vous (${M.task}) : « ${ev.what} ».`,
     `Fiche de ${c.name} : ${ficheText(g, c)}.`,
-    c.mem && c.mem.length ? `Ce que ${c.name} retient du joueur : ${c.mem.slice(-4).map((m) => m.t).join(' ; ')}` : null,
+    c.mem && c.mem.length ? `Ce que ${c.name} retient du joueur : ${memsFor(c, 4).map((m) => m.t).join(' ; ')}` : null,
     ev.talk ? `Comment ça s’est passé (d’après la soirée ci-dessous, exigence ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`
       : `Comment ça s’est passé (mini-jeu joué par le joueur, difficulté ${D.label.toLowerCase()}, ${pctOf(ev.played.score)} %) : ${res}.`,
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',

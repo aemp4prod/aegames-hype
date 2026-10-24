@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.33.2';
+const APP_VERSION = '0.33.4';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -621,6 +621,9 @@ function migrate(g) {
   migrateCareer(g); // v0.7
   if (!g.fix321) { g.fix321 = 1; reviewProgram321(g); } // 0.32.1: a partner program refused for a bad buzz already over
   migrateTeam(g); // 0.33: the team of before, equipped as its level asks, in a good mood
+  migrateSaw(g); // 0.33.3: an attack got out of together, remembered for good
+  fixCoolTogether(g); // 0.33.3: a silence begun with them in person, taken back
+  migrateHunt(g); // 0.33.4: the player already got away: the hunt starts from there, the police came
   migrateGear(g); // 0.20
   migrateTrust(g); // v0.9
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves
@@ -1118,7 +1121,7 @@ const USE_LABELS = {
   reply: '↩️ Tes commentaires', accuse: '📣 Accusations', debunk: '🧯 Démentis', auto: '🌍 Le réseau vit tout seul', refresh: '🔄 Actualiser le fil',
   skip: '⏩ Avancer le temps', more: '💭 Voir plus de commentaires', wave: '🌊 Vagues de réactions', shoot: '🎬 Tournages', event: '🎟️ Événements',
   ideas: '💡 Des idées ?', write: '🪄 Écrire pour moi', world: '🌐 Création du monde', newchar: '🧑 Nouveaux personnages', cand: '🧾 Candidatures',
-  devis: '🧮 Devis', repost: '🔁 Reposts', job: '🎞️ Tes services', images: '🖼️ Tes images', autre: '· Autre',
+  devis: '🧮 Devis', repost: '🔁 Reposts', job: '🎞️ Tes services', images: '🖼️ Tes images', police: '🚓 Commissariat', autre: '· Autre',
 };
 // The uses, the biggest first: [[use, cafés], …].
 const usesOf = (g, all) => Object.entries(all ? budgetOf(g).uses : budgetOf(g).today).filter((x) => x[1] >= 0.05).sort((a, b) => b[1] - a[1]);
@@ -1164,16 +1167,27 @@ function addChronicle(g, text, who = null, love = false) {
 }
 // What a character remembers about the player, from their point of view (up to 6, oldest first out).
 // shown (0.17): what the player sees of it, when the character knows more than the player may (who told them).
-function addMem(g, by, text, shown) {
+// keep (0.33.3): a memory that marks for life (they were nearly killed together): never pushed out by the others (3 at
+// most, beside the 6).
+const MEM_MAX = 6, MEM_KEEP = 3;
+function trimMem(c) {
+  const kept = c.mem.filter((m) => m.keep).slice(-MEM_KEEP), rest = c.mem.filter((m) => !m.keep).slice(-MEM_MAX);
+  c.mem = c.mem.filter((m) => kept.includes(m) || rest.includes(m));
+}
+// For a short line: the ones that mark for life, then the latest (n in all).
+const memsFor = (c, n = 4) => { const m = (c && c.mem) || [], kept = m.filter((x) => x.keep), rest = m.filter((x) => !x.keep).slice(-Math.max(0, n - kept.length)); return m.filter((x) => kept.includes(x) || rest.includes(x)); };
+function addMem(g, by, text, shown, keep) {
   const c = typeof by === 'object' ? by : charByHandle(g, normHandle(by));
   if (!c || !isMain(c)) return;
   text = str(text, 110);
   const wrapped = /^[«"“]\s*([^«»"“”]*?)\s*[»"”]$/.exec(text); // the whole memory quoted: drop the quotes
   if (wrapped) text = wrapped[1];
   if (!text) return;
-  c.mem = (c.mem || []).filter((m) => m.t.toLowerCase() !== text.toLowerCase() && !similar(m.t, text));
-  c.mem.push(shown ? { t: text, ts: Date.now(), s: str(shown, 110) } : { t: text, ts: Date.now() });
-  if (c.mem.length > 6) c.mem.splice(0, c.mem.length - 6);
+  const same = (m) => m.t.toLowerCase() === text.toLowerCase() || similar(m.t, text);
+  if (!keep && (c.mem || []).some((m) => m.keep && same(m))) return; // (what marks them already says it)
+  c.mem = (c.mem || []).filter((m) => !same(m));
+  c.mem.push(Object.assign(shown ? { t: text, ts: Date.now(), s: str(shown, 110) } : { t: text, ts: Date.now() }, keep ? { keep: 1 } : {}));
+  trimMem(c);
 }
 // 0.28.1: the gifts make one memory per character, kept up to date (they no longer push the real memories out); the
 // player reads it as « Tu lui as offert… ».
@@ -1185,7 +1199,7 @@ function giftMem(g, c, what) {
   const s = n > 1 ? `Tu lui as fait ${n} cadeaux, le dernier : ${w}` : `Tu lui as offert ${w}`;
   c.mem = c.mem.filter((m) => m !== old && !/^le joueur m’a offert /.test(m.t)); // (and the ones of before 0.28.1)
   c.mem.push({ t, s, ts: Date.now(), k: 'gift', n });
-  if (c.mem.length > 6) c.mem.splice(0, c.mem.length - 6);
+  trimMem(c);
 }
 // 0.28.1: the player's own words, as quoted to the model: no braces, so nothing typed can pass for one of its lines.
 const noJson = (t) => String(t == null ? '' : t).replace(/[{}]/g, (m) => (m === '{' ? '(' : ')'));

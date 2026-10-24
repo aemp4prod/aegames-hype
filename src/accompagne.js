@@ -180,7 +180,6 @@ function startAttack(g, H, c, text, o = {}, t = Date.now()) {
   const P = { il: gx(c.g, 'il', 'elle', 'iel'), le: gx(c.g, 'le', 'la', 'le'), assis: gx(c.g, 'assis', 'assise', 'assis·e'), seul: px(g, 'seul', 'seule', 'seul·e') };
   H.attack = Object.assign({ c: c.id, f: f ? f.id : null, where: w, ev: o.ev ? o.ev.id : null, i: 0, steps: attackSteps(C, F, P, w), at: t, done: false, pl: P }, f ? plusBond(f) : { aff: 0, p: 0, bond: 0 });
   H.lines.push({ who: 'n', atk: 1, text: str(text, 200) || (w === 'night' ? 'Plus tard, dans la nuit…' : `${C} ferme la porte à clé.`) });
-  if (f) addMem(g, f, `@${c.handle} nous a attaqués, le joueur et moi`);
   atkBuzz(60);
   return true;
 }
@@ -270,11 +269,17 @@ function attackEnd(g, H) {
     const ev = (g.events || []).find((e) => e.id === A.ev);
     if (ev && ev.talk === H) fleeDate(g, ev, c, f ? `${F} et toi dévalez l’escalier sans vous retourner. Dehors, ${F} appelle la police, la voix qui tremble.` : `Tu dévales l’escalier${w === 'night' ? ' pieds nus' : ''} sans te retourner. Dehors, tu appelles la police, la voix qui tremble.`);
   }
+  if (huntOn()) { // 0.33.4: they know now; the police came (the complaint is the player's to file); the couple is over
+    startHunt(g, c, 'attack');
+    const pa = px(g, 'attaqué', 'attaquée', 'attaqué·e');
+    policeCall(g, c, w === 'visit' ? `${C} t’a ${pa} chez toi, en pleine nuit : tu as appelé la police` : f ? `${C} vous a attaqués chez ${chez}, ${F} et toi : ${F} a appelé la police` : `${C} t’a ${pa} chez ${chez}${w === 'night' ? ', en pleine nuit' : ''} : tu as appelé la police`, { ev: A.ev, f: f ? f.id : null, why: 'attack', delay: 9000 });
+    huntEndsCouple(g, c);
+  }
   if (!f) { psySign(g, c, `${C} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau${w === 'visit' ? ', chez toi, en pleine nuit' : w === 'night' ? ', en pleine nuit' : `, chez ${chez}`} : tu t’en es ${px(g, 'sorti', 'sortie', 'sorti·e')} de justesse`, later() + 900, true); return; }
   psySign(g, c, `${F} a tout vu : ${C} vous a attaqués avec un couteau, chez ${chez}`, later() + 900, true); // (a witness: a proof that weighs)
   applyRel(g, f, 10, 'vous vous en êtes sortis ensemble', later() + 2400, 12);
-  applyTrust(g, f, 8, 'vous vous en êtes sortis ensemble', later() + 2600);
-  addMem(g, f, `@${c.handle} nous a attaqués chez ${chez} : on s’en est sortis ensemble, le joueur et moi`);
+  applyTrust(g, f, 25, 'vous vous en êtes sortis ensemble', later() + 2600, { free: true }); // (0.33.3: survived together: a trust like few others)
+  sawIt(g, f, c, A.ev); // 0.33.3: for life (never pushed out by what comes after), and said in each of their prompts
   bumpTie(g, c.id, f.id, -60);
   addTrigger(g, `@${f.handle} et le joueur viennent de s’enfuir de chez @${c.handle}, qui les a attaqués : @${f.handle} est sous le choc et en parle au joueur en privé ; @${c.handle} fait comme si de rien n’était.`, f.id);
 }
@@ -450,7 +455,7 @@ function afterTalkLines(g, ev) {
   const F = firstName(f), X = firstName(x), il = gx(f.g, 'il', 'elle', 'iel');
   return ['', '## JUSTE AVANT : ILS ONT FUI ENSEMBLE',
     `Ce soir, chez @${x.handle} (${x.name}), ${X} les a attaqués avec un couteau, le joueur et ${F} : ils se sont défendus ensemble et se sont enfuis, ${F} a appelé la police. Les voilà dehors, dans la rue, essoufflés, en état de choc : la soirée continue entre eux deux, maintenant.`,
-    `${F} réagit selon qui ${il} est et leur relation (${fmtRel(f.rel)}) : la peur, la colère, les larmes, un humour nerveux, l’envie de protéger le joueur, de ne pas le laisser seul. La police peut arriver et prendre leur déposition ; ils peuvent marcher, s’asseoir sur un trottoir, finir chez l’un des deux. ${X} n’est plus là et n’apparaît pas. Rien de gore.`];
+    `${F} est dans un drôle d’état : l’euphorie d’être en vie (des rires nerveux, l’adrénaline, l’envie de serrer le joueur), puis la peur qui revient d’un coup (les mains qui tremblent, un regard vers la porte). ${cap1(il)} réagit selon qui ${il} est et leur relation (${fmtRel(f.rel)}) : la peur, la colère, les larmes, un humour nerveux, l’envie de protéger le joueur, de ne pas le laisser seul. La police peut arriver et prendre leur déposition ; ils peuvent marcher, s’asseoir sur un trottoir, finir chez l’un des deux. ${X} n’est plus là et n’apparaît pas. Rien de gore.`];
 }
 function afterFlight(g, ev, c, f, t = Date.now()) {
   const old = ev.after2 && (g.events || []).find((e) => e.id === ev.after2);
@@ -495,4 +500,33 @@ async function openAfter(e2) {
   if (!T.lines.length) T.lines.push({ who: 'c', text: 'Ça va ? Dis-moi que ça va…', seen: '' });
   update();
   return true;
+}
+
+/* ---------- 0.33.3: what they lived through, they do not forget ---------- */
+// The one who fled with the player saw it: a memory for life (« … a essayé de nous tuer »), and a line in their prompts.
+// (0.33.2's night with them pushed the attack out of their six memories: « je sais pas si elle a essayé de nous tuer ».)
+function sawIt(g, f, x, evId, t = Date.now()) {
+  if (!f || !x) return;
+  f.saw = { psy: x.id, at: (f.saw && f.saw.psy === x.id && f.saw.at) || t, ev: evId || null, trust: 1 };
+  addMem(g, f, `@${x.handle} a essayé de nous tuer, le joueur et moi, avec un couteau, chez ${gx(x.g, 'lui', 'elle', 'iel')}. On s’en est sortis ensemble`, null, true);
+}
+function sawLines(g, c) {
+  const W = c && c.saw, x = W && g.chars[W.psy];
+  if (!W || !x) return [];
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), X = firstName(x), d = Math.floor((Date.now() - W.at) / DAY_MS);
+  const when = d < 1 ? 'ce jour-là, il y a quelques heures' : d === 1 ? 'hier' : `il y a ${d} jours`;
+  const fresh = d < 7;
+  return [`CE QUE ${first.toUpperCase()} A VÉCU AVEC LE JOUEUR (${il} ne l’oublie pas, n’en doute pas une seconde) : ${when}, chez @${x.handle}, ${X} a essayé de les tuer, ${gx(c.g, 'lui', 'elle', 'iel')} et le joueur, avec un couteau ; ils se sont défendus et enfuis ensemble, la police a été appelée. ${cap1(il)} en garde la peur, la colère, l’envie de protéger le joueur${x.jailed ? ` ; ${X} a depuis été ${gx(x.g, 'arrêté', 'arrêtée', 'arrêté·e')} : un soulagement` : `, de voir ${X} payer`}.`
+    + (fresh ? ` Ces jours-ci, c’est encore à vif : le soulagement fou d’être en vie, presque de l’euphorie, et la peur qui revient par vagues (un bruit, une porte, la nuit, un message de ${X}) ; ${il} prend souvent des nouvelles du joueur, et ça lui fait du bien qu’il en prenne aussi.` : '')
+    + ` Ce qu’ils ont traversé les a rapprochés : ${il} lui fait confiance comme à peu de gens.` + (huntOn() ? policeSaw(g, x) : '')]; // (0.33.4: and where the police are)
+}
+// A game of 0.33.1 or 0.33.2: an attack got out of together, remembered for good (the memory may have been pushed out).
+function migrateSaw(g) {
+  for (const e of g.events || []) {
+    const A = e.talk && e.talk.attack, f = A && A.ok && A.f ? g.chars[A.f] : null, x = A && g.chars[A.c || e.c];
+    if (!f || !x || (f.saw && f.saw.psy === x.id)) continue;
+    f.saw = { psy: x.id, at: A.at || e.due || Date.now(), ev: e.id, trust: 1 };
+    applyTrust(g, f, 17, 'vous vous en êtes sortis ensemble', Date.now(), { free: true }); // (the trust it takes, as now: 8 then, 25 now)
+    addMem(g, f, `@${x.handle} a essayé de nous tuer, le joueur et moi, avec un couteau, chez ${gx(x.g, 'lui', 'elle', 'iel')}. On s’en est sortis ensemble`, null, true);
+  }
 }

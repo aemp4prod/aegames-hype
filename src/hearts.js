@@ -127,7 +127,10 @@ const LOVE_ACTIVE = ['crush', 'flirt', 'couple', 'fiancailles', 'mariage'];
 const STEP_W = { flirt: 0.75, couple: 1.5, fiancailles: 4, mariage: 3 }; // a crush is a feeling, not a step: no pace for it
 const loveRank = (v) => LOVE_STEPS.indexOf(v);
 const paceFrom = (c) => (c.pace && c.pace.at) || c.firstTalk || c.unlockedAt || 0;
-const paceNeed = (c, v) => { const H = heartOf(c); return H.pace * (STEP_W[v] || 0) * ((H.steps && H.steps[v]) || 1) * (t32On() ? PACE_K : 1) * HR; }; // (the suites written before keep their pace)
+// 0.33.3: what they lived through together brings them closer, faster: an attack survived side by side (for two weeks),
+// a night together (for three days). (« Je t’aime » the morning after, it was « too fast » for someone out of reach.)
+const bondPace = (c, t = Date.now()) => Math.min(c && c.saw && t - c.saw.at < 14 * DAY_MS ? 0.25 : 1, c && c.intimate && c.intimate.at && t - c.intimate.at < 72 * HR ? 0.6 : 1);
+const paceNeed = (c, v) => { const H = heartOf(c); return H.pace * (STEP_W[v] || 0) * ((H.steps && H.steps[v]) || 1) * (t32On() ? PACE_K : 1) * (t33On() ? bondPace(c) : 1) * HR; }; // (the suites written before keep their pace)
 const nextLove = (c) => { const k = loveRank(c.vibe); return k < 0 ? 'flirt' : LOVE_STEPS[k + 1] || null; };
 // (0.32: by heart; the volage and the free ones like it fast up to a flirt, not further)
 const likesSpeed = (c, v) => { const H = heartOf(c); return !!(H.fast || (H.fastTo && (v == null || loveRank(v) <= loveRank(H.fastTo)))); };
@@ -163,7 +166,10 @@ const COOL_SHOWN = { esquive: () => 'Ne veut pas d’étiquette entre vous', fre
 // By heart (the impulsive just laugh a refusal off).
 const coolOf = (c) => ({ serein: 'frein', anxieux: 'panique', prudent: 'louche', forteresse: 'louche', inaccessible: 'ghost', jaloux: 'frein', chaudfroid: 'ghost', volage: 'esquive', libre: 'esquive' })[c.coeur] || null;
 const coolNow = (c, t = Date.now()) => (c && c.cool && t < c.cool.until ? c.cool : null);
+// 0.33.3: with them in person (the morning after, at theirs or the player's; a visit), silence makes no sense: they say it.
+const withThem = (g, c, t = Date.now()) => !!(g && c && ((typeof stayOn === 'function' && stayOn(g, t) && g.stay.c === c.id) || (g.visits || []).some((v) => v.c === c.id && v.state === 'talk')));
 function startCool(g, c, k, why, aiWhy) {
+  if (COOLS[k] && COOLS[k].silent && t33On() && withThem(g, c)) k = k === 'bloque' ? 'colere' : 'frein';
   const C = COOLS[k];
   if (!c || !C) return;
   const t = Date.now();
@@ -627,6 +633,7 @@ function promptTalk(g, ev, said) {
     '## TÂCHE : LE RENDEZ-VOUS, EN VRAI',
     `Le joueur et @${c.handle} (${c.name}) se retrouvent : « ${ev.what} » (${M.task}). Fiche de ${first} : ${ficheText(g, c)}.`,
     c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${c.mem.map((m) => m.t).join(' ; ')}` : null,
+    ...sawLines(g, c), // 0.33.3
     ...heartLines(g, c, Date.now(), false),
     T && T.ex ? `Exigence de la soirée : ${D.label.toLowerCase()}${(T.ex.ai || []).length ? ` (${T.ex.ai.join(', ')})` : ''}.` // 0.16: what they live, not their followers
       : `Exigence : ${D.label} (${first} a ${fmtPlain(c.followers)} abonnés : plus on est connu, plus on est exigeant).`,
@@ -785,6 +792,7 @@ async function talkTurn(ev, text, geste) {
   if (metNow && !T.met && (react === 'charme' || react === 'amuse' || react === 'neutre')) T.met = true; // 0.16: what they hoped for, met
   T.reacts.push({ r: react, w: G ? (G.id === 'demande' ? 2 : 1.5) : 1, g: G ? G.id : null });
   if (G) T.used.push(G.id);
+  if (G && G.id === 'police' && ev.after && huntOn()) { const x = afterOf(g, ev); if (x) policeCall(g, x, `${firstName(c)} et toi avez rappelé la police, juste après`, { f: c.id, why: 'attack' }); } // 0.33.4: the case knows it
   if (G && INTIMATE.includes(G.id) && react === 'charme') c.dareWon = Date.now(); // the right moment: it may go faster now
   T.turn += 1;
   if (sign) psySign(g, c, sign);
@@ -1445,4 +1453,19 @@ function tickCouples(g, t = Date.now()) {
     } else if (c.drift) c.drift = 0;
   }
   return ch;
+}
+
+// 0.33.3, once per game: a silence that began the morning after, with them (or « too fast » though they had just survived
+// together): taken back, they will answer (what the player said is still there).
+function fixCoolTogether(g, t = Date.now()) {
+  for (const c of Object.values(g.chars || {})) {
+    const cl = c.cool;
+    if (!cl || !COOLS[cl.k] || !COOLS[cl.k].silent || cl.k === 'bloque' || t >= cl.until || c.cut) continue;
+    const st = g.stay && g.stay.c === c.id && cl.at >= g.stay.at - 60000 && cl.at <= g.stay.until;
+    const bond = /trop vite/.test(cl.why || '') && c.saw && cl.at - c.saw.at < 14 * DAY_MS;
+    if (!st && !bond) continue;
+    c.cool = null;
+    if (Array.isArray(c.mem)) c.mem = c.mem.filter((m) => (m && m.t) !== COOL_MEM[cl.k]);
+    addTrigger(g, `@${c.handle} n’avait pas répondu au dernier message du joueur : ${gx(c.g, 'il', 'elle', 'iel')} y répond maintenant, à sa façon, selon ce qu’ils ont vécu.`, c.id);
+  }
 }

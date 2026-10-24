@@ -218,6 +218,7 @@ function applyRoleLine(g, o, effects) {
     effects.push(() => psySign(g, c, text, at));
     return true;
   }
+  if (applyRodeLine(g, o, effects)) return true; // 0.33.4: what the one who hunts the player does
   return applyStalkLine(g, o, effects); // 0.32: the ones who follow the player
 }
 
@@ -305,7 +306,7 @@ function psyCore(g, c) {
   return ['', `## SECRET DU JEU : ${first.toUpperCase()} EST LE PSYCHOPATHE DE CETTE PARTIE`,
     `Personne ne le sait : ni le joueur, ni les autres personnages. ${first} ne l’avoue jamais et ne se trahit jamais d’un coup : tout passe par des détails et des phrases de plus en plus inquiétantes à mesure que ça avance, comme dans un film d’horreur (jamais de menace en toutes lettres avant de passer à l’acte). Rien de gore.`,
     `Ce qu’${il} veut : devenir tout pour le joueur, à n’importe quel prix. ${psyMode(g, c)}`,
-    `Où ${il} en est : ${PSY_STAGES[st]}.`];
+    `Où ${il} en est : ${PSY_STAGES[st]}.`, ...(hunted(g, c) ? huntCore(g, c) : [])]; // 0.33.4: since the player got away
 }
 const PSY_SIGN_LINE = '- Facultatif (au plus 1) : si tu glisses un détail inquiétant (naturellement, jamais souligné ni expliqué), ajoute {"t":"psy","text":"≤ 90 caractères : ce que le joueur a pu remarquer, factuel (ex : « connaît le nom de ta sœur alors que tu ne l’as jamais dit »)"}.';
 // 0.33.1: the signs noted go further with the stage: past jealousy, then frightening.
@@ -321,6 +322,7 @@ const psyOutLine = (g, c) => (psyNow(g) && isPsy(g, c) ? psySignLine(g) : isStal
 function psyPublicLines(g) {
   const c = psyNow(g), st = c ? psyStage(g) : -1;
   if (!c || st < 1) return stalkPublicLines(g); // (0.32: the ones who follow the player)
+  if (hunted(g, c)) return stalkPublicLines(g).concat(huntPublicLines(g)); // 0.33.4: since the player got away
   const first = firstName(c);
   return stalkPublicLines(g).concat([`- SECRET DU JEU (toi seul le sais : aucun personnage ne le sait ni ne le soupçonne, personne n’en parle) : @${c.handle} est le psychopathe de cette partie, obsédé·e par le joueur. En public, ${first} reste crédible ; dans ses messages privés au joueur (lignes dm), ${PSY_STAGES[st]}. Facultatif, rarement : un détail un peu trop intense de ${first} en public (un like à la seconde sur chaque post du joueur, une réponse qui en sait trop, une photo prise près de chez lui) ; si tu en glisses un, ajoute {"t":"psy","by":"${c.handle}","text":"≤ 90 caractères : ce que le joueur a pu remarquer"}.`]);
 }
@@ -385,7 +387,9 @@ function psyVisitCtx(g, v, c) {
   if (!psyNow(g) || !isPsy(g, c)) return stalkCore(g, c).concat(stalkerOf(g, c) && nightAt(v.at) ? [`${firstName(c)} « passait dans le coin », tard : un peu trop de hasard, un regard qui en sait trop sur la maison du joueur ; inoffensif ce soir.`] : []);
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel');
   const L = psyCore(g, c);
-  if (v.psy === 'deadly') L.push(`## CETTE NUIT, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
+  if (v.hunt && v.door !== 'open') return L.concat(huntDoorLines(g, v, c)); // 0.33.4: through the door
+  if (v.hunt && v.psy === 'deadly') L.push(`## LE JOUEUR A OUVERT LA PORTE À ${first.toUpperCase()}`, `Après ce qu’${il} lui a fait, le joueur lui a ouvert, en pleine nuit : ${first} n’en revient pas, et ne laissera pas passer sa chance. Tout est doux, trop doux : ${il} entre, ferme derrière ${gx(c.g, 'lui', 'elle', 'iel')}, sourit.`, PSY_ESCAPE(first, il, true));
+  else if (v.psy === 'deadly') L.push(`## CETTE NUIT, ${first.toUpperCase()} PASSE À L’ACTE (le joueur ne le sait pas)`,
     `${first} a frappé chez le joueur en pleine nuit, et le joueur a ouvert. Tout est doux, trop doux : ${il} entre, regarde partout, ferme derrière ${gx(c.g, 'lui', 'elle', 'iel')}, sourit sans arrêt. La peur monte par les détails, jamais par la violence montrée.`,
     PSY_ESCAPE(first, il, true));
   else if (nightAt(v.at) && psyStage(g) >= 2) L.push(`${first} débarque tard le soir sans vraie raison : un sourire trop grand, un regard par-dessus l’épaule du joueur, l’envie d’entrer « deux minutes ». Étrange, mais il ne lui arrive rien cette fois.`);
@@ -394,6 +398,7 @@ function psyVisitCtx(g, v, c) {
 function psyVisitOut(g, v, c, last) {
   if (!psyNow(g) || !isPsy(g, c)) return isStalker(g, c) ? [STALK_SIGN_LINE] : [];
   const L = [psySignLine(g)];
+  if (v.hunt && v.door !== 'open') return L; // 0.33.4: the door shut, they can only talk (or leave)
   if (v.psy === 'deadly') {
     L.push('- Seulement si le joueur s’échappe vraiment : {"t":"escape","text":"≤ 160 caractères"} (voir plus haut). Alors, pas de ligne leave.');
     if (last) L.push(`- C’est la fin de la visite : si le joueur ne s’est pas échappé, pas de ligne leave : la dernière réplique de ${firstName(c)}, puis ${duelOn() ? `{"t":"attaque","text":"≤ 160 caractères : ce que ${firstName(c)} fait, au présent, sans rien de gore"}` : PSY_FIN(firstName(c))}.`);
@@ -422,6 +427,7 @@ function psyEscape(g, c, where = 'date') {
   const P = g.psy;
   if (!P || !c) return;
   P.escaped = (P.escaped || 0) + 1;
+  startHunt(g, c, where === 'visit' ? 'visit' : 'fled'); // 0.33.4: they know that the player knows
   const first = firstName(c);
   psySign(g, c, where === 'visit' ? `${first} est ${gx(c.g, 'entré', 'entrée', 'entré·e')} chez toi en pleine nuit : tu as dû ${gx(c.g, 'le', 'la', 'le ou la')} mettre dehors` : `chez ${first}, la soirée a tourné au cauchemar : tu t’es ${px(g, 'enfui', 'enfuie', 'enfui·e')}`, later() + 600); // (what happened, as the file keeps it)
   addMem(g, c, where === 'visit' ? `le joueur m’a ${gx(c.g, 'mis', 'mise', 'mis·e')} dehors cette nuit-là : ${px(g, 'il', 'elle', 'iel')} ne m’échappera pas longtemps` : `le joueur s’est ${px(g, 'enfui', 'enfuie', 'enfui·e')} de chez moi : ${px(g, 'il', 'elle', 'iel')} reviendra`);
@@ -484,6 +490,8 @@ function psyUnmask(g, c) {
   P.outAt = Date.now();
   c.jailed = Date.now();
   c.cut = true;
+  const K = caseOf(g, c);
+  if (caseOpen(K)) { K.state = 'clos'; K.out = 'unmask'; K.log.push({ at: Date.now(), text: `${c.name} a été ${gx(c.g, 'arrêté', 'arrêtée', 'arrêté·e')} après ce que tu as révélé` }); } // 0.33.4
   const fol = grow(s.followers, Math.round(Math.max(3000, s.followers * 0.3) * rand(0.85, 1.2)));
   if (fol > 0) { s.followers += fol; checkMilestones(g); }
   const dr = repMove(g, { cred: 14, image: 10, kind: 6 }, `tu as démasqué ${c.name}`);
@@ -557,6 +565,15 @@ function GameOver({ g }) {
 function PsyOutCard({ g, m, close }) {
   const c = g.chars[m.charId];
   if (!c) return null;
+  if (m.how === 'arrest') { // 0.33.4: the complaint held
+    const k = copOf(g), K = caseOf(g, c);
+    return html`<div class="modal-card">
+      <span class="eyebrow" style="color:var(--good)">${gx(c.g, 'Arrêté', 'Arrêtée', 'Arrêté·e')}</span>
+      <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle} · en détention provisoire</span></div></div>
+      <p>${cap1(copWho(k))} vient de t’appeler : ${firstName(c)} a été ${gx(c.g, 'arrêté', 'arrêtée', 'arrêté·e')}, ${gx(c.g, 'mis', 'mise', 'mis·e')} en examen pour ${K && K.why === 'attack' ? 'tentative de meurtre' : 'harcèlement et menaces'} et ${gx(c.g, 'placé', 'placée', 'placé·e')} en détention provisoire. Ta plainte a tenu. C’est fini.</p>
+      <button class="btn btn-ink" onClick=${close}>Respirer enfin</button>
+    </div>`;
+  }
   return html`<div class="modal-card">
     <span class="eyebrow" style="color:var(--good)">Démasqué${gx(c.g, '', 'e', '·e')}</span>
     <div class="modal-char"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><div><b>${c.name}</b><span>@${c.handle} · ${gx(c.g, 'arrêté', 'arrêtée', 'arrêté·e')}</span></div></div>

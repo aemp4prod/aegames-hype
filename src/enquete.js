@@ -112,7 +112,7 @@ function goMission(g, m, t = Date.now()) {
     addMem(g, x, `@${f.handle} est ${gx(f.g, 'venu', 'venue', 'venu·e')} fouiner chez moi pour le joueur`);
     if (m.risk === 3) addTrigger(g, `@${x.handle} a surpris @${f.handle} en train de fouiller chez ${gx(x.g, 'lui', 'elle', 'iel')}, ${gx(f.g, 'envoyé', 'envoyée', 'envoyé·e')} par le joueur : ${X} est furieux·se.`, x.id);
   } else addMem(g, x, `@${f.handle} est ${gx(f.g, 'passé', 'passée', 'passé·e')} me voir et m’a posé pas mal de questions sur le joueur`);
-  addMem(g, f, m.detail ? `chez @${x.handle}, j’ai vu ${str(m.detail, 70)} : ça m’a ${gx(f.g, 'glacé', 'glacée', 'glacé·e')}` : `je suis ${gx(f.g, 'allé', 'allée', 'allé·e')} voir @${x.handle} pour le joueur (« ${str(m.plan, 50)} »)`);
+  addMem(g, f, m.detail ? `chez @${x.handle}, j’ai vu ${str(m.detail, 70)} : ça m’a ${gx(f.g, 'glacé', 'glacée', 'glacé·e')}` : `je suis ${gx(f.g, 'allé', 'allée', 'allé·e')} voir @${x.handle} pour le joueur (« ${str(m.plan, 50)} »)`, null, !!m.detail); // (0.33.3: what frightened them, for good)
   applyRel(g, f, 2, 'tu lui as fait confiance', later() + 2000, 4);
 }
 // They never came back: out of the world (as one arrested is: no posts, no answers, no dates), told hours later.

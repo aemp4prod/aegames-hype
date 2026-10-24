@@ -200,7 +200,7 @@ const ready = (page) => G(page, () => {
   const c2 = await G(page, () => {
     const H = window.__hype, g = H.S.game, ev = g.events.find((e) => e.id === window.__ev), A = ev.talk.attack, theo = H.charByHandle(g, 'theo.marlin'), zara = H.charByHandle(g, 'zara.vey');
     const qs = A.steps.filter((x) => x.k === 'q'), cs = A.steps.filter((x) => x.k === 'c');
-    return { done: A.done, ok: A.ok, score: A.score, fled: !!ev.fled, over: !!g.over, qte: qs.map((q) => q.ok && q.clean).join(','), helps: cs.filter((b) => b.help).length, witness: (g.clues || []).some((k) => k.c === zara.id && k.psy && /Théo a tout vu/.test(k.text)), mem: (theo.mem || []).some((m) => /on s’en est sortis ensemble/.test(m.t)), lines: ev.talk.lines.filter((l) => l.atk).length, wins: ['à un souffle de ton visage', 'Ensemble !', 'sa main lâche'].every((w) => ev.talk.lines.some((l) => l.atk && l.text.includes(w))), out: !!document.querySelector('.talk-over') };
+    return { done: A.done, ok: A.ok, score: A.score, fled: !!ev.fled, over: !!g.over, qte: qs.map((q) => q.ok && q.clean).join(','), helps: cs.filter((b) => b.help).length, witness: (g.clues || []).some((k) => k.c === zara.id && k.psy && /Théo a tout vu/.test(k.text)), mem: (theo.mem || []).some((m) => /s’en est sortis ensemble/i.test(m.t)), lines: ev.talk.lines.filter((l) => l.atk).length, wins: ['à un souffle de ton visage', 'Ensemble !', 'sa main lâche'].every((w) => ev.talk.lines.some((l) => l.atk && l.text.includes(w))), out: !!document.querySelector('.talk-over') };
   });
   check('dodged, pushed together on « three », broke free tapping, the worst moves chosen: a strong bond gets them out; they flee, Théo saw it all (a proof), closer for it', c2.done && c2.ok && c2.score >= 2 && c2.fled && !c2.over && c2.qte === 'true,true,true' && c2.helps === 3 && c2.witness && c2.mem && c2.lines >= 10 && c2.wins && c2.out, c2);
   await shot(page, 'attack-escaped');
@@ -251,6 +251,51 @@ const ready = (page) => G(page, () => {
   await shot(page, 'after-flight-end');
   check('it counts as an evening together (its recap tells the moment after, his message), and never as a date a jealous partner hears of', /Ensemble, après ce que vous avez vécu/.test(chip) && g3.recap && g3.card && g3.notif && g3.end && g3.lea === 60 && !g3.jealous && g3.dm && !g3.stood, Object.assign({ chip }, g3));
   await G(page, () => { const H = window.__hype, g = H.S.game; Object.assign(H.charByHandle(g, 'leandre.aube'), window.__lea0); });
+  // 0.33.3: what they lived through, they do not forget (the next morning, it was « une dispute » and « je sais pas si elle a essayé de nous tuer »)
+  const m1 = await G(page, () => {
+    const H = window.__hype, g = H.S.game, theo = H.charByHandle(g, 'theo.marlin'), zara = H.charByHandle(g, 'zara.vey');
+    for (const t of ['on a mangé des crêpes au port', 'le joueur m’a prêté sa veste rouge', 'on a regardé un film d’horreur nul', 'il a gagné au baby-foot contre moi', 'on a fait les courses pour la fête', 'le joueur a oublié mon anniversaire', 'on a chanté au karaoké jusqu’à minuit', 'il m’a aidé à déménager mon bureau', 'on a adopté un chaton ensemble']) H.addMem(g, theo, t);
+    const kept = (theo.mem || []).filter((m) => m.keep).map((m) => m.t), p = H.promptDM(g, theo, [], 'tu repenses à hier soir ?'), p2 = H.promptTalk(g, { id: 'x', c: theo.id, what: 'Un café', due: Date.now(), talk: { lines: [], turn: 0, max: 5, reacts: [], used: [] } }, null);
+    return { saw: !!(theo.saw && theo.saw.psy === zara.id), kept, n: theo.mem.length, inDM: p.includes('a essayé de nous tuer, le joueur et moi, avec un couteau') && /CE QUE THÉO A VÉCU AVEC LE JOUEUR/.test(p) && /ne l’oublie pas, n’en doute pas une seconde/.test(p), inTalk: /CE QUE THÉO A VÉCU AVEC LE JOUEUR/.test(p2), short: H.memsFor(theo, 4).some((m) => m.keep) };
+  });
+  check('0.33.3: the one who fled with the player keeps it for life (« a essayé de nous tuer… avec un couteau »), never pushed out by what comes after, and every prompt of theirs says what they lived through', m1.saw && m1.kept.length === 1 && /@zara\.vey a essayé de nous tuer, le joueur et moi, avec un couteau, chez elle/.test(m1.kept[0]) && m1.n === 7 && m1.inDM && m1.inTalk && m1.short, m1);
+  const m2 = await G(page, () => {
+    const H = window.__hype, g = H.S.game, theo = H.charByHandle(g, 'theo.marlin');
+    delete theo.saw; theo.mem = theo.mem.filter((m) => !m.keep); // (a game of 0.33.2: pushed out)
+    H.migrateSaw(g);
+    return { saw: !!theo.saw, kept: theo.mem.filter((m) => m.keep).length };
+  });
+  check('a game of before (the memory pushed out): opened again, they remember', m2.saw && m2.kept === 1, m2);
+  // 0.33.3: « je t’aime » the morning after, at her place: « besoin de prendre du recul », and silence (someone out of reach)
+  const p1 = await G(page, () => {
+    const H = window.__hype, g = H.S.game, ada = H.charByHandle(g, 'ada.quill'), zara = H.charByHandle(g, 'zara.vey'), t = Date.now(), DAY = 86400000;
+    window.__ada0 = { vibe: ada.vibe, coeur: ada.coeur, pace: ada.pace, cool: ada.cool, saw: ada.saw, intimate: ada.intimate, mem: (ada.mem || []).slice() };
+    Object.assign(ada, { vibe: 'flirt', coeur: 'inaccessible', pace: { at: t - 3 * DAY, v: 'flirt' }, cool: null, intimate: null });
+    delete ada.saw;
+    const before = H.tooFast(ada, 'couple');
+    ada.saw = { psy: zara.id, at: t - DAY };
+    const after = H.tooFast(ada, 'couple');
+    delete ada.saw;
+    ada.intimate = { n: 1, at: t - 10 * 3600000 };
+    const night = H.paceNeed(ada, 'couple');
+    ada.intimate = null;
+    const plain = H.paceNeed(ada, 'couple');
+    H.startCool(g, ada, 'ghost', 'tu vas trop vite');
+    const away = ada.cool && ada.cool.k;
+    ada.cool = null;
+    g.stay = { c: ada.id, ev: 'x', where: 'c', at: t - 3600000, until: t + 4 * 3600000 };
+    H.startCool(g, ada, 'ghost', 'tu vas trop vite');
+    const there = ada.cool && ada.cool.k, quiet = H.quietDM(g, ada, g.dms[ada.id] || { msgs: [] });
+    ada.cool = { k: 'ghost', at: t, until: t + 60 * 3600000, insist: 0, ok: 0, why: 'tu vas trop vite' };
+    H.addMem(g, ada, 'j’ai besoin de prendre du recul avec le joueur');
+    H.fixCoolTogether(g);
+    const fixed = !ada.cool && !(ada.mem || []).some((m) => /prendre du recul/.test(m.t)) && (g.triggers || []).some((x) => x.c === ada.id && /n’avait pas répondu au dernier message du joueur/.test(x.text));
+    delete g.stay;
+    Object.assign(ada, window.__ada0);
+    if (!window.__ada0.saw) delete ada.saw;
+    return { before, after, night: Math.round(night / 3600000), plain: Math.round(plain / 3600000), away, there, quiet, fixed };
+  });
+  check('0.33.3: what they lived through brings them closer faster (an attack survived together: a declaration is no longer « too fast »; a night together too); with them in person, never silence (« frein »: they say it); a game where it happened: taken back, they will answer', p1.before === true && p1.after === false && p1.night < p1.plain && p1.away === 'ghost' && p1.there === 'frein' && !p1.quiet && p1.fixed, p1);
   await clear(page);
   // a plain evening with someone along: it counts for the three of them
   const d1 = await G(page, () => {

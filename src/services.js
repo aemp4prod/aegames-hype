@@ -113,7 +113,7 @@ function promptJobDone(g, c, j, paid) {
     `## TÂCHE : LE TRAVAIL LIVRÉ À @${c.handle} (${c.name})`,
     `Fiche de ${c.name} : ${ficheText(g, c, false)}`,
     `Relation avec le joueur : ${fmtRel(c.rel)} (${relLabel(c.rel, c.g, c.vibe).toLowerCase()})`,
-    c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${c.mem.slice(-4).map((m) => m.t).join(' ; ')}` : null,
+    c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${memsFor(c, 4).map((m) => m.t).join(' ; ')}` : null,
     msgs.length ? 'Leurs derniers messages (du plus ancien au plus récent) :\n' + msgs.map((m) => (m.sys ? sysLine(g, c, m) : `${m.me ? g.player.name + ' (le joueur)' : first} : ${str(m.text, 200)}`)).join('\n') : null,
     `Le joueur vient d’envoyer à ${first} ${K.noun} commandé${j.kind === 'miniature' ? 'e' : ''} : « ${j.what} »${j.files.length ? ` (à partir de ${j.files.map((f) => f.name).join(', ')})` : ''}${late ? `, avec ${fmtDur(late)} de retard` : ''}.`,
     `Le résultat, tel que ${first} le découvre : ${jobTier(qOf(j)).ai} (qualité ${pctOf(qOf(j))} %).`,

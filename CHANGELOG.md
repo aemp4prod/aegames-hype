@@ -5,6 +5,28 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.4 — 24 octobre 2026 (build 33004)
+
+**Si tu échappes au psychopathe, ce n’est pas fini : il rôde, il frappe chez toi la nuit, il s’en prend à tes proches. Et la police, maintenant, c’est pour de vrai.**
+
+### ✨ Nouveautés
+
+- **🌑 Il rôde** : si tu échappes au psychopathe, il sait que tu sais, et il ne lâche pas tant qu’il n’est pas arrêté. Ce qu’il fait, et quand, c’est son IA qui le décide : rien pendant un moment, puis des coups à ta porte en pleine nuit (même quand tu dors : ça te réveille), un mot glissé sous ta porte, une silhouette en bas de chez toi, des messages qui glacent, ou l’envie de te revoir « pour s’expliquer ».
+- **🚪 À travers la porte** : quand il frappe, la porte reste fermée tant que tu ne l’ouvres pas. Tu peux lui parler à travers, ne pas répondre, ou appeler la police : quand elle arrive, il est déjà parti, mais c’est noté. Ouvrir, c’est à tes risques.
+- **🏠 Chacun ne connaît que les adresses qu’il a vues** : il ne peut aller que là où il sait. Chez toi, s’il y est déjà venu, s’il t’a suivi ou si tu lui as donné ton adresse ; chez tes proches, s’il a trouvé où ils habitent.
+- **👥 Tes proches aussi** : il peut s’en prendre à ceux qui comptent pour toi, à commencer par la personne qui était avec toi ce soir-là : leur écrire, les attendre en bas de chez eux, leur raconter sa version. Ils te le racontent en message, chacun avec ce qu’il sait.
+- **🚓 La police, pour de vrai** : après une attaque, la police vient prendre vos premières déclarations. Pour aller plus loin, porte plainte au commissariat, depuis son profil : une vraie audition, avec tes mots, face à un enquêteur ou une enquêtrice qui pose ses questions. Puis l’enquête : le témoin est entendu, et tu peux joindre au dossier ce que tu as noté (un mot sous ta porte, ce qu’un proche t’a raconté…). Si le dossier tient, il est arrêté, sans que tu aies à lancer de bad buzz. Sinon, il ressort, il sait que c’est toi, et tout ce qui arrive ensuite peut faire rouvrir l’enquête.
+- **📱 Des nouvelles** : les jours qui suivent, la personne qui a vécu ça avec toi t’écrit d’elle-même pour savoir comment tu vas, et te dit comment elle va.
+- **🤝 Ça rapproche** : survivre ensemble à une attaque fait monter la confiance d’un coup. Pendant les deux semaines qui suivent, vos étapes peuvent aller bien plus vite, si son IA le veut aussi. Une nuit ensemble rapproche aussi pendant quelques jours.
+- **😮‍💨 Encore à vif** : juste après, et pendant les jours qui suivent, la personne est partagée entre le soulagement fou d’être en vie et la peur qui revient par vagues, et elle s’inquiète pour toi.
+- Dans une partie déjà commencée : si tu lui as déjà échappé, il rôde dès que tu rouvres ta partie, et la police est notée comme venue ce soir-là. La plainte, c’est toi qui choisis.
+
+### 🛠️ Corrigé
+
+- **🧠 Ce qu’on a vécu ensemble ne s’oublie pas** : le lendemain d’une attaque dont vous étiez sortis à deux, la personne venue avec toi pouvait ne plus trop savoir ce qui s’était passé (« je sais pas si elle a essayé de nous tuer »), parce que la suite de la soirée avait pris la place de ce souvenir. Désormais, c’est un souvenir qui la marque pour de bon : elle sait ce qu’elle a vu, elle n’en doute pas, et rien de ce qui arrive ensuite ne le lui fait oublier. Pareil pour ce qu’a vu quelqu’un que tu as envoyé parler à un perso. Dans une partie déjà commencée, elle s’en souvient dès que tu rouvres ta partie.
+- **💬 Pas de silence quand vous êtes ensemble** : une déclaration jugée trop rapide pouvait faire passer quelqu’un en silence pendant des heures, même le matin chez lui ou chez elle, toi juste à côté. Quand vous êtes ensemble, il ou elle te dit désormais ce qu’il ou elle ressent au lieu de se taire. Si c’est arrivé dans ta partie, c’est réparé quand tu la rouvres : la personne répondra à ton dernier message.
+- **💔 Plus en couple avec qui a voulu te tuer** : après une attaque, le jeu te comptait encore en couple avec ton agresseur. C’est fini, y compris dans une partie déjà commencée.
+
 ## 0.33.2 — 24 octobre 2026 (build 33002)
 
 **Quand tu t’en sors à deux, la soirée continue avec la personne venue avec toi.**

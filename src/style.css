@@ -2015,7 +2015,7 @@ svg.watch:active { cursor: grabbing; }
 .sg-opt small { color: var(--ink-3); font-size: 12.5px; }
 .hire-pay { gap: 8px; align-items: center; }
 .hire-pay input { width: 120px; }
-.prof-job, .prof-mission { align-self: flex-start; }
+.prof-job, .prof-mission, .prof-police { align-self: flex-start; }
 .dl-guest { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
 .dl-guest.ok { background: color-mix(in srgb, var(--good) 10%, var(--surface-2)); }
 .dl-guest .row { gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -3669,3 +3669,28 @@ div.big-stage:not(.mg-setup) { padding: 18px 16px 6px; }
   .tuto-body { padding-inline: 18px; }
 }
 @media (max-height: 640px) { .tuto-scene { height: 172px; padding-block: 30px 10px; } } /* (always clear of the cross) */
+
+/* ---------- 0.33.4: elle rôde, la police ---------- */
+.door-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.modal-card .door-acts .btn { width: auto; }
+.door-acts .door-open { color: var(--bad); }
+.modal-card.mot-card { max-width: 400px; gap: 12px; }
+.mot-paper { position: relative; margin: 4px 6px; padding: 22px 20px 20px; background: #F6F1E6; color: #2A2320; border-radius: 3px; transform: rotate(-1.2deg); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(0, 0, 0, 0.08); }
+.mot-paper::before { content: ''; position: absolute; inset: 0; border-radius: 3px; background: repeating-linear-gradient(180deg, transparent 0 25px, rgba(90, 70, 60, 0.13) 25px 26px); pointer-events: none; }
+.mot-paper p { position: relative; margin: 0; font-family: 'Segoe Print', 'Bradley Hand', 'Comic Neue', 'Patrick Hand', cursive; font-size: 19px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.police-head { display: flex; gap: 12px; align-items: center; padding: 14px 16px 4px; }
+.police-head > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.police-head b { font-size: 16px; }
+.police-head small { color: var(--ink-3); font-size: 13px; }
+.police-badge { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-2); font-size: 22px; }
+.police-depo .visit-lines { max-height: none; min-height: 160px; }
+.police-depo .reply-box .send { flex: none; }
+.police-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.police-item { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13.5px; line-height: 1.35; cursor: pointer; }
+.police-item small { color: var(--ink-3); font-size: 12px; }
+.police-item.on { background: var(--surface-2); cursor: default; }
+.police-item.on small { color: var(--good); }
+.police-item:not(.on):hover, .police-item:not(.on):focus-visible { border-color: var(--line-strong); }
+.police-log { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.police-log li { display: flex; flex-direction: column; gap: 1px; padding-left: 12px; border-left: 2px solid var(--line-strong); font-size: 13.5px; line-height: 1.35; }
+.police-log time { color: var(--ink-3); font-size: 12px; }

@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.33.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.4 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -414,10 +414,22 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   seul, c’est beaucoup plus dur. Un réflexe raté, tu reviens juste avant (un peu plus facile à chaque essai ; après
   trois ratés, tu peux passer le moment, blessé). Depuis la 0.33.2, si vous vous en sortez à deux, la soirée continue
   avec elle : dehors, sous le choc, vous parlez, et ton dernier mot décide de la suite (ne pas rester seul cette nuit).
-  Ça compte comme une soirée passée ensemble, jamais comme un rendez-vous qui rend jaloux.
+  Ça compte comme une soirée passée ensemble, jamais comme un rendez-vous qui rend jaloux. Depuis la 0.33.4, elle ne
+  l’oublie plus (un souvenir qui la marque pour de bon), sa confiance monte d’un coup, et pendant deux semaines vos
+  étapes peuvent aller bien plus vite (une nuit ensemble rapproche aussi quelques jours). Quand vous êtes ensemble, plus
+  personne ne te laisse en vu : il ou elle te dit ce qu’il ou elle ressent.
 - **Envoyer quelqu’un parler à un perso** (0.33.1) : sur son profil, « 🕵️ Envoyer quelqu’un lui parler » (ou en
   message) : celui que tu envoies décide s’il y va, et jusqu’où, puis te raconte ce qu’il a vu. Plus tu en demandes,
   plus tu envoies de monde, plus ça peut mal tourner : il arrive qu’on ne revienne pas.
+- **Il rôde, et la police** (0.33.4) : si tu échappes au psychopathe, il ne lâche pas tant qu’il n’est pas arrêté, et
+  c’est son IA qui décide quoi et quand (souvent rien, puis ça revient) : frapper chez toi la nuit (même quand tu dors :
+  ça te réveille), un mot glissé sous ta porte, une silhouette en bas de chez toi, des messages qui glacent, l’envie de
+  te revoir, s’en prendre à tes proches (qui te le racontent). Chacun ne connaît que les adresses qu’il a vues ou qu’on
+  lui a données. Derrière la porte, tu peux lui parler, ne pas répondre ou appeler la police ; ouvrir, c’est à tes
+  risques. Au commissariat (« 🚓 Porter plainte », sur son profil), une vraie audition avec tes mots ; le témoin est
+  entendu, tu joins au dossier ce que tu as noté, et si le dossier tient, il est arrêté, sans bad buzz (sinon il ressort,
+  il sait que c’est toi, et la suite peut faire rouvrir l’enquête). Les jours suivants, la personne qui a vécu ça avec
+  toi t’écrit pour savoir comment tu vas.
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro

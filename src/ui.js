@@ -561,7 +561,7 @@ function tabBadge(g, id, now) {
   return 0;
 }
 // Among the modals that are due, the most important first: a cancel before a level-up.
-const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
+const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, mot: 1, psyout: 2, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
 function dueModal(now) {
   if (now < S.modalGapUntil) return null;
   let best = null;
@@ -1751,6 +1751,7 @@ const NOTIF_ICON = {
   train: ['train', 'flash'], trainstart: ['train', 'flash'], // 0.17
   rumor: ['megaphone', 'bad'], // 0.28.1
   fanfic: ['book', 'hot'], crit: ['clapper', 'bad'], // 0.29
+  police: ['shield', 'hot'], // 0.33.4
 };
 // 0.28.1: the achievements' window, at one of them (brought into view and shown off a moment: R17)
 function openAch(id) {
@@ -1778,6 +1779,7 @@ function openAch(id) {
 function openNotif(n) {
   const g = S.game;
   if (n.k === 'ach') return openAch(n.a); // 0.28.1: an achievement: its window; a skill: its tree
+  if (n.k === 'police' && n.c && g.chars[n.c]) return openLayer({ t: 'police', id: n.c }); // 0.33.4: the file
   if (n.k === 'skill' && n.sk) return openLayer({ t: 'skill', id: n.sk });
   if (n.k === 'rumor' && n.p && g.posts.some((p) => p.id === n.p)) return openPost(n.p); // (0.28.1: the rumor's post, where it can be denied)
   if ((n.k === 'dm' || n.k === 'seen') && n.c && g.chars[n.c]) return openDM(n.c);
@@ -2802,6 +2804,7 @@ function Layer(props) {
   if (t === 'dealguest') return html`<${DealGuestLayer} ...${props} />`; // 0.33: someone in a sponsored content
   if (t === 'plus') return html`<${PlusLayer} ...${props} />`; // 0.33.1: someone coming along to a date
   if (t === 'mission') return html`<${MissionLayer} ...${props} />`; // 0.33.1: someone sent to see them
+  if (t === 'police') return html`<${PoliceLayer} ...${props} />`; // 0.33.4: the complaint, the file
   if (t === 'stgear') return html`<${StaffGearLayer} ...${props} />`; // 0.33: the gear of the team
   if (t === 'series') return html`<${SeriesLayer} ...${props} />`;
   if (t === 'move') return html`<${MoveLayer} ...${props} />`; // 0.27.4: a release brought forward
@@ -3021,6 +3024,7 @@ function CharLayer({ l, g, now, i }) {
       ${main ? html`<${SocialLinks} g=${g} c=${c} now=${now} />` : null}
       ${t33On() && hireOK(g, c) ? html`<button class="btn btn-ghost btn-sm prof-job" onClick=${() => openLayer({ t: 'hire', id: c.id })}>💼 Proposer un boulot</button>` : null}
       ${missionTarget(g, c) ? html`<button class="btn btn-ghost btn-sm prof-mission" onClick=${() => openLayer({ t: 'mission', id: c.id })}>🕵️ Envoyer quelqu’un lui parler</button>` : null}
+      ${policeTarget(g, c) ? html`<button class="btn btn-ghost btn-sm prof-police" onClick=${() => openLayer({ t: 'police', id: c.id })}>🚓 ${caseOf(g, c) && caseOf(g, c).state !== 'called' ? 'Le dossier' : 'Porter plainte'}</button>` : null}
     </div>
     ${main ? html`<${TrustSection} g=${g} c=${c} now=${now} />` : null}
     ${main ? html`<${TemperSection} c=${c} />` : null}
@@ -3738,8 +3742,10 @@ function Modal({ m, g }) {
           <button class="btn btn-ghost" onClick=${close}>Continuer</button>`}
       </div>`;
     }
-  } else if (m.t === 'psyout') { // 0.29: unmasked
+  } else if (m.t === 'psyout') { // 0.29: unmasked (0.33.4: or arrested)
     card = html`<${PsyOutCard} g=${g} m=${m} close=${close} />`;
+  } else if (m.t === 'mot') { // 0.33.4: a note under the door
+    card = html`<${MotCard} g=${g} m=${m} close=${close} />`;
   } else if (m.t === 'badbuzz') {
     const c = g.chars[m.charId];
     if (c) {
@@ -3811,7 +3817,7 @@ const STICKY_MODALS = ['visit', 'pfp']; // 0.18: someone at the door: talk, or �
 /* =========================================================
    Clock, toasts for arrivals, boot
    ========================================================= */
-const TOAST_KINDS = { fanfic: 'flash', crit: '', ach: 'flash', skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
+const TOAST_KINDS = { police: 'flash', fanfic: 'flash', crit: '', ach: 'flash', skill: 'good', trend: 'flash', dm: '', follow: 'good', unfollow: 'bad', mention: '', new: '', questnew: '', questprog: '', milestone: 'good', drama: '', collab: '', seen: 'bad', screen: 'bad', apology: '', low: 'good', clue: 'flash', release: 'flash', event: 'flash', money: 'good', advice: 'flash', trustup: 'good', secret: 'flash', standdown: 'bad', standup: 'good', echo: 'flash', train: 'flash', gear: 'flash' };
 let lastSlow = 0, lastQuestTick = 0, lastNeglect = 0;
 // 0.10: in the ChatGPT app (not on the page of the tests, where the AI only answers the player's actions), « Le réseau vit tout
 // seul » (Ultime's default; 0.19: a switch): a refresh every few minutes, only while the player is there and playing.
@@ -3852,7 +3858,7 @@ function tick() {
         const tg = n.k === 'trend' ? n.tg : null;
         const sk = n.k === 'skill' ? n.sk : null;
         if (n.k === 'ach') { achs.push(n); continue; }
-        TOAST_Q.push({ text: n.text, kind: TOAST_KINDS[n.k], pri: n.k === 'questnew' || n.k === 'questprog', at: t, action: (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null });
+        TOAST_Q.push({ text: n.text, kind: TOAST_KINDS[n.k], pri: n.k === 'questnew' || n.k === 'questprog', at: t, action: (n.k === 'dm' || n.k === 'seen') && cId ? { label: 'Lire', dm: cId, run: () => openDM(cId) } : n.k === 'police' && cId ? { label: 'Voir', run: () => openLayer({ t: 'police', id: cId }) } : tg ? { label: 'Voir', run: () => openTag(tg) } : sk ? { label: 'Voir', run: () => openLayer({ t: 'skill', id: sk }) } : null });
       }
     }
     if (achs.length >= 3) { const a0 = achs[0].a; TOAST_Q.push({ text: `🏆 ${achs.length} succès débloqués`, kind: TOAST_KINDS.ach, pri: true, at: t, action: { label: 'Voir', run: () => openAch(a0) } }); }
@@ -3924,7 +3930,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); if (tickMissions(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); if (tickMissions(g, t)) update(); if (tickHunt(g, t)) update(); if (tickPolice(g, t)) update(); if (tickCare(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -4058,6 +4064,9 @@ if (window.__HYPE_TEST__) {
     affOn, LADDER_MIN, LADDER_TOP, LADDER_K, ladderGap, tickLadder, BIG_BRIEF, bigArrives, starCtx, dayGrowth, tickGrowth, // 0.33: always someone above
     endUnfinished, AttackView, COME_RE, ATTACK_MS, ATTACK_OK, plusOK, plusDates, plusOf, plusAsked, askPlus, plusDMCtx, plusLine, applyPlusLine, plusTalkLines, PLUS_SAY, plusAfter, plusBond, startAttack, attackPick, attackEnd, attackTimeout, ATK_BEATS, ATTACK_SOLO, duelOn, nightAttack, atkCur, qteEnd, qteRetry, qteSkip, QTE_TXT, attackSteps, qteTune, // 0.33.1: someone comes along; the fight
     AFTER_TURNS, GESTES_AFTER, afterOf, fledTogether, afterTalkLines, afterFlight, stayAfter, openAfter, // 0.33.2: the evening after a flight
+    MEM_MAX, MEM_KEEP, trimMem, memsFor, sawIt, sawLines, migrateSaw, bondPace, withThem, fixCoolTogether, // 0.33.3: what they lived through
+    huntOn, HOME_SEEN_RE, ADDR_RE, chezPlayer, learnHome, homeHow, homeOfHow, homeSaid, startHunt, huntNow, hunted, attacksOf, lastAttack, medias, huntCircle, huntCore, huntPublicLines, rodeLine, normRode, applyRodeLine, rodeDo, huntKnock, huntDoorLines, openDoor, doorPolice, huntShut, huntVisitEnd, huntNote, noteFound, huntWatch, huntClose, huntSearch, huntMessage, promptTell, tellReport, tickHunt, nightKey, nightAtHour, promptNight, huntNight, nightAfter, CARE_DAYS, careNext, tickCare, promptCare, careDM, huntEndsCouple, migrateHunt, // 0.33.4: elle rôde
+    policeOf, caseOf, caseOpen, copOf, copName, copWho, policeTarget, policeCall, startDepo, policeTruth, promptDepo, depoTurn, fileComplaint, evidenceOf, addEvidence, caseNew, relaunch, caseStrength, tickPolice, witnessHeard, policeDecide, psyArrest, policeForPsy, policeSaw, POLICE_TURNS, // 0.33.4: la police
     MISSION_RE, missionOK, missionOn, missionTarget, askMission, missionWho, missionDMCtx, missionLine, applyMissionLine, missionDue, missionDanger, missionPeek, goMission, vanish, tellGone, promptMission, missionReport, tickMissions, // 0.33.1: someone sent
     askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,
     // 0.17: ages and maturity, the people who see, the train of the hyyype
