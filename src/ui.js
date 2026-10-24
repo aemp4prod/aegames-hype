@@ -2631,7 +2631,7 @@ function DateResult({ ev, g }) {
   return html`<div class=${'mg-result ' + tier}>
     <span class="eyebrow">${M.tiers[ix]}</span>
     <div class="mg-score">${pctOf(ev.played.score)} %</div>
-    <span class="chip">${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un fiasco' : 'bonus ' + fmtMult(D.mult)}</span>
+    <span class="chip">${ev.after ? '🫂 Ensemble, après ce que vous avez vécu' : `${D.emoji} ${D.label} · ${tier === 'flop' ? 'pas de bonus sur un fiasco' : 'bonus ' + fmtMult(D.mult)}`}</span>
     <p>${M.lines[ix]}</p>
     <button class="btn btn-hot" onClick=${() => endDate(ev)} disabled=${!!S.busy.ev}>${M.end}</button>
   </div>`;
@@ -2647,7 +2647,7 @@ function DateLayer({ ev, g, now, i }) {
   else if (ev.game) body = html`<${ShootPlay} key=${ev.id + ':' + (ev.tries || 0)} r=${ev} now=${now} icon=${M.icon} outcomes=${M.outcomes} />`;
   else if (S.busy.mg === ev.id || (S.busy.prep === ev.id && ev.go)) body = html`<div class="mg-load"><span class="mg-emo" aria-hidden="true">${M.emoji}</span><b>Tu te prépares…</b><span>${S.busy.review === ev.id ? 'L’IA relit la soirée pour qu’elle colle à votre histoire' : `« ${ev.what} »`}</span><${Typing} /></div>`;
   else body = html`<${DateSetup} ev=${ev} g=${g} now=${now} />`;
-  return html`<${LayerShell} i=${i} title=${(c && dateKind(c, ev) === 'wedding' ? 'Le grand jour · ' : 'Rendez-vous · ') + (c ? firstName(c) : '')}>${body}<//>`;
+  return html`<${LayerShell} i=${i} title=${(ev.after ? 'Dehors · ' : c && dateKind(c, ev) === 'wedding' ? 'Le grand jour · ' : 'Rendez-vous · ') + (c ? firstName(c) : '')}>${body}<//>`; // (0.33.2: just after a flight)
 }
 function MiniGameLayer({ l, g, now, i }) {
   const evd = eventOf(g, l.id);
@@ -3264,7 +3264,7 @@ function DMLayer({ l, g, now, i }) {
         : m.sys === 'fade' ? html`<div key=${m.id} class="dm-fade"><i>${m.text}</i><small>Un peu plus tard…</small>${k === msgs.length - 1 && !typing ? html`<small class="dm-fade-hint">À toi de reprendre la conversation.</small>` : null}</div>` // 0.30: the scene cut (0.31: and who speaks next, if they did not)
         : m.sys === 'morning' ? html`<div key=${m.id} class="dm-card morning"><span class="evt-kind">🌅 Le lendemain matin · ${m.where === 'p' ? 'chez toi' : 'chez ' + firstName(c)}</span><p>${m.text}</p></div>` // 0.25.3
         : m.sys ? html`<div key=${m.id} class=${'dm-card ' + (m.sys === 'cancel' ? 'cancel' : m.tier || '')}>
-          <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
+          <span class="evt-kind">${m.sys === 'cancel' ? '❌ Rendez-vous annulé' : m.after ? '🫂 Après · ' + (m.tier === 'flop' ? 'une nuit difficile' : 'ensemble') : m.dk === 'wedding' ? '💒 Le grand jour · ' + (m.tier === 'flop' ? 'tout a mal tourné' : 'vous vous êtes dit oui') : (MEET[m.mk] || MEET.love).emoji + ' Rendez-vous · ' + (m.tier === 'top' ? 'réussi' : m.tier === 'mid' ? 'mitigé' : 'raté')}</span>
           <b>${m.title}</b><p>${m.text}</p>${m.sys === 'rdv' && dateLogFor(g, c.id, m) ? html`<button class="linkbtn dlog-open" onClick=${() => openLayer({ t: 'datelog', id: dateLogFor(g, c.id, m).id })}>Relire la soirée</button>` : null}</div>`
         : html`${m.story ? html`<div key=${m.id + 's'} class=${'dm-story ' + (m.me ? 'me' : 'them')}>${m.me ? 'Tu as répondu à sa story' : 'A répondu à ta story'} : « ${m.story.text} »</div>` : null}${m.me ? html`<div key=${m.id} class=${'bubble me' + (m.adv ? ' adv' : '') + (m.sec ? ' conf' : '') + (!m.adv && !m.sec && emoOnly(m.text) ? ' jumbo' : '')}>${m.adv ? html`<span class="adv-tag"><${Icon} n="bulb" s=${12} /> Conseil</span>` : null}${m.sec ? html`<span class="adv-tag">${emoParts('🤫', 'cf')} Confidence</span>` : null}${emoParts(m.text)}</div>`
           : html`<${ReactBubble} key=${m.id} m=${m} who=${c} cls=${'bubble them' + (emoOnly(m.text) ? ' jumbo' : '')}>${emoParts(m.text)}<//>`}`)}
@@ -4057,6 +4057,7 @@ if (window.__HYPE_TEST__) {
     tdealLater, tickFollow, ownAskWhy, ownAskLine, brandOffersPlayer, BRAND_NOW_LINE, BRAND_NOW_GROUP, TDEAL_LATER, // 0.33: partnerships that do not stall
     affOn, LADDER_MIN, LADDER_TOP, LADDER_K, ladderGap, tickLadder, BIG_BRIEF, bigArrives, starCtx, dayGrowth, tickGrowth, // 0.33: always someone above
     endUnfinished, AttackView, COME_RE, ATTACK_MS, ATTACK_OK, plusOK, plusDates, plusOf, plusAsked, askPlus, plusDMCtx, plusLine, applyPlusLine, plusTalkLines, PLUS_SAY, plusAfter, plusBond, startAttack, attackPick, attackEnd, attackTimeout, ATK_BEATS, ATTACK_SOLO, duelOn, nightAttack, atkCur, qteEnd, qteRetry, qteSkip, QTE_TXT, attackSteps, qteTune, // 0.33.1: someone comes along; the fight
+    AFTER_TURNS, GESTES_AFTER, afterOf, fledTogether, afterTalkLines, afterFlight, stayAfter, openAfter, // 0.33.2: the evening after a flight
     MISSION_RE, missionOK, missionOn, missionTarget, askMission, missionWho, missionDMCtx, missionLine, applyMissionLine, missionDue, missionDanger, missionPeek, goMission, vanish, tellGone, promptMission, missionReport, tickMissions, // 0.33.1: someone sent
     askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,
     // 0.17: ages and maturity, the people who see, the train of the hyyype

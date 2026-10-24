@@ -2989,6 +2989,7 @@ function promptDateEnd(g, ev) {
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',
     ...talkEndLines(g, ev),
     plusOf(g, ev) ? `@${plusOf(g, ev).handle} (${plusOf(g, ev).name}) était là aussi, toute la soirée, venu·e avec le joueur : le récit le dit.` : null, // 0.33.1
+    afterOf(g, ev) ? `Ce n’était pas un rendez-vous : c’était juste après. Chez @${afterOf(g, ev).handle}, ${afterOf(g, ev).name} les avait attaqués avec un couteau, et ils s’étaient enfuis ensemble. Le récit raconte ce moment à deux (le choc, la police, la nuit), sobrement, sans rien de gore.${ev.talk && ev.talk.together ? ' Ils ont passé la nuit sous le même toit, pour ne pas rester seuls.' : ''}` : null, // 0.33.2
     ...psyEndLines(g, ev), // 0.29: they fled
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,
     ev.cut ? `Le joueur a ÉCOURTÉ la soirée, il devait partir (${ev.cut.why || 'un engagement'}) : ${c.name} le prend à sa façon (compréhensi${gx(c.g, 'f', 've', 'f·ve')}, déçu${gx(c.g, '', 'e', '·e')}, vexé${gx(c.g, '', 'e', '·e')}…), selon votre relation, son cœur et la soirée jusque-là.` : null, // 0.30.1
@@ -3019,7 +3020,7 @@ function prepEnd(g, ev) {
     .finally(() => endFlow(f));
   END_PREP.set(ev.id, P);
 }
-async function endDate(ev) {
+async function endDate(ev, o2 = {}) { // (0.33.2 o2.quiet: ended while the evening goes on elsewhere: no conversation opened, no time passing)
   const g = S.game;
   if (!g || !ev || ev.state !== 'scheduled' || !ev.played || S.busy.ev) return;
   const c = g.chars[ev.c];
@@ -3038,7 +3039,7 @@ async function endDate(ev) {
   try {
     const take = (o) => {
       got = true;
-      if (o.t === 'recap' && !recap) { recap = str(o.text, 600); convo.msgs.push(tag({ id: uid('m'), sys: 'rdv', ev: ev.id, mk, dk: dateKind(c, ev), tier: ev.played.tier, title: str(ev.what, 100), text: recap, ts: t0, at: t0 })); }
+      if (o.t === 'recap' && !recap) { recap = str(o.text, 600); convo.msgs.push(tag(Object.assign({ id: uid('m'), sys: 'rdv', ev: ev.id, mk, dk: dateKind(c, ev), tier: ev.played.tier, title: str(ev.what, 100), text: recap, ts: t0, at: t0 }, ev.after ? { after: 1 } : {}))); }
       else if (o.t === 'msg' && msgs < 2 && !faded) { const m = str(o.text, 320); if (m) { convo.msgs.push(tag({ id: uid('m'), me: false, r: 1, text: m, ts: at, at })); msgs++; at += 900 + m.length * 16; } }
       else if (o.t === 'morning' && faded && !morning) morning = { where: o.where === 'p' ? 'p' : 'c', text: str(o.text, 600) }; // 0.25.3
       else if (o.t === 'post' && posts < 2) { if (addAmbientPost(g, o, Date.now() + rand(5000, 15000))) posts++; }
@@ -3056,21 +3057,21 @@ async function endDate(ev) {
     if (e && e.code === 'refused') { untag(g, f.id); fx.length = 0; }
     if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date');
   }
-  if (!recap) convo.msgs.push({ id: uid('m'), sys: 'rdv', ev: ev.id, mk, dk: dateKind(c, ev), tier: ev.played.tier, title: str(ev.what, 100), text: MEET[mk].lines[tierIx(ev.played.tier)], ts: t0, at: t0 });
+  if (!recap) convo.msgs.push(Object.assign({ id: uid('m'), sys: 'rdv', ev: ev.id, mk, dk: dateKind(c, ev), tier: ev.played.tier, title: str(ev.what, 100), text: MEET[mk].lines[tierIx(ev.played.tier)], ts: t0, at: t0 }, ev.after ? { after: 1 } : {}));
   if (faded) ev.morning = morning && morning.text ? morning : { where: 'c', text: MORNING_FALLBACK(c) }; // (the log keeps it)
   dateOutcome(g, ev, c);
   for (const x of fx) { try { x(); } catch (err) { console.error(err); } }
   ev.state = 'done';
   if (ev.played && ev.played.tier === 'top') addEcho(g, 'date', { c: c.id, text: ev.what });
   // the other date set for the same time: nobody warned them, they waited for nothing
-  for (const o of activeEvents(g)) if (o.player && Math.abs(o.due - ev.due) < 90 * 60000) standUp(g, o, later() + 4000, `(tu étais avec ${firstName(c)})`);
+  for (const o of activeEvents(g)) if (o.player && !o.after && o.id !== ev.id && Math.abs(o.due - ev.due) < 90 * 60000) standUp(g, o, later() + 4000, `(tu étais avec ${firstName(c)})`); // (0.33.2: not the evening after a flight)
   S.busy.ev = null;
   endFlow(f);
   dropLayers((l) => l.t === 'minigame' && l.id === ev.id);
   if (faded && ev.morning && S.game === g) nightTogether(g, c, ev); // 0.25.3: the night passes, the morning is there
-  else if (S.game === g) eveningJump(g, ev); // 0.30.1: a date takes its evening
+  else if (S.game === g && !o2.quiet) eveningJump(g, ev); // 0.30.1: a date takes its evening
   update();
-  if (S.game === g) openDM(c.id);
+  if (S.game === g && !o2.quiet) openDM(c.id);
 }
 function dateOutcome(g, ev, c) {
   const tier = ev.played.tier, D = diffOf(ev.played.diff || ev.diff), s = g.stats, t = later();
@@ -3103,7 +3104,7 @@ function dateOutcome(g, ev, c) {
     if (tier === 'top') applyVibe(g, c, 'fiancailles', `${gx(c.g, 'il', 'elle', 'iel')} a dit oui`, t + 2200, true);
     else { addTrigger(g, `Le joueur a fait sa demande à @${c.handle}, qui ${tier === 'mid' ? 'a demandé à réfléchir' : 'a dit non'} : malaise.`, c.id); if (tier !== 'mid') unlockAch(g, 'just-no', t); } // (0.28: « Non. »)
   }
-  const romantic = mk === 'love';
+  const romantic = mk === 'love' && !ev.after; // (0.33.2: the evening after a flight is no date to be jealous of)
   // 0.22.2: seen together (their fans), a photo of them online, recognized in public: the others may know at once.
   // Otherwise it stays between the two of them: only word of mouth carries it, hours later (afterDate: the whispers).
   const seen = romantic && dateSeen(g, ev, fol);
@@ -3123,9 +3124,9 @@ function dateOutcome(g, ev, c) {
       addTrigger(g, `@${o.handle} a appris le rendez-vous du joueur avec @${c.handle} et ne le digère pas.`, o.id);
     }
   }
-  addNotif(g, { k: tier === 'flop' ? 'reldown' : 'event', c: c.id, at: t, text: `${dk === 'wedding' ? (tier === 'flop' ? `💔 Ton mariage avec ${c.name} : la cérémonie est reportée` : `💒 Ton mariage avec ${c.name} : vous vous êtes dit oui`) : `${M.emoji} Rendez-vous avec ${c.name} : ${tier === 'top' ? 'réussi' : tier === 'mid' ? 'mitigé' : 'raté'}`} · +${xp} XP${fol ? ` · ${nAbonnes(fol, true)}, vous avez été vus ensemble` : ''}` });
+  addNotif(g, { k: tier === 'flop' ? 'reldown' : 'event', c: c.id, at: t, text: `${dk === 'wedding' ? (tier === 'flop' ? `💔 Ton mariage avec ${c.name} : la cérémonie est reportée` : `💒 Ton mariage avec ${c.name} : vous vous êtes dit oui`) : ev.after ? `🫂 La soirée avec ${c.name}, après ${afterOf(g, ev) ? firstName(afterOf(g, ev)) : 'tout ça'} : ${tier === 'flop' ? 'difficile' : 'vous êtes restés ensemble'}` : `${M.emoji} Rendez-vous avec ${c.name} : ${tier === 'top' ? 'réussi' : tier === 'mid' ? 'mitigé' : 'raté'}`} · +${xp} XP${fol ? ` · ${nAbonnes(fol, true)}, vous avez été vus ensemble` : ''}` });
   afterDate(g, ev, c); // 0.11: one more date between them, a photo taken, a gesture too soon, the jealous ones
-  addChronicle(g, dk === 'wedding' ? `${g.player.name} et ${c.name} ${tier === 'flop' ? 'devaient se marier : la cérémonie a tourné au fiasco' : 'se sont mariés'} (« ${str(ev.what, 50)} »).` : `${g.player.name} et ${c.name} ont eu un rendez-vous (« ${str(ev.what, 50)} ») : ${tier === 'top' ? 'une réussite' : tier === 'mid' ? 'mitigé' : 'un fiasco'}.`, romantic && !seen && dk !== 'wedding' ? [c.id] : null, true);
+  addChronicle(g, ev.after ? `${g.player.name} et ${c.name} ne se sont pas quittés de la soirée, après s’être enfuis de chez ${afterOf(g, ev) ? afterOf(g, ev).name : 'quelqu’un'}.` : dk === 'wedding' ? `${g.player.name} et ${c.name} ${tier === 'flop' ? 'devaient se marier : la cérémonie a tourné au fiasco' : 'se sont mariés'} (« ${str(ev.what, 50)} »).` : `${g.player.name} et ${c.name} ont eu un rendez-vous (« ${str(ev.what, 50)} ») : ${tier === 'top' ? 'une réussite' : tier === 'mid' ? 'mitigé' : 'un fiasco'}.`, romantic && !seen && dk !== 'wedding' ? [c.id] : null, true);
   logDate(g, ev, c); // 0.22.4: the evening, kept to read again
   ev.result = { tier, rel, xp, fol };
   checkQuests(g);

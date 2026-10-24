@@ -206,6 +206,51 @@ const ready = (page) => G(page, () => {
   await shot(page, 'attack-escaped');
   const c3 = await G(page, () => { const H = window.__hype, g = H.S.game, ev = g.events.find((e) => e.id === window.__ev); const p = H.promptDateEnd(g, ev); return { end: /les a attaqués, le joueur et @theo\.marlin/.test(p) && /était là aussi/.test(p) }; });
   check('the end of the evening says it (attacked, defended together, fled)', c3.end, c3);
+
+  // ---------- 0.33.2: out of it together, the evening goes on with them ----------
+  const f0 = await G(page, () => ({ foot: (document.querySelector('.talk-over') || {}).textContent || '' }));
+  const lea0 = await G(page, () => { const H = window.__hype, g = H.S.game, lea = H.charByHandle(g, 'leandre.aube'); window.__lea0 = { vibe: lea.vibe, coeur: lea.coeur, rel: lea.rel }; Object.assign(lea, { vibe: 'couple', coeur: 'jaloux', rel: 60 }); return window.__lea0; });
+  check('fled together: the evening does not just end there, « Rester avec Théo » (or go home)', /Rester avec Théo/.test(f0.foot) && /Vous ne vous lâchez pas/.test(f0.foot) && /Rentrer chez toi/.test(f0.foot), f0);
+  await G(page, () => { window.__mockOnce = [{ has: 'JUSTE APRÈS', lines: [{ t: 'scene', text: 'La rue est vide, un lampadaire grésille. Théo tremble encore.' }, { t: 'say', text: 'Mila… t’es blessée ? Dis-moi que ça va.', seen: 'il ne te lâche pas la main' }] }]; });
+  await page.locator('.talk-over .btn-hot', { hasText: 'Rester avec Théo' }).click();
+  await idle(page);
+  await until(page, () => { const g = window.__hype.S.game, ev = g.events.find((e) => e.id === window.__ev); return ev && ev.state === 'done'; }, null, 12000);
+  await sleep(500);
+  const g1 = await G(page, () => {
+    const H = window.__hype, g = H.S.game, ev = g.events.find((e) => e.id === window.__ev), theo = H.charByHandle(g, 'theo.marlin'), zara = H.charByHandle(g, 'zara.vey'), e2 = g.events.find((e) => e.id === ev.after2), P = window.__prompts.filter((p) => p.includes('JUSTE APRÈS')).slice(-1)[0] || '';
+    window.__e2 = e2 && e2.id;
+    return { e2: !!e2, c: e2 && e2.c === theo.id, after: e2 && e2.after && e2.after.psy === zara.id, zara: ev.state, zaraDM: H.S.stack.some((l) => l.t === 'dm' && l.id === zara.id), recap: ((g.dms[zara.id] || {}).msgs || []).some((m) => m.sys === 'rdv' && m.ev === ev.id), layer: H.S.stack.some((l) => l.t === 'minigame' && l.id === (e2 && e2.id)), scene: (document.querySelector('.talk-scene') || {}).textContent || '', ctx: /JUSTE AVANT : ILS ONT FUI ENSEMBLE/.test(P) && /les a attaqués avec un couteau, le joueur et Théo/.test(P), gestes: [...document.querySelectorAll('.talk-gestes .chip-btn, .talk-gestes button')].map((b) => b.textContent.trim()).join(' | '), title: (document.querySelector('.layer-head h2') || {}).textContent || '' };
+  });
+  await shot(page, 'after-flight');
+  check('the evening goes on with Théo, outside, just after (he speaks first, what happened in his prompt); the one at Zara’s ends quietly meanwhile (its recap there, no conversation opened over this one)', g1.e2 && g1.c && g1.after && g1.zara === 'done' && !g1.zaraDM && g1.recap && g1.layer && /lampadaire/.test(g1.scene) && g1.ctx && /Dehors · Théo/.test(g1.title), g1);
+  await G(page, async () => {
+    const H = window.__hype, g = H.S.game, e2 = g.events.find((e) => e.id === window.__e2);
+    window.__mockOnce = [{ has: 'LA RÉPLIQUE DU JOUEUR', lines: [{ t: 'judge', react: 'charme' }, { t: 'say', text: 'Moi aussi j’ai cru que… Bref. On est vivants. On est vivants.' }] }];
+    await H.talkTurn(e2, 'Ça va… enfin je crois. Merci d’avoir été là, sérieux.');
+  });
+  await idle(page);
+  await G(page, async () => {
+    const H = window.__hype, g = H.S.game, e2 = g.events.find((e) => e.id === window.__e2);
+    e2.talk.turn = e2.talk.max;
+    window.__mockOnce = [{ has: 'LE DERNIER MOT DU JOUEUR', lines: [{ t: 'judge', react: 'charme' }, { t: 'say', text: 'Évidemment. Je te lâche pas ce soir, canapé ou pas.' }, { t: 'stay' }] }, { has: 'TÂCHE : LA FIN DU RENDEZ-VOUS', lines: [{ t: 'recap', text: 'Assis sur un trottoir, Théo et toi, jusqu’à l’arrivée de la police. Puis le canapé de Théo, la lumière allumée toute la nuit.' }, { t: 'msg', text: 'Je suis là. Dors, je veille.' }] }];
+    await H.lastWord(e2, 'Tu dors chez moi ?');
+  });
+  await idle(page);
+  const g2 = await G(page, () => { const H = window.__hype, g = H.S.game, e2 = g.events.find((e) => e.id === window.__e2), P = window.__prompts.filter((p) => p.includes('LE DERNIER MOT DU JOUEUR')).slice(-1)[0] || ''; return { together: !!e2.talk.together, line: e2.talk.lines.some((l) => l.who === 'n' && /Cette nuit, Théo et toi, vous ne vous quittez pas/.test(l.text)), played: !!e2.played, faded: !!e2.talk.faded, ask: /ne pas rester seul cette nuit va de soi/.test(P) && P.includes('{"t":"stay"}'), foot: (document.querySelector('.talk-over') || {}).textContent || '' }; });
+  check('the last word, not alone tonight: between friends too, a yes (no fade, no « night together »), the evening ends there', g2.together && g2.line && g2.played && !g2.faded && g2.ask && /tu ne seras pas seule/.test(g2.foot), g2);
+  await page.locator('.talk-over .btn-hot').click();
+  await page.waitForSelector('.mg-result');
+  const chip = await G(page, () => (document.querySelector('.mg-result .chip') || {}).textContent || '');
+  await page.locator('.mg-result .btn-hot').click();
+  await until(page, () => { const g = window.__hype.S.game, e2 = g.events.find((e) => e.id === window.__e2); return e2 && e2.state === 'done'; }, null, 12000);
+  await sleep(500);
+  const g3 = await G(page, () => {
+    const H = window.__hype, g = H.S.game, e2 = g.events.find((e) => e.id === window.__e2), lea = H.charByHandle(g, 'leandre.aube'), theo = H.charByHandle(g, 'theo.marlin'), P = window.__prompts.filter((p) => p.includes('TÂCHE : LA FIN DU RENDEZ-VOUS') && p.includes('Dehors, avec Théo')).slice(-1)[0] || '';
+    return { recap: ((g.dms[theo.id] || {}).msgs || []).some((m) => m.sys === 'rdv' && m.after && /trottoir/.test(m.text)), card: /🫂 Après · ensemble/.test((document.querySelector('.dm-card.top, .dm-card.mid') || {}).textContent || ''), notif: (g.notifs.find((n) => /🫂 La soirée avec Théo Marlin, après Zara/.test(n.text)) || {}).text || '', end: /Ce n’était pas un rendez-vous : c’était juste après/.test(P) && /Ils ont passé la nuit sous le même toit/.test(P), lea: lea.rel, jealous: (g.triggers || []).some((x) => /leandre\.aube a appris/.test(x.text)) || (lea.mem || []).some((m) => /dans mon dos/.test(m.t)), dm: H.S.stack.some((l) => l.t === 'dm' && l.id === theo.id), stood: g.events.some((e) => e.id === window.__ev2 && e.state === 'missed') };
+  });
+  await shot(page, 'after-flight-end');
+  check('it counts as an evening together (its recap tells the moment after, his message), and never as a date a jealous partner hears of', /Ensemble, après ce que vous avez vécu/.test(chip) && g3.recap && g3.card && g3.notif && g3.end && g3.lea === 60 && !g3.jealous && g3.dm && !g3.stood, Object.assign({ chip }, g3));
+  await G(page, () => { const H = window.__hype, g = H.S.game; Object.assign(H.charByHandle(g, 'leandre.aube'), window.__lea0); });
   await clear(page);
   // a plain evening with someone along: it counts for the three of them
   const d1 = await G(page, () => {

@@ -431,3 +431,68 @@ function QteView({ g, H, A, Q, f }) {
     <small class="atk-with">${hint}</small>
   </div>`;
 }
+
+/* ---------- 0.33.2: out of it together, the evening goes on with them ---------- */
+// Fled together: outside, the two of them; the evening goes on with the one who came along (« ensuite on est ensemble »):
+// a few words, the police, the night (not alone). It counts as an evening together, never one a partner is jealous of;
+// the evening at theirs ends quietly meanwhile (its recap, and their message, as if nothing happened).
+const AFTER_TURNS = 4;
+const GESTES_AFTER = [
+  { id: 'serrer', emoji: '🫂', label: 'Vous serrer fort', ai: (f) => `serre ${f} très fort dans ses bras`, you: (f) => `Tu serres ${f} très fort dans tes bras.` },
+  { id: 'police', emoji: '🚓', label: 'Appeler la police', ai: () => 'appelle la police et raconte tout', you: () => 'Tu appelles la police.' },
+  { id: 'marcher', emoji: '🚶', label: 'Marcher, loin de là', ai: () => 'propose de marcher, loin de là', you: () => 'Tu proposes de marcher, loin de là.' },
+];
+const afterOf = (g, ev) => (ev && ev.after && g.chars[ev.after.psy]) || null; // (the one they fled)
+const fledTogether = (g, ev) => { const T = ev && ev.talk, A = T && T.attack; return !!(duelOn() && T && T.fled && A && A.ok && A.f && A.where !== 'visit' && g.chars[A.f] && !g.chars[A.f].jailed); };
+function afterTalkLines(g, ev) {
+  const x = afterOf(g, ev), f = g.chars[ev.c];
+  if (!x || !f) return [];
+  const F = firstName(f), X = firstName(x), il = gx(f.g, 'il', 'elle', 'iel');
+  return ['', '## JUSTE AVANT : ILS ONT FUI ENSEMBLE',
+    `Ce soir, chez @${x.handle} (${x.name}), ${X} les a attaqués avec un couteau, le joueur et ${F} : ils se sont défendus ensemble et se sont enfuis, ${F} a appelé la police. Les voilà dehors, dans la rue, essoufflés, en état de choc : la soirée continue entre eux deux, maintenant.`,
+    `${F} réagit selon qui ${il} est et leur relation (${fmtRel(f.rel)}) : la peur, la colère, les larmes, un humour nerveux, l’envie de protéger le joueur, de ne pas le laisser seul. La police peut arriver et prendre leur déposition ; ils peuvent marcher, s’asseoir sur un trottoir, finir chez l’un des deux. ${X} n’est plus là et n’apparaît pas. Rien de gore.`];
+}
+function afterFlight(g, ev, c, f, t = Date.now()) {
+  const old = ev.after2 && (g.events || []).find((e) => e.id === ev.after2);
+  if (old) return old;
+  const e2 = { id: uid('ev'), kind: 'rdv', c: f.id, what: `Dehors, avec ${firstName(f)}, après la soirée chez ${firstName(c)}`, at: t, due: t, state: 'scheduled', src: null, player: true, game: null, played: null, diff: DIFFS[0].id, tries: 0, after: { from: ev.id, psy: c.id }, startAt: ev.startAt || ev.due || t };
+  e2.talk = { scene: '', lines: [], turn: 0, max: AFTER_TURNS, reacts: [], used: [], at: t, ex: { ix: 0, why: ['🫂 Vous venez de vous en sortir ensemble'], ai: ['ils viennent de s’en sortir ensemble'], pub: false } };
+  (g.events || (g.events = [])).push(e2);
+  ev.after2 = e2.id;
+  return e2;
+}
+// « Rester avec … »: the evening at theirs ends quietly, the evening with them opens.
+function stayAfter(g, ev) {
+  const T = ev && ev.talk, c = ev && g.chars[ev.c], f = fledTogether(g, ev) ? g.chars[T.attack.f] : null;
+  if (!T) return false;
+  T.closed = true;
+  if (!f || !c) { update(); return false; }
+  const e2 = afterFlight(g, ev, c, f);
+  dropLayers((l) => l.t === 'minigame' && l.id === ev.id);
+  openLayer({ t: 'minigame', id: e2.id });
+  endDate(ev, { quiet: true }); // (its recap and their message come meanwhile)
+  openAfter(e2);
+  update();
+  return true;
+}
+async function openAfter(e2) {
+  const g = S.game, f = g && e2 && g.chars[e2.c], T = e2 && e2.talk;
+  if (!g || !f || !T || T.scene || T.lines.length || S.busy.talk) return false;
+  if (!canAfford(g, 'talk')) { T.scene = `Dehors, ${firstName(f)} et toi, à bout de souffle.`; T.lines.push({ who: 'c', text: 'Ça va ? Dis-moi que ça va…', seen: '' }); budgetBlocked(); update(); return false; }
+  S.busy.talk = e2.id;
+  update(false);
+  const fl = startFlow(g);
+  try {
+    await aiStream(promptTalk(g, e2, null), (o) => {
+      if (o.t === 'scene' && !T.scene) T.scene = str(o.text, 300);
+      else if (o.t === 'say' && T.lines.filter((x) => x.who === 'c').length < 2) { const x = str(o.text, 260); if (x) T.lines.push({ who: 'c', text: x, seen: str(o.seen, 70) }); }
+      update(false);
+    }, { signal: fl.ctl.signal, src: fl.id, kind: 'talk', tier: talkTier(g) });
+  } catch (e) { if (!e || e.code !== 'cancelled') reportAiError(e, null, 'date'); }
+  S.busy.talk = null;
+  endFlow(fl);
+  if (!T.scene) T.scene = `Dehors, ${firstName(f)} et toi, à bout de souffle.`;
+  if (!T.lines.length) T.lines.push({ who: 'c', text: 'Ça va ? Dis-moi que ça va…', seen: '' });
+  update();
+  return true;
+}

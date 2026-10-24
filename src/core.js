@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.33.1';
+const APP_VERSION = '0.33.2';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -1893,7 +1893,7 @@ function meetKind(c, ev) {
   if (dateKind(c, ev) || ROMANCE.includes(c.vibe) || /romanti|chandelle|bisou|rencard|\bdate\b/i.test(ev.what)) return 'love';
   if (FRIEND_VIBES.includes(c.vibe)) return 'friends';
   if (PRO_RE.test(ev.what) || ['partenaires', 'alliance', 'mentor', 'disciple', 'rival', 'froid', 'nemesis'].includes(c.vibe)) return 'pro';
-  return ROMANTIC_RE.test(ev.what) ? 'love' : 'friends';
+  return !ev.after && ROMANTIC_RE.test(ev.what) ? 'love' : 'friends'; // (0.33.2: the evening after a flight is no date, unless they were in love)
 }
 const MEET = {
   love: { emoji: '🥂', icon: 'heart', tiers: ['Soirée réussie', 'Soirée mitigée', 'Soirée ratée'], lines: ['Le courant passe, vous ne voyez pas le temps filer.', 'Sympa, sans plus.', 'Ça ne prend pas du tout.'], end: 'Voir comment la soirée se termine', ending: 'La soirée se termine…',

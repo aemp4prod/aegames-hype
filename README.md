@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.33.1 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.2 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -412,7 +412,9 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   quelques secondes et, entre eux, des réflexes surprises (esquiver, se dégager en tapant vite, pousser « à trois » avec
   la personne venue avec toi, ne plus bouger dans le noir). Elle t’aide selon votre relation, et peut te rattraper ;
   seul, c’est beaucoup plus dur. Un réflexe raté, tu reviens juste avant (un peu plus facile à chaque essai ; après
-  trois ratés, tu peux passer le moment, blessé).
+  trois ratés, tu peux passer le moment, blessé). Depuis la 0.33.2, si vous vous en sortez à deux, la soirée continue
+  avec elle : dehors, sous le choc, vous parlez, et ton dernier mot décide de la suite (ne pas rester seul cette nuit).
+  Ça compte comme une soirée passée ensemble, jamais comme un rendez-vous qui rend jaloux.
 - **Envoyer quelqu’un parler à un perso** (0.33.1) : sur son profil, « 🕵️ Envoyer quelqu’un lui parler » (ou en
   message) : celui que tu envoies décide s’il y va, et jusqu’où, puis te raconte ce qu’il a vu. Plus tu en demandes,
   plus tu envoies de monde, plus ça peut mal tourner : il arrive qu’on ne revienne pas.

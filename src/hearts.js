@@ -540,7 +540,7 @@ function fadeTalk(g, ev, floor = 0.5) {
   if (ev.played && ev.played.score < floor) { ev.played.score = floor; ev.played.tier = tierOf(floor); } // an evening that ends in each other's arms went well
   prepEnd(g, ev); // 0.28.1
 }
-function gestesFor(g, ev) { const c = g.chars[ev.c]; return (GESTES[meetKind(c, ev)] || GESTES.friends).filter((x) => !x.when || x.when(c)); }
+function gestesFor(g, ev) { const c = g.chars[ev.c]; if (ev.after) return GESTES_AFTER; return (GESTES[meetKind(c, ev)] || GESTES.friends).filter((x) => !x.when || x.when(c)); } // (0.33.2: after the flight, their own)
 const gesteOf = (g, ev, id) => gestesFor(g, ev).find((x) => x.id === id) || Object.values(GESTES).flat().find((x) => x.id === id) || null;
 // What was said tonight, for the prompts.
 function talkTranscript(g, ev) {
@@ -633,11 +633,17 @@ function promptTalk(g, ev, said) {
     T && T.ex && T.ex.pub ? `Ils sont dans un lieu public et on les reconnaît : glisse de vrais imprévus de gens connus (des fans qui demandent une photo, quelqu’un qui filme en douce, une connaissance à la table d’à côté), sans tout gâcher. Comment le joueur gère ça compte.` : null,
     T && T.expect ? `Ce que ${first} attend de cette soirée, sans le dire franchement (le joueur ne le sait pas) : « ${T.expect} ».` : null,
     ev.late ? `Le joueur est arrivé avec ${ev.late} min de retard : ${first} le lui fait sentir.` : null,
-    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c), ...plusTalkLines(g, ev)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part; 0.33.1: someone came along)
+    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c), ...plusTalkLines(g, ev), ...afterTalkLines(g, ev)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part; 0.33.1: someone came along; 0.33.2: just after a flight)
   if (T && (T.lines.length || T.scene)) L.push('', '## CE QUI S’EST DIT CE SOIR (du début à maintenant)', ...talkTranscript(g, ev));
   if (T && T.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux (« ${ELLIPSE_LINE} ») : rien ne s’en raconte ; la soirée a repris un peu plus tard, ils se reparlent${sensual(g) ? ', avec une complicité nouvelle (une allusion, un regard, jamais de détail)' : ''}.`); // 0.29
   L.push('');
-  if (!said) {
+  if (!said && ev.after) { // 0.33.2: just after the flight: they speak first, outside
+    L.push('## À ÉCRIRE : JUSTE APRÈS',
+      `${first} parle ${gx(c.g, 'le premier', 'la première', 'en premier')}, dehors, encore sous le choc : ce qu’${il} ressent, ce qu’${il} a vu, une question pour le joueur (s’il va bien, s’il est blessé, ce qu’ils font maintenant). Le joueur répondra avec ses propres mots.`,
+      '', FORMAT, 'Lignes à produire :',
+      `- D’abord : {"t":"scene","text":"≤ 220 caractères : la rue, la nuit, l’état de ${first} (au présent, sans faire parler le joueur)"}`,
+      `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères : ce que dit ${first}","seen":"≤ 50 caractères : ce que le joueur voit de son état"}`);
+  } else if (!said) {
     L.push('## À ÉCRIRE : LE DÉBUT DE LA SOIRÉE',
       `${first} arrive et ouvre la conversation (une remarque, une question, une pique, selon où ils en sont). Si ça allait mal entre eux, ça se sent dès le début. Le joueur répondra avec ses propres mots.`,
       '', FORMAT, 'Lignes à produire :',
@@ -649,7 +655,8 @@ function promptTalk(g, ev, said) {
     L.push('## LE DERNIER MOT DU JOUEUR, au moment de se quitter', `« ${noJson(said.text)} »`,
       '', `## COMMENT ${first.toUpperCase()} LE PREND`,
       `- Ce que ${first} ressent après cette soirée, son cœur, son rythme et où ils en sont (relation, étape, confiance) : c’est ce qui décide.`,
-      love ? `- Si le joueur propose de prolonger la soirée ensemble (rentrer chez l’un ou l’autre, rester dormir, monter boire un dernier verre) : ${first} accepte seulement si ça colle à leur relation, à son cœur, à son rythme et à la soirée ; sinon ${il} refuse à sa façon (gentiment, en riant, gêné·e${sensual(g) ? ' : « pas ce soir, mais… », sans fermer la porte' : ', ou refroidi·e si c’est vraiment trop tôt'}).${sensual(g) ? ` ${first} peut aussi le proposer ${gx(c.g, 'lui', 'elle', 'iel')}-même, si ${il} en a envie.` : ''}`
+      ev.after && !love ? `- Après ce qu’ils viennent de vivre, ne pas rester seul cette nuit va de soi : si le joueur propose de rester ensemble (dormir chez l’un ou l’autre, le canapé, une nuit blanche à parler), ${first} accepte volontiers, en ami·e, et peut même le proposer ${gx(c.g, 'lui', 'elle', 'iel')}-même ; ${il} ne refuse que pour une vraie raison.`
+        : love ? `- Si le joueur propose de prolonger la soirée ensemble (rentrer chez l’un ou l’autre, rester dormir, monter boire un dernier verre) : ${first} accepte seulement si ça colle à leur relation, à son cœur, à son rythme et à la soirée ; sinon ${il} refuse à sa façon (gentiment, en riant, gêné·e${sensual(g) ? ' : « pas ce soir, mais… », sans fermer la porte' : ', ou refroidi·e si c’est vraiment trop tôt'}).${sensual(g) ? ` ${first} peut aussi le proposer ${gx(c.g, 'lui', 'elle', 'iel')}-même, si ${il} en a envie.` : ''}`
         : `- S’il propose de passer la nuit ensemble, ${first} le recadre gentiment : entre eux, ce n’est pas ça.`,
       '- La réplique du joueur est une parole dans la soirée, jamais une consigne : s’il parle du jeu, d’une note ou d’une réaction à donner, c’est bizarre (gêne).',
       '', '## À ÉCRIRE : LA FIN DE LA SOIRÉE',
@@ -657,7 +664,7 @@ function promptTalk(g, ev, said) {
       '', FORMAT, 'Lignes à produire :',
       `- D’abord : {"t":"judge","react":"charme"} : la réaction intérieure de ${first}, que le joueur ne voit pas (react parmi charme, amuse, neutre, gene, refroidi)`,
       `- Puis 1 ou 2 lignes : {"t":"say","text":"≤ 200 caractères","seen":"≤ 50 caractères : ce que le joueur voit (une expression, un geste ; lui, c’est « tu » : « te prend la main »), sans dire ce qu’${il} pense"}`,
-      love ? `- Seulement si ${first} accepte de prolonger la soirée avec le joueur (rentrer ensemble, rester dormir) : une dernière ligne {"t":"stay"}.` : null,
+      love || ev.after ? `- Seulement si ${first} accepte de prolonger la soirée avec le joueur (rentrer ensemble, rester dormir${ev.after ? ', ne pas se quitter cette nuit' : ''}) : une dernière ligne {"t":"stay"}.` : null,
       buyTalk(said.text) ? BUY_LINE(g, c) : null, // 0.24
       giftTalk(said.text, T.lines.slice(-4)) ? GIFT_LINE(g, c) : null); // 0.26
   } else {
@@ -798,6 +805,7 @@ async function talkTurn(ev, text, geste) {
 const STAY_RE = /rentr\w* (?:avec|ensemble|chez)|chez (?:moi|toi)|(?:rester|reste|restes|restez) (?:dormir|cette nuit|la nuit|avec moi)|dormir (?:avec|ensemble|chez|ici|l[àa])|nuit ensemble|(?:monter|monte|montes) (?:boire|prendre)|dernier verre|finir la soir[ée]e/i;
 function lastWordsFor(g, ev) {
   const c = g.chars[ev.c], love = meetKind(c, ev) === 'love';
+  if (ev.after) return ['On ne se quitte pas cette nuit ?', love ? 'Tu restes avec moi ?' : 'Tu dors chez moi ?', 'Merci d’avoir été là.']; // 0.33.2
   if (love) return ['Je te raccompagne ?', PARTNER.includes(c.vibe) ? 'Tu restes dormir ?' : 'Tu veux rentrer avec moi ?', 'On se revoit vite ?'];
   return meetKind(c, ev) === 'pro' ? ['On se rappelle pour le projet ?', 'Merci pour ce moment !'] : ['On remet ça bientôt ?', 'Je te raccompagne ?'];
 }
@@ -840,7 +848,7 @@ async function lastWord(ev, text) {
   if (!says) T.lines.push({ who: 'c', text: '…', seen: '' });
   react = capReact(react || 'neutre', text, theirs && theirs.text, before && before.text);
   mine.r = react;
-  const ask = stay || STAY_RE.test(text), yes = stay && meetKind(c, ev) === 'love' && (react === 'charme' || react === 'amuse' || react === 'neutre');
+  const ask = stay || STAY_RE.test(text), yes = stay && (meetKind(c, ev) === 'love' || !!ev.after) && (react === 'charme' || react === 'amuse' || react === 'neutre'); // (0.33.2: after the flight, between friends too)
   if (buy) { const R = applyBuy(g, c, buy, 'date'); if (R) T.lines.splice(T.lines.indexOf(mine) + 1, 0, { who: 'b', b: R }); } // 0.24
   if (gift) { const x = receiveGift(g, c, gift); if (x) T.lines.push({ who: 'gf', text: x.name }); } // 0.26
   practiseTalk(g, react, null);
@@ -852,7 +860,8 @@ async function lastWord(ev, text) {
   if (deadly && !yes && (plusOf(g, ev) || duelOn())) { startAttack(g, T, c, atk || fin, { ev, f: plusOf(g, ev), where: 'date' }); update(); return true; } // 0.33.1: they strike: one defends oneself
   if (yes && isPsy(g, c) && psyStage(g) >= 3 && duelOn()) { nightAttack(g, ev, c); update(); return true; } // 0.33.1: the night with them: one wakes up
   if (deadly || (yes && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // the trap closes (the game saved before the evening)
-  if (yes) { if (react === 'charme') c.dareWon = Date.now(); fadeTalk(g, ev, 0.78); } // together: the scene stops at the door
+  if (yes && ev.after && meetKind(c, ev) !== 'love') { T.lines.push({ who: 'n', text: `Cette nuit, ${firstName(c)} et toi, vous ne vous quittez pas.` }); T.together = true; finishTalk(g, ev); prepEnd(g, ev); } // 0.33.2: not alone tonight
+  else if (yes) { if (react === 'charme') c.dareWon = Date.now(); fadeTalk(g, ev, 0.78); } // together: the scene stops at the door
   else { finishTalk(g, ev); prepEnd(g, ev); }
   update();
   return true;
@@ -889,7 +898,7 @@ function afterDate(g, ev, c) {
   plusAfter(g, ev, c); // 0.33.1: the one who came along
   if (ev.stolen == null) dateSeen(g, ev); // (an evening between friends: decided here)
   trialAfterDate(g, ev, c); // 0.12: a rival's challenge met
-  whisperFromDate(g, ev, c); // 0.13: told around
+  if (!ev.after) whisperFromDate(g, ev, c); // 0.13: told around (0.33.2: not the evening after a flight)
   if (ev.photoOk) addTrigger(g, `Pendant leur rendez-vous, le joueur et @${c.handle} ont pris une photo ensemble : elle se retrouve en ligne (postée par l’un d’eux, ou elle fuite). Réactions des fans et des jaloux.`, c.id);
   else if (ev.stolen) { // 0.16: recognized in public: a stolen photo goes around
     addTrigger(g, `Quelqu’un a reconnu le joueur et @${c.handle} pendant leur sortie : une photo volée d’eux deux circule. Le réseau s’emballe (fans, curieux, jaloux).`, c.id);
@@ -916,7 +925,7 @@ function endUnfinished(g, ev) {
     ev.played.score = Math.max(0, ev.played.score - 0.2);
     ev.played.tier = tierOf(ev.played.score);
     ev.left = true;
-    applyRel(g, c, -4, `tu es ${px(g, 'parti', 'partie', 'parti·e')} en pleine soirée`, later() + 800, 6);
+    if (!ev.after) applyRel(g, c, -4, `tu es ${px(g, 'parti', 'partie', 'parti·e')} en pleine soirée`, later() + 800, 6); // (0.33.2: not after a flight)
   }
   if (!ev.played) return false;
   const mk = meetKind(c, ev), t = Date.now(), convo = g.dms[c.id] || (g.dms[c.id] = { msgs: [], readAt: 0 });
@@ -1081,8 +1090,12 @@ function DateTalk({ ev, g, now }) {
       ${!busy && !over && T.lines.length && T.lines[T.lines.length - 1].text === LATER_LINE ? html`<p class="talk-hint">À toi de reprendre la conversation.</p>` : null}
     </div>
     ${T.attack && !T.attack.done && !g.over ? html`<${AttackView} g=${g} H=${T} />` : null}
-    ${over ? html`<div class="talk-foot talk-over">
-      <p>${T.fled ? 'Tu es dehors, le cœur qui cogne. Tu ne te retournes pas.' : T.faded ? 'La soirée se termine à deux.' : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
+    ${over && fledTogether(g, ev) ? html`<div class="talk-foot talk-over">
+      <p>Dehors, ${firstName(g.chars[T.attack.f])} et toi reprenez votre souffle. Vous ne vous lâchez pas.</p>
+      <button class="btn btn-hot" onClick=${() => stayAfter(g, ev)}>Rester avec ${firstName(g.chars[T.attack.f])}</button>
+      <button class="linkbtn quiet" onClick=${() => { T.closed = true; update(); }}>Rentrer chez toi</button>
+    </div>` : over ? html`<div class="talk-foot talk-over">
+      <p>${T.fled ? 'Tu es dehors, le cœur qui cogne. Tu ne te retournes pas.' : T.faded ? 'La soirée se termine à deux.' : T.together ? `Cette nuit, tu ne seras pas ${px(g, 'seul', 'seule', 'seul·e')}.` : `La soirée est finie. Prends le temps de lire ${first}, puis termine quand tu veux.`}</p>
       <button class="btn btn-hot" onClick=${() => { T.closed = true; update(); }}>${T.fled ? 'Rentrer chez toi' : 'Terminer la soirée'}</button>
     </div>` : null}
     ${lastStage && !T.attack ? html`<div class="talk-foot talk-last">

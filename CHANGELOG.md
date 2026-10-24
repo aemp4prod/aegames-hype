@@ -5,6 +5,14 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.2 — 24 octobre 2026 (build 33002)
+
+**Quand tu t’en sors à deux, la soirée continue avec la personne venue avec toi.**
+
+### ✨ Nouveautés
+
+- **🫂 Après la fuite, ensemble** : si tu t’échappes avec la personne venue avec toi, la soirée ne s’arrête plus d’un coup. « Rester avec » elle : vous êtes dehors, essoufflés, sous le choc, et elle parle la première (la peur, la colère, l’envie de te protéger…). Vous parlez de ce qui vient de se passer, de la police, et ton dernier mot décide de la suite : ne pas rester seul cette nuit, dormir chez l’un ou chez l’autre. Entre amis aussi, c’est oui volontiers. Des gestes à la hauteur du moment : vous serrer fort, appeler la police, marcher loin de là. Ça compte comme une vraie soirée passée ensemble, avec son récit et son message, jamais comme un rendez-vous dont ton ou ta partenaire pourrait être jaloux. Tu peux aussi simplement rentrer chez toi.
+
 ## 0.33.1 — 24 octobre 2026 (build 33001)
 
 **Emmène quelqu’un à tes rendez-vous, envoie quelqu’un parler à un perso, et si ça tourne mal, défends-toi : une vraie scène de film d’horreur, avec des réflexes à avoir.**
