@@ -116,7 +116,7 @@ function niceRound(n) {
   return Math.ceil(n / p) * p;
 }
 // The game's version (the same number as the desktop installer): still an alpha.
-const APP_VERSION = '0.33.4';
+const APP_VERSION = '0.33.5';
 const APP_STAGE = 'alpha';
 // Who runs the game: the desktop app, on the player's own ChatGPT plan (window.hypeHost, see desktop/). Without it
 // (hype.html, the page of the tests), the same game on the interface the tests give it (test/mock.js).
@@ -624,6 +624,7 @@ function migrate(g) {
   migrateSaw(g); // 0.33.3: an attack got out of together, remembered for good
   fixCoolTogether(g); // 0.33.3: a silence begun with them in person, taken back
   migrateHunt(g); // 0.33.4: the player already got away: the hunt starts from there, the police came
+  psyKnownFix(g); // 0.33.5: discovered: « Psychopathe », in red
   migrateGear(g); // 0.20
   migrateTrust(g); // v0.9
   migrateTemper(g); // v0.9.4: how each one reacts when the player's name moves

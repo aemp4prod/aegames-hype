@@ -213,6 +213,7 @@ function psyArrest(g, c, K, t = Date.now()) {
   if (P && P.c === c.id) { P.out = 'arrested'; P.outAt = t; }
   c.jailed = t;
   c.cut = true;
+  if (!c.psyKnown) c.psyKnown = t; // 0.33.5
   if (K) { K.state = 'clos'; K.out = 'arrest'; K.log.push({ at: t, text: `${c.name} a été ${arrete}, ${mis} en examen pour ${K.why === 'attack' ? 'tentative de meurtre' : 'harcèlement et menaces'} et ${place} en détention provisoire` }); }
   for (const e of g.events || []) if (e.c === c.id && e.state === 'scheduled') e.state = 'cancelled';
   gainXP(g, 120);

@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.33.4 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.5 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -127,6 +127,10 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   pudique (elle se garde aussi dans « Tes rendez-vous »). Tu es encore là : un bandeau le dit au-dessus du fil et dans
   vos messages, et la personne te parle comme quelqu’un qui est avec toi. Le reste du jeu le sait aussi, mais seuls ceux
   qui sont au courant de votre histoire y font allusion. « Rentrer chez toi » y met fin, sinon la matinée finit d’elle-même.
+  Depuis la 0.33.5, tout reste synchro : le temps qui passe dans ce que vous vous dites passe aussi dans le jeu (« on
+  passe la journée ensemble » : l’horloge avance d’autant), et si la personne part (le travail, une course), tu peux
+  rester chez elle, seul, jusqu’à son retour. La personne avec toi a en tête la soirée d’hier, la nuit, l’heure qu’il est
+  et plus de vos messages ; tant que vous êtes ensemble, elle ne poste pas qu’elle est ailleurs.
 - **Le bouche-à-oreille** : les persos vivent aussi entre eux. Chacun a ses proches et ceux qu’il ne supporte pas, et ça
   bouge avec l’histoire ; rien ne l’affiche, à toi de deviner qui est proche de qui. Ce qu’ils apprennent sur toi passe
   de l’un à l’autre, selon leurs amitiés et leur caractère : les bavards répètent, les fidèles gardent ça pour eux… et
@@ -429,7 +433,13 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   risques. Au commissariat (« 🚓 Porter plainte », sur son profil), une vraie audition avec tes mots ; le témoin est
   entendu, tu joins au dossier ce que tu as noté, et si le dossier tient, il est arrêté, sans bad buzz (sinon il ressort,
   il sait que c’est toi, et la suite peut faire rouvrir l’enquête). Les jours suivants, la personne qui a vécu ça avec
-  toi t’écrit pour savoir comment tu vas.
+  toi t’écrit pour savoir comment tu vas. Depuis la 0.33.5 : découvert, il est « 🔪 Psychopathe », en rouge, partout où
+  ta relation s’affiche ; furieux, il ne laisse plus passer une demi-journée sans rien tant que personne n’a porté
+  plainte, sur toi comme sur ceux qui savent (ceux qui étaient là, ceux à qui tu l’as raconté) ; il peut entrer chez toi
+  en ton absence, tout retourner et prendre de tes affaires (ou chez tes proches, s’il sait où ils habitent) ; la
+  deuxième semaine sans plainte, il peut entrer là où tu es et t’attaquer ; au bout de deux semaines, il peut faire
+  taire quelqu’un qui sait, ou venir te chercher. La plainte déposée, la police le surveille. Survivre ensemble donne
+  +20 de confiance, quel que soit le caractère (+10 les fois d’après).
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro

@@ -5,6 +5,25 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.5 — 24 octobre 2026 (build 33005)
+
+**Le psychopathe à qui tu as échappé ne te laisse plus respirer tant que personne n’a porté plainte, et quand tu es avec quelqu’un, le jeu suit vraiment ce qui se passe.**
+
+### ✨ Nouveautés
+
+- **🔪 Démasqué** : une fois que tu lui as échappé (ou qu’il est démasqué, ou arrêté), il n’apparaît plus comme « pote » ou « meilleur ami » : partout où ta relation s’affiche, c’est écrit « Psychopathe », en rouge.
+- **😡 Furieux, et sans répit** : il sait que vous pouvez le dénoncer. Tant que personne n’a porté plainte, il ne laisse plus passer une demi-journée sans rien faire, sur toi comme sur ceux qui savent. Son IA choisit quoi : frapper à ta porte, glisser un mot, entrer chez quelqu’un, un message qui glace… Ceux qui savent, ce sont ceux qui étaient là, et ceux à qui tu l’as raconté en message.
+- **🏚️ Il entre en ton absence** : quand tu n’es pas chez toi (une soirée dehors, une nuit chez quelqu’un), son IA peut décider d’entrer chez toi, de tout retourner et de prendre ce qu’il veut dans tes affaires (ton matos, un cadeau…). Tu le découvres en rentrant, et tu peux appeler la police. Si ton matos est assuré, il est remplacé contre la franchise. Pareil chez tes proches, s’il sait où ils habitent : ils le découvrent en rentrant et te le racontent, sans forcément savoir que c’est lui.
+- **📸 Il sait où habite ton témoin** : il vous a vus repartir ensemble ce soir-là, et il a pris des photos.
+- **🔪 De plus en plus violent** : la deuxième semaine sans plainte, il peut entrer là où tu es, chez toi pendant que tu dors ou chez la personne avec qui tu es, et la scène se joue comme une attaque (à deux si elle est là). Au bout de deux semaines sans plainte, il peut faire taire pour de bon quelqu’un qui sait, ou venir te chercher. Une fois la plainte déposée, la police le surveille, et il se retient.
+- **🤝 Une vie sauvée, ça compte** : survivre ensemble donne +20 de confiance, quel que soit le caractère de la personne, et +10 chaque fois que vous vous en sortez encore ensemble. Dans une partie déjà commencée, le complément arrive quand tu la rouvres.
+- **⏱️ Ensemble, pour de vrai** : quand tu es avec quelqu’un (le matin chez lui ou chez elle), le temps qui passe dans ce que vous vous dites passe aussi dans le jeu : « on passe la journée ensemble », et l’horloge avance d’autant. S’il ou elle part (le travail, une course…), tu peux rester chez lui ou chez elle, et vous n’êtes plus ensemble pour le jeu non plus, jusqu’à son retour. Tant que vous êtes ensemble, le reste du réseau le sait.
+- **🧠 Plus présent dans le moment** : la personne avec qui tu es a en tête toute la soirée d’hier, la nuit, le réveil, l’heure qu’il est, et beaucoup plus de vos messages.
+
+### 🛠️ Corrigé
+
+- **Des matinées hors du temps** : un seul message pouvait raconter toute une journée passée ensemble pendant que l’horloge restait au matin, et la personne postait ensuite ce qu’elle faisait ailleurs. Désormais, le jeu suit.
+
 ## 0.33.4 — 24 octobre 2026 (build 33004)
 
 **Si tu échappes au psychopathe, ce n’est pas fini : il rôde, il frappe chez toi la nuit, il s’en prend à tes proches. Et la police, maintenant, c’est pour de vrai.**

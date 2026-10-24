@@ -3671,6 +3671,13 @@ div.big-stage:not(.mg-setup) { padding: 18px 16px 6px; }
 @media (max-height: 640px) { .tuto-scene { height: 172px; padding-block: 30px 10px; } } /* (always clear of the cross) */
 
 /* ---------- 0.33.4: elle rôde, la police ---------- */
+.psy-tag { color: var(--bad); font-weight: 700; }
+.modal-card.break-card { max-width: 420px; text-align: left; align-items: stretch; gap: 12px; }
+.break-text { margin: 0; font-size: 15.5px; line-height: 1.5; }
+.break-lost { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.break-lost .lbl { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.break-lost ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.modal-card.break-card .btn { width: 100%; }
 .door-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .modal-card .door-acts .btn { width: auto; }
 .door-acts .door-open { color: var(--bad); }

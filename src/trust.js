@@ -70,6 +70,7 @@ function migrateTrust(g) {
 /* ---------- trust moves ---------- */
 // d > 0 is scaled by how hard they give their trust, and what talking brings is capped per day (opts.free: something
 // that proves itself, like advice that worked). With a relation below 0 it stays under 30: nobody trusts who they dislike.
+// opts.raw (0.33.5): as it is, whatever their heart (« si le joueur réussit, le personnage qui est avec lui prend +20 »).
 function applyTrust(g, who, d, why, at, opts = {}) {
   const c = typeof who === 'object' ? who : charByHandle(g, normHandle(who));
   if (!c || !c.unlocked || !isMain(c)) return 0;
@@ -78,7 +79,7 @@ function applyTrust(g, who, d, why, at, opts = {}) {
   if (!delta) return 0;
   const t = Date.now();
   if (delta > 0) {
-    let x = delta * trustMult(g, c, t) * (1 + skillFx(g, 'trustGain')); // 0.24: charisma (tiers 5 and 30); the daily cap stays
+    let x = opts.raw ? delta : delta * trustMult(g, c, t) * (1 + skillFx(g, 'trustGain')); // 0.24: charisma (tiers 5 and 30); the daily cap stays
     if (!opts.free) {
       if (!c.trustDay || t - c.trustDay.at >= DAY_MS) c.trustDay = { at: t, n: 0 };
       x = Math.min(x, Math.max(0, TRUST_DAY_CAP - c.trustDay.n));

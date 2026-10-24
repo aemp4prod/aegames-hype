@@ -243,7 +243,7 @@ const onlineNow = (g, c, t = Date.now()) => { const m = lastFrom(((g.dms[c.id] |
 function dispoOf(g, c, t = Date.now(), convo = g.dms[c.id]) {
   if (!c || !t32On() || c.kind === 'gone') return { now: true };
   if (c.kind === 'brand') return { now: true }; // 0.32.1: the partnerships answer right away, at any hour (the player's ask: waiting for them was a chore)
-  if (stayOn(g, t) && g.stay.c === c.id) return { now: true }; // (together)
+  if (stayWith(g, c, t)) return { now: true }; // (together; 0.33.5: not when they went out)
   if (isMain(c) && activeEvents(g).some((e) => e.player && e.c === c.id && e.due - t < 2 * 3600000 && t - e.due < DATE_H * 3600000)) return { now: true }; // (about to meet, or meeting)
   if (isMain(c) && awayDateOf(g, c, t)) return { now: true }; // (a date missed: they wait for the player's word)
   const R = rythmeOf(g, c), msgs = (convo && convo.msgs) || [], last = lastFrom(msgs, t);

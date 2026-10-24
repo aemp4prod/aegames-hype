@@ -167,7 +167,7 @@ const COOL_SHOWN = { esquive: () => 'Ne veut pas d’étiquette entre vous', fre
 const coolOf = (c) => ({ serein: 'frein', anxieux: 'panique', prudent: 'louche', forteresse: 'louche', inaccessible: 'ghost', jaloux: 'frein', chaudfroid: 'ghost', volage: 'esquive', libre: 'esquive' })[c.coeur] || null;
 const coolNow = (c, t = Date.now()) => (c && c.cool && t < c.cool.until ? c.cool : null);
 // 0.33.3: with them in person (the morning after, at theirs or the player's; a visit), silence makes no sense: they say it.
-const withThem = (g, c, t = Date.now()) => !!(g && c && ((typeof stayOn === 'function' && stayOn(g, t) && g.stay.c === c.id) || (g.visits || []).some((v) => v.c === c.id && v.state === 'talk')));
+const withThem = (g, c, t = Date.now()) => !!(g && c && ((typeof stayWith === 'function' && stayWith(g, c, t)) || (g.visits || []).some((v) => v.c === c.id && v.state === 'talk'))); // (0.33.5: not when they went out)
 function startCool(g, c, k, why, aiWhy) {
   if (COOLS[k] && COOLS[k].silent && t33On() && withThem(g, c)) k = k === 'bloque' ? 'colere' : 'frein';
   const C = COOLS[k];

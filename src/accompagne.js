@@ -138,7 +138,9 @@ const ATK_FROZEN = [
 // The moments to react, by surprise between the choices: read what comes, then act, fast. pre: what happens; go: what
 // to do; win; help: the one who came along catches it; lose (early: too soon): too late (it is not the end yet).
 const QTE_TXT = {
-  dodge: (C, F, P, w) => (w === 'night'
+  dodge: (C, F, P, w) => (w === 'inside'
+    ? { pre: `Un bruit de serrure, puis plus rien. Dans le couloir, ${C}, un couteau à la main. ${cap1(P.il)} sourit.`, go: 'Esquive !', win: 'La lame raye le mur, à un souffle de toi.', lose: 'Tu n’as pas bougé à temps.', help: `${F} te tire en arrière : la lame fend l’air.` } // 0.33.5
+    : w === 'night' || w === 'home'
     ? { pre: `Un bruit te réveille. ${C} est ${P.assis} au bord du lit, dans le noir. ${cap1(P.il)} sourit. ${cap1(P.il)} tient un couteau.`, go: 'Roule hors du lit !', win: 'La lame s’enfonce dans l’oreiller, là où était ta tête.', lose: 'Tu n’as pas bougé à temps.', help: '' }
     : { pre: `${C} sourit. Un grand sourire, immobile. Dans sa main, un couteau.`, go: 'Esquive !', win: 'La lame se plante dans le mur, à un souffle de ton visage.', lose: 'Tu n’as pas bougé à temps.', help: `${F} te tire en arrière : la lame fend l’air.` }),
   dodge2: (C, F, P) => ({ pre: `${C} feinte d’un côté…`, go: 'Esquive !', win: 'Tu te baisses : la lame passe au-dessus de toi.', lose: 'Tu as esquivé du mauvais côté.', help: `${F} te tire en arrière : la lame fend l’air.` }),
@@ -179,7 +181,7 @@ function startAttack(g, H, c, text, o = {}, t = Date.now()) {
   const f = o.f || null, w = o.where || 'date', C = firstName(c), F = f ? firstName(f) : null;
   const P = { il: gx(c.g, 'il', 'elle', 'iel'), le: gx(c.g, 'le', 'la', 'le'), assis: gx(c.g, 'assis', 'assise', 'assis·e'), seul: px(g, 'seul', 'seule', 'seul·e') };
   H.attack = Object.assign({ c: c.id, f: f ? f.id : null, where: w, ev: o.ev ? o.ev.id : null, i: 0, steps: attackSteps(C, F, P, w), at: t, done: false, pl: P }, f ? plusBond(f) : { aff: 0, p: 0, bond: 0 });
-  H.lines.push({ who: 'n', atk: 1, text: str(text, 200) || (w === 'night' ? 'Plus tard, dans la nuit…' : `${C} ferme la porte à clé.`) });
+  H.lines.push({ who: 'n', atk: 1, text: str(text, 200) || (w === 'night' || w === 'home' ? 'Plus tard, dans la nuit…' : `${C} ferme la porte à clé.`) });
   atkBuzz(60);
   return true;
 }
@@ -254,32 +256,40 @@ function attackEnd(g, H) {
   A.done = true;
   if (!c) return;
   const C = firstName(c), F = f ? firstName(f) : '', w = A.where, revu = px(g, 'revu', 'revue', 'revu·e'), chez = gx(c.g, 'lui', 'elle', 'iel');
+  const atHome = w === 'visit' || w === 'home' || w === 'inside', host = H.place && H.place !== 'p' ? g.chars[H.place] : null; // (0.33.5: theirs broken into)
+  const there = host ? `Chez ${firstName(host)}` : 'Chez toi';
   if (!A.ok) {
-    psyKill(g, c, f ? `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne vous a revus, ${F} et toi.`
-      : w === 'night' ? `La lampe de chevet s’est éteinte. Personne ne t’a ${revu}.`
-        : w === 'visit' ? `Chez toi, la lumière est restée allumée jusqu’au matin. Personne ne t’a ${revu}.`
-          : `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne t’a ${revu}.`, w === 'visit' ? 'visit' : 'date');
+    psyKill(g, c, atHome ? (f ? `${there}, la lumière est restée allumée jusqu’au matin. Personne ne vous a revus, ${F} et toi.` : `${there}, la lumière est restée allumée jusqu’au matin. Personne ne t’a ${revu}.`)
+      : f ? `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne vous a revus, ${F} et toi.`
+        : w === 'night' ? `La lampe de chevet s’est éteinte. Personne ne t’a ${revu}.`
+          : `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne t’a ${revu}.`, atHome ? 'visit' : 'date');
     return;
   }
-  if (w === 'visit') {
-    H.lines.push({ who: 'n', atk: 1, text: `Tu ${A.pl.le} pousses dehors et tu claques la porte. Deux tours de clé. Tu appelles la police, la voix qui tremble.` });
+  if (atHome) {
+    H.lines.push({ who: 'n', atk: 1, text: f ? `${F} et toi ${A.pl.le} repoussez dehors et claquez la porte. Deux tours de clé. ${F} appelle la police, la voix qui tremble.` : `Tu ${A.pl.le} pousses dehors et tu claques la porte. Deux tours de clé. Tu appelles la police, la voix qui tremble.` });
     Object.assign(H, { fled: true, ending: true, mood: 'fache' });
     psyEscape(g, c, 'visit');
   } else {
     const ev = (g.events || []).find((e) => e.id === A.ev);
     if (ev && ev.talk === H) fleeDate(g, ev, c, f ? `${F} et toi dévalez l’escalier sans vous retourner. Dehors, ${F} appelle la police, la voix qui tremble.` : `Tu dévales l’escalier${w === 'night' ? ' pieds nus' : ''} sans te retourner. Dehors, tu appelles la police, la voix qui tremble.`);
   }
+  const where = w === 'visit' ? 'chez toi, en pleine nuit' : atHome ? (host ? `chez ${firstName(host)}` : 'chez toi') + (w === 'home' ? ', en pleine nuit' : '') : `chez ${chez}${w === 'night' ? ', en pleine nuit' : ''}`;
   if (huntOn()) { // 0.33.4: they know now; the police came (the complaint is the player's to file); the couple is over
     startHunt(g, c, 'attack');
     const pa = px(g, 'attaqué', 'attaquée', 'attaqué·e');
-    policeCall(g, c, w === 'visit' ? `${C} t’a ${pa} chez toi, en pleine nuit : tu as appelé la police` : f ? `${C} vous a attaqués chez ${chez}, ${F} et toi : ${F} a appelé la police` : `${C} t’a ${pa} chez ${chez}${w === 'night' ? ', en pleine nuit' : ''} : tu as appelé la police`, { ev: A.ev, f: f ? f.id : null, why: 'attack', delay: 9000 });
+    policeCall(g, c, f ? `${C} vous a attaqués ${where}, ${F} et toi : ${F} a appelé la police` : `${C} t’a ${pa} ${where} : tu as appelé la police`, { ev: A.ev, f: f ? f.id : null, why: 'attack', delay: 9000, night: atHome && w !== 'visit' });
     huntEndsCouple(g, c);
+    if (f) learnHome(g, c, f, 'les a vus repartir ensemble ce soir-là, et a pris des photos'); // 0.33.5: she saw them leave
   }
-  if (!f) { psySign(g, c, `${C} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau${w === 'visit' ? ', chez toi, en pleine nuit' : w === 'night' ? ', en pleine nuit' : `, chez ${chez}`} : tu t’en es ${px(g, 'sorti', 'sortie', 'sorti·e')} de justesse`, later() + 900, true); return; }
-  psySign(g, c, `${F} a tout vu : ${C} vous a attaqués avec un couteau, chez ${chez}`, later() + 900, true); // (a witness: a proof that weighs)
-  applyRel(g, f, 10, 'vous vous en êtes sortis ensemble', later() + 2400, 12);
-  applyTrust(g, f, 25, 'vous vous en êtes sortis ensemble', later() + 2600, { free: true }); // (0.33.3: survived together: a trust like few others)
+  if (!f) { psySign(g, c, `${C} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau, ${where} : tu t’en es ${px(g, 'sorti', 'sortie', 'sorti·e')} de justesse`, later() + 900, true); return; }
+  psySign(g, c, `${F} a tout vu : ${C} vous a attaqués avec un couteau, ${where}`, later() + 900, true); // (a witness: a proof that weighs)
+  const again = !!(f.saw && f.saw.psy === c.id); // 0.33.5: once more, together
+  applyRel(g, f, again ? 6 : 10, 'vous vous en êtes sortis ensemble', later() + 2400, 12);
+  applyTrust(g, f, again ? 10 : 20, again ? 'vous vous en êtes encore sortis ensemble' : 'vous vous êtes sauvé la vie', later() + 2600, { free: true, raw: true }); // (0.33.5: whatever their heart: +20, +10 each time after)
+  const n0 = again ? f.saw.n || 1 : 0;
   sawIt(g, f, c, A.ev); // 0.33.3: for life (never pushed out by what comes after), and said in each of their prompts
+  f.saw.raw = 1;
+  f.saw.n = n0 + 1;
   bumpTie(g, c.id, f.id, -60);
   addTrigger(g, `@${f.handle} et le joueur viennent de s’enfuir de chez @${c.handle}, qui les a attaqués : @${f.handle} est sous le choc et en parle au joueur en privé ; @${c.handle} fait comme si de rien n’était.`, f.id);
 }
@@ -507,7 +517,9 @@ async function openAfter(e2) {
 // (0.33.2's night with them pushed the attack out of their six memories: « je sais pas si elle a essayé de nous tuer ».)
 function sawIt(g, f, x, evId, t = Date.now()) {
   if (!f || !x) return;
-  f.saw = { psy: x.id, at: (f.saw && f.saw.psy === x.id && f.saw.at) || t, ev: evId || null, trust: 1 };
+  const prev = f.saw && f.saw.psy === x.id ? f.saw : null; // (0.33.5: once more: what was kept stays, the days after start again)
+  f.saw = Object.assign({}, prev || {}, { psy: x.id, at: (prev && prev.at) || t, last: t, ev: evId || null, trust: 1 });
+  delete f.saw.care;
   addMem(g, f, `@${x.handle} a essayé de nous tuer, le joueur et moi, avec un couteau, chez ${gx(x.g, 'lui', 'elle', 'iel')}. On s’en est sortis ensemble`, null, true);
 }
 function sawLines(g, c) {

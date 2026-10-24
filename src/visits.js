@@ -203,7 +203,8 @@ function endVisit(g, v) {
   v.score = Math.round(score * 100) / 100;
   if (v.fled) { // 0.29: put out in the night (the escape was told already)
     const ent = gx(c.g, 'entré', 'entrée', 'entré·e'), dehors = gx(c.g, 'mis dehors', 'mise dehors', 'mis·e dehors');
-    visitCard(g, c, v, v.attack && v.attack.ok ? `${firstName(c)} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau, chez toi, en pleine nuit : tu l’as ${dehors}.` : `${firstName(c)} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache'); // (0.33.1: after a fight)
+    const where = v.place && v.place !== 'p' && g.chars[v.place] ? `chez ${firstName(g.chars[v.place])}` : 'chez toi', when = nightAt(v.at) ? ', en pleine nuit' : ''; // (0.33.5: theirs broken into)
+    visitCard(g, c, v, v.attack && v.attack.ok ? `${firstName(c)} t’a ${px(g, 'attaqué', 'attaquée', 'attaqué·e')} avec un couteau, ${where}${when} : tu l’as ${dehors}.` : `${firstName(c)} est ${ent} chez toi en pleine nuit : tu l’as ${dehors}.`, 'fache'); // (0.33.1: after a fight)
     return v;
   }
   let rel = (score >= 0.7 ? 6 : score >= 0.55 ? 3 : score >= 0.4 ? 0 : score >= 0.25 ? -5 : -9) + M.rel;
@@ -332,7 +333,7 @@ function VisitCard({ g, v, close }) {
   const night = nightAt(v.at); // 0.29: at night, one does not open just like that
   const atk = !!(v.attack && !v.attack.done && !g.over); // 0.33.1: they strike
   return html`<div class=${'modal-card visit-card' + (atk ? ' atk-on' : '')}>
-    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">${v.hunt ? 'On frappe à ta porte' : 'Visite surprise'}</span><b>${v.hunt && v.door !== 'open' ? `${c.name}, derrière ta porte` : c.name + ' débarque chez toi'}</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
+    <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">${v.inside ? (v.place && v.place !== 'p' && g.chars[v.place] ? `Chez ${firstName(g.chars[v.place])}` : 'Chez toi') : v.hunt ? 'On frappe à ta porte' : 'Visite surprise'}</span><b>${v.inside ? `${c.name} est entré${gx(c.g, '', 'e', '·e')}` : v.hunt && v.door !== 'open' ? `${c.name}, derrière ta porte` : c.name + ' débarque chez toi'}</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
     <div class="visit-lines" ref=${box}>
       ${v.lines.map((x, j) => (x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${emoParts(x.text)}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`

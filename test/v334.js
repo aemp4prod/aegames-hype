@@ -139,7 +139,7 @@ const fightOff = (page, who) => G(page, (who) => {
     const other = H.homeSaid(g, ada, 'Théo habite au 4 rue du Puits, juste à côté');
     return { before, after, said, ada: H.homeHow(g, ada), adaTheo: H.homeOfHow(g, ada, theo), zaraTheo: H.homeOfHow(g, zara, theo), plain: H.homeSaid(g, ada, 'on se voit demain ?') };
   });
-  check('who knows where: nothing at first; a key with the player’s address in her file, she knows; an address given in private (the player’s, someone’s); nobody else’s', k1.before === null && /repéré/.test(k1.after || '') && k1.said && /adresse/.test(k1.ada || '') && /Théo/.test(k1.adaTheo || '') && k1.zaraTheo === null && k1.plain === false, k1);
+  check('who knows where: nothing at first; a key with the player’s address in her file, she knows; an address given in private (the player’s, someone’s); the witness’s, seen leaving', k1.before === null && /repéré/.test(k1.after || '') && k1.said && /adresse/.test(k1.ada || '') && /Théo/.test(k1.adaTheo || '') && /vus repartir ensemble/.test(k1.zaraTheo || '') && k1.plain === false, k1); // (0.33.5: she saw them leave together)
 
   // ---------- what her prompts know ----------
   const p1 = await G(page, () => {
@@ -176,7 +176,7 @@ const fightOff = (page, who) => G(page, (who) => {
     const r = H.rodeDo(g, zara, { quoi: 'proche', who: 'theo.marlin', text: 'l’a attendu en bas de chez lui, sans un mot' });
     const Y = (g.psy.hunt.tell || [])[0];
     if (Y) Y.due = Date.now() - 1;
-    return { r: !!r, learned: /suivi/.test(H.homeOfHow(g, zara, theo) || ''), mem: (theo.mem || []).some((m) => m.keep && /^@zara\.vey l’a attendu/.test(m.t)) };
+    return { r: !!r, learned: !!H.homeOfHow(g, zara, theo), mem: (theo.mem || []).some((m) => m.keep && /^@zara\.vey l’a attendu/.test(m.t)) };
   });
   await until(page, () => { const H = window.__hype, g = H.S.game, theo = H.charByHandle(g, 'theo.marlin'); return ((g.dms[theo.id] || {}).msgs || []).some((m) => /en bas de chez moi/.test(m.text || '')); }, null, 15000);
   await idle(page);
@@ -369,7 +369,7 @@ const fightOff = (page, who) => G(page, (who) => {
   // ---------- the days after: they write ----------
   const w0 = await G(page, () => {
     const H = window.__hype, g = H.S.game, theo = H.charByHandle(g, 'theo.marlin');
-    theo.saw.at = Date.now() - 20 * 3600000; // (the day after it)
+    theo.saw.at = theo.saw.last = Date.now() - 20 * 3600000; // (the day after it)
     delete theo.saw.care;
     g.dms[theo.id] = { msgs: [], readAt: 0 };
     window.__mockOnce = [{ has: 'TÂCHE : DES NOUVELLES', lines: [{ t: 'dm', text: 'Hey. T’as réussi à dormir ?' }, { t: 'dm', text: 'Moi je sursaute au moindre bruit.' }] }];

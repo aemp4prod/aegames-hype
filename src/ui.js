@@ -123,8 +123,11 @@ function RelMeter({ rel }) {
 }
 const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
 function autosize(el) { if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
-const vibeTag = (c) => (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' · ' + VIBES[c.vibe].emoji + ' ' + VIBES[c.vibe].label : '');
-const relShown = (c) => (partnerWord(c) ? VIBES[c.vibe].emoji + ' ' + partnerWord(c) : relLabel(c.rel, c.g, c.vibe));
+// 0.33.5: the psychopath, once discovered, is no « pote » nor « meilleure amie » any more: said in red, everywhere.
+const psyShown = (c) => !!(c && c.psyKnown && huntOn());
+const PsyTag = () => html`<b class="psy-tag">🔪 Psychopathe</b>`;
+const vibeTag = (c) => (!psyShown(c) && c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' · ' + VIBES[c.vibe].emoji + ' ' + VIBES[c.vibe].label : '');
+const relShown = (c) => (psyShown(c) ? '🔪 Psychopathe' : partnerWord(c) ? VIBES[c.vibe].emoji + ' ' + partnerWord(c) : relLabel(c.rel, c.g, c.vibe));
 
 /* ---------- voice mode: the device's own dictation fills the field, the game sends it after a pause ---------- */
 const AUTO_MS = 3000;
@@ -561,7 +564,7 @@ function tabBadge(g, id, now) {
   return 0;
 }
 // Among the modals that are due, the most important first: a cancel before a level-up.
-const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, mot: 1, psyout: 2, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
+const MODAL_RANK = { confirm: 0, saves: 0, skip: 0, budget: 0, pfp: 0, visit: 1, mot: 1, cambriole: 1, psyout: 2, secret: 1, secretlie: 1, busted: 1, cancel: 1, clash: 1, leak: 1, rumor: 2, badbuzz: 2, series: 2, money: 3, viral: 3, train: 4, trainend: 4, uncancel: 4, vibe: 5, level: 6 };
 function dueModal(now) {
   if (now < S.modalGapUntil) return null;
   let best = null;
@@ -1462,7 +1465,7 @@ function Side({ g, now }) {
       ${playerBadBuzz(g, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(g.pbb.until - now)}</span>` : null}
     </section>
     ${tr.length ? html`<section class="panel"><h3>Tendances</h3>${tr.map(([tg]) => { const n = postsWithTag(g, tg, now).length; return html`<button class="trend" key=${tg} onClick=${() => openTag(tg)}><small>Tendance · ${g.world.name}</small><b>${tg}</b>${n ? html`<small>${n} ${plural(n, 'post', 'posts')}</small>` : null}</button>`; })}</section>` : null}
-    <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${c.gone ? `🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}` : `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}`}</span></div></button>`)}</section>
+    <section class="panel"><h3>Personnages</h3>${top.map((c) => html`<button class="mini-char" key=${c.id} onClick=${() => openChar(c.id)}><${Avatar} who=${author(g, 'c:' + c.id)} size=${36} /><div><b>${c.name}</b><span>${c.gone ? `🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}` : psyShown(c) ? html`<${PsyTag} />` : `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}`}</span></div></button>`)}</section>
   </aside>`;
 }
 
@@ -1729,8 +1732,8 @@ function FeedTab({ g, now }) {
 // 0.23.1: the network living on its own says where it is: the next news in about N minutes, or paused (and why).
 // 0.25.3: the morning after a night together: where the player is, until they go home.
 function StayLine({ g }) {
-  const s = g.stay, c = g.chars[s.c], first = firstName(c);
-  return html`<div class="live-line stay-line"><span aria-hidden="true">🌅</span><span>${s.where === 'c' ? `Tu es chez ${first} depuis cette nuit` : `${first} a dormi chez toi`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
+  const s = g.stay, c = g.chars[s.c], first = firstName(c), gone = stayGone(g);
+  return html`<div class="live-line stay-line"><span aria-hidden="true">${gone ? '🚪' : '🌅'}</span><span>${gone ? `Tu es chez ${first} ; ${gx(c.g, 'il', 'elle', 'iel')} est ${gx(c.g, 'sorti', 'sortie', 'sorti·e')}${s.gone.why ? ` (${s.gone.why})` : ''}, retour vers ${hourOf(s.gone.until)}` : s.where === 'c' ? `Tu es chez ${first} depuis cette nuit` : `${first} a dormi chez toi`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
 }
 function LiveLine({ g, now }) {
   const why = livePause(now);
@@ -1813,7 +1816,7 @@ function DMsTab({ g, now }) {
     ${liveGroups(g).length && convos.length ? html`<div class="list-h">Messages</div>` : null}
     ${convos.length ? convos.map(({ c, last, n }) => html`<button key=${c.id} class=${'convo' + (n ? ' unread' : '')} onClick=${() => openDM(c.id)}>
         <${Avatar} who=${author(g, 'c:' + c.id)} size=${48} />
-        <div class="mid"><div><b>${c.name}</b><span>${isMain(c) ? relShown(c) + (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' ' + VIBES[c.vibe].emoji : '') : c.role}</span></div><p>${last.me ? 'Toi : ' : ''}${last.sys === 'deal' ? '📄 Proposition de partenariat' : last.sys === 'invite' ? '📅 Invitation : ' + last.title : last.sys === 'leak' ? '📸 Capture du groupe « ' + last.group + ' »' : emoParts(last.text)}</p></div>
+        <div class="mid"><div><b>${c.name}</b><span>${psyShown(c) ? html`<${PsyTag} />` : isMain(c) ? relShown(c) + (c.vibe && VIBES[c.vibe] && !partnerWord(c) ? ' ' + VIBES[c.vibe].emoji : '') : c.role}</span></div><p>${last.me ? 'Toi : ' : ''}${last.sys === 'deal' ? '📄 Proposition de partenariat' : last.sys === 'invite' ? '📅 Invitation : ' + last.title : last.sys === 'leak' ? '📸 Capture du groupe « ' + last.group + ' »' : emoParts(last.text)}</p></div>
         <div class="side-meta"><span>${fmtAgo(last.at, now)}</span>${n ? html`<span class="dot-count">${n}</span>` : null}</div>
       </button>`)
       : html`<div class="empty"><b>Aucun message</b><span>Écris à un personnage : c’est en privé que les alliances se font.</span></div>`}
@@ -1950,8 +1953,8 @@ function ProfileTab({ g, now }) {
       <div class="section-h"><h3>Relations</h3><span>${fans === 0 ? 'Personne ne te suit encore' : fans === 1 ? '1 te suit' : fans + ' te suivent'}</span></div>
       ${rels.map((c) => html`<button class="rel-row" key=${c.id} onClick=${() => openChar(c.id)}>
         <${Avatar} who=${author(g, 'c:' + c.id)} size=${40} />
-        <div class="mid"><div><b>${c.name}</b><span>${relShown(c)}${vibeTag(c)}${c.followsYou ? ' · te suit' : ''} · confiance ${trustOf(c)}${c.asleep ? ' · 😴 en retrait' : ''}</span></div><${RelMeter} rel=${c.rel} /></div>
-        <span class="num">${fmtRel(c.rel)}</span>
+        <div class="mid"><div><b>${c.name}</b><span>${psyShown(c) ? html`<${PsyTag} />` : `${relShown(c)}${vibeTag(c)}${c.followsYou ? ' · te suit' : ''} · confiance ${trustOf(c)}${c.asleep ? ' · 😴 en retrait' : ''}`}</span></div>${psyShown(c) ? null : html`<${RelMeter} rel=${c.rel} />`}</div>
+        <span class="num">${psyShown(c) ? '' : fmtRel(c.rel)}</span>
       </button>`)}
       ${mains(g, false).some((c) => !c.unlocked) ? html`<p class="muted" style="font-size:13px">D’autres personnages arriveront quand tu monteras de niveau.</p>` : null}
     </section>
@@ -3017,10 +3020,10 @@ function CharLayer({ l, g, now, i }) {
         </div>
       </div>
       <div><h2>${c.name}${cast ? html`<${Verified} />` : null}</h2><span class="handle">@${c.handle}</span></div>
-      <div class="row" style="gap:6px">${c.role ? html`<span class="chip">${c.role}</span>` : null}${c.age && c.kind !== 'media' ? html`<span class="chip">${c.age} ans</span>` : null}${c.followsYou ? html`<span class="chip good">Te suit</span>` : null}${V ? html`<span class="chip hot">${V.emoji} ${V.label}</span>` : null}${inBadBuzz(c, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(c.badBuzz.until - now)}</span>` : null}${c.cut ? html`<span class="chip bad">🚫 A coupé les ponts</span>` : null}${c.gone ? html`<span class="chip bad">🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}</span>` : null}</div>
+      <div class="row" style="gap:6px">${c.role ? html`<span class="chip">${c.role}</span>` : null}${c.age && c.kind !== 'media' ? html`<span class="chip">${c.age} ans</span>` : null}${c.followsYou ? html`<span class="chip good">Te suit</span>` : null}${psyShown(c) ? html`<span class="chip bad">🔪 Psychopathe</span>` : V ? html`<span class="chip hot">${V.emoji} ${V.label}</span>` : null}${inBadBuzz(c, now) ? html`<span class="chip bad">Bad buzz · encore ${fmtDur(c.badBuzz.until - now)}</span>` : null}${c.cut ? html`<span class="chip bad">🚫 A coupé les ponts</span>` : null}${c.gone ? html`<span class="chip bad">🕯️ Porté${gx(c.g, '', 'e', '·e')} disparu${gx(c.g, '', 'e', '·e')}</span>` : null}</div>
       ${c.bio ? html`<p class="bio">${emoParts(c.bio)}</p>` : null}
-      <div class="prof-stats"><span><b>${fmtN(c.followers)}</b> ${plural(c.followers, 'abonné', 'abonnés')}</span>${main ? html`<span>Relation : <b>${relShown(c)}</b> (${fmtRel(c.rel)})</span>` : null}</div>
-      ${main ? html`<${RelMeter} rel=${c.rel} />` : null}
+      <div class="prof-stats"><span><b>${fmtN(c.followers)}</b> ${plural(c.followers, 'abonné', 'abonnés')}</span>${main && psyShown(c) ? html`<span>Relation : <${PsyTag} /></span>` : main ? html`<span>Relation : <b>${relShown(c)}</b> (${fmtRel(c.rel)})</span>` : null}</div>
+      ${main && !psyShown(c) ? html`<${RelMeter} rel=${c.rel} />` : null}
       ${main ? html`<${SocialLinks} g=${g} c=${c} now=${now} />` : null}
       ${t33On() && hireOK(g, c) ? html`<button class="btn btn-ghost btn-sm prof-job" onClick=${() => openLayer({ t: 'hire', id: c.id })}>💼 Proposer un boulot</button>` : null}
       ${missionTarget(g, c) ? html`<button class="btn btn-ghost btn-sm prof-mission" onClick=${() => openLayer({ t: 'mission', id: c.id })}>🕵️ Envoyer quelqu’un lui parler</button>` : null}
@@ -3251,7 +3254,7 @@ function DMLayer({ l, g, now, i }) {
   if (!g.tipDate && isMain(c) && !c.cut && msgs.some((m) => !m.me && m.text) && !(g.events || []).some((e) => e.player)) { g.tipDate = { c: c.id, at: now }; S.tipLayer = l.key; }
   const tip = !!(g.tipDate && !g.tipDate.done && S.tipLayer === l.key);
   return html`<${LayerShell} i=${i} title=${c.name}
-    head=${html`<button class="who" onClick=${() => openChar(c.id)}><${Avatar} who=${au} size=${36} /><div><b>${c.name}${t32On() && onlineNow(g, c, now) ? html`<i class="on-dot" title="En ligne" aria-label="en ligne"></i>` : null}</b><span>${isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)} · confiance ${trustOf(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}` : c.role}</span></div></button>`}
+    head=${html`<button class="who" onClick=${() => openChar(c.id)}><${Avatar} who=${au} size=${36} /><div><b>${c.name}${t32On() && onlineNow(g, c, now) ? html`<i class="on-dot" title="En ligne" aria-label="en ligne"></i>` : null}</b><span>${psyShown(c) ? html`<${PsyTag} />` : isMain(c) ? `${relShown(c)} · ${fmtRel(c.rel)}${vibeTag(c)} · confiance ${trustOf(c)}${inBadBuzz(c, now) ? ' · ' + bbWord(c) : ''}` : c.role}</span></div></button>`}
     foot=${html`<${DMBox} c=${c} g=${g} now=${now} />`}>
     <div class="bubbles" ref=${ref}>
       <div class="dm-intro"><${Avatar} who=${au} size=${64} /><b>${c.name}</b><span>@${c.handle}${c.role ? ' · ' + c.role : ''}</span><span>${c.kind === 'brand' ? 'Un contact pro : parle chiffres, négocie, demande un devis.' : c.kind === 'cand' ? 'Une candidature : pose tes questions, négocie son tarif.' : 'Ce qui se dit ici reste entre vous… en principe. Une capture est vite faite.'}</span></div>
@@ -3746,6 +3749,8 @@ function Modal({ m, g }) {
     card = html`<${PsyOutCard} g=${g} m=${m} close=${close} />`;
   } else if (m.t === 'mot') { // 0.33.4: a note under the door
     card = html`<${MotCard} g=${g} m=${m} close=${close} />`;
+  } else if (m.t === 'cambriole') { // 0.33.5: back home, the door ajar
+    card = html`<${BreakCard} g=${g} m=${m} close=${close} />`;
   } else if (m.t === 'badbuzz') {
     const c = g.chars[m.charId];
     if (c) {
@@ -3930,7 +3935,7 @@ function tick() {
       if (!inMiniGame()) toast(away ? away.why : pw ? `C’est l’heure de tourner ${ta(rl)} !` : `C’est l’heure : ${ta(rl)} doit sortir !`, 'flash', { label: 'Tourner', run: () => startShoot(rl) });
       update();
     }
-    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); if (tickMissions(g, t)) update(); if (tickHunt(g, t)) update(); if (tickPolice(g, t)) update(); if (tickCare(g, t)) update(); }
+    if (t - lastQuestTick > 2000) { lastQuestTick = t; if (tickRoles(g, t)) update(); if (tickSocial(g, t)) update(); if (tickNewChars(g, t)) update(); if (tickQuests(g, t)) update(); if (tickCareer(g, t)) update(); if (tickPhotos(g, t)) update(); if (tickAdvice(g, t)) update(); if (tickStanding(g, t)) update(); if (tickHearts(g, t)) update(); if (tickTrain(g, t)) update(); if (tickToxic(g, t)) update(); if (tickTraitors(g, t)) update(); if (tickStalkers(g, t)) update(); if (tickCast(g, t)) update(); if (tickGrowth(g, t)) update(); if (tickLadder(g, t)) update(); if (g.arrival && !S.busy.newchar && !S.busy.refresh && !S.busy.act) { const a = g.arrival; delete g.arrival; genNewChar(null, a.why); } if (tickSecrets(g, t)) update(); if (tickDilemmas(g, t)) update(); if (tickVisits(g, t)) update(); if (tickMissions(g, t)) update(); if (tickHunt(g, t)) update(); if (tickPolice(g, t)) update(); if (tickCare(g, t)) update(); if (tickStay(g, t)) update(); }
     if (autoLiveDue(g, t)) refreshFeed(0, { auto: true }); // 0.10, Ultime, the ChatGPT app: the network lives on its own while the player plays
     if (document.visibilityState === 'visible' && t - (g.lastSeenAt || 0) > 60000) g.lastSeenAt = t;
     if (S.tab === 'notifs' && !layerCovers()) g.notifReadAt = t;
@@ -4066,6 +4071,9 @@ if (window.__HYPE_TEST__) {
     AFTER_TURNS, GESTES_AFTER, afterOf, fledTogether, afterTalkLines, afterFlight, stayAfter, openAfter, // 0.33.2: the evening after a flight
     MEM_MAX, MEM_KEEP, trimMem, memsFor, sawIt, sawLines, migrateSaw, bondPace, withThem, fixCoolTogether, // 0.33.3: what they lived through
     huntOn, HOME_SEEN_RE, ADDR_RE, chezPlayer, learnHome, homeHow, homeOfHow, homeSaid, startHunt, huntNow, hunted, attacksOf, lastAttack, medias, huntCircle, huntCore, huntPublicLines, rodeLine, normRode, applyRodeLine, rodeDo, huntKnock, huntDoorLines, openDoor, doorPolice, huntShut, huntVisitEnd, huntNote, noteFound, huntWatch, huntClose, huntSearch, huntMessage, promptTell, tellReport, tickHunt, nightKey, nightAtHour, promptNight, huntNight, nightAfter, CARE_DAYS, careNext, tickCare, promptCare, careDM, huntEndsCouple, migrateHunt, // 0.33.4: elle rôde
+    stayGone, stayWith, stayTime, stayLeave, tickStay, togetherLines, TOGETHER_LINES, // 0.33.5: together, in sync
+    PRESSURE_GAP, FIGHT_DAYS, KILL_DAYS, filedCase, huntLevel, inKnow, toldAbout, huntFury, killLines, huntAttack, huntKill, tellLost, promptPressure, huntPressure, // 0.33.5: furious, too late
+    psyShown, relShown, psyKnownFix, datePlayerHome, talkLive, dateLive, playerOut, LOOT_GEAR, lootOf, lootLine, normTake, huntBreak, stealGear, breakFound, breakPolice, promptAway, awayAfter, huntAway, // 0.33.5: découverte, cambriolée
     policeOf, caseOf, caseOpen, copOf, copName, copWho, policeTarget, policeCall, startDepo, policeTruth, promptDepo, depoTurn, fileComplaint, evidenceOf, addEvidence, caseNew, relaunch, caseStrength, tickPolice, witnessHeard, policeDecide, psyArrest, policeForPsy, policeSaw, POLICE_TURNS, // 0.33.4: la police
     MISSION_RE, missionOK, missionOn, missionTarget, askMission, missionWho, missionDMCtx, missionLine, applyMissionLine, missionDue, missionDanger, missionPeek, goMission, vanish, tellGone, promptMission, missionReport, tickMissions, // 0.33.1: someone sent
     askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,

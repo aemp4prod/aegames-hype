@@ -490,6 +490,7 @@ function psyUnmask(g, c) {
   P.outAt = Date.now();
   c.jailed = Date.now();
   c.cut = true;
+  if (!c.psyKnown) c.psyKnown = Date.now(); // 0.33.5
   const K = caseOf(g, c);
   if (caseOpen(K)) { K.state = 'clos'; K.out = 'unmask'; K.log.push({ at: Date.now(), text: `${c.name} a été ${gx(c.g, 'arrêté', 'arrêtée', 'arrêté·e')} après ce que tu as révélé` }); } // 0.33.4
   const fol = grow(s.followers, Math.round(Math.max(3000, s.followers * 0.3) * rand(0.85, 1.2)));

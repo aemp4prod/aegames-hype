@@ -151,9 +151,9 @@ const clockOf = (page) => G(page, () => { const H = window.__hype, d = H.gameDat
   const ctx = await G(page, (id) => {
     const H = window.__hype, g = H.S.game, t = g.chars[id], o = H.mains(g).find((x) => x.id !== id);
     const dm = H.promptDM(g, t, [], 'bien dormi ?'), pub = H.ctxText(g), other = H.ctxText(g, { kind: 'private', about: o, focus: new Set() });
-    return { dm: /Vous avez passé la nuit ensemble chez Théo : ce matin, vous êtes encore ensemble chez Théo/.test(dm) && /de vive voix/.test(dm),
-      pub: /Ce matin, le joueur est encore chez @theo\.marlin, où il a passé la nuit \(c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion\)/.test(pub),
-      other: /Ce matin, le joueur est encore chez @theo\.marlin/.test(other) };
+    return { dm: /Vous avez passé la nuit ensemble chez Théo : en ce moment \([^)]*\), vous êtes encore ensemble chez Théo/.test(dm) && /de vive voix/.test(dm),
+      pub: /En ce moment, le joueur est chez @theo\.marlin, où il a passé la nuit : ils sont ensemble, et si @theo\.marlin poste, c’est sur ce moment, jamais ailleurs \(c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion/.test(pub),
+      other: /En ce moment, le joueur est chez @theo\.marlin/.test(other) };
   }, tid);
   await G(page, () => { const H = window.__hype; H.S.stack = []; H.goTab('feed'); H.update(); });
   await page.waitForSelector('.stay-line', { timeout: 5000 });
@@ -182,7 +182,7 @@ const clockOf = (page) => G(page, () => { const H = window.__hype, d = H.gameDat
     const pub = H.ctxText(g), dm = H.promptDM(g, g.chars[id], [], 'tu veux un café ?');
     const before = H.stayOn(g);
     H.jumpClock(g, H.STAY_MS + 60000); // (late in the morning)
-    return { line, pub: /Ce matin, le joueur a encore chez lui @theo\.marlin, qui y a passé la nuit\./.test(pub), dm: /Vous avez passé la nuit ensemble chez le joueur/.test(dm), before, after: H.stayOn(g) };
+    return { line, pub: /En ce moment, le joueur a chez lui @theo\.marlin, qui y a passé la nuit : ils sont ensemble/.test(pub), dm: /Vous avez passé la nuit ensemble chez le joueur/.test(dm), before, after: H.stayOn(g) };
   }, tid);
   await G(page, () => { window.__mockWhere = null; });
   check('a night at the player’s: « Théo a dormi chez toi · Lui dire au revoir »; a public couple: no secret to keep; late in the morning it ends on its own',
