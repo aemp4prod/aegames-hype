@@ -9,7 +9,7 @@ et l’usage compte sur l’abonnement du joueur.
 
 ChatGPT gratuit ne peut pas encore servir à une appli extérieure : c’est une règle d’OpenAI, pas du jeu.
 
-**Version 0.33.5 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
+**Version 0.33.6 · alpha.** Réservé aux 18 ans et plus (chaque nouvelle partie le demande). Le jeu évolue vite et des sauvegardes de cette version pourraient ne pas suivre à 100 %.
 
 Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le jeu en une minute, en images (depuis la
 0.32) : comment se passe une partie, quand les persos arrivent, et ce que tu peux y faire.
@@ -130,7 +130,9 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   Depuis la 0.33.5, tout reste synchro : le temps qui passe dans ce que vous vous dites passe aussi dans le jeu (« on
   passe la journée ensemble » : l’horloge avance d’autant), et si la personne part (le travail, une course), tu peux
   rester chez elle, seul, jusqu’à son retour. La personne avec toi a en tête la soirée d’hier, la nuit, l’heure qu’il est
-  et plus de vos messages ; tant que vous êtes ensemble, elle ne poste pas qu’elle est ailleurs.
+  et plus de vos messages ; tant que vous êtes ensemble, elle ne poste pas qu’elle est ailleurs. Depuis la 0.33.6, tu
+  peux y rester plusieurs nuits : si vous décidez de quelques jours de plus, son IA le dit au jeu ; dormir là-bas te garde
+  là-bas, au réveil elle sait que c’est votre deuxième nuit, et quand tu rentres, le jeu le dit.
 - **Le bouche-à-oreille** : les persos vivent aussi entre eux. Chacun a ses proches et ceux qu’il ne supporte pas, et ça
   bouge avec l’histoire ; rien ne l’affiche, à toi de deviner qui est proche de qui. Ce qu’ils apprennent sur toi passe
   de l’un à l’autre, selon leurs amitiés et leur caractère : les bavards répètent, les fidèles gardent ça pour eux… et
@@ -403,7 +405,9 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   reste de l’équipe.
 - **Un contenu sponsorisé à plusieurs** (0.33) : sur un partenariat signé, « Inviter quelqu’un » : la marque décide si
   elle veut de cette personne, tu fixes sa part, l’invité décide (et peut négocier). Vous tournez ensemble, vos deux
-  publics voient la vidéo, et tu lui verses sa part à la sortie. Dans l’autre sens, un créateur plus gros que toi peut
+  publics voient la vidéo, et tu lui verses sa part à la sortie. Depuis la 0.33.6, ça se décide aussi en parlant : en
+  message ou dans un groupe, la marque peut te proposer le partenariat avec l’autre créateur dedans et sa part, même si un
+  autre contrat avec elle est en cours ; tu signes, et l’autre dit oui, en privé ou dans le groupe. Dans l’autre sens, un créateur plus gros que toi peut
   t’inviter dans sa vidéo sponsorisée et te payer : l’invitation dit la marque et la somme.
 - **Les têtes d’affiche** (0.33) : des créateurs déjà installés (un demi-million, un million, deux… jusqu’à 10 millions
   d’abonnés pour le plus gros) arrivent à mesure que tu grandis : il y en a toujours quelques-uns au-dessus de toi, et
@@ -416,7 +420,9 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   quelques secondes et, entre eux, des réflexes surprises (esquiver, se dégager en tapant vite, pousser « à trois » avec
   la personne venue avec toi, ne plus bouger dans le noir). Elle t’aide selon votre relation, et peut te rattraper ;
   seul, c’est beaucoup plus dur. Un réflexe raté, tu reviens juste avant (un peu plus facile à chaque essai ; après
-  trois ratés, tu peux passer le moment, blessé). Depuis la 0.33.2, si vous vous en sortez à deux, la soirée continue
+  trois ratés, tu peux passer le moment, blessé). Depuis la 0.33.6, chaque choix se lit d’abord (Espace pour aller plus
+  vite), puis les choix arrivent avec plus de temps ; les réflexes, eux, vont vite, et la roue s’y ajoute (une flèche
+  tourne : appuie quand elle passe dans la zone). Depuis la 0.33.2, si vous vous en sortez à deux, la soirée continue
   avec elle : dehors, sous le choc, vous parlez, et ton dernier mot décide de la suite (ne pas rester seul cette nuit).
   Ça compte comme une soirée passée ensemble, jamais comme un rendez-vous qui rend jaloux. Depuis la 0.33.4, elle ne
   l’oublie plus (un souvenir qui la marque pour de bon), sa confiance monte d’un coup, et pendant deux semaines vos
@@ -439,7 +445,10 @@ Nouveau sur Hype ? Sur l’accueil, **« Comment ça marche ? »** explique le j
   en ton absence, tout retourner et prendre de tes affaires (ou chez tes proches, s’il sait où ils habitent) ; la
   deuxième semaine sans plainte, il peut entrer là où tu es et t’attaquer ; au bout de deux semaines, il peut faire
   taire quelqu’un qui sait, ou venir te chercher. La plainte déposée, la police le surveille. Survivre ensemble donne
-  +20 de confiance, quel que soit le caractère (+10 les fois d’après).
+  +20 de confiance, quel que soit le caractère (+10 les fois d’après). Depuis la 0.33.6, il peut aussi te retrouver
+  quand tu sors avec quelqu’un, s’il a de quoi savoir où tu es : vous observer, venir vous dire deux mots, ou, la deuxième
+  semaine sans plainte, vous attendre à la sortie (le combat se joue dans la rue, à deux) ; et quand tu dors ailleurs,
+  son IA décide de ce qu’il fait de ta nuit.
 - **L’argent** (0.20, revu en 0.21 et 0.22) : un agent trouve un peu plus d’offres et négocie un peu mieux (+5 % par
   niveau), contre sa commission : il vaut surtout pour les arnaques et les gros contrats. L’assurance coûte selon la
   valeur de ton matos (franchise : 5 % du prix de ce qui casse). Le haut de gamme coûte le prix du vrai matos pro

@@ -250,7 +250,7 @@ async function groupAnswer(g, gr, text, mine, o = {}) {
   let at = late ? late.at0 : t + rand(1800, 3500), n = 0, rel = 0, mem = 0, name = null, sign = null, ok = true;
   const quits = [], fresh = !!o.fresh;
   const careerFx = []; // (0.31.2: a brand's new figure, a candidate's price, for a contact of the group; a talent's yes)
-  let tdx = null;
+  let tdx = null, gfx = null;
   const fx = [];
   try {
     await aiStream(promptGroup(g, gr, text, o.off || [], late), (o) => {
@@ -262,6 +262,7 @@ async function groupAnswer(g, gr, text, mine, o = {}) {
       else if ((o.t === 'psy' || o.t === 'suivi') && !sign) sign = o;
       else if (o.t === 'partenariat' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => applyTdealAnswer(g, c, o); }
       else if (o.t === 'plus_tard' && !tdx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) tdx = () => tdealLater(g, c, o); } // 0.33
+      else if (o.t === 'feat_pub' && !gfx) { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && isMain(c)) gfx = () => applyGuestAnswer(g, c, o); } // 0.33.6: in the sponsored content, said in the group
       else if (o.by && careerFx.length < 3 && o.t !== 'quit') { const c = charByHandle(g, normHandle(o.by)); if (c && gr.members.includes(c.id) && !isMain(c)) applyDMCareerLine(g, c, o, text, careerFx); }
       update(false);
     }, { signal: f.ctl.signal, src: f.id, kind: 'dm', use: 'group' });
@@ -270,7 +271,7 @@ async function groupAnswer(g, gr, text, mine, o = {}) {
     else if (late && !n && (!e || e.code !== 'cancelled')) gr.due = Object.assign({}, late.D, { at: Date.now() + 15 * 60000 }); // (they will answer a little later)
     if (!e || e.code !== 'cancelled') reportAiError(e, null, 'dm');
   }
-  for (const x of fx.concat(careerFx, tdx ? [tdx] : [])) { try { x(); } catch (err) { console.error(err); } }
+  for (const x of fx.concat(careerFx, tdx ? [tdx] : [], gfx ? [gfx] : [])) { try { x(); } catch (err) { console.error(err); } }
   if (sign) psySign(g, charByHandle(g, normHandle(sign.by)), sign.text, at + 600);
   if (name && name !== gr.name) { gr.name = name; gr.msgs.push({ id: uid('m'), sys: 'name', text: name, ts: at, at }); }
   for (const q of quits) { quitGroup(g, gr, charByHandle(g, normHandle(q.by)), q.why, at + 800); at += 600; }
@@ -326,7 +327,8 @@ function promptGroup(g, gr, text, off = [], late = null) {
     L.push('', '## LES CONTACTS DU GROUPE (pas des persos principaux)');
     for (const c of pros) L.push(`@${c.handle} (${c.name}) : ${c.role || 'un contact du joueur'}${c.personality ? ` ; ${str(c.personality, 120)}` : ''}${c.voice ? ` ; sa façon d’écrire : ${str(c.voice, 80)}` : ''}.`, ...dmCareerCtx(g, c));
   }
-  for (const c of ms.filter((x) => isMain(x))) L.push(...agentDMCtx(g, c)); // (a talent of the player's: their contract, the offer passed on)
+  for (const c of ms.filter((x) => isMain(x))) L.push(...agentDMCtx(g, c), ...guestDMCtx(g, c)); // (a talent of the player's: their contract, the offer passed on; 0.33.6: in the player's sponsored content)
+  if (pros.some((c) => c.kind === 'brand') && ms.some((x) => isMain(x))) L.push(`(Si un partenariat de la marque se fait avec un créateur du groupe dedans (${ms.filter((x) => isMain(x)).map((x) => '@' + x.handle).join(', ')}), c’est "avec" dans la ligne offre ou deal de la marque.)`); // 0.33.6
   L.push('', '## TA MISSION', 'Les membres réagissent comme dans un vrai groupe : pas tous, pas toujours d’accord, ils se répondent entre eux, des blagues internes, des messages courts. Chacun garde sa voix.',
     '', FORMAT, 'Lignes à produire :',
     '- 1 à 4 lignes : {"t":"msg","by":"handle d’un membre","text":"≤ 160 caractères"}',
@@ -336,6 +338,7 @@ function promptGroup(g, gr, text, off = [], late = null) {
     psyNow(g) && ms.includes(psyNow(g)) ? '- Facultatif (au plus 1) : {"t":"psy","by":"handle","text":"≤ 90 caractères : ce que le joueur a pu remarquer"} si le psychopathe laisse un détail inquiétant.' : null,
     ...pros.flatMap((c) => dmCareerLines(g, c).filter((x) => !x.includes('"t":"quit"')).map((x) => `${x} (Dans le groupe, ajoute "by":"${c.handle}" à cette ligne.)`)), // 0.31.2
     t32On() && pros.some((c) => c.kind === 'brand') ? BRAND_NOW_GROUP(pros.filter((c) => c.kind === 'brand')) : null, // 0.33: the brands decide now
+    ...ms.filter((c) => isMain(c) && guestAsking(g, c)).map((c) => `${GUEST_LINE(g, c)} (Dans le groupe, ajoute "by":"${c.handle}" à cette ligne.)`), // 0.33.6
     ...ms.filter((c) => isMain(c) && tdealAsking(g, c)).map((c) => { const d = tdealAsking(g, c); return `- Quand @${c.handle} a décidé pour le partenariat ${d.brand} que le joueur, son agent, lui a transmis : {"t":"partenariat","by":"${c.handle}","ok":true,"why":"≤ 60 caractères"} (ok:false s’${gx(c.g, 'il', 'elle', 'iel')} refuse). ${TDEAL_LATER(gx(c.g, 'il', 'elle', 'iel'), c.handle)}`; }));
   return L.filter((x) => x !== null).join('\n');
 }

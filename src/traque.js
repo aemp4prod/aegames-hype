@@ -97,7 +97,7 @@ function huntKnowsLine(g, c) {
   const known = huntCircle(g, c).filter((x) => homeOfHow(g, c, x));
   return `Où ${first} sait aller (et nulle part ailleurs : ${il} ne connaît que les adresses qu’${il} a vues ou qu’on lui a données) : ${hp ? `chez le joueur (${hp})` : `pas chez le joueur, ${il} ne sait pas où il habite`}${known.length ? ` ; chez ${known.map((x) => '@' + x.handle).join(', ')}` : ''}. ${cap1(il)} peut chercher ce qui lui manque (le suivre, demander autour de lui, éplucher ses photos) : ça prend du temps.`;
 }
-const RODE_WORDS = { attaquer: 'est entré·e et a attaqué', tuer: 'a fait taire quelqu’un qui savait', cambrioler: 'est entré·e chez quelqu’un en son absence', toquer: 'a frappé chez le joueur en pleine nuit', mot: 'a glissé un mot sous sa porte', guetter: 'est resté·e en bas de chez lui', proche: 's’en est pris·e à un proche', chercher: 'a cherché une adresse', message: 'lui a écrit' };
+const RODE_WORDS = { attendre: 'les a attendus à la sortie d’une soirée, et a attaqué', aborder: 'est venu·e lui parler pendant une soirée dehors', observer: 'l’a observé pendant une soirée dehors', attaquer: 'est entré·e et a attaqué', tuer: 'a fait taire quelqu’un qui savait', cambrioler: 'est entré·e chez quelqu’un en son absence', toquer: 'a frappé chez le joueur en pleine nuit', mot: 'a glissé un mot sous sa porte', guetter: 'est resté·e en bas de chez lui', proche: 's’en est pris·e à un proche', chercher: 'a cherché une adresse', message: 'lui a écrit' };
 function huntLogLines(g, t = Date.now()) {
   const H = g.psy && g.psy.hunt;
   const log = (H && H.log) || [];
@@ -394,7 +394,7 @@ function promptAway(g, c, A) {
 // After an evening out (or the night at someone's): the absence, asked about (never with them: they were there).
 function awayAfter(g, ev, where) {
   const c = huntNow(g);
-  if (!c || !ev || ev.c === c.id) return null;
+  if (!c || !ev || ev.c === c.id || (ev.amb && ev.amb.shown > 0) || ev.after) return null; // (0.33.6: they spent that evening on them)
   const from = ev.startAt || ev.due || Date.now();
   return huntAway(g, { from, ms: Date.now() - from, where, key: 'ev:' + ev.id }).catch(() => null);
 }
@@ -594,6 +594,128 @@ async function huntPressure(g, c) {
   return r;
 }
 
+/* ---------- 0.33.6: out with someone, they find them (« s'il nous retrouve dehors ») ---------- */
+// An evening out (not at the player's, not apart) with someone else: the one who hunts the player finds them only if
+// they can (they followed the player from home, or the other one from theirs). Their AI decides, once, as the evening
+// starts: nothing (most of the time), watch them from outside, come up to them and say their piece, or (the second week
+// without a complaint) wait for them outside and strike as they leave: a fight in the street, two of them.
+const outingWho = (g, ev) => { const c = huntNow(g); return c && ev && ev.player && ev.c !== c.id && ev.talk && !ev.after && !ev.played && g.chars[ev.c] && !datePlayerHome(g, ev) && meetPlace(g, ev) !== 'apart' ? c : null; };
+function outingHow(g, c, ev) {
+  const x = g.chars[ev.c], il = gx(c.g, 'il', 'elle', 'iel');
+  if (homeHow(g, c)) return `${il} a suivi le joueur depuis chez lui`;
+  if (x && homeOfHow(g, c, x)) return `${il} a suivi @${x.handle} depuis chez ${gx(x.g, 'lui', 'elle', 'iel')}`;
+  return null;
+}
+const normOuting = (q) => { q = plainOf(q); return /^rien|^non|aucun/.test(q) ? 'rien' : /attend|sortie|guet-?apens|surgi|tomb|attaqu|agress/.test(q) ? 'attendre' : /abord|approch|vien|parl|table|rejoin/.test(q) ? 'aborder' : /guet|observ|regard|surveil|suiv/.test(q) ? 'guetter' : 'rien'; };
+function promptOuting(g, c, ev, how) {
+  const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), x = g.chars[ev.c], X = firstName(x), lv = huntLevel(g, c), T = ev.talk;
+  const know = inKnow(g, c).includes(x);
+  return [RULES_PRIVATE, '', ctxText(g, { kind: 'scene', about: c }), '',
+    '## TÂCHE : CE SOIR, LE JOUEUR SORT',
+    `Il est ${hourOf(Date.now())}. Le joueur passe la soirée dehors avec @${x.handle} (${x.name}) : « ${str(ev.what, 90)} »${T && T.scene ? ` (${str(T.scene, 160)})` : ''}. ${first} sait où ils sont : ${how}.`,
+    `${X} ${know ? `sait ce que ${first} a fait` : `ne sait pas ce que ${first} a fait (sauf si le joueur le lui dit)`}.`,
+    `Fiche de ${first} : ${ficheText(g, c)}.`,
+    c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${memsFor(c, 6).map((m) => m.t).join(' ; ')}` : null,
+    ...psyCore(g, c),
+    '', `## CE QUE ${first.toUpperCase()} A DÉJÀ FAIT DEPUIS`, ...huntLogLines(g),
+    '', '## À DÉCIDER',
+    `C’est toi qui décides, comme ${first} est et d’après ce qui se passe entre eux : souvent rien (${il} rentre, ${il} attend son heure) ; parfois, ${il} se montre${lv >= 2 ? ', ou pire' : ''}.`,
+    '', FORMAT, 'Une seule ligne :',
+    '- {"t":"rode","quoi":"rien"}',
+    `- ou {"t":"rode","quoi":"guetter","quand":"debut|milieu|fin","text":"≤ 160 caractères : ce que le joueur remarque, à la deuxième personne (sa silhouette derrière la vitre, de l’autre côté de la rue…)"} : ${il} les observe de loin ; le joueur ${gx(c.g, 'le', 'la', 'le ou la')} voit à un moment de la soirée.`,
+    `- ou {"t":"rode","quoi":"aborder","quand":"debut|milieu|fin","text":"≤ 140 caractères : comment ${il} arrive jusqu’à eux","dit":"≤ 200 caractères : ce qu’${il} leur dit (doux, glaçant, sans menace en toutes lettres)"} : ${il} vient jusqu’à eux, dit ce qu’${il} a à dire, et repart.`,
+    lv >= 2 ? `- ou {"t":"rode","quoi":"attendre","text":"≤ 160 caractères : ce que le joueur voit en sortant, au présent, sans rien de gore"} : ${il} les attend dehors, et passe à l’acte quand ils sortent (ils peuvent se défendre, à deux).` : null,
+  ].filter((y) => y !== null).join('\n');
+}
+async function huntOuting(g, ev) {
+  const c = outingWho(g, ev);
+  if (!c || ev.amb !== undefined || S.busy.outing || !canAfford(g, 'dm')) return null;
+  const how = outingHow(g, c, ev);
+  ev.amb = null; // (asked once an evening)
+  if (!how) return null;
+  S.busy.outing = true;
+  const fl = startFlow(g);
+  let line = null;
+  try {
+    await aiStream(promptOuting(g, c, ev, how), (o) => { if (o.t === 'rode' && !line) line = o; }, { signal: fl.ctl.signal, src: fl.id, kind: 'dm', tier: lightTier() });
+  } catch (e) { if (!e || e.code !== 'cancelled') console.warn('outing', e && e.message); }
+  S.busy.outing = false;
+  endFlow(fl);
+  const T = ev.talk;
+  if (!line || S.game !== g || huntNow(g) !== c || ev.state !== 'scheduled' || ev.played || !T || T.attack) return null;
+  const q = normOuting(line.quoi);
+  if (q === 'rien' || (q === 'attendre' && huntLevel(g, c) < 2)) return null;
+  const w = plainOf(line.quand), turn = /debut|tot/.test(w) ? 1 : /fin|tard/.test(w) ? Math.max(1, T.max - 1) : Math.max(1, Math.floor(T.max / 2));
+  ev.amb = { q, c: c.id, turn: Math.max(turn, T.turn), text: str(line.text, 220), dit: str(line.dit, 220), at: Date.now(), how };
+  update(false);
+  return ev.amb;
+}
+const ambSeen = (ev) => !!(ev && ev.amb && ev.amb.shown > 0 && ev.amb.q !== 'attendre' && !(ev.talk && ev.talk.attack));
+const ambStruck = (ev) => !!(ev && ev.talk && ev.talk.attack && ev.talk.attack.where === 'dehors');
+// The moment they chose: a silhouette outside, or at their table for a few words; the one with the player sees it.
+function ambStep(g, ev, t = Date.now()) {
+  const A = ev && ev.amb, T = ev && ev.talk;
+  if (!A || A.shown || A.q === 'attendre' || !T || T.attack || ev.played || T.turn < A.turn) return false;
+  const c = g.chars[A.c], x = g.chars[ev.c];
+  if (!c || !x || huntNow(g) !== c) { A.shown = -1; return false; }
+  A.shown = t;
+  const C = firstName(c), X = firstName(x), il = gx(c.g, 'il', 'elle', 'iel'), venu = gx(c.g, 'venu', 'venue', 'venu·e');
+  if (A.q === 'guetter') T.lines.push({ who: 'n', amb: 1, text: A.text || `De l’autre côté de la vitre, une silhouette immobile : ${C}. ${cap1(il)} te regarde.` });
+  else T.lines.push({ who: 'n', amb: 1, text: A.text || `${C} s’approche de votre table, tout sourire.` }, { who: 'x', c: c.id, psy: 1, text: A.dit || 'Bonne soirée, vous deux.' }, { who: 'n', amb: 1, text: `${C} repart sans se retourner.` });
+  psySign(g, c, A.q === 'guetter' ? `pendant ta soirée avec ${X}, ${C} t’observait de dehors` : `pendant ta soirée avec ${X}, ${C} est ${venu} vous parler`, later() + 900, true);
+  const H = g.psy.hunt;
+  H.act = t;
+  H.n = (H.n || 0) + 1;
+  H.log = (H.log || []).concat({ at: t, q: A.q === 'guetter' ? 'observer' : 'aborder', who: x.id, text: str(A.dit || A.text, 120) }).slice(-12);
+  addMem(g, c, A.q === 'guetter' ? `j’ai regardé le joueur passer sa soirée avec @${x.handle}` : `je suis ${venu} voir le joueur et @${x.handle} pendant leur soirée`);
+  if (A.q === 'aborder' && inKnow(g, c).includes(x)) { // (« que ça augmente la relation et la confiance »)
+    applyRel(g, x, 3, 'vous lui avez fait face ensemble', later() + 2200, 6);
+    applyTrust(g, x, 6, 'vous lui avez fait face ensemble', later() + 2400, { free: true, raw: true });
+  }
+  return true;
+}
+// For the one with the player: what they saw (and know).
+function ambTalkLines(g, ev) {
+  const A = ev && ev.amb, c = A && g.chars[A.c], x = ev && g.chars[ev.c];
+  if (!ambSeen(ev) || !c || !x) return [];
+  const C = firstName(c), X = firstName(x), il = gx(x.g, 'il', 'elle', 'iel'), venu = gx(c.g, 'venu', 'venue', 'venu·e'), vu = gx(c.g, 'vu', 'vue', 'vu·e');
+  return ['', `## CE SOIR, @${c.handle} EST LÀ`,
+    A.q === 'guetter' ? `Le joueur a vu @${c.handle} (${c.name}) les observer de dehors : ${X} ne l’a ${gx(c.g, 'remarqué', 'remarquée', 'remarqué·e')} que si le joueur le lui dit.`
+      : `@${c.handle} (${c.name}) est ${venu} jusqu’à eux et leur a dit : « ${A.dit || '…'} », puis est ${gx(c.g, 'reparti', 'repartie', 'reparti·e')} : ${X} l’a ${vu}.`,
+    inKnow(g, c).includes(x) ? `${X} sait ce que ${C} a fait : la peur, la colère, l’envie de partir ou d’appeler la police ; ${il} réagit comme ${il} est.`
+      : `${X} ne sait pas ce que ${C} a fait (sauf si le joueur le lui dit) : ${il} trouve ça bizarre, gênant ou inquiétant, comme ${il} est.`];
+}
+// The end of the evening, written: what happened in it.
+function ambEndLines(g, ev) {
+  const A = ev && ev.amb, c = A && g.chars[A.c], x = ev && g.chars[ev.c];
+  if (!A || !c || !x || ev.after) return [];
+  const K = ev.talk && ev.talk.attack, venu = gx(c.g, 'venu', 'venue', 'venu·e');
+  if (K && K.where === 'dehors' && K.ok) return [`En sortant, @${c.handle} (${c.name}) les attendait dehors et les a attaqués avec un couteau : ils s’en sont sortis ensemble, ${firstName(x)} a appelé la police. Le récit s’arrête là-dessus, sobrement, sans rien de gore ; le message de ${firstName(x)}, s’il y en a un, vient de quelqu’un encore sous le choc.`];
+  if (A.shown > 0 && A.q === 'aborder') return [`Pendant la soirée, @${c.handle} (${c.name}) est ${venu} jusqu’à eux (« ${str(A.dit, 120)} ») : le récit peut le dire.`];
+  if (A.shown > 0 && A.q === 'guetter') return [`Pendant la soirée, le joueur a vu @${c.handle} les observer de dehors (${firstName(x)} ne le sait que s’il le lui a dit).`];
+  return [];
+}
+// « Appeler la police », tonight: they are gone when the police come, who note it.
+function ambPolice(g, ev) {
+  const A = ev.amb, c = g.chars[A.c], x = g.chars[ev.c];
+  if (!c || !x || A.police) return false;
+  A.police = Date.now();
+  return policeCall(g, c, `Pendant ta soirée avec ${firstName(x)}, ${firstName(c)} ${A.q === 'guetter' ? 't’observait de dehors' : `est ${gx(c.g, 'venu', 'venue', 'venu·e')} vous parler`} : tu as appelé la police, ${gx(c.g, 'il', 'elle', 'iel')} était déjà ${gx(c.g, 'parti', 'partie', 'parti·e')}`, { f: A.q === 'aborder' ? x.id : null, why: lastAttack(g, c) ? 'attack' : 'fled' });
+}
+// They were waiting outside: as the player leaves (the last word, a goodbye, cut short), the fight, two of them.
+const ambExit = (g, ev) => { const A = ev && ev.amb, c = A && g.chars[A.c], T = ev && ev.talk; return !!(A && A.q === 'attendre' && !A.shown && c && huntNow(g) === c && huntLevel(g, c) >= 2 && T && !T.attack && duelOn() && g.chars[ev.c]); };
+function ambStrike(g, ev, plan, t = Date.now()) {
+  const A = ev.amb, c = g.chars[A.c], x = g.chars[ev.c], T = ev.talk;
+  A.shown = t;
+  A.plan = plan;
+  const H = g.psy.hunt;
+  H.act = t;
+  H.n = (H.n || 0) + 1;
+  H.log = (H.log || []).concat({ at: t, q: 'attendre', who: x.id, text: str(A.text, 120) }).slice(-12);
+  T.lines.push({ who: 'n', text: meetPlace(g, ev) === 'home' ? `${firstName(x)} te raccompagne en bas. Dans la rue, personne.` : 'Vous sortez. Dehors, la rue est déserte.' });
+  return startAttack(g, T, c, A.text || `${firstName(c)} surgit de l’ombre, juste devant vous.`, { ev, f: x, where: 'dehors' }, t);
+}
+
 /* ---------- the night ---------- */
 // « Dormir », or the time skipped through a night: their AI decides what they do with it, before it passes; a knock
 // wakes the player up (the night stops there). One question a night.
@@ -610,10 +732,13 @@ function nightAtHour(t, ms, h) {
 function promptNight(g, c, t, ms) {
   const first = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), H = g.psy.hunt;
   const home = homeHow(g, c), circle = huntCircle(g, c), end = t + ms;
+  const host = awayHome(g, t) ? g.chars[g.stay.c] : null, hostHome = !!(host && homeOfHow(g, c, host)), withHost = !!(host && stayWith(g, host, t)); // 0.33.6: a night at someone's
+  const inAt = host ? hostHome : !!home, lv = huntLevel(g, c, t);
   const lately = H.act && t - H.act < 20 * HR;
   return [RULES_PRIVATE, '', ctxText(g, { kind: 'scene', about: c }), '',
     `## TÂCHE : LA NUIT DE @${c.handle}`,
-    `Il est ${hourOf(t)}. Le joueur va dormir chez lui, jusqu’à ${hourOf(end)} environ. Cette nuit, que fait ${first} ?`,
+    host ? `Il est ${hourOf(t)}. Cette nuit, le joueur dort chez @${host.handle}${withHost ? `, avec ${gx(host.g, 'lui', 'elle', 'iel')}` : ''}, jusqu’à ${hourOf(end)} environ : son appartement à lui est vide. ${first} ${hostHome ? `sait où habite @${host.handle}` : `ne sait pas où habite @${host.handle}`}. Cette nuit, que fait ${first} ?`
+      : `Il est ${hourOf(t)}. Le joueur va dormir chez lui, jusqu’à ${hourOf(end)} environ. Cette nuit, que fait ${first} ?`,
     `Fiche de ${first} : ${ficheText(g, c)}.`,
     c.mem && c.mem.length ? `Ce que ${first} retient du joueur : ${memsFor(c, 6).map((m) => m.t).join(' ; ')}` : null,
     ...psyCore(g, c),
@@ -622,13 +747,15 @@ function promptNight(g, c, t, ms) {
     `C’est toi qui décides, comme ${first} est et d’après ce qui se passe entre eux : la plupart des nuits, rien (${il} attend, ${il} fait le mort, ${il} choisit son moment) ; parfois, ${il} agit.${lately ? ` ${cap1(il)} a déjà agi il y a peu : cette nuit, plutôt rien, sauf si ça fait vraiment monter la peur.` : ''}`,
     '', FORMAT, 'Une seule ligne :',
     '- {"t":"rode","quoi":"rien"}',
-    home ? `- ou {"t":"rode","quoi":"toquer","h":"3:10","text":"≤ 160 caractères : ce qu’${il} dit à travers la porte"} : ${il} vient frapper chez le joueur à cette heure-là (entre ${hourOf(t + 30 * 60000)} et ${hourOf(end - 60 * 60000)}) ; il se réveille.` : null,
-    home ? `- ou {"t":"rode","quoi":"mot","text":"≤ 140 caractères : le mot"} : ${il} glisse un mot sous sa porte sans frapper ; il le trouve au réveil (glaçant, ou faussement tendre, sans menace en toutes lettres).` : null,
-    home ? `- ou {"t":"rode","quoi":"guetter","text":"≤ 120 caractères : ce que le joueur verra, ou ce qu’on lui racontera"} : ${il} reste en bas de chez lui une partie de la nuit.` : null,
+    home && !host ? `- ou {"t":"rode","quoi":"toquer","h":"3:10","text":"≤ 160 caractères : ce qu’${il} dit à travers la porte"} : ${il} vient frapper chez le joueur à cette heure-là (entre ${hourOf(t + 30 * 60000)} et ${hourOf(end - 60 * 60000)}) ; il se réveille.` : null,
+    home ? `- ou {"t":"rode","quoi":"mot","text":"≤ 140 caractères : le mot"} : ${il} glisse un mot sous sa porte sans frapper ; il le trouve ${host ? 'en rentrant chez lui' : 'au réveil'} (glaçant, ou faussement tendre, sans menace en toutes lettres).` : null,
+    home && !host ? `- ou {"t":"rode","quoi":"guetter","text":"≤ 120 caractères : ce que le joueur verra, ou ce qu’on lui racontera"} : ${il} reste en bas de chez lui une partie de la nuit.` : null,
+    hostHome ? `- ou {"t":"rode","quoi":"guetter","who":"${host.handle}","text":"≤ 120 caractères : ce qu’on remarquera au matin"} : ${il} reste en bas de chez @${host.handle}, à regarder ses fenêtres.` : null,
+    home && host ? `- ou {"t":"rode","quoi":"cambrioler","prend":["…"],"text":"≤ 220 caractères : ce que le joueur trouvera en rentrant, à la deuxième personne"} : ${il} entre chez le joueur, vide cette nuit ; "prend" = rien, ou jusqu’à 2 de ${lootLine(g)}.` : null,
     `- ou {"t":"rode","quoi":"message","h":"2:47","text":"≤ 200 caractères"} : ${il} lui écrit en pleine nuit.`,
-    home && huntLevel(g, c, t) >= 2 ? `- ou {"t":"rode","quoi":"attaquer","h":"3:40","text":"≤ 160 caractères : ce qu’il voit en se réveillant, au présent, sans rien de gore"} : ${il} entre chez lui pendant qu’il dort, et passe à l’acte (il se réveille ; il peut se défendre).` : null,
+    inAt && lv >= 2 ? `- ou {"t":"rode","quoi":"attaquer","h":"3:40","text":"≤ 160 caractères : ce qu’il voit en se réveillant, au présent, sans rien de gore"} : ${il} entre ${host ? `chez @${host.handle}` : 'chez lui'} pendant qu’il dort, et passe à l’acte (il se réveille ; il peut se défendre${withHost ? `, avec ${firstName(host)}` : ''}).` : null,
     ...killLines(g, c, t),
-    circle.some((x) => homeOfHow(g, c, x)) ? `- ou {"t":"rode","quoi":"cambrioler","who":"handle","text":"≤ 140 caractères : ce que cette personne trouvera en rentrant"} : ${il} entre chez un proche du joueur dont ${il} sait où il ou elle habite (${circle.filter((x) => homeOfHow(g, c, x)).map((x) => '@' + x.handle).join(', ')}), en son absence.` : null,
+    circle.some((x) => x !== host && homeOfHow(g, c, x)) ? `- ou {"t":"rode","quoi":"cambrioler","who":"handle","text":"≤ 140 caractères : ce que cette personne trouvera en rentrant"} : ${il} entre chez un proche du joueur dont ${il} sait où il ou elle habite (${circle.filter((x) => x !== host && homeOfHow(g, c, x)).map((x) => '@' + x.handle).join(', ')}), en son absence.` : null,
     circle.length ? `- ou {"t":"rode","quoi":"proche","who":"handle","text":"≤ 140 caractères : ce qu’${il} fait"} : ${il} s’en prend à quelqu’un de proche du joueur (${circle.map((x) => `@${x.handle} : ${homeOfHow(g, c, x) ? `${il} sait où ${gx(x.g, 'il', 'elle', 'iel')} habite` : `${il} ne sait pas où ${gx(x.g, 'il', 'elle', 'iel')} habite`}`).join(' ; ')}) : lui écrire, l’attendre, lui raconter sa version ; chez lui ou elle seulement là où ${il} sait aller.` : null,
     `- ou {"t":"rode","quoi":"chercher","who":"${home ? 'handle' : 'joueur'}","text":"≤ 120 caractères : comment, et ce qu’on pourrait en remarquer"} : ${il} cherche une adresse qui lui manque${home ? '' : ' (celle du joueur, par exemple)'}.`,
   ].filter((x) => x !== null).join('\n');
@@ -636,7 +763,7 @@ function promptNight(g, c, t, ms) {
 // Before the night passes: what they do with it ({ q, off: when in the night, o: the line }), or null.
 async function huntNight(g, ms, t = Date.now()) {
   const c = huntNow(g);
-  if (!c || !t32On() || awayHome(g, t) || ms < 3 * HR || !nightsIn(t, ms).length) return null;
+  if (!c || !t32On() || ms < 3 * HR || !nightsIn(t, ms).length) return null; // (0.33.6: a night at someone's too)
   const H = g.psy.hunt, key = nightKey(nightsIn(t, ms)[0][0]);
   if (H.night === key || !canAfford(g, 'dm')) return null;
   H.night = key;
@@ -656,7 +783,8 @@ async function huntNight(g, ms, t = Date.now()) {
   if (q === 'rien') return null;
   let off = nightAtHour(t, ms, line.h);
   if (q === 'toquer' || q === 'attaquer') {
-    if (!homeHow(g, c) || (q === 'attaquer' && huntLevel(g, c) < 2)) return null;
+    const host = awayHome(g, t) ? g.chars[g.stay.c] : null; // (0.33.6: asleep at someone's: never a knock at the player's; in there, if they know it)
+    if (q === 'toquer' ? host || !homeHow(g, c) : huntLevel(g, c) < 2 || !(host ? homeOfHow(g, c, host) : homeHow(g, c))) return null;
     off = clamp(off == null ? Math.round(ms * rand(0.35, 0.6)) : off, 30 * 60000, ms - 45 * 60000);
   } else off = off == null ? Math.round(ms * rand(0.2, 0.7)) : clamp(off, 10 * 60000, ms - 10 * 60000);
   return { q, off, o: line, c: c.id };

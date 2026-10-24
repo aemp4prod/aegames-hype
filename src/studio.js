@@ -469,6 +469,7 @@ function paletteLines(g, path, now) {
       { k: 'sub', id: 'jeux', emoji: '🎮', label: 'Mini-jeux', desc: 'T’entraîner à n’importe quel mini-jeu, ou imposer celui du prochain tournage.' },
       { k: 'sub', id: 'skills', emoji: '💪', label: 'Compétences', desc: `Tes quatre compétences, de 0 à ${SKILL_MAX}.` },
       { k: 'sub', id: 'liens', emoji: '💞', label: 'Relations', desc: 'Ta relation avec chaque personnage, de −100 à +100.' },
+      { k: 'sub', id: 'combat', emoji: '🔪', label: 'Combat', desc: 'T’entraîner à te défendre contre un psychopathe : rien ne compte dans ta partie.' }, // 0.33.6
       { k: 'act', emoji: '🙈', label: 'Masquer le nuancier', desc: 'Il disparaît des Réglages (il se rouvre comme la première fois).', run: () => { lsSet('hype:palette', '0'); closeLayer(); toast('Nuancier masqué.'); } },
     ];
   }
@@ -505,6 +506,16 @@ function paletteLines(g, path, now) {
         get: () => g.mgNext === kind, set: (on) => { if (on) { g.mgNext = kind; ensureAch(g).local = 1; } else delete g.mgNext; } }, // (0.28.1: the easiest game for a Mythic shoot: marked)
     ];
   }
+  if (top === 'combat') { // 0.33.6: a fight to practise
+    const where = S.duelWhere || 'date', who = S.duelWith || '', q = S.duelQ || 'auto';
+    const people = mains(g).filter((x) => x.unlocked && !x.jailed && !x.gone).sort((a, b) => b.rel - a.rel).slice(0, 12);
+    return [
+      { k: 'pick', label: 'Où', desc: 'Le décor change ce qui t’arrive.', opts: DUEL_WHERE, get: () => where, set: (v) => { S.duelWhere = v; } },
+      { k: 'pick', label: 'Avec', desc: 'Quelqu’un avec toi aide, d’autant plus que vous êtes proches.', opts: [['', 'Personne']].concat(people.map((x) => [x.id, x.name])), get: () => (people.some((x) => x.id === who) ? who : ''), set: (v) => { S.duelWith = v; } },
+      { k: 'pick', label: 'Réflexes', desc: 'Les moments où il faut réagir vite, entre les choix.', opts: DUEL_Q, get: () => q, set: (v) => { S.duelQ = v; } },
+      { k: 'act', label: 'Lancer le combat', desc: 'Un entraînement : ni mort, ni police, personne n’en saura rien.', run: () => startDuel(g, where, people.some((x) => x.id === who) ? who : '', q) },
+    ];
+  }
   if (top === 'skills') {
     return SKILL_IDS.map((id) => ({ k: 'num', label: `${SKILL_TREE[id].emoji} ${SKILL_TREE[id].label}`, desc: `De 0 à ${SKILL_MAX}.`, get: () => skillLevel(g, id), set: (x) => paletteApply(g, { skills: { [id]: x } }), step: () => 1, min: 0, max: SKILL_MAX }));
   }
@@ -536,7 +547,7 @@ function paletteNudge(L, dir) {
   if (L.k === 'tog') { L.set(!L.get()); return true; }
   return false;
 }
-const PALETTE_TITLES = { argent: 'Argent et abonnés', rep: 'Réputation', temps: 'Temps', jeux: 'Mini-jeux', skills: 'Compétences', liens: 'Relations' };
+const PALETTE_TITLES = { argent: 'Argent et abonnés', rep: 'Réputation', temps: 'Temps', jeux: 'Mini-jeux', combat: 'Combat', skills: 'Compétences', liens: 'Relations' };
 // Where the palette stands, read at the moment of a key or a tap (a key held down fires faster than the screen redraws).
 function paletteAt(g) {
   const path = Array.isArray(S.palPath) ? S.palPath : (S.palPath = []);

@@ -546,7 +546,7 @@ function fadeTalk(g, ev, floor = 0.5) {
   if (ev.played && ev.played.score < floor) { ev.played.score = floor; ev.played.tier = tierOf(floor); } // an evening that ends in each other's arms went well
   prepEnd(g, ev); // 0.28.1
 }
-function gestesFor(g, ev) { const c = g.chars[ev.c]; if (ev.after) return GESTES_AFTER; return (GESTES[meetKind(c, ev)] || GESTES.friends).filter((x) => !x.when || x.when(c)); } // (0.33.2: after the flight, their own)
+function gestesFor(g, ev) { const c = g.chars[ev.c]; if (ev.after) return GESTES_AFTER; const L = (GESTES[meetKind(c, ev)] || GESTES.friends).filter((x) => !x.when || x.when(c)); return ambSeen(ev) ? L.concat(GESTES_AFTER.filter((x) => x.id === 'police')) : L; } // (0.33.2: after the flight, their own; 0.33.6: they showed up tonight: the police)
 const gesteOf = (g, ev, id) => gestesFor(g, ev).find((x) => x.id === id) || Object.values(GESTES).flat().find((x) => x.id === id) || null;
 // What was said tonight, for the prompts.
 function talkTranscript(g, ev) {
@@ -640,7 +640,7 @@ function promptTalk(g, ev, said) {
     T && T.ex && T.ex.pub ? `Ils sont dans un lieu public et on les reconnaît : glisse de vrais imprévus de gens connus (des fans qui demandent une photo, quelqu’un qui filme en douce, une connaissance à la table d’à côté), sans tout gâcher. Comment le joueur gère ça compte.` : null,
     T && T.expect ? `Ce que ${first} attend de cette soirée, sans le dire franchement (le joueur ne le sait pas) : « ${T.expect} ».` : null,
     ev.late ? `Le joueur est arrivé avec ${ev.late} min de retard : ${first} le lui fait sentir.` : null,
-    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c), ...plusTalkLines(g, ev), ...afterTalkLines(g, ev)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part; 0.33.1: someone came along; 0.33.2: just after a flight)
+    '', '## LA SITUATION ENTRE EUX', ...dateSituation(g, c), ...psyTalkCtx(g, ev, c), ...traitCore(g, c), ...plusTalkLines(g, ev), ...afterTalkLines(g, ev), ...ambTalkLines(g, ev)]; // (0.29: the secret of the game, when it is theirs; 0.30: a traitor's part; 0.33.1: someone came along; 0.33.2: just after a flight; 0.33.6: the one who hunts the player, there tonight)
   if (T && (T.lines.length || T.scene)) L.push('', '## CE QUI S’EST DIT CE SOIR (du début à maintenant)', ...talkTranscript(g, ev));
   if (T && T.ell) L.push(`Plus haut, la scène a coupé sur un moment intime entre eux (« ${ELLIPSE_LINE} ») : rien ne s’en raconte ; la soirée a repris un peu plus tard, ils se reparlent${sensual(g) ? ', avec une complicité nouvelle (une allusion, un regard, jamais de détail)' : ''}.`); // 0.29
   L.push('');
@@ -735,6 +735,7 @@ async function openTalk(ev) {
   else if (!T.lines.length) T.lines.push({ who: 'c', text: 'Salut… bon, je suis là.', seen: '' });
   if (sign && ev.talk) psySign(g, c, sign);
   update();
+  if (ev.talk && huntOn()) huntOuting(g, ev); // 0.33.6: the one who hunts the player may know where they are tonight (their AI decides)
 }
 // One exchange: what the player says (or dares), and how it lands.
 async function talkTurn(ev, text, geste) {
@@ -793,6 +794,8 @@ async function talkTurn(ev, text, geste) {
   T.reacts.push({ r: react, w: G ? (G.id === 'demande' ? 2 : 1.5) : 1, g: G ? G.id : null });
   if (G) T.used.push(G.id);
   if (G && G.id === 'police' && ev.after && huntOn()) { const x = afterOf(g, ev); if (x) policeCall(g, x, `${firstName(c)} et toi avez rappelé la police, juste après`, { f: c.id, why: 'attack' }); } // 0.33.4: the case knows it
+  else if (G && G.id === 'police' && ambSeen(ev) && huntOn()) ambPolice(g, ev); // 0.33.6: they were there tonight
+  if (!G && huntOn()) toldAbout(g, c, text); // 0.33.6: told tonight, face to face
   if (G && INTIMATE.includes(G.id) && react === 'charme') c.dareWon = Date.now(); // the right moment: it may go faster now
   T.turn += 1;
   if (sign) psySign(g, c, sign);
@@ -804,6 +807,7 @@ async function talkTurn(ev, text, geste) {
   if (fade && !stayed && T.turn < T.max) { ellipseTalk(g, ev); if (after) T.lines.push(after); update(); return true; } // 0.29: the scene cuts, the evening goes on (0.31: and they pick it back up)
   if (fade || stayed) { fadeTalk(g, ev, 0.78); update(); return true; } // 0.14: they stay together
   if (T.turn >= T.max) T.lastAt = Date.now(); // 0.22.3: the evening draws to its end; the player may still have a last word
+  ambStep(g, ev); // 0.33.6: the moment they chose to show up
   update();
   return true;
 }
@@ -822,6 +826,7 @@ async function lastWord(ev, text) {
   if (!g || !c || !T || ev.played || ev.state !== 'scheduled' || S.busy.talk || T.turn < T.max) return false;
   text = String(text || '').trim().slice(0, TALK_MAX);
   if (!text && ev.psy === 'deadly') text = 'Bon… je vais y aller.'; // 0.29: tonight, leaving is not that simple
+  if (!text && ambExit(g, ev)) { ambStrike(g, ev, 'bye'); update(); return true; } // 0.33.6: they were waiting outside
   if (!text) { finishTalk(g, ev); T.closed = true; prepEnd(g, ev); update(); return true; } // « Se dire au revoir »
   if (!sensual(g) && PARTNER.includes(c.vibe) && meetKind(c, ev) === 'love' && FADE_RE.test(text)) { T.lines.push({ who: 'p', text, last: true }); fadeTalk(g, ev, 0.78); update(); return true; } // (as in the evening; 0.30: modest only)
   if (!canAfford(g, 'talk')) { budgetBlocked(); return false; }
@@ -868,6 +873,7 @@ async function lastWord(ev, text) {
   if (deadly && !yes && (plusOf(g, ev) || duelOn())) { startAttack(g, T, c, atk || fin, { ev, f: plusOf(g, ev), where: 'date' }); update(); return true; } // 0.33.1: they strike: one defends oneself
   if (yes && isPsy(g, c) && psyStage(g) >= 3 && duelOn()) { nightAttack(g, ev, c); update(); return true; } // 0.33.1: the night with them: one wakes up
   if (deadly || (yes && isPsy(g, c) && psyStage(g) >= 3)) { psyKill(g, c, fin, 'date'); return true; } // the trap closes (the game saved before the evening)
+  if (ambExit(g, ev)) { ambStrike(g, ev, yes ? 'stay' : 'bye'); update(); return true; } // 0.33.6: they were waiting outside, as they left
   if (yes && ev.after && meetKind(c, ev) !== 'love') { T.lines.push({ who: 'n', text: `Cette nuit, ${firstName(c)} et toi, vous ne vous quittez pas.` }); T.together = true; finishTalk(g, ev); prepEnd(g, ev); } // 0.33.2: not alone tonight
   else if (yes) { if (react === 'charme') c.dareWon = Date.now(); fadeTalk(g, ev, 0.78); } // together: the scene stops at the door
   else { finishTalk(g, ev); prepEnd(g, ev); }
@@ -1088,7 +1094,7 @@ function DateTalk({ ev, g, now }) {
   return html`<div class=${'talk' + (T.attack && !T.attack.done && !g.over ? ' atk-on' : '')} ref=${box}>
     <div class="talk-scene"><${Avatar} who=${author(g, 'c:' + c.id)} size=${48} /><p>${T.scene || '…'}</p></div>
     <div class="talk-lines">
-      ${T.lines.map((x, j) => (x.who === 'n' ? html`<p key=${j} class=${'talk-fade' + (x.atk ? ' atk-line' : '')}>${x.text}</p>` : x.who === 'x' ? html`<div key=${j} class="talk-line them is-plus"><span class="talk-who">${g.chars[x.c] ? firstName(g.chars[x.c]) : ''}</span><div class="bubble them is-plus">${x.text}</div></div>` : x.who === 'c'
+      ${T.lines.map((x, j) => (atkHide(T, x, j) ? null : x.who === 'n' ? html`<p key=${j} class=${'talk-fade' + (x.atk ? ' atk-line' : x.amb ? ' amb-line' : '')}>${x.text}</p>` : x.who === 'x' ? html`<div key=${j} class=${'talk-line them is-plus' + (x.psy ? ' is-psy' : '')}><span class="talk-who">${g.chars[x.c] ? firstName(g.chars[x.c]) : ''}</span><div class=${'bubble them is-plus' + (x.psy ? ' is-psy' : '')}>${x.text}</div></div>` : x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${x.text}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
         : x.geste ? html`<div key=${j} class="talk-geste">${(gesteOf(g, ev, x.geste) || {}).emoji || '✨'} ${gesteOf(g, ev, x.geste) ? gesteOf(g, ev, x.geste).you(first) : 'Tu tentes un geste.'}</div>`
           : x.who === 'b' ? html`<div key=${j} class=${'talk-buy' + (x.b && x.b.refused ? ' refused' : x.b && x.b.free ? ' free' : '')}>${x.b ? buyLabel(g, x.b) : ''}</div>`

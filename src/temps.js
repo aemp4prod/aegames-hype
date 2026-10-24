@@ -126,7 +126,7 @@ function goSleep(night = null) {
 }
 // From 1 h in the night, or exhausted: a bed is offered, once (never forced).
 function tickNrg(g, t = Date.now()) {
-  if (!g || !t32On() || inMiniGame() || stayOn(g, t) || t - (S.lastInputAt || 0) > 3 * 60000) return false;
+  if (!g || !t32On() || inMiniGame() || t - (S.lastInputAt || 0) > 3 * 60000) return false; // (0.33.6: at someone's too: one sleeps there)
   const F = nrgOf(g, t), d = gameDate(t), h = d.getHours(), s = nrgState(g, t);
   const night = new Date(d.getTime() - 8 * 3600000).toDateString(); // (the night of that evening)
   if (h >= 1 && h < 6 && F.night !== night) {

@@ -5,6 +5,24 @@ Release : la section de la version en est la description, telle quelle, et Æ Ga
 format est décrit dans docs/DISTRIBUTION.md). Le numéro entre parenthèses (MAJEURE × 1 000 000 + MINEURE × 1 000 +
 CORRECTIF) ne fait que monter.
 
+## 0.33.6 — 24 octobre 2026 (build 33006)
+
+**Plusieurs nuits chez quelqu’un, le psychopathe qui te retrouve dehors, des combats qu’on a le temps de lire, et des partenariats qui se signent en parlant.**
+
+### ✨ Nouveautés
+
+- **🧳 Plusieurs nuits** : chez quelqu’un, tu y restes tant que personne ne part. Si vous décidez de quelques jours de plus, son IA le dit au jeu, qui te garde chez lui ou chez elle jusque-là ; dormir là-bas te garde là-bas, et au réveil, il ou elle sait que c’est votre deuxième ou votre troisième nuit. Quand tu rentres, le jeu le dit.
+- **🔪 Il te retrouve dehors** : quand tu sors avec quelqu’un (un verre, un resto, une balade), le psychopathe à qui tu as échappé peut te retrouver, s’il a de quoi savoir où tu es (il t’a suivi depuis chez toi, ou il a suivi la personne avec toi). Son IA décide : rien, le plus souvent ; vous observer de loin ; venir jusqu’à votre table vous dire deux mots ; ou, à partir de la deuxième semaine sans plainte, vous attendre à la sortie. Le combat se joue alors dans la rue, à deux, et la soirée peut continuer avec la personne qui était là. Quand il se montre, « 🚓 Appeler la police » est à portée de main.
+- **🌙 Ses nuits quand tu dors ailleurs** : quand tu dors chez quelqu’un, son IA décide aussi quoi faire de ton appartement vide, ou, la deuxième semaine, de l’endroit où tu dors.
+- **⏱️ Des combats qu’on a le temps de lire** : à chaque choix, tu lis d’abord ce qui arrive (Espace pour aller plus vite), puis les choix arrivent, avec plus de temps qu’avant. Les réflexes vont toujours aussi vite. Pendant le combat, seule la dernière ligne de ce qui vient de se passer reste affichée.
+- **🎯 La roue** : un nouveau réflexe. Une flèche tourne : appuie quand elle passe dans la zone.
+- **🤝 Des partenariats qui se signent en parlant** : un contrat en cours avec une marque ne l’empêche plus de t’en proposer un autre, et elle peut y mettre un autre créateur, avec la part que tu lui donnes, convenue en message ou en groupe. Tu signes, il ou elle dit oui (en privé ou dans le groupe), et le tournage se cale. Quand une marque ne peut vraiment pas, elle te dit pourquoi.
+
+### 🛠️ Corrigé
+
+- **Bloqué au « feu vert »** : une marque à qui tu demandais un partenariat pendant qu’un autre contrat avec elle était en cours (ou quand deux offres attendaient déjà) n’avait aucun moyen de te l’envoyer, et répondait « on attend le feu vert » sans fin.
+- **La deuxième nuit** : dormir une nuit de plus chez quelqu’un te faisait rentrer chez toi pour le jeu, sans rien dire.
+
 ## 0.33.5 — 24 octobre 2026 (build 33005)
 
 **Le psychopathe à qui tu as échappé ne te laisse plus respirer tant que personne n’a porté plainte, et quand tu es avec quelqu’un, le jeu suit vraiment ce qui se passe.**

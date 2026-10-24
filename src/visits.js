@@ -335,7 +335,7 @@ function VisitCard({ g, v, close }) {
   return html`<div class=${'modal-card visit-card' + (atk ? ' atk-on' : '')}>
     <div class="visit-head"><${Avatar} who=${author(g, 'c:' + c.id)} size=${52} /><div><span class="eyebrow">${v.inside ? (v.place && v.place !== 'p' && g.chars[v.place] ? `Chez ${firstName(g.chars[v.place])}` : 'Chez toi') : v.hunt ? 'On frappe à ta porte' : 'Visite surprise'}</span><b>${v.inside ? `${c.name} est entré${gx(c.g, '', 'e', '·e')}` : v.hunt && v.door !== 'open' ? `${c.name}, derrière ta porte` : c.name + ' débarque chez toi'}</b><small>${v.state === 'knock' ? (night ? 'en pleine nuit' : 'sans prévenir') : atk ? 'en pleine nuit' : over ? 'la visite se termine' : `encore ${left} ${plural(left, 'échange', 'échanges')}`}</small></div></div>
     <div class="visit-lines" ref=${box}>
-      ${v.lines.map((x, j) => (x.who === 'c'
+      ${v.lines.map((x, j) => (atkHide(v, x, j) ? null : x.who === 'c'
         ? html`<div key=${j} class="talk-line them"><div class="bubble them">${emoParts(x.text)}</div>${x.seen ? html`<small class="talk-seen">${x.seen}</small>` : null}</div>`
         : x.who === 'n' ? html`<p key=${j} class=${'talk-fade' + (x.atk ? ' atk-line' : '')}>${x.text}</p>`
           : html`<div key=${j} class="talk-line me"><div class="bubble me">${emoParts(x.text)}</div></div>`))}

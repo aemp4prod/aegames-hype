@@ -82,8 +82,8 @@ async function newGame(page, identity) {
   const games = await menu();
   const opts = await G(page, () => { const H = window.__hype, g = H.S.game, L = H.paletteLines(g, ['jeux']); return { kinds: L[0].opts.map((o) => o[1]), quiz: L[1].opts.length }; });
   await shot(page, 'palette-minigames');
-  check('the palette: a banner, « Sommaire » and the line number, six pages and « Masquer »; ↓ moves the highlighted line, Entrée opens « Mini-jeux »: the game, the level, play now, impose',
-    /hype/i.test(banner) && /nuancier/i.test(banner) && /Sommaire\s*1\/7/.test(root.sub) && root.lines.length === 7 && /^💰 ?Argent et abonnés/.test(root.lines[0]) && /Masquer le nuancier/.test(root.lines[6])
+  check('the palette: a banner, « Sommaire » and the line number, seven pages (0.33.6: « Combat ») and « Masquer »; ↓ moves the highlighted line, Entrée opens « Mini-jeux »: the game, the level, play now, impose',
+    /hype/i.test(banner) && /nuancier/i.test(banner) && /Sommaire\s*1\/8/.test(root.sub) && root.lines.length === 8 && /^💰 ?Argent et abonnés/.test(root.lines[0]) && /Combat/.test(root.lines[6]) && /Masquer le nuancier/.test(root.lines[7])
       && /Mini-jeux/.test(atGames.on) && /Mini-jeux\s*1\/4/.test(games.sub) && /^Mini-jeu/.test(games.lines[0]) && /^Difficulté/.test(games.lines[1]) && /^Jouer maintenant/.test(games.lines[2]) && /^Imposer au tournage/.test(games.lines[3])
       && opts.kinds.length === 10 && opts.kinds.includes('Coupe au rythme') && opts.kinds.includes('Recadrage vertical') && opts.quiz === 7, { root, atGames, games, opts });
 

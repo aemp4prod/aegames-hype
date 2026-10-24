@@ -793,7 +793,7 @@ function dmCard(g, c, card, at = later()) {
 }
 // A brand's offer: by the model during a refresh (world-flavoured), or by the game itself.
 function makeOffer(g, o = {}) {
-  if (g.stats.followers < 800 || openDeals(g).filter((d) => d.state === 'offer').length >= 2) return null;
+  if (g.stats.followers < 800 || openDeals(g).filter((d) => d.state === 'offer').length >= (o.asked ? OWN_MAX : 2)) return null; // (0.33.6: asked in a conversation, a little more room)
   const fmts = PF(g).fmts;
   const bg = o.big ? (g.releases || []).find((x) => x.id === o.big && x.big && x.state === 'scheduled') || null : null; // 0.30.1: to be in a big production
   if (o.big && !bg) return null;
@@ -806,7 +806,7 @@ function makeOffer(g, o = {}) {
   const fresh = S0.brands.filter((b) => !brandBurnt(g, b)); // 0.28.1: a brand that scammed the player, or was exposed, never writes again
   const brand = str(o.brand, 30) || (fresh.length ? pick(fresh) : '');
   if (!brand || brandBurnt(g, brand)) return null;
-  if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return null;
+  if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && (o.asked ? d.state === 'offer' : DEAL_OPEN.includes(d.state)))) return null; // (0.33.6: asked, a contract of theirs under way is no reason: another campaign)
   const via = o.via || (o.pitched ? 'pitch' : 'direct'), ag = hasStaff(g, 'agent'); // 0.20: who brought it
   const tk = (banned || shady) && toxLv(g) ? toxFeeK(g) / standMult(g, 'fee') : (banned ? 2 : 1); // 0.30: what a shady brand pays a toxic name (×1,5 → ×3, whatever the scandals)
   let fee = dealFee(g, what) * rand(0.85, 1.2) * (shady && !toxLv(g) ? 1.5 : 1) * tk * (o.bonus || 1) * (via === 'agent' && ag ? [1, 1.04, 1.08, 1.12][clamp(ag.tier, 0, 3)] : 1) * (bg ? 0.8 * bg.big.k : 1); // (0.30.1: its views)
@@ -839,6 +839,7 @@ function makeOffer(g, o = {}) {
   if (!goods && !gift) { deal.base = niceRound(fee / (shady ? SHADY_K0 : 1)); deal.maxBase = Math.round(deal.max / (shady ? SHADY_K0 : 1)); } // 0.19.1: the price with the mention
   deal.via = via;
   if (o.loyal) deal.loyal = true;
+  if (o.guest && g.chars[o.guest.c]) deal.guestPlan = { c: o.guest.c, fee: o.guest.fee != null ? Math.max(0, Math.round(num(o.guest.fee, 0))) : null }; // 0.33.6: another creator in it, agreed in the conversation
   const sc = scamOffer(g, deal, o); // 0.20: like for real, many offers are not honest (nothing says it)
   dealHard(g, deal); // a big contract: above the agent's level, or without one
   g.deals.push(deal);
@@ -859,24 +860,39 @@ const dealOf = (g, id) => g.deals.find((d) => d.id === id) || null;
 // now. Yes: the offer comes as any offer does (the price from the player's audience, kept near what they agreed on when it
 // is fair; then the card, « Négocier »), never a scam nor a hidden ad (the player came to them); no: said simply. Before,
 // it had no way to make one, and waited for « le feu vert » forever.
+// 0.33.6 (« ça fait une semaine que c'est bloqué »): a contract of theirs under way no longer stops a new one (another
+// campaign; only an offer still open does: that one is changed instead), nor two offers waiting (four, asked); and when
+// they cannot, they say why instead of « on attend le feu vert ».
+const OWN_MAX = 4;
 function ownAskWhy(g, b) { // ('' : it can)
   const brand = b && b.kind === 'brand' ? brandOfContact(g, b) : '';
   if (!brand) return 'brand';
   if (brandBurnt(g, brand)) return 'burnt';
   if (g.stats.followers < 800) return 'small';
-  if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && DEAL_OPEN.includes(d.state))) return 'open';
-  if (openDeals(g).filter((d) => d.state === 'offer').length >= 2) return 'full';
+  if (g.deals.some((d) => d.brand.toLowerCase() === brand.toLowerCase() && d.state === 'offer')) return 'open';
+  if (openDeals(g).filter((d) => d.state === 'offer').length >= OWN_MAX) return 'full';
   return '';
+}
+const OWN_NO = {
+  burnt: (b, brand) => `${brand} ne travaillera plus avec le joueur : s’il demande un partenariat, ${b.name} le lui dit franchement (sans « je reviens vers toi »).`,
+  small: (b, brand) => `Le joueur a encore trop peu d’abonnés pour ${brand} : s’il demande un partenariat, ${b.name} le lui dit gentiment, et qu’il revienne quand sa chaîne aura grandi (sans promettre de « feu vert »).`,
+  full: (b) => `Le joueur a déjà plusieurs propositions de marques en attente : s’il demande un nouveau partenariat, ${b.name} lui dit de signer ou de refuser celles-là d’abord (sans « je reviens vers toi »).`,
+};
+// The one another creator in it: a handle said in the line, someone of the cast who can be in it (not the brand).
+function guestOfLine(g, o) {
+  const h = o && (o.avec || o.with);
+  const c = h ? charByHandle(g, normHandle(Array.isArray(h) ? h[0] : h)) : null;
+  return c && featOK(g, c) ? { c: c.id, fee: o.part != null && o.part !== '' ? o.part : null } : null;
 }
 function ownAskLine(g, b) {
   if (ownAskWhy(g, b)) return null;
   const brand = brandOfContact(g, b), fm = PF(g).fmts;
-  return `- Si le joueur demande à ${b.name} un NOUVEAU partenariat pour lui-même (un contenu sponsorisé par ${brand}, même avec un autre créateur dedans), ${b.name} décide en pro, dans ce message même (${brand} colle-t-elle à sa chaîne et à son audience ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre","what":"${fm.join('|')}","product":"≤ 60 caractères : ce que ${brand} veut y montrer (et avec qui, si quelqu’un d’autre en est)","fee":0} ("fee" : le montant dont vous avez convenu, 0 si vous n’en avez pas parlé ; le jeu le garde s’il est raisonnable pour son audience, et la proposition s’affiche dans vos messages, à négocier comme les autres). Si c’est non, dis-le simplement : jamais « je reviens vers vous » ni « on attend le feu vert ».`;
+  return `- Si le joueur demande à ${b.name} un NOUVEAU partenariat pour lui-même (un contenu sponsorisé par ${brand}, même avec un autre créateur dedans), ${b.name} décide en pro, dans ce message même (${brand} colle-t-elle à sa chaîne et à son audience ? le budget ?). Si c’est oui, fais l’offre : {"t":"offre","what":"${fm.join('|')}","product":"≤ 60 caractères : ce que ${brand} veut y montrer","fee":0,"avec":"","part":0} ("fee" : le montant pour le joueur dont vous avez convenu, 0 si vous n’en avez pas parlé ; le jeu le garde s’il est raisonnable pour son audience, et la proposition s’affiche dans vos messages, à négocier comme les autres ; "avec" : le handle d’un autre créateur qui en est, s’il y en a un, sinon "" ; "part" : ce que le joueur lui donne, si vous en avez parlé). Un contrat déjà en cours avec ${brand} n’empêche rien : c’est une autre campagne. Si c’est non, dis-le simplement : jamais « je reviens vers vous » ni « on attend le feu vert ».`;
 }
 function brandOffersPlayer(g, b, o) {
   if (!b || ownAskWhy(g, b)) return null;
   const brand = brandOfContact(g, b), old = g.deals.filter((d) => d.brand.toLowerCase() === brand.toLowerCase()).slice(-1)[0];
-  return makeOffer(g, { brand, contactId: b.id, what: o && o.what, product: o && o.product, feeAsk: num(o && o.fee, 0), sector: old && old.sector, emoji: old && old.emoji, asked: true, pitched: true, legit: true, shady: false, gift: false, care: false });
+  return makeOffer(g, { brand, contactId: b.id, what: o && o.what, product: o && o.product, feeAsk: num(o && o.fee, 0), sector: old && old.sector, emoji: old && old.emoji, asked: true, pitched: true, legit: true, shady: false, gift: false, care: false, guest: guestOfLine(g, o) });
 }
 // 0.20: the old contracts go, but never one still open or with something still to happen (a payment, a recall, the critic…)
 const dealPending = (d) => DEAL_OPEN.includes(d.state) || d.state === 'waiting' || !!(d.unpaidAt || d.recallAt || d.flopAt || d.imageAt || d.expose || d.lostAt || d.check || (d.clause && d.clause.kind === 'penal' && !d.clause.paid && Date.now() - (d.signedAt || 0) < 180 * DAY_MS));
@@ -910,7 +926,12 @@ const dealGoods = (d) => !d.gift && d.value > 0 && (!d.fee || !d.signedAt || !!d
 const CARE_ASK = 0.3, CARE_FEE = 1.5, CARE_CUT = 0.4; // 0.30.1: how often a brand asks for it « soignée », what it pays more, what it keeps back if not
 function dealSummary(g, d) {
   const bg = d.big ? (g.releases || []).find((x) => x.id === d.big) : null; // 0.30.1
-  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${bg ? `être dans ta grosse production « ${str(bg.topic, 50)} »` : d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${d.solo ? ', seule marque de la production' : ''}${d.care ? (whatF(d) ? ', vidéo soignée exigée' : `, ${dealWhat(g, d)} soigné exigé`) : ''}${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}`; // (0.19.1: no warning: the player sees the trap or not)
+  return `${d.fee ? fmtMoney(g, d.fee) + (dealGoods(d) ? ` + produits offerts (≈ ${fmtMoney(g, d.value)})` : '') : d.gift ? `matos offert : ${giftLine(g, d.gift)}` : `produits offerts (≈ ${fmtMoney(g, d.value)})`} pour ${bg ? `être dans ta grosse production « ${str(bg.topic, 50)} »` : d.what === 'live' ? 'un live' : `${d.what === 'vidéo' ? 'une' : 'un'} ${dealWhat(g, d)}`} avec ${d.product}, à publier sous ${d.days} jours${d.solo ? ', seule marque de la production' : ''}${d.care ? (whatF(d) ? ', vidéo soignée exigée' : `, ${dealWhat(g, d)} soigné exigé`) : ''}${upLine(g, d)}${d.exclusive ? ', exclusivité 30 jours sur ce secteur' : ''}${d.shady ? ', sans la mention « Collaboration commerciale »' : ''}${d.costs ? `, frais d’inscription à ta charge : ${fmtMoney(g, d.costs)}` : ''}${d.payLate ? `, payé en une fois ${d.payLate} jours après la publication` : ''}${d.clause ? `, clause : ${d.clause.text}` : ''}${d.brief ? `, contrat et brief à télécharger (${d.brief})` : ''}${guestWord(g, d)}`; // (0.19.1: no warning: the player sees the trap or not; 0.33.6: someone in it)
+}
+// 0.33.6: the other creator agreed in the conversation, in the contract's words.
+function guestWord(g, d) {
+  const G = d.guestPlan || (d.guest && d.guest.brand ? { c: d.guest.c, fee: d.guest.fee } : null), c = G && g.chars[G.c];
+  return c ? `, avec ${c.name}${G.fee != null ? ` (sa part, payée par toi : ${fmtMoney(g, G.fee)})` : ''}` : '';
 }
 // The agent's cut on what the brands pay.
 function agentCut(g, amount, brand) {
@@ -971,6 +992,16 @@ function signDeal(g, d, o = {}) {
   scamAfterSign(g, d); // the « brief » was a virus
   if (d.state === 'signed') dilemmaOnDeal(g, d); // 0.18: two close friends may want the same spot on it
   if (d.state === 'signed') agencyOnOwnDeal(g, d); // 0.31: a talent of the player's was dealing with that brand
+  if (d.state === 'signed') guestFromPlan(g, d, t); // 0.33.6: the other creator agreed in the conversation
+  return true;
+}
+function guestFromPlan(g, d, t = Date.now()) {
+  const G = d.guestPlan, c = G && g.chars[G.c];
+  if (!c || d.guest || !featOK(g, c)) return false;
+  d.guest = Object.assign({ c: c.id, at: t, brand: true, why: '' }, G.fee != null ? { fee: G.fee, askedAt: t } : {});
+  delete d.guestPlan;
+  if (G.fee != null) S.drafts.dm[c.id] = `C’est signé avec ${d.brand} ! On le tourne ensemble ? Ta part : ${fmtMoney(g, G.fee)}, comme convenu.`;
+  addNotif(g, { k: 'relup', c: c.id, at: later() + 2600, text: G.fee != null ? `🤝 ${d.brand} : ${firstName(c)} est dans le contrat (sa part : ${fmtMoney(g, G.fee)}). Il reste son oui : dis-lui que c’est signé.` : `🤝 ${d.brand} : ${firstName(c)} est dans le contrat. Fixe sa part dans le Studio.` });
   return true;
 }
 // 0.21: the gear a brand offers comes at the signature. Better than what the player has: it takes its place (the old one
@@ -1018,6 +1049,9 @@ function applyDealLine(g, c, o) {
     return;
   }
   const signed = d.state === 'signed', said = [], fee0 = d.fee;
+  const gu = guestOfLine(g, o); // 0.33.6: another creator in it (agreed in the conversation)
+  if (gu && !signed && (!d.guestPlan || d.guestPlan.c !== gu.c || (gu.fee != null && d.guestPlan.fee !== Math.round(num(gu.fee, 0))))) { d.guestPlan = { c: gu.c, fee: gu.fee != null ? Math.max(0, Math.round(num(gu.fee, 0))) : null }; said.push(`avec ${g.chars[gu.c].name}`); }
+  else if (gu && signed && !d.guest) { d.guestPlan = { c: gu.c, fee: gu.fee != null ? Math.max(0, Math.round(num(gu.fee, 0))) : null }; if (guestFromPlan(g, d)) said.push(`avec ${g.chars[gu.c].name}`); }
   const m = yesNo(o.mention);
   if (m === true && d.shady) { d.shady = false; said.push('avec la mention « Collaboration commerciale »'); }
   else if (m === false && !d.shady && d.fee0) { d.shady = true; said.push('sans la mention « Collaboration commerciale »'); }
@@ -1855,8 +1889,8 @@ function dmCareerLines(g, c) {
   const ask = c.kind === 'brand' && !(td && tdealOpen(td)) ? talentAskLine(g, c) : null; // 0.32: the player asks them for a talent of theirs
   if (td && (!d || td.at >= d.at)) return tdealBrandLines(g, c, td).concat(ask ? [ask] : []);
   if (ask) out.push(ask);
-  if (c.kind === 'brand' && !d) { const own = ownAskLine(g, c); if (own) out.push(own); } // 0.33: a partnership of the player's own, asked in its messages
-  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
+  if (c.kind === 'brand' && (!d || d.state === 'signed')) { const own = ownAskLine(g, c), why = own ? '' : ownAskWhy(g, c); if (own) out.push(own); else if (OWN_NO[why]) out.push('- ' + OWN_NO[why](c, brandOfContact(g, c))); } // 0.33: a partnership of the player's own, asked in its messages (0.33.6: a contract under way is no reason; or why not)
+  if (c.kind === 'brand' && d) { const B = dealBounds(d), sym = WORLD_MONEY[g.world.preset] ? WORLD_MONEY[g.world.preset].sym : 'euros'; out.push(`- OBLIGATOIRE dès que ${c.name} accepte ou propose un changement du ${d.state === 'signed' ? 'contrat signé (un avenant)' : 'contrat'} dans ce message : une ligne {"t":"deal",…} avec seulement ce qui change, sinon le contrat du jeu reste l’ancien. "fee":${d.fee || Math.min(100, B.cap)} (le nouveau prix, en ${sym}, entre ${B.lo} et ${B.cap}${d.fee0 ? (d.shady ? ' ; avec la mention, la fourchette baisse' : ' ; sans la mention, elle monte d’environ moitié') : ' : de l’argent en plus des produits'}), "mention":true ou false (la mention « Collaboration commerciale »), "exclusive":true ou false${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? `, "upfront":${upPctOf(d) || 30} (l’acompte, en % du prix, versé à la signature : 0 = tout à la livraison${d.state === 'signed' ? ' ; s’il augmente, la différence est versée tout de suite' : ''})` : ''}${d.clause ? ', "clause":false (si elle accepte d’enlever la clause sur laquelle le joueur tique)' : ''}${d.state === 'offer' ? `, "days":7 (le délai pour publier), "what":"${PF(g).fmts.join('" ou "')}"` : ', "days":10 (le nouveau délai, compté depuis la signature)'}${d.state === 'offer' || !d.guest ? ', "avec":"handle" et "part":0 (si un autre créateur en est, et ce que le joueur lui donne, quand c’est convenu)' : ''}. Ex. : le joueur garde la mention et accepte un prix plus bas → {"t":"deal","mention":true,"fee":${B.lo}}.${d.fee > 0 && !NO_UPFRONT.includes(d.scam) ? ' Elle accepte un acompte de 40 % → {"t":"deal","upfront":40}.' : ''}${d.state === 'offer' ? ' Si elle retire l’offre : {"t":"deal","walk":true}.' : d.resold ? ' Si elle rompt le contrat (le joueur a revendu leur cadeau) : {"t":"deal","walk":true}.' : ''}`); }
   if (c.kind === 'brand') out.push(...doubtLines(g, c)); // 0.32: an anonymous message about the player reached them
   if (c.kind === 'brand' && g.deals.some((x) => x.contact === c.id && guestWait(x))) out.push(BRAND_GUEST_LINE(c)); // 0.33: someone brought in, or not
   if (isMain(c) && guestAsking(g, c)) out.push(GUEST_LINE(g, c)); // 0.33: in the player's sponsored content, or not

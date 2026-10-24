@@ -13,8 +13,11 @@
    too, much harder.
    ========================================================= */
 const COME_RE = /vien[st]? avec moi|venir avec moi|m['’]accompagner|accompagne[- ]?moi|tu m['’]accompagnes|vous m['’]accompagnez|tu viens avec|vous venez avec|on y va ensemble|on y va tous les deux|tu peux venir|tu pourrais venir|viens avec|avec moi chez|venir aussi/i;
-const ATTACK_MS = 8000; // the time to act, each beat
+const ATTACK_MS = 10000; // the time to choose, each beat, once the moves are shown (0.33.6: 8 s before, read included)
 const atkMs = () => (window.__HYPE_TEST__ && window.__atkMs) || ATTACK_MS; // (the tests: shorter)
+// 0.33.6 (« des phases de lecture, mais on ait plus de temps ; et des phases de QTE où ça peut aller vraiment vite »):
+// what happens is read first, in its own time (by its length; a key or a tap goes on sooner), then the moves come.
+const atkRead = (text) => (window.__HYPE_TEST__ ? num(window.__atkRead, 0) : clamp(900 + 40 * String(text || '').length, 2000, 4500));
 const ATTACK_OK = 2; // what it takes to get out (each beat: what the player did, 0 to 0,9, and the friend's help, 0,45)
 const ATTACK_SOLO = 2.4; // alone: hardly a mistake allowed
 const duelOn = () => t33On(); // (alone too, the scene plays; before, the end came at once)
@@ -125,6 +128,45 @@ const ATK_BEATS = [
       ['Lui demander pourquoi', 0.15, '« Parce que tu es à moi. »']] },
   ],
 ];
+// 0.33.6: outside, leaving an evening (« s'il nous retrouve dehors »): the street, the cars, the avenue lit further on.
+const ATK_BEATS_OUT = [
+  [
+    { text: (C, F, P) => `${C} fonce sur ${F ? 'vous' : 'toi'}, le couteau levé.`, opts: (C, F, P) => [
+      ['Esquiver et attraper son poignet', 0.8, 'Tu esquives de justesse et tu lui saisis le poignet.'],
+      ['Reculer vers la rue éclairée', 0.5, 'Tu recules vers les lampadaires, le cœur qui cogne.'],
+      [`Lever les mains pour ${P.le} calmer`, 0.15, `Tu lèves les mains : ${P.il} ne s’arrête pas.`],
+      ['Lui demander ce qu’il lui prend', 0.15, `Tu parles, ${P.il} avance.`]] },
+    { text: (C, F, P) => `${C} ${F ? 'vous' : 'te'} barre le trottoir, le couteau à la main. La rue est déserte.`, opts: (C, F, P) => [
+      ['Enrouler ta veste autour de ton bras', 0.8, 'Ta veste enroulée autour du bras, tu fais face.'],
+      F ? ['Te placer à côté de ' + F, 0.5, `Tu te colles à ${F}, dos à la vitrine.`] : ['Mettre une voiture garée entre vous', 0.5, 'Tu contournes une voiture : elle vous sépare, pour l’instant.'],
+      ['Rire, comme si c’était une blague', 0.15, `Ton rire sonne faux. ${cap1(P.il)} sourit encore plus.`],
+      ['Chercher ton téléphone', 0.15, 'Tes doigts tremblent sur ton téléphone.']] },
+  ],
+  [
+    { text: (C, F, P) => `${C} te plaque contre une vitrine.`, opts: (C, F, P) => [
+      F ? [`Crier à ${F} de ${P.le} tirer en arrière`, 0.8, `Tu hurles le nom de ${F}.`] : ['Lui écraser le pied et te dégager', 0.8, `Ton talon s’abat sur son pied : ${P.il} lâche prise une seconde.`],
+      [`${cap1(P.le)} repousser de toutes tes forces`, 0.5, `Tu ${P.le} repousses : ${P.il} revient aussitôt.`],
+      ['Supplier qu’on te laisse partir', 0.15, '« Tu n’iras nulle part. »'],
+      ['Fermer les yeux', 0.15, 'Une seconde de perdue.']] },
+    { text: (C, F, P) => `${C} se met entre ${F ? 'vous' : 'toi'} et l’avenue.`, opts: (C, F, P) => [
+      F ? [`Faire diversion pour que ${F} passe derrière`, 0.8, 'Tu lui lances ce qui te tombe sous la main.'] : ['Lui lancer ce qui te tombe sous la main', 0.8, `Une bouteille vide l’atteint à l’épaule : ${P.il} recule d’un pas.`],
+      ['Renverser une poubelle entre vous', 0.5, 'La poubelle roule entre vous deux.'],
+      ['Courir vers la ruelle', 0.15, 'Une impasse.'],
+      [`Essayer de ${P.le} raisonner`, 0.15, `${cap1(P.il)} ne t’écoute pas.`]] },
+  ],
+  [
+    { text: (C, F, P) => `Des phares au bout de la rue : une voiture approche. ${C} l’a vue aussi.`, opts: (C, F, P) => [
+      ['Courir vers la voiture en criant', 0.8, 'Tu cours en agitant les bras dans la lumière des phares.'],
+      F ? [`Pousser ${F} vers la voiture`, 0.5, `Tu pousses ${F} devant toi.`] : ['Hurler à l’aide', 0.5, 'Tu hurles : une fenêtre s’allume au-dessus de toi.'],
+      ['Attendre le bon moment', 0.15, 'Le bon moment ne vient pas.'],
+      ['Revenir chercher ton sac', 0.15, 'Tu te retournes : mauvaise idée.']] },
+    { text: (C, F, P) => `${C} revient à la charge, plus vite que toi.`, opts: (C, F, P) => [
+      F ? [`Hurler à ${F} de courir vers l’avenue`, 0.8, '« L’avenue ! »'] : ['Sprinter vers l’avenue éclairée', 0.8, 'Tu sprintes vers les lumières de l’avenue.'],
+      ['Lui lancer ton sac', 0.5, 'Ton sac l’atteint en plein visage.'],
+      ['Te cacher derrière une voiture', 0.15, `${cap1(P.il)} sait très bien où tu es.`],
+      ['Lui demander pourquoi', 0.15, '« Parce que tu es à moi. »']] },
+  ],
+];
 const ATK_HELP = [
   (F, f, P) => `${F} ${P.le} tire en arrière de toutes ses forces !`,
   (F, f, P) => `${F} lui fait lâcher le couteau !`,
@@ -138,25 +180,31 @@ const ATK_FROZEN = [
 // The moments to react, by surprise between the choices: read what comes, then act, fast. pre: what happens; go: what
 // to do; win; help: the one who came along catches it; lose (early: too soon): too late (it is not the end yet).
 const QTE_TXT = {
-  dodge: (C, F, P, w) => (w === 'inside'
+  dodge: (C, F, P, w) => (w === 'dehors'
+    ? { pre: `Au coin de la rue, une silhouette se détache de l’ombre. ${C}. Dans sa main, un couteau. ${cap1(P.il)} sourit.`, go: 'Esquive !', win: 'La lame raye la vitrine, à un souffle de toi.', lose: 'Tu n’as pas bougé à temps.', help: `${F} te tire en arrière : la lame fend l’air.` } // 0.33.6
+    : w === 'inside'
     ? { pre: `Un bruit de serrure, puis plus rien. Dans le couloir, ${C}, un couteau à la main. ${cap1(P.il)} sourit.`, go: 'Esquive !', win: 'La lame raye le mur, à un souffle de toi.', lose: 'Tu n’as pas bougé à temps.', help: `${F} te tire en arrière : la lame fend l’air.` } // 0.33.5
     : w === 'night' || w === 'home'
     ? { pre: `Un bruit te réveille. ${C} est ${P.assis} au bord du lit, dans le noir. ${cap1(P.il)} sourit. ${cap1(P.il)} tient un couteau.`, go: 'Roule hors du lit !', win: 'La lame s’enfonce dans l’oreiller, là où était ta tête.', lose: 'Tu n’as pas bougé à temps.', help: '' }
     : { pre: `${C} sourit. Un grand sourire, immobile. Dans sa main, un couteau.`, go: 'Esquive !', win: 'La lame se plante dans le mur, à un souffle de ton visage.', lose: 'Tu n’as pas bougé à temps.', help: `${F} te tire en arrière : la lame fend l’air.` }),
   dodge2: (C, F, P) => ({ pre: `${C} feinte d’un côté…`, go: 'Esquive !', win: 'Tu te baisses : la lame passe au-dessus de toi.', lose: 'Tu as esquivé du mauvais côté.', help: `${F} te tire en arrière : la lame fend l’air.` }),
   mash: (C, F, P) => ({ pre: `${C} t’attrape le poignet. Ses ongles s’enfoncent dans ta peau.${F ? ` ${F} tire avec toi.` : ''}`, go: 'Dégage-toi !', win: F ? 'Vous tirez ensemble : sa main lâche.' : 'Tu t’arraches à sa prise.', lose: 'Sa main ne te lâche pas.', help: `${F} lui tord le bras : sa main lâche.` }),
-  sync: (C, F, P) => ({ pre: `${F} croise ton regard. Un signe de tête : à trois, vous ${P.le} poussez ensemble.`, go: 'Pousse !', win: `Ensemble ! ${C} bascule en arrière contre le meuble.`, early: `Trop tôt : tu pousses ${P.seul}, ${P.il} ne bouge pas.`, lose: `Trop tard : ${F} a poussé sans toi.`, help: `${F} pousse pour deux : ${C} bascule.` }),
-  still: (C, F, P) => ({ pre: F ? `La lumière s’éteint. ${F} et toi, accroupis derrière le canapé.` : 'La lumière s’éteint. Tu te plaques derrière le canapé.', go: F ? 'Ne bougez plus.' : 'Ne bouge plus.', mid: pick(['« Je sais que tu es là… »', '« Tu ne peux pas te cacher de moi. »', '« Je t’entends respirer. »']), win: 'Ses pas s’éloignent vers la cuisine.', lose: `Le parquet craque. ${cap1(P.il)} se retourne.`, help: `${F} lance un objet dans le couloir : ${C} se retourne vers le bruit.` }),
+  sync: (C, F, P, w) => ({ pre: `${F} croise ton regard. Un signe de tête : à trois, vous ${P.le} poussez ensemble.`, go: 'Pousse !', win: w === 'dehors' ? `Ensemble ! ${C} bascule en arrière contre les poubelles.` : `Ensemble ! ${C} bascule en arrière contre le meuble.`, early: `Trop tôt : tu pousses ${P.seul}, ${P.il} ne bouge pas.`, lose: `Trop tard : ${F} a poussé sans toi.`, help: `${F} pousse pour deux : ${C} bascule.` }),
+  still: (C, F, P, w) => (w === 'dehors' // 0.33.6
+    ? { pre: F ? `${F} et toi, accroupis derrière une voiture garée. Le lampadaire grésille.` : 'Tu te jettes derrière une voiture garée. Le lampadaire grésille.', go: F ? 'Ne bougez plus.' : 'Ne bouge plus.', mid: pick(['« Je sais que tu es là… »', '« Tu ne peux pas te cacher de moi. »', '« Je t’entends respirer. »']), win: 'Ses pas s’éloignent vers la ruelle.', lose: `Ton pied heurte une canette. ${cap1(P.il)} se retourne.`, help: `${F} lance un caillou plus loin : ${C} se retourne vers le bruit.` }
+    : { pre: F ? `La lumière s’éteint. ${F} et toi, accroupis derrière le canapé.` : 'La lumière s’éteint. Tu te plaques derrière le canapé.', go: F ? 'Ne bougez plus.' : 'Ne bouge plus.', mid: pick(['« Je sais que tu es là… »', '« Tu ne peux pas te cacher de moi. »', '« Je t’entends respirer. »']), win: 'Ses pas s’éloignent vers la cuisine.', lose: `Le parquet craque. ${cap1(P.il)} se retourne.`, help: `${F} lance un objet dans le couloir : ${C} se retourne vers le bruit.` }),
 };
+// 0.33.6: the wheel (« une roue avec une zone et une flèche, il faut appuyer au bon moment »).
+QTE_TXT.wheel = (C, F, P, w) => ({ pre: w === 'dehors' ? `${C} lève le couteau sous le lampadaire. Son bras va retomber.` : `${C} lève le couteau. Son bras va retomber.`, go: 'Pare !', win: 'Tu bloques son bras au vol : la lame s’arrête à un souffle de toi.', lose: 'La lame passe : trop tôt, ou trop tard.', help: `${F} attrape son bras au vol.` });
 const QTE_DUO = ['sync', 'mash', 'still'], QTE_SOLO = ['mash', 'still', 'dodge2'];
 const QTE_BONUS = 0.1; // made at the first try
 const QTE_SKIP = 0.3; // let go, after three misses: one gets out of it hurt
 const QTE_SKIP_TXT = 'Tu t’en sors, de justesse. Ton bras te lance.';
-function attackSteps(C, F, P, w) {
-  const forced = window.__HYPE_TEST__ && Array.isArray(window.__atkQ) ? window.__atkQ : null; // (the tests: which ones, or none)
-  const qs = forced || ['dodge'].concat(shuffle(F ? QTE_DUO : QTE_SOLO).slice(0, 2));
+function attackSteps(C, F, P, w, only = null) {
+  const forced = Array.isArray(only) ? only : window.__HYPE_TEST__ && Array.isArray(window.__atkQ) ? window.__atkQ : null; // (the tests: which ones, or none; 0.33.6: the practice fight too)
+  const qs = forced || ['dodge'].concat(shuffle(['wheel', pick(F ? QTE_DUO : QTE_SOLO)])); // (0.33.6: the wheel in each fight, and one of the others)
   const out = [];
-  ATK_BEATS.forEach((pool, slot) => {
+  (w === 'dehors' ? ATK_BEATS_OUT : ATK_BEATS).forEach((pool, slot) => {
     const q = qs[slot];
     if (q && QTE_TXT[q]) out.push(Object.assign({ k: 'q', q: q === 'dodge2' ? 'dodge' : q, tries: 0, misses: 0, reveal: !out.length }, QTE_TXT[q](C, F, P, w)));
     const b = pick(pool);
@@ -180,8 +228,8 @@ function startAttack(g, H, c, text, o = {}, t = Date.now()) {
   if (!g || !H || !c || H.attack) return false;
   const f = o.f || null, w = o.where || 'date', C = firstName(c), F = f ? firstName(f) : null;
   const P = { il: gx(c.g, 'il', 'elle', 'iel'), le: gx(c.g, 'le', 'la', 'le'), assis: gx(c.g, 'assis', 'assise', 'assis·e'), seul: px(g, 'seul', 'seule', 'seul·e') };
-  H.attack = Object.assign({ c: c.id, f: f ? f.id : null, where: w, ev: o.ev ? o.ev.id : null, i: 0, steps: attackSteps(C, F, P, w), at: t, done: false, pl: P }, f ? plusBond(f) : { aff: 0, p: 0, bond: 0 });
-  H.lines.push({ who: 'n', atk: 1, text: str(text, 200) || (w === 'night' || w === 'home' ? 'Plus tard, dans la nuit…' : `${C} ferme la porte à clé.`) });
+  H.attack = Object.assign({ c: c.id, f: f ? f.id : null, where: w, ev: o.ev ? o.ev.id : null, i: 0, steps: attackSteps(C, F, P, w, o.qs || null), at: t, done: false, pl: P }, f ? plusBond(f) : { aff: 0, p: 0, bond: 0 });
+  H.lines.push({ who: 'n', atk: 1, text: str(text, 200) || (w === 'night' || w === 'home' ? 'Plus tard, dans la nuit…' : w === 'dehors' ? `${C} surgit de l’ombre.` : `${C} ferme la porte à clé.`) });
   atkBuzz(60);
   return true;
 }
@@ -195,7 +243,7 @@ function nightAttack(g, ev, c) {
 function atkNext(g, H) {
   const A = H.attack;
   A.i++;
-  if (A.i >= A.steps.length) attackEnd(g, H);
+  if (A.i >= A.steps.length) (H.practice ? duelEnd(g, H) : attackEnd(g, H)); // (0.33.6: a practice fight: nothing in the game)
   update();
   return true;
 }
@@ -248,18 +296,23 @@ function qteSkip(g, H) {
   return atkNext(g, H);
 }
 // The end of it: out alive (they flee; a witness, a proof that weighs), or caught (the end of the game).
-function attackEnd(g, H) {
-  const A = H.attack, c = g.chars[A.c], f = A.f ? g.chars[A.f] : null;
+function attackScore(A) {
   const ch = A.steps.filter((s) => s.k === 'c'), qs = A.steps.filter((s) => s.k === 'q');
   A.score = Math.round((ch.reduce((s, b) => s + (b.v || 0) + (b.help ? 0.45 : 0), 0) + qs.reduce((s, q) => s + (q.ok && q.clean ? QTE_BONUS : 0) - (q.skip ? QTE_SKIP : 0), 0) + (A.bond || 0)) * 100) / 100;
-  A.ok = A.score >= (f ? ATTACK_OK : ATTACK_SOLO);
+  A.ok = A.score >= (A.f ? ATTACK_OK : ATTACK_SOLO);
   A.done = true;
+  return A.ok;
+}
+function attackEnd(g, H) {
+  const A = H.attack, c = g.chars[A.c], f = A.f ? g.chars[A.f] : null;
+  attackScore(A);
   if (!c) return;
   const C = firstName(c), F = f ? firstName(f) : '', w = A.where, revu = px(g, 'revu', 'revue', 'revu·e'), chez = gx(c.g, 'lui', 'elle', 'iel');
   const atHome = w === 'visit' || w === 'home' || w === 'inside', host = H.place && H.place !== 'p' ? g.chars[H.place] : null; // (0.33.5: theirs broken into)
-  const there = host ? `Chez ${firstName(host)}` : 'Chez toi';
+  const there = host ? `Chez ${firstName(host)}` : 'Chez toi', out = w === 'dehors', evA = (g.events || []).find((e) => e.id === A.ev); // (0.33.6: in the street, leaving an evening)
   if (!A.ok) {
-    psyKill(g, c, atHome ? (f ? `${there}, la lumière est restée allumée jusqu’au matin. Personne ne vous a revus, ${F} et toi.` : `${there}, la lumière est restée allumée jusqu’au matin. Personne ne t’a ${revu}.`)
+    psyKill(g, c, out ? (f ? `Dans la rue, le lampadaire a clignoté jusqu’au matin. Personne ne vous a revus, ${F} et toi.` : `Dans la rue, le lampadaire a clignoté jusqu’au matin. Personne ne t’a ${revu}.`)
+      : atHome ? (f ? `${there}, la lumière est restée allumée jusqu’au matin. Personne ne vous a revus, ${F} et toi.` : `${there}, la lumière est restée allumée jusqu’au matin. Personne ne t’a ${revu}.`)
       : f ? `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne vous a revus, ${F} et toi.`
         : w === 'night' ? `La lampe de chevet s’est éteinte. Personne ne t’a ${revu}.`
           : `La lumière s’est éteinte. Chez ${C}, la musique a joué jusqu’au matin. Personne ne t’a ${revu}.`, atHome ? 'visit' : 'date');
@@ -269,11 +322,12 @@ function attackEnd(g, H) {
     H.lines.push({ who: 'n', atk: 1, text: f ? `${F} et toi ${A.pl.le} repoussez dehors et claquez la porte. Deux tours de clé. ${F} appelle la police, la voix qui tremble.` : `Tu ${A.pl.le} pousses dehors et tu claques la porte. Deux tours de clé. Tu appelles la police, la voix qui tremble.` });
     Object.assign(H, { fled: true, ending: true, mood: 'fache' });
     psyEscape(g, c, 'visit');
-  } else {
-    const ev = (g.events || []).find((e) => e.id === A.ev);
+  } else if (out) { if (evA && evA.talk === H) ambushOut(g, evA, c, f); } // 0.33.6: the evening with the other ends there (their own, after)
+  else {
+    const ev = evA;
     if (ev && ev.talk === H) fleeDate(g, ev, c, f ? `${F} et toi dévalez l’escalier sans vous retourner. Dehors, ${F} appelle la police, la voix qui tremble.` : `Tu dévales l’escalier${w === 'night' ? ' pieds nus' : ''} sans te retourner. Dehors, tu appelles la police, la voix qui tremble.`);
   }
-  const where = w === 'visit' ? 'chez toi, en pleine nuit' : atHome ? (host ? `chez ${firstName(host)}` : 'chez toi') + (w === 'home' ? ', en pleine nuit' : '') : `chez ${chez}${w === 'night' ? ', en pleine nuit' : ''}`;
+  const where = out ? `dans la rue, en sortant de « ${str(evA ? evA.what : 'la soirée', 60)} »` : w === 'visit' ? 'chez toi, en pleine nuit' : atHome ? (host ? `chez ${firstName(host)}` : 'chez toi') + (w === 'home' ? ', en pleine nuit' : '') : `chez ${chez}${w === 'night' ? ', en pleine nuit' : ''}`;
   if (huntOn()) { // 0.33.4: they know now; the police came (the complaint is the player's to file); the couple is over
     startHunt(g, c, 'attack');
     const pa = px(g, 'attaqué', 'attaquée', 'attaqué·e');
@@ -291,7 +345,22 @@ function attackEnd(g, H) {
   f.saw.raw = 1;
   f.saw.n = n0 + 1;
   bumpTie(g, c.id, f.id, -60);
-  addTrigger(g, `@${f.handle} et le joueur viennent de s’enfuir de chez @${c.handle}, qui les a attaqués : @${f.handle} est sous le choc et en parle au joueur en privé ; @${c.handle} fait comme si de rien n’était.`, f.id);
+  addTrigger(g, out ? `@${f.handle} et le joueur viennent d’échapper à @${c.handle}, qui les attendait à la sortie de leur soirée et les a attaqués dans la rue : @${f.handle} est sous le choc et en parle au joueur en privé ; @${c.handle} fait comme si de rien n’était.`
+    : `@${f.handle} et le joueur viennent de s’enfuir de chez @${c.handle}, qui les a attaqués : @${f.handle} est sous le choc et en parle au joueur en privé ; @${c.handle} fait comme si de rien n’était.`, f.id);
+}
+// 0.33.6: fought off in the street: the evening is over (its score kept: it went the way it went until then); they ran to
+// the avenue, the other one called the police. What comes next is theirs: stay together, or go home.
+function ambushOut(g, ev, c, f) {
+  const T = ev.talk, A = T.attack, F = f ? firstName(f) : '';
+  T.lines.push({ who: 'n', atk: 1, text: f ? `${F} et toi ${A.pl.le} repoussez contre une voiture et courez jusqu’à l’avenue, sans vous retourner. ${F} appelle la police, la voix qui tremble.` : `Tu ${A.pl.le} repousses et tu cours jusqu’à l’avenue sans te retourner. Tu appelles la police, la voix qui tremble.` });
+  T.turn = T.max;
+  T.fled = true;
+  if (!ev.played) finishTalk(g, ev);
+  const P = g.psy;
+  if (P) P.escaped = (P.escaped || 0) + 1;
+  addMem(g, c, `le joueur${f ? ` et @${f.handle}` : ''} m’ont échappé dans la rue : ça ne se terminera pas comme ça`, null, true);
+  addChronicle(g, `${g.player.name}${f ? ` et ${f.name}` : ''} ${f ? 'ont' : 'a'} échappé à ${c.name}, qui les attendait à la sortie d’une soirée.`, [c.id].concat(f ? [f.id] : []));
+  prepEnd(g, ev);
 }
 // Left in the middle of it (the screen closed): the seconds ran out (the moments to react, as if they never came).
 function attackTimeout(g, H) {
@@ -332,6 +401,8 @@ function PlusLayer({ l, g, i }) {
     </section>
   <//>`;
 }
+// 0.33.6 (« un peu trop de texte »): while the fight plays, of its lines only the last one shows (all of them after).
+const atkHide = (H, x, j) => { const A = H && H.attack; if (!A || A.done || !x.atk) return false; let k = -1; H.lines.forEach((y, n) => { if (y.atk) k = n; }); return j !== k; };
 // The attack on screen: a few seconds each beat, and between them moments to react (a flash, a heartbeat, no warning).
 function AttackView({ g, H }) {
   const A = H && H.attack, B = atkCur(H), f = A && A.f ? g.chars[A.f] : null;
@@ -346,21 +417,35 @@ const atkCoarse = () => !!(window.matchMedia && window.matchMedia('(pointer: coa
 const atkSeen = (el) => { if (el && el.scrollIntoView) try { el.scrollIntoView({ block: 'nearest' }); } catch (e) { /* (old browsers) */ } };
 function BeatView({ g, H, A, B, f }) {
   const ref = useRef(null);
-  useEffect(() => {
+  if (!B.readTo) B.readTo = Date.now() + atkRead(B.text); // 0.33.6: read first (once: a redraw keeps it)
+  const [rd, setRd] = useState(() => !B.shownAt && Date.now() < B.readTo);
+  useEffect(() => { // the reading: by its length; a key (Espace, Entrée) or a tap goes on sooner
     atkSeen(ref.current);
-    if (B.pick !== undefined) return undefined;
+    if (!rd) return undefined;
+    const go = () => { if (!B.shownAt) setRd(false); };
+    const k = setTimeout(go, Math.max(0, B.readTo - Date.now()));
+    const key = (e) => { if (!e.repeat && !atkTyping(e) && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); go(); } };
+    window.addEventListener('keydown', key);
+    return () => { clearTimeout(k); window.removeEventListener('keydown', key); };
+  }, [rd]);
+  useEffect(() => { // the moves: the time to choose starts when they are shown
+    if (rd || B.pick !== undefined) return undefined;
+    atkSeen(ref.current);
     if (!B.shownAt) B.shownAt = Date.now();
     const k = setTimeout(() => attackPick(g, H, null), Math.max(0, B.shownAt + atkMs() - Date.now()) + 50);
     const key = (e) => { const n = Number(e.key); if (!e.repeat && !atkTyping(e) && n >= 1 && n <= B.opts.length) { e.preventDefault(); attackPick(g, H, B.opts[n - 1].id); } }; // (1 to 4: the moves, on a keyboard)
     window.addEventListener('keydown', key);
     return () => { clearTimeout(k); window.removeEventListener('keydown', key); };
-  }, []);
+  }, [rd]);
   const spent = B.shownAt ? Math.min(atkMs(), Date.now() - B.shownAt) : 0;
-  return html`<div class="atk" ref=${ref} role="alertdialog" aria-live="assertive" aria-label="Défends-toi">
+  const prev = (H.lines || []).filter((x) => x.atk).slice(-1)[0]; // (what just happened, in a word)
+  return html`<div class=${'atk' + (rd ? ' atk-read' : '')} ref=${ref} role="alertdialog" aria-live="assertive" aria-label="Défends-toi">
     <div class="atk-head"><span>⚠️ Défends-toi</span><b>${A.i + 1}/${A.steps.length}</b></div>
+    ${rd && prev && A.i > 0 ? html`<p class="atk-prev">${prev.text}</p>` : null}
     <p class="atk-text">${B.text}</p>
-    <div class="atk-timer" aria-hidden="true"><i style=${`animation-duration:${atkMs()}ms;animation-delay:-${spent}ms`}></i></div>
-    <div class="atk-opts">${B.opts.map((o, k) => html`<button type="button" key=${o.id} class="atk-opt" onClick=${() => attackPick(g, H, o.id)}><kbd aria-hidden="true">${k + 1}</kbd>${o.label}</button>`)}</div>
+    ${rd ? html`<button type="button" class="atk-ready" onClick=${() => { if (!B.shownAt) setRd(false); }}><i class="atk-readbar" style=${`animation-duration:${Math.max(300, B.readTo - Date.now())}ms`} aria-hidden="true"></i><span>${atkCoarse() ? 'Touche pour réagir' : 'Espace pour réagir'}</span></button>`
+      : html`<div class="atk-timer" aria-hidden="true"><i style=${`animation-duration:${atkMs()}ms;animation-delay:-${spent}ms`}></i></div>
+    <div class="atk-opts">${B.opts.map((o, k) => html`<button type="button" key=${o.id} class="atk-opt" onClick=${() => attackPick(g, H, o.id)}><kbd aria-hidden="true">${k + 1}</kbd>${o.label}</button>`)}</div>`}
     <small class="atk-with">${f ? `${firstName(f)} est avec toi.` : `Tu es ${px(g, 'seul', 'seule', 'seul·e')}.`}</small>
   </div>`;
 }
@@ -368,7 +453,7 @@ function BeatView({ g, H, A, B, f }) {
 function qteTune(A, Q, f) {
   const test = !!window.__HYPE_TEST__, K = (test && window.__qteK) || 1, easy = 1 + Math.min(3, Q.tries || 0) * 0.25, p = f ? A.p || 0 : 0;
   return {
-    pre: test && window.__qtePre != null ? window.__qtePre : Q.q === 'dodge' ? 700 + Math.random() * 1100 : 1300,
+    pre: test && window.__qtePre != null ? window.__qtePre : clamp(600 + 32 * String(Q.pre || '').length, 1300, 3800) + (Q.q === 'dodge' ? 300 + Math.random() * 900 : 0), // (0.33.6: read in time, then it comes, fast)
     win: Math.round((Q.q === 'sync' ? 260 + 240 * p : 1250 * (1 + 0.35 * p)) * easy * K),
     key: pick(['F', 'J', 'K', 'D']),
     x: Math.round(12 + Math.random() * 76), y: Math.round(24 + Math.random() * 52),
@@ -376,7 +461,14 @@ function qteTune(A, Q, f) {
     tick: Math.round(p * 0.3 * 100) / 100, // (mash: what the one who came along adds, every quarter of a second)
     dur: Q.q === 'still' ? (test && window.__qteStill) || Math.max(2200, 3600 - 400 * (Q.tries || 0)) : Math.round(3500 * easy * K),
     beat: Math.round(700 * K),
+    turn: Math.round(1150 * K), // 0.33.6, the wheel: a turn of the needle; the zone, wider with the one who came along and at each try
+    zone: Math.round(Math.min(150, 58 * easy * (1 + 0.35 * p))), z0: Math.round(70 + Math.random() * 200),
   };
+}
+// The wheel's zone: an arc from a0, w degrees wide (0 at the top, clockwise).
+function wheelArc(a0, w) {
+  const r = 42, pt = (a) => { const t = ((a - 90) * Math.PI) / 180; return `${(50 + r * Math.cos(t)).toFixed(2)} ${(50 + r * Math.sin(t)).toFixed(2)}`; };
+  return html`<svg class="qte-dial" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r=${r} class="qte-track" /><path d=${`M ${pt(a0)} A ${r} ${r} 0 ${w > 180 ? 1 : 0} 1 ${pt(a0 + w)}`} class="qte-zone" /></svg>`;
 }
 function QteView({ g, H, A, Q, f }) {
   const [ph, setPh] = useState(Q.dead ? 'dead' : 'pre');
@@ -387,7 +479,7 @@ function QteView({ g, H, A, Q, f }) {
   useEffect(() => { atkSeen(ref.current); }, []);
   useEffect(() => { // read it, then it comes
     if (ph !== 'pre') return undefined;
-    const k = setTimeout(() => { R.current.go = Date.now(); Q.goAt = R.current.go; Q.hitAt = Q.q === 'sync' ? R.current.go + 2 * T.beat : null; setPh('go'); atkFx(Q.q === 'still' ? 'dark' : 'go'); atkBuzz(Q.q === 'still' ? 0 : 40); }, T.pre);
+    const k = setTimeout(() => { R.current.go = Date.now(); Q.goAt = R.current.go; Q.hitAt = Q.q === 'sync' ? R.current.go + 2 * T.beat : null; if (Q.q === 'wheel') Q.wz = { z0: T.z0, zone: T.zone, turn: T.turn }; setPh('go'); atkFx(Q.q === 'still' ? 'dark' : 'go'); atkBuzz(Q.q === 'still' ? 0 : 40); }, T.pre); // (0.33.6: the wheel, as it turns)
     return () => clearTimeout(k);
   }, [ph]);
   useEffect(() => { // act
@@ -409,6 +501,15 @@ function QteView({ g, H, A, Q, f }) {
       const hit = go + 2 * T.beat;
       R.current.press = () => { const d = Date.now() - hit; if (d < -T.win) end(false, 'early'); else if (d <= T.win * 1.4) end(true); else end(false); };
       onKey = (e) => { if (e.repeat || atkTyping(e)) return; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); R.current.press(); } };
+    } else if (Q.q === 'wheel') { // 0.33.6: a press while the needle is in the zone
+      const ang = (at) => (((at - go) / T.turn) * 360) % 360;
+      const inZone = (a) => { const d = (a - T.z0 + 360) % 360; return d <= T.zone; };
+      const spin = () => { if (R.current.needle) R.current.needle.style.transform = `rotate(${ang(Date.now())}deg)`; R.current.raf = requestAnimationFrame(spin); };
+      R.current.raf = requestAnimationFrame(spin);
+      timers.push({ raf: 1 });
+      R.current.press = () => { const a = ang(Date.now()); Q.pa = Math.round(a); end(inZone(a)); }; // (where the needle was, kept)
+      timers.push(setTimeout(() => end(false), Math.round(T.turn * 2.6)));
+      onKey = (e) => { if (e.repeat || atkTyping(e)) return; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); R.current.press(); } };
     } else if (Q.q === 'still') {
       timers.push(setTimeout(() => setMid(true), T.dur / 2), setTimeout(() => end(true), T.dur));
       const moved = (e) => { if (e && e.key && ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return; if (Date.now() - go > 400) end(false); };
@@ -417,7 +518,7 @@ function QteView({ g, H, A, Q, f }) {
     }
     if (onKey) window.addEventListener('keydown', onKey, true);
     if (onPtr) window.addEventListener('pointerdown', onPtr, true);
-    return () => { timers.forEach((k) => { clearTimeout(k); clearInterval(k); }); if (onKey) window.removeEventListener('keydown', onKey, true); if (onPtr) window.removeEventListener('pointerdown', onPtr, true); };
+    return () => { timers.forEach((k) => { if (k && k.raf) cancelAnimationFrame(R.current.raf); else { clearTimeout(k); clearInterval(k); } }); if (onKey) window.removeEventListener('keydown', onKey, true); if (onPtr) window.removeEventListener('pointerdown', onPtr, true); };
   }, [ph]);
   const F = f ? firstName(f) : '', touch = atkCoarse();
   if (ph === 'dead') return html`<div class="atk atk-dead" ref=${ref} role="alertdialog" aria-live="assertive" aria-label="Trop tard">
@@ -433,11 +534,13 @@ function QteView({ g, H, A, Q, f }) {
     : Q.q === 'dodge' ? (touch ? 'Touche la cible !' : `Clique la cible ou appuie sur ${T.key} !`)
       : Q.q === 'mash' ? (touch ? 'Tape, tape, tape !' : 'Clique ou appuie sur Espace, le plus vite possible !')
         : Q.q === 'sync' ? `Pile sur « 3 », en même temps que ${F}${touch ? '' : ' (clic ou Espace)'} !`
-          : 'Ne touche à rien.';
+          : Q.q === 'wheel' ? (touch ? 'Touche la roue quand la flèche passe dans la zone !' : 'Espace (ou clic) quand la flèche passe dans la zone !')
+            : 'Ne touche à rien.';
   const body = ph === 'pre' ? html`<span class="qte-wait" aria-hidden="true"></span>`
     : Q.q === 'dodge' ? html`<p class="qte-go">${Q.go}</p><button type="button" class="qte-target" style=${`left:${T.x}%;top:${T.y}%`} aria-label=${`${Q.go} (${T.key})`} onPointerDown=${(e) => { e.preventDefault(); e.stopPropagation(); end(true); }} onClick=${() => end(true)}><i class="qte-ring" style=${`animation-duration:${T.win}ms`}></i><b>${T.key}</b></button>`
       : Q.q === 'mash' ? html`<button type="button" class="qte-mash" onPointerDown=${(e) => { e.preventDefault(); if (R.current.tap) R.current.tap(); }}><i class="qte-fill" style=${`width:${Math.min(100, Math.round((n / T.need) * 100))}%`}></i><b>${Q.go}</b></button><div class="qte-bar" aria-hidden="true"><i style=${`animation-duration:${T.dur}ms`}></i></div>`
         : Q.q === 'sync' ? html`<p class="qte-count" key=${'n' + cnt}>${cnt >= 3 ? '3 !' : cnt || ''}</p><button type="button" class="qte-push" onPointerDown=${(e) => { e.preventDefault(); if (R.current.press) R.current.press(); }}>${Q.go}</button>`
+          : Q.q === 'wheel' ? html`<button type="button" class="qte-wheel" aria-label=${Q.go} onPointerDown=${(e) => { e.preventDefault(); if (R.current.press) R.current.press(); }}>${wheelArc(T.z0, T.zone)}<i class="qte-needle" ref=${(el) => { R.current.needle = el; }} aria-hidden="true"></i><b>${Q.go}</b></button>`
           : html`<div class="qte-still"><i class="qte-hold" style=${`animation-duration:${T.dur}ms`}></i><b>${Q.go}</b>${mid ? html`<p class="qte-whisper">${Q.mid}</p>` : null}</div>`;
   return html`<div class=${'atk atk-q q-' + Q.q + ' ph-' + ph} ref=${ref} role="alertdialog" aria-live="assertive" aria-label=${Q.go}>
     <div class="atk-head"><span>${Q.q === 'still' ? '🤫 Silence' : '⚡ Réagis'}</span><b>${A.i + 1}/${A.steps.length}</b></div>
@@ -445,6 +548,56 @@ function QteView({ g, H, A, Q, f }) {
     <div class="qte-arena">${body}</div>
     <small class="atk-with">${hint}</small>
   </div>`;
+}
+
+/* ---------- 0.33.6: a fight to practise, from the palette (« tester les combats avec un psychopathe ») ----------
+   Somewhere (their place, the player's at night, in the street, someone's by day), alone or with someone of the cast,
+   the moments to react chosen or by chance: nothing of it reaches the game (no death, no police, no trust, nobody told). */
+const DUEL_WHERE = [['date', 'Chez lui ou chez elle, un soir'], ['home', 'Chez toi, en pleine nuit'], ['dehors', 'Dehors, en sortant d’une soirée'], ['inside', 'Chez quelqu’un, en plein jour']];
+const DUEL_Q = [['auto', 'Au hasard (la roue et un autre)'], ['wheel', 'La roue'], ['dodge', 'L’esquive'], ['mash', 'Se dégager'], ['sync', 'Ensemble, à trois'], ['still', 'Le silence'], ['none', 'Aucun : les choix seulement']];
+const DUEL_OPEN = { date: (C) => `${C} ferme la porte à clé.`, home: () => 'Un bruit te réveille.', dehors: (C) => `${C} surgit de l’ombre.`, inside: (C) => `${C} est dans l’entrée.` };
+function startDuel(g, where = 'date', withId = '', q = 'auto') {
+  const f = withId && g.chars[withId] && isMain(g.chars[withId]) && !g.chars[withId].jailed ? g.chars[withId] : null;
+  const w = DUEL_WHERE.some((x) => x[0] === where) ? where : 'date', sx = pick(['f', 'm']);
+  const foe = { id: '_duel', name: sx === 'f' ? 'L’inconnue' : 'L’inconnu', g: sx }; // (never the game's own: a practice tells nothing)
+  const one = q === 'sync' && !f ? 'mash' : q; // (« ensemble » needs someone)
+  const qs = q === 'auto' ? null : q === 'none' ? [] : [one, one, one];
+  const H = { lines: [], practice: 1, where: w, with: f ? f.id : '', q, at: Date.now() };
+  startAttack(g, H, foe, DUEL_OPEN[w](foe.name), { f, where: w, qs });
+  H.foe = foe;
+  S.duel = H;
+  if (!S.stack.some((l) => l.t === 'duel')) openLayer({ t: 'duel' });
+  update();
+  return H;
+}
+function duelEnd(g, H) {
+  const A = H.attack;
+  attackScore(A);
+  const f = A.f ? g.chars[A.f] : null;
+  H.lines.push({ who: 'n', atk: 1, text: A.ok ? (f ? `${firstName(f)} et toi vous en sortez.` : 'Tu t’en sors.') : 'Tu n’aurais pas survécu.' });
+  return A.ok;
+}
+function DuelLayer({ g, i }) {
+  const H = S.duel, A = H && H.attack, f = A && A.f ? g.chars[A.f] : null;
+  let body;
+  if (!H || !A) body = html`<div class="empty"><b>Pas de combat en cours</b><span>Ouvre le nuancier pour en lancer un.</span></div>`;
+  else if (!A.done) {
+    const last = H.lines.filter((x) => x.atk).slice(-1);
+    body = html`<div class="talk duel atk-on">
+      <div class="talk-lines">${last.map((x, j) => html`<p key=${j} class="talk-fade atk-line">${x.text}</p>`)}</div>
+      <${AttackView} g=${g} H=${H} />
+    </div>`;
+  } else {
+    const ch = A.steps.filter((s) => s.k === 'c'), qs = A.steps.filter((s) => s.k === 'q'), need = A.f ? ATTACK_OK : ATTACK_SOLO;
+    body = html`<div class="mg-intro duel-end">
+      <span class="eyebrow">Entraînement · ${(DUEL_WHERE.find((x) => x[0] === H.where) || [0, ''])[1]}</span>
+      <h3>${A.ok ? 'Tu t’en sors 🎉' : 'Tu n’aurais pas survécu'}</h3>
+      <p class="muted">Score ${String(A.score).replace('.', ',')} (il faut ${String(need).replace('.', ',')}${f ? `, avec ${firstName(f)}` : `, ${px(g, 'seul', 'seule', 'seul·e')}`}) · choix ${ch.filter((b) => (b.v || 0) >= 0.8).length}/${ch.length} bons · réflexes ${qs.filter((q) => q.ok).length}/${qs.length} réussis.</p>
+      <p class="muted">Rien ne compte dans ta partie : personne n’en saura rien.</p>
+      <div class="row"><button class="btn btn-hot" onClick=${() => startDuel(g, H.where, H.with, H.q)}><${Icon} n="refresh" s=${16} /> Rejouer</button><button class="btn btn-ghost" onClick=${() => { S.duel = null; closeLayer(); }}>Fermer</button></div>
+    </div>`;
+  }
+  return html`<${LayerShell} i=${i} title="🔪 Entraînement au combat">${body}<//>`;
 }
 
 /* ---------- 0.33.2: out of it together, the evening goes on with them ---------- */
@@ -462,15 +615,17 @@ const fledTogether = (g, ev) => { const T = ev && ev.talk, A = T && T.attack; re
 function afterTalkLines(g, ev) {
   const x = afterOf(g, ev), f = g.chars[ev.c];
   if (!x || !f) return [];
-  const F = firstName(f), X = firstName(x), il = gx(f.g, 'il', 'elle', 'iel');
+  const F = firstName(f), X = firstName(x), il = gx(f.g, 'il', 'elle', 'iel'), from = ev.after.out ? (g.events || []).find((e) => e.id === ev.after.from) : null;
   return ['', '## JUSTE AVANT : ILS ONT FUI ENSEMBLE',
-    `Ce soir, chez @${x.handle} (${x.name}), ${X} les a attaqués avec un couteau, le joueur et ${F} : ils se sont défendus ensemble et se sont enfuis, ${F} a appelé la police. Les voilà dehors, dans la rue, essoufflés, en état de choc : la soirée continue entre eux deux, maintenant.`,
+    ev.after.out ? `Ce soir, en sortant de « ${str(from ? from.what : 'leur soirée', 80)} », @${x.handle} (${x.name}) les attendait dehors et les a attaqués avec un couteau, le joueur et ${F} : ils se sont défendus ensemble et ont couru jusqu’à l’avenue, ${F} a appelé la police. Les voilà à l’abri, essoufflés, en état de choc : la soirée continue entre eux deux, maintenant.` // 0.33.6
+      : `Ce soir, chez @${x.handle} (${x.name}), ${X} les a attaqués avec un couteau, le joueur et ${F} : ils se sont défendus ensemble et se sont enfuis, ${F} a appelé la police. Les voilà dehors, dans la rue, essoufflés, en état de choc : la soirée continue entre eux deux, maintenant.`,
     `${F} est dans un drôle d’état : l’euphorie d’être en vie (des rires nerveux, l’adrénaline, l’envie de serrer le joueur), puis la peur qui revient d’un coup (les mains qui tremblent, un regard vers la porte). ${cap1(il)} réagit selon qui ${il} est et leur relation (${fmtRel(f.rel)}) : la peur, la colère, les larmes, un humour nerveux, l’envie de protéger le joueur, de ne pas le laisser seul. La police peut arriver et prendre leur déposition ; ils peuvent marcher, s’asseoir sur un trottoir, finir chez l’un des deux. ${X} n’est plus là et n’apparaît pas. Rien de gore.`];
 }
 function afterFlight(g, ev, c, f, t = Date.now()) {
   const old = ev.after2 && (g.events || []).find((e) => e.id === ev.after2);
   if (old) return old;
-  const e2 = { id: uid('ev'), kind: 'rdv', c: f.id, what: `Dehors, avec ${firstName(f)}, après la soirée chez ${firstName(c)}`, at: t, due: t, state: 'scheduled', src: null, player: true, game: null, played: null, diff: DIFFS[0].id, tries: 0, after: { from: ev.id, psy: c.id }, startAt: ev.startAt || ev.due || t };
+  const out = !!(ev.talk && ev.talk.attack && ev.talk.attack.where === 'dehors'); // 0.33.6: the evening was with them, in the street after
+  const e2 = { id: uid('ev'), kind: 'rdv', c: f.id, what: out ? `Dehors, avec ${firstName(f)}, après l’attaque` : `Dehors, avec ${firstName(f)}, après la soirée chez ${firstName(c)}`, at: t, due: t, state: 'scheduled', src: null, player: true, game: null, played: null, diff: DIFFS[0].id, tries: 0, after: Object.assign({ from: ev.id, psy: c.id }, out ? { out: 1 } : {}), startAt: ev.startAt || ev.due || t };
   e2.talk = { scene: '', lines: [], turn: 0, max: AFTER_TURNS, reacts: [], used: [], at: t, ex: { ix: 0, why: ['🫂 Vous venez de vous en sortir ensemble'], ai: ['ils viennent de s’en sortir ensemble'], pub: false } };
   (g.events || (g.events = [])).push(e2);
   ev.after2 = e2.id;
@@ -478,7 +633,7 @@ function afterFlight(g, ev, c, f, t = Date.now()) {
 }
 // « Rester avec … »: the evening at theirs ends quietly, the evening with them opens.
 function stayAfter(g, ev) {
-  const T = ev && ev.talk, c = ev && g.chars[ev.c], f = fledTogether(g, ev) ? g.chars[T.attack.f] : null;
+  const T = ev && ev.talk, c = T && T.attack ? g.chars[T.attack.c] : ev && g.chars[ev.c], f = fledTogether(g, ev) ? g.chars[T.attack.f] : null; // (0.33.6: the one who struck)
   if (!T) return false;
   T.closed = true;
   if (!f || !c) { update(); return false; }

@@ -771,7 +771,7 @@ function promptDM(g, c, history, text, trig = [], advice = false, confide = null
     ...(main ? agentDMLines(g, c) : []), // 0.31: yes or no to the agent, to a brand, or the end of it
     main && castAsked(g, c) ? CAST_LINE(c) : null, // 0.30.1: in the production, or not
     main && castOn(g, c) && hitchOK(g, bigOn(g)) ? CAST_HITCH_LINE(c) : null, // 0.30.1: unable to come after all (their AI decides)
-    ...(main && stayWith(g, c) ? TOGETHER_LINES(c) : []), // 0.33.5: the time that passes, who leaves
+    ...(main && stayWith(g, c) ? TOGETHER_LINES(g, c) : []), // 0.33.5: the time that passes, who leaves (0.33.6: staying longer)
     main && sensual(g) && stayWith(g, c) ? FADE_SENSUAL(firstName(c), false, AFTER_DM(firstName(c), gx(c.g, 'il', 'elle', 'iel'))) : null, // 0.30: together in person, the scene may cut (0.31: and they pick it back up)
     main && awayHome(g) && g.stay.c === c.id && !g.stay.gear && !g.stay.lent ? LEND_LINE(c) : null, // 0.30.1: their gear, lent or not
     date ? `- Seulement si ${c.name} annule clairement ce rendez-vous dans cet échange (dispute, bad buzz, plus envie de voir le joueur) : {"t":"cancel","why":"≤ 70 caractères"}. Jamais pour un retard, une hésitation, une taquinerie ou une confusion sur l’heure ou le jour.` : null,
@@ -1984,6 +1984,7 @@ async function sendDM(charId, text, opts = {}) {
   if (isMain(c)) { // 0.11: a daring move starts a dare, pushing during a cool makes it worse; silence costs nothing
     heartBeforeDM(g, c, text);
     if (awayHome(g, t) && g.stay.c === c.id && !g.stay.gear && GEAR_RE.test(text)) g.stay.gear = t; // 0.30.1: they brought their gear
+    if (stayWith(g, c, t)) g.stay.until = Math.max(g.stay.until, t + 2 * HR); // 0.33.6: talking together, they are still together
     homeSaid(g, c, text, t); // 0.33.4: an address given (theirs know only what they saw or were told)
     toldAbout(g, c, text, t); // 0.33.5: what the psychopath did, told: they are in the know now
     const quiet = quietDM(g, c, convo, t);
@@ -2073,6 +2074,7 @@ async function dmAnswer(g, c, convo, A) {
       else if (o.t === 'vibe' && !fx.vibe && !daring) { const when = at + 800; fx.vibe = () => vibeLine(g, c, o, when); } // a dare decides by itself
       else if (o.t === 'dispo' && !fx.dispo && c.kind !== 'brand') { const when = at + 400, oo = o; fx.dispo = () => (stayWith(g, c) ? stayLeave(g, c, 'c', oo.why, oo.h, when) : setAway(g, c, oo, when)); } // 0.32: they step away (their AI's word; 0.32.1: never a brand; 0.33.5: together, they leave for real)
       else if (o.t === 'temps' && !fx.temps && stayWith(g, c)) { const oo = o; fx.temps = () => stayTime(g, c, oo.h, oo.why); } // 0.33.5: the time that passes together
+      else if (o.t === 'sejour' && !fx.sejour && stayWith(g, c)) { const oo = o; fx.sejour = () => staySejour(g, c, oo.nuits, oo.why); } // 0.33.6: they stay longer (several nights)
       else if (o.t === 'part' && !fx.part && stayWith(g, c)) { const oo = o, when = at + 600, who = /joueu|^p$|^moi$|^il$/i.test(String(oo.qui || '').trim()) ? 'p' : 'c'; fx.part = () => stayLeave(g, c, who, oo.why, oo.h, when); } // 0.33.5: one of them leaves
       else if (o.t === 'judge' && !fx.judge && isMain(c)) fx.judge = normReact(o.react);
       else if (o.t === 'quest' && !fx.quest && o.done !== false) fx.quest = () => completeStoryQuest(g, o.id);
@@ -2126,7 +2128,7 @@ async function dmAnswer(g, c, convo, A) {
         addNotif(g, { k: 'seen', c: c.id, at, text: `${c.name} t’a ${px(g, 'laissé', 'laissée', 'laissé·e')} en vu.` });
       } else if (!msgs) convo.msgs.push({ id: uid('m'), me: false, r: 1, text: '…', ts: at, at });
       if (confide) learnSecret(g, confide, c, 'confie'); // 0.18: they know now (what they do with it is theirs)
-      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.plus, fx.mission, fx.rode, fx.temps, fx.part, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
+      for (const x of [fx.buy, fx.gift, fx.perso, fx.feat, fx.plus, fx.mission, fx.rode, fx.temps, fx.sejour, fx.part, fx.agent, fx.tdeal, fx.cast, fx.hitch, fx.excuse, fx.trait, fx.unmask, fx.fade, fx.lend, fx.rel, fx.trust, fx.mem, fx.vibe, fx.quest, fx.prog, fx.memo, fx.clue, fx.psy, fx.open, fx.cancel, fx.noinv, fx.plan, fx.invite, fx.confide, fx.advice, fx.choice, fx.job, fx.collab, fx.dispo, ...(fx.files || []), ...careerFx]) if (x) { try { x(); } catch (err) { console.error(err); } }
       if (A.late && msgs && at0 < Date.now() - 60000) addNotif(g, { k: 'dm', c: c.id, at: Date.now(), text: `💬 ${c.name} t’a répondu.` }); // 0.32: an answer from while the time went by (no toast of its own)
       if (isMain(c) && msgs) heartAfterDM(g, c, text, fx.judge, at); // 0.11: a dare won or lost, doubts cleared
       if (isMain(c)) bdayWish(g, c, text); // 0.29: their birthday, wished in private
@@ -2337,7 +2339,9 @@ async function skipTime(ms, until, opts = {}) {
   const knock = !!(night && (night.q === 'toquer' || night.q === 'attaquer')), full = ms; // (0.33.5: or they came in)
   if (knock) ms = night.off; // (a knock wakes the player up: the night stops there)
   if (ms >= 3600000) autoSave(g, how === 'sleep' ? 'Avant ta nuit' : how === 'nap' ? 'Avant ta sieste' : `Avant d’avancer de ${fmtDur(ms)}`);
+  const st = stayOn(g) ? g.stay : null, slept = how === 'sleep' || nightsIn(Date.now(), ms).length > 0; // 0.33.6: asleep at theirs (or they at the player's): still there on waking
   jumpClock(g, ms, how);
+  if (st && g.stay === st && !st.end && (slept || how === 'nap')) stayNight(g, slept && !knock); // (woken by them: not a morning yet)
   if (knock) { g.quietMs = (g.quietMs || 0) + ms; g.quietWhy = 'dormait'; nightAfter(g, night, ms); update(); return; } // (what the night told, later)
   const fs = nrgState(g);
   toast(how === 'sleep' ? `☀️ Debout ! Il est ${hourOf(Date.now())} · énergie ${fs.pct} %${opts.alarm ? ` (ton réveil a sonné : ${alarmWord(g, opts.alarm)})` : ''}.` : how === 'nap' ? `😴 Une petite sieste… Il est ${hourOf(Date.now())} · énergie ${fs.pct} %.` : ms < 60000 ? 'Quelques secondes plus tard…' : `${fmtDur(ms)} plus tard…`, 'flash');
@@ -2428,6 +2432,7 @@ function cutDate(ev) {
   const x = (ev.clash || [])[0];
   ev.cut = { at: Date.now(), why: x ? x.text : '' };
   T.lines.push({ who: 'n', text: `Tu écourtes la soirée${x ? ` : ${x.text}` : ''}.` });
+  if (ambExit(g, ev)) { ambStrike(g, ev, 'cut'); update(); return true; } // 0.33.6: they were waiting outside
   finishTalk(g, ev);
   T.closed = true;
   prepEnd(g, ev);
@@ -2471,26 +2476,57 @@ function stayLeave(g, c, who, why, h, at = Date.now()) {
   addNotif(g, { k: 'vibe', c: c.id, at: at + 500, text: `🚪 ${first} est ${parti}${w ? ` (${w})` : ''} : tu es ${px(g, 'seul', 'seule', 'seul·e')} chez ${gx(c.g, 'lui', 'elle', 'iel')}, retour vers ${hourOf(at + ms)}.` });
   return true;
 }
-// Back home, the player still there.
+// 0.33.6 (« dormir plusieurs nuits chez elle »): their AI says they stay longer: the game keeps them together that long,
+// unless one of them leaves before.
+function staySejour(g, c, n, why, t = Date.now()) {
+  if (!stayWith(g, c, t)) return false;
+  const k = clamp(Math.round(num(n, 1)), 1, 14), first = firstName(c), w = str(why, 40);
+  g.stay.until = Math.max(g.stay.until, t + untilMorning(t) + (k - 1) * DAY_MS + STAY_MS);
+  g.stay.plan = { n: k, until: g.stay.until, why: w, at: t };
+  addNotif(g, { k: 'vibe', c: c.id, at: t + 500, text: `🧳 ${g.stay.where === 'c' ? `Tu restes chez ${first}` : `${first} reste chez toi`} : ${k === 1 ? 'encore une nuit' : `encore ${k} nuits`}${w ? ` (${w})` : ''}.` });
+  return true;
+}
+// A night slept there (or a nap): still there on waking, the morning after.
+function stayNight(g, night, t = Date.now()) {
+  const s = g.stay, c = s && g.chars[s.c];
+  if (!s || !c) return false;
+  s.until = Math.max(s.until, t + STAY_MS);
+  if (!night) return true;
+  s.nights = (s.nights || 1) + 1;
+  s.wake = t;
+  const first = firstName(c);
+  addNotif(g, { k: 'vibe', c: c.id, at: t + 400, text: `🌅 ${s.where === 'c' ? `Réveil chez ${first}` : `${first} s’est ${gx(c.g, 'réveillé', 'réveillée', 'réveillé·e')} chez toi`} (${s.nights}e nuit).` });
+  return true;
+}
+// Back home, the player still there (0.33.6: and the stay that ends on its own, said so).
 function tickStay(g, t = Date.now()) {
-  if (!g || !g.stay || !g.stay.gone || !stayOn(g, t) || t < g.stay.gone.until) return false;
-  const c = g.chars[g.stay.c];
-  delete g.stay.gone;
+  const s = g && g.stay, c = s && g.chars[s.c];
+  if (s && c && !s.end && !s.told && t >= s.until && t - s.until < 3 * DAY_MS) {
+    s.end = s.until;
+    s.told = 1;
+    addNotif(g, { k: 'vibe', c: c.id, at: t, text: s.where === 'c' ? `🏠 Tu es ${px(g, 'rentré', 'rentrée', 'rentré·e')} chez toi${(s.nights || 1) > 1 ? `, après ${s.nights} nuits chez ${firstName(c)}` : ''}.` : `🏠 ${firstName(c)} est ${gx(c.g, 'rentré', 'rentrée', 'rentré·e')} chez ${gx(c.g, 'lui', 'elle', 'iel')}.` });
+    return true;
+  }
+  if (!s || !s.gone || !stayOn(g, t) || t < s.gone.until) return false;
+  delete s.gone;
   if (c) { delete c.away; addNotif(g, { k: 'vibe', c: c.id, at: t, text: `🔑 ${firstName(c)} est ${gx(c.g, 'rentré', 'rentrée', 'rentré·e')} : vous êtes de nouveau ensemble.` }); }
   return true;
 }
 // For the one who is there: the evening before in full, the night, the morning, the hour (« beaucoup plus consciente »).
 function togetherLines(g, c, t = Date.now()) {
-  const ev = g.stay && (g.events || []).find((e) => e.id === g.stay.ev), first = firstName(c);
+  const s = g.stay, ev = s && (g.events || []).find((e) => e.id === s.ev), first = firstName(c), n = (s && s.nights) || 1, home = s && s.where === 'c';
   const L = ['', `## VOUS ÊTES ENSEMBLE, EN CE MOMENT (${dayLabel(t)}, ${hourOf(t)})`];
-  if (ev && ev.talk && ev.talk.lines && ev.talk.lines.length) L.push(`La soirée d’hier (« ${str(ev.what, 80)} »), ce qui s’y est dit :`, ...talkTranscript(g, ev).slice(-18));
-  if (ev && ev.morning && ev.morning.text) L.push(`Le réveil : ${str(ev.morning.text, 300)}`);
+  if (ev && ev.talk && ev.talk.lines && ev.talk.lines.length) L.push(`La soirée ${n > 1 ? `du ${dayLabel(ev.startAt || ev.due || s.at)}` : 'd’hier'} (« ${str(ev.what, 80)} »), ce qui s’y est dit :`, ...talkTranscript(g, ev).slice(-18));
+  if (ev && ev.morning && ev.morning.text) L.push(`${n > 1 ? 'Le premier réveil' : 'Le réveil'} : ${str(ev.morning.text, 300)}`);
+  if (n > 1) L.push(`Depuis, ils ne se sont pas quittés : c’est leur ${n}e nuit ${home ? `chez ${first}` : 'chez le joueur'}${s.wake ? ` (ce matin, réveil vers ${hourOf(s.wake)})` : ''}.`); // 0.33.6
+  if (s && s.plan && s.plan.until > t) L.push(`Ce qu’ils ont décidé : ${home ? `le joueur reste chez ${first}` : `${first} reste chez le joueur`} jusqu’à ${dayLabel(s.plan.until)}${s.plan.why ? ` (${s.plan.why})` : ''}, sauf si l’un d’eux part avant.`);
   L.push(`${first} vit ce moment avec le joueur, en vrai : l’heure, l’endroit, ce qu’ils ont fait depuis le réveil (les messages plus bas, dits de vive voix), ce qui les attend aujourd’hui. ${cap1(gx(c.g, 'il', 'elle', 'iel'))} s’en souvient et reste cohérent·e avec tout ça.`);
   return L;
 }
-const TOGETHER_LINES = (c) => { const f = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'); return [
+const TOGETHER_LINES = (g, c) => { const f = firstName(c), il = gx(c.g, 'il', 'elle', 'iel'), home = g.stay && g.stay.where === 'c'; return [
   `- Si du temps passe pour de vrai dans ta réponse (vous passez la matinée, l’après-midi, la journée, une sieste…), ajoute {"t":"temps","h":6,"why":"≤ 40 caractères"} (h : combien d’heures passent, de 0,5 à 14) : l’horloge du jeu avancera d’autant, et ce qui se passe ailleurs suivra. Sinon, une réplique ne prend que quelques minutes : ne raconte pas des heures qui passent sans cette ligne.`,
-  `- Si l’un de vous s’en va maintenant (${f} part travailler ou faire une course, le joueur rentre chez lui…), ajoute {"t":"part","qui":"${f.toLowerCase()} ou joueur","h":3,"why":"≤ 40 caractères"} (h : dans combien d’heures ${il} revient, si c’est ${il} qui part). Si c’est ${f} qui part de chez ${gx(c.g, 'lui', 'elle', 'iel')}, le joueur peut y rester.`]; };
+  `- Si l’un de vous s’en va maintenant (${f} part travailler ou faire une course, le joueur rentre chez lui…), ajoute {"t":"part","qui":"${f.toLowerCase()} ou joueur","h":3,"why":"≤ 40 caractères"} (h : dans combien d’heures ${il} revient, si c’est ${il} qui part). Si c’est ${f} qui part de chez ${gx(c.g, 'lui', 'elle', 'iel')}, le joueur peut y rester.`,
+  `- Si vous décidez ensemble ${home ? `que le joueur reste chez ${f}` : `que ${f} reste chez le joueur`} plus longtemps (encore une nuit, quelques jours, une semaine…), ajoute {"t":"sejour","nuits":2,"why":"≤ 40 caractères"} (nuits : combien de nuits encore, de 1 à 14) : le jeu ${home ? `le garde chez ${f}` : `garde ${f} chez lui`} jusque-là, sauf si l’un de vous part avant. C’est ${f} qui décide de son côté, comme ${il} est (son envie, son rythme, sa vie à ${gx(c.g, 'lui', 'elle', 'iel')}).`]; }; // 0.33.6
 // How long until the next morning (8 h – 9 h 30 of the game's clock), from a night that starts now.
 function untilMorning(t = Date.now()) {
   const d = gameDate(t), m = new Date(d);
@@ -2543,8 +2579,9 @@ function stayCtx(g, about) {
     if (about === c) return `${first} est ${parti} de chez ${lui}${G.why ? ` (${G.why})` : ''} en laissant le joueur chez ${lui} : ${il} n’est pas avec lui en ce moment, ${il} lui écrit de là où ${il} est (retour vers ${hourOf(G.until)}).`;
     return `Le joueur est resté chez @${c.handle}, qui est ${parti}${G.why ? ` (${G.why})` : ''} : il y est seul pour l’instant${vibePrivate(c) ? ' (c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion)' : ''}.`;
   }
-  if (about === c) return `Vous avez passé la nuit ensemble ${home ? 'chez ' + first : 'chez le joueur'} : en ce moment (${hourOf(Date.now())}), vous êtes encore ensemble ${home ? 'chez ' + first : 'chez le joueur'}. Ce que le joueur écrit ici, il le dit de vive voix (ou d’une pièce à l’autre) : réponds comme quelqu’un qui est là, avec lui.`;
-  return `En ce moment, le joueur ${home ? `est chez @${c.handle}, où il a passé la nuit` : `a chez lui @${c.handle}, qui y a passé la nuit`} : ils sont ensemble, et si @${c.handle} poste, c’est sur ce moment, jamais ailleurs${vibePrivate(c) ? ' (c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion, et personne ne poste avec qui)' : ''}.`; // (0.33.5: with the player: not posting from elsewhere)
+  const n = g.stay.nights || 1, nuits = n > 1 ? `${n} nuits` : 'la nuit';
+  if (about === c) return `Vous avez passé ${nuits} ensemble ${home ? 'chez ' + first : 'chez le joueur'} : en ce moment (${hourOf(Date.now())}), vous êtes encore ensemble ${home ? 'chez ' + first : 'chez le joueur'}. Ce que le joueur écrit ici, il le dit de vive voix (ou d’une pièce à l’autre) : réponds comme quelqu’un qui est là, avec lui.`;
+  return `En ce moment, le joueur ${home ? `est chez @${c.handle}, où il a passé ${nuits}` : `a chez lui @${c.handle}, qui y a passé ${nuits}`} : ils sont ensemble, et si @${c.handle} poste, c’est sur ce moment, jamais ailleurs${vibePrivate(c) ? ' (c’est privé : seuls ceux qui sont au courant de leur histoire peuvent y faire allusion, et personne ne poste avec qui)' : ''}.`; // (0.33.5: with the player: not posting from elsewhere; 0.33.6: how many nights)
 }
 
 function promptMiniGame(g, r, force) {
@@ -3057,7 +3094,8 @@ function promptDateEnd(g, ev) {
     ...dateSituation(g, c, 8, 4), 'Le récit colle à leur situation : s’ils étaient en froid, ça se sent.',
     ...talkEndLines(g, ev),
     plusOf(g, ev) ? `@${plusOf(g, ev).handle} (${plusOf(g, ev).name}) était là aussi, toute la soirée, venu·e avec le joueur : le récit le dit.` : null, // 0.33.1
-    afterOf(g, ev) ? `Ce n’était pas un rendez-vous : c’était juste après. Chez @${afterOf(g, ev).handle}, ${afterOf(g, ev).name} les avait attaqués avec un couteau, et ils s’étaient enfuis ensemble. Le récit raconte ce moment à deux (le choc, la police, la nuit), sobrement, sans rien de gore.${ev.talk && ev.talk.together ? ' Ils ont passé la nuit sous le même toit, pour ne pas rester seuls.' : ''}` : null, // 0.33.2
+    afterOf(g, ev) ? `Ce n’était pas un rendez-vous : c’était juste après. ${ev.after.out ? `En sortant de leur soirée, @${afterOf(g, ev).handle} (${afterOf(g, ev).name}) les attendait dehors et les a attaqués dans la rue avec un couteau` : `Chez @${afterOf(g, ev).handle}, ${afterOf(g, ev).name} les avait attaqués avec un couteau`}, et ils s’étaient enfuis ensemble. Le récit raconte ce moment à deux (le choc, la police, la nuit), sobrement, sans rien de gore.${ev.talk && ev.talk.together ? ' Ils ont passé la nuit sous le même toit, pour ne pas rester seuls.' : ''}` : null, // 0.33.2 (0.33.6: or in the street)
+    ...ambEndLines(g, ev), // 0.33.6: the one who hunts the player was there tonight
     ...psyEndLines(g, ev), // 0.29: they fled
     ev.late ? `Le joueur était arrivé avec ${ev.late} min de retard.` : null,
     ev.cut ? `Le joueur a ÉCOURTÉ la soirée, il devait partir (${ev.cut.why || 'un engagement'}) : ${c.name} le prend à sa façon (compréhensi${gx(c.g, 'f', 've', 'f·ve')}, déçu${gx(c.g, '', 'e', '·e')}, vexé${gx(c.g, '', 'e', '·e')}…), selon votre relation, son cœur et la soirée jusque-là.` : null, // 0.30.1
@@ -3108,7 +3146,7 @@ async function endDate(ev, o2 = {}) { // (0.33.2 o2.quiet: ended while the eveni
     const take = (o) => {
       got = true;
       if (o.t === 'recap' && !recap) { recap = str(o.text, 600); convo.msgs.push(tag(Object.assign({ id: uid('m'), sys: 'rdv', ev: ev.id, mk, dk: dateKind(c, ev), tier: ev.played.tier, title: str(ev.what, 100), text: recap, ts: t0, at: t0 }, ev.after ? { after: 1 } : {}))); }
-      else if (o.t === 'msg' && msgs < 2 && !faded) { const m = str(o.text, 320); if (m) { convo.msgs.push(tag({ id: uid('m'), me: false, r: 1, text: m, ts: at, at })); msgs++; at += 900 + m.length * 16; } }
+      else if (o.t === 'msg' && msgs < 2 && !faded && !(o2.quiet && ambStruck(ev))) { const m = str(o.text, 320); if (m) { convo.msgs.push(tag({ id: uid('m'), me: false, r: 1, text: m, ts: at, at })); msgs++; at += 900 + m.length * 16; } } // (0.33.6: still together, after the attack: no message)
       else if (o.t === 'morning' && faded && !morning) morning = { where: o.where === 'p' ? 'p' : 'c', text: str(o.text, 600) }; // 0.25.3
       else if (o.t === 'post' && posts < 2) { if (addAmbientPost(g, o, Date.now() + rand(5000, 15000))) posts++; }
       else if (o.t === 'vibe' && !fx.vibe) { fx.vibe = 1; const when = at + 900; fx.push(() => vibeLine(g, c, o, when)); }

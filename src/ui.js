@@ -1733,7 +1733,8 @@ function FeedTab({ g, now }) {
 // 0.25.3: the morning after a night together: where the player is, until they go home.
 function StayLine({ g }) {
   const s = g.stay, c = g.chars[s.c], first = firstName(c), gone = stayGone(g);
-  return html`<div class="live-line stay-line"><span aria-hidden="true">${gone ? '🚪' : '🌅'}</span><span>${gone ? `Tu es chez ${first} ; ${gx(c.g, 'il', 'elle', 'iel')} est ${gx(c.g, 'sorti', 'sortie', 'sorti·e')}${s.gone.why ? ` (${s.gone.why})` : ''}, retour vers ${hourOf(s.gone.until)}` : s.where === 'c' ? `Tu es chez ${first} depuis cette nuit` : `${first} a dormi chez toi`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
+  const n = s.nights || 1, plan = s.plan && s.plan.until > Date.now() ? ` (jusqu’à ${dayLabel(s.plan.until).toLowerCase()})` : ''; // 0.33.6: several nights
+  return html`<div class="live-line stay-line"><span aria-hidden="true">${gone ? '🚪' : '🌅'}</span><span>${gone ? `Tu es chez ${first} ; ${gx(c.g, 'il', 'elle', 'iel')} est ${gx(c.g, 'sorti', 'sortie', 'sorti·e')}${s.gone.why ? ` (${s.gone.why})` : ''}, retour vers ${hourOf(s.gone.until)}` : s.where === 'c' ? `Tu es chez ${first} depuis ${n > 1 ? `${n} nuits` : 'cette nuit'}${plan}` : `${first} ${n > 1 ? `est chez toi depuis ${n} nuits` : 'a dormi chez toi'}${plan}`}</span><button type="button" class="linkbtn" onClick=${() => endStay(g)}>${s.where === 'c' ? 'Rentrer chez toi' : 'Lui dire au revoir'}</button></div>`;
 }
 function LiveLine({ g, now }) {
   const why = livePause(now);
@@ -2142,7 +2143,7 @@ const MG_RULE = {
 };
 const shuffle = (a) => { const b = a.slice(); for (let k = b.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [b[k], b[j]] = [b[j], b[k]]; } return b; };
 // 0.27.6: the layers where a mini-game is played (nothing pops up over them, and their keys are theirs).
-const MG_LAYERS = ['minigame', 'practice', 'job'];
+const MG_LAYERS = ['minigame', 'practice', 'job', 'duel']; // (0.33.6: a practice fight too)
 const inMiniGame = () => S.stack.some((l) => MG_LAYERS.includes(l.t));
 const topIsGame = () => { const l = S.stack[S.stack.length - 1]; return !!(l && MG_LAYERS.includes(l.t)); };
 const typingIn = (e) => { const el = e && e.target; return !!(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)); };
@@ -2818,6 +2819,7 @@ function Layer(props) {
   if (t === 'later') return html`<${LaterLayer} ...${props} />`; // 0.28.1: and postponed, to the time chosen
   if (t === 'palette') return html`<${PaletteLayer} ...${props} />`; // 0.27.4: the palette
   if (t === 'practice') return html`<${PracticeLayer} ...${props} />`; // 0.27.6: a mini-game for practice
+  if (t === 'duel') return html`<${DuelLayer} ...${props} />`; // 0.33.6: a fight for practice
   if (t === 'gear') return html`<${GearShopLayer} ...${props} />`; // 0.20
   if (t === 'insta') return html`<${InstaLayer} ...${props} />`;
   if (t === 'tiktok') return html`<${TikTokLayer} ...${props} />`;
@@ -4073,7 +4075,8 @@ if (window.__HYPE_TEST__) {
     huntOn, HOME_SEEN_RE, ADDR_RE, chezPlayer, learnHome, homeHow, homeOfHow, homeSaid, startHunt, huntNow, hunted, attacksOf, lastAttack, medias, huntCircle, huntCore, huntPublicLines, rodeLine, normRode, applyRodeLine, rodeDo, huntKnock, huntDoorLines, openDoor, doorPolice, huntShut, huntVisitEnd, huntNote, noteFound, huntWatch, huntClose, huntSearch, huntMessage, promptTell, tellReport, tickHunt, nightKey, nightAtHour, promptNight, huntNight, nightAfter, CARE_DAYS, careNext, tickCare, promptCare, careDM, huntEndsCouple, migrateHunt, // 0.33.4: elle rôde
     stayGone, stayWith, stayTime, stayLeave, tickStay, togetherLines, TOGETHER_LINES, // 0.33.5: together, in sync
     PRESSURE_GAP, FIGHT_DAYS, KILL_DAYS, filedCase, huntLevel, inKnow, toldAbout, huntFury, killLines, huntAttack, huntKill, tellLost, promptPressure, huntPressure, // 0.33.5: furious, too late
-    psyShown, relShown, psyKnownFix, datePlayerHome, talkLive, dateLive, playerOut, LOOT_GEAR, lootOf, lootLine, normTake, huntBreak, stealGear, breakFound, breakPolice, promptAway, awayAfter, huntAway, // 0.33.5: découverte, cambriolée
+    psyShown, relShown, psyKnownFix, datePlayerHome, talkLive, dateLive, playerOut, outingWho, outingHow, normOuting, promptOuting, huntOuting, ambSeen, ambStruck, ambStep, ambTalkLines, ambEndLines, ambPolice, ambExit, ambStrike, ambushOut, ATK_BEATS_OUT, staySejour, stayNight, atkRead, attackScore, wheelArc, startDuel, duelEnd, DuelLayer, DUEL_WHERE, DUEL_Q, // 0.33.6: dehors, plusieurs nuits, le combat
+    LOOT_GEAR, lootOf, lootLine, normTake, huntBreak, stealGear, breakFound, breakPolice, promptAway, awayAfter, huntAway, // 0.33.5: découverte, cambriolée
     policeOf, caseOf, caseOpen, copOf, copName, copWho, policeTarget, policeCall, startDepo, policeTruth, promptDepo, depoTurn, fileComplaint, evidenceOf, addEvidence, caseNew, relaunch, caseStrength, tickPolice, witnessHeard, policeDecide, psyArrest, policeForPsy, policeSaw, POLICE_TURNS, // 0.33.4: la police
     MISSION_RE, missionOK, missionOn, missionTarget, askMission, missionWho, missionDMCtx, missionLine, applyMissionLine, missionDue, missionDanger, missionPeek, goMission, vanish, tellGone, promptMission, missionReport, tickMissions, // 0.33.1: someone sent
     askBrandGuest, guestWait, brandGuestCtx, BRAND_GUEST_LINE, applyBrandGuest, offerGuestFee, guestAsking, guestDMCtx, GUEST_LINE, applyGuestAnswer, planDealFeat, payGuest, HOST_PUB, hostFee, invitePub, afficheRefreshLines, payHost,
